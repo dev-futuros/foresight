@@ -1,8 +1,30 @@
+# --- AI / tools ---
+.claude
+.claude/
+
+# --- Env ---
 .env
+
+# --- IntelliJ ---
 .idea/
 *.iml
+
+# --- Java / Maven / Gradle ---
 target/
+build/
+out/
+
+# --- Node / frontend ---
 node_modules/
 dist/
-build/
+coverage/
+
+# --- Logs ---
+*.log
+
+# --- OS ---
 .DS_Store
+Thumbs.db
+
+# --- Docker (opcional según uso) ---
+docker-data/
