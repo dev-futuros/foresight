@@ -2,6 +2,8 @@ package com.foresight.backend.common.config;
 
 import java.util.List;
 
+import jakarta.annotation.PostConstruct;
+
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,6 +23,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import com.foresight.backend.common.security.JwtAuthFilter;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Main Spring Security configuration.
@@ -38,6 +41,7 @@ import lombok.RequiredArgsConstructor;
  * <p>Public endpoints: {@code /api/auth/**}, {@code /api/health},
  * and the Swagger UI / OpenAPI docs. Everything else requires a valid JWT.
  */
+@Slf4j
 @Configuration
 @EnableWebSecurity
 @EnableConfigurationProperties(SecurityProperties.class)
@@ -48,7 +52,28 @@ public class SecurityConfig {
     private final SecurityProperties properties;
 
     /**
+     * Loud warning so it's impossible to miss in startup logs if auth is accidentally disabled
+     * in an environment that isn't local development.
+     */
+    @PostConstruct
+    void warnIfAuthDisabled() {
+        if (properties.authDisabled()) {
+            log.warn("");
+            log.warn("==================================================================");
+            log.warn("  AUTHENTICATION IS DISABLED (foresight.security.auth-disabled).");
+            log.warn("  Every endpoint is public; a synthetic dev user is auto-injected.");
+            log.warn("  This MUST only be used with the 'local' Spring profile.");
+            log.warn("==================================================================");
+            log.warn("");
+        }
+    }
+
+    /**
      * Builds the main {@link SecurityFilterChain}.
+     *
+     * <p>When {@link SecurityProperties#authDisabled()} is {@code true}, every endpoint is made
+     * public — but the {@link JwtAuthFilter} still runs and injects the synthetic dev principal
+     * so {@code @CurrentUser}-bound controllers keep working.
      *
      * @param http security DSL provided by Spring
      * @return the configured filter chain
@@ -59,13 +84,22 @@ public class SecurityConfig {
         http.cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.OPTIONS, "/**")
-                        .permitAll()
-                        .requestMatchers(
-                                "/api/auth/**", "/api/health", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")
-                        .permitAll()
-                        .anyRequest()
-                        .authenticated())
+                .authorizeHttpRequests(auth -> {
+                    auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();
+                    if (properties.authDisabled()) {
+                        auth.anyRequest().permitAll();
+                    } else {
+                        auth.requestMatchers(
+                                        "/api/auth/**",
+                                        "/api/health",
+                                        "/v3/api-docs/**",
+                                        "/swagger-ui/**",
+                                        "/swagger-ui.html")
+                                .permitAll()
+                                .anyRequest()
+                                .authenticated();
+                    }
+                })
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

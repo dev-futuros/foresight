@@ -21,6 +21,8 @@ services:
     build:
       context: ./backend
     environment:
+      # Picks the application-<profile>.properties from the env file (e.g. SPRING_PROFILES_ACTIVE=local).
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-}
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/foresight_db
       SPRING_DATASOURCE_USERNAME: ${DB_USER}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
@@ -36,8 +38,8 @@ services:
         condition: service_healthy
     restart : unless-stopped
 
-  # Optional local SonarQube (only started with `docker compose --profile quality up`).
-  # Default creds: admin / admin (you'll be asked to change it on first login).
+  # SonarQube comes up automatically when COMPOSE_PROFILES=quality is set in the env file
+  # (the case for .env.local). Default creds: admin / admin (changed on first login).
   sonarqube:
     image: sonarqube:community
     profiles: ["quality"]

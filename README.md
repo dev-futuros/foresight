@@ -20,24 +20,84 @@ Foresight/
 ### Requirements
 
 - Docker Desktop
-- (Optional, for local dev) JDK 21 + Maven; Node.js 20+
+- (Optional, only if you want to run the backend with `mvnw` outside Docker) JDK 21 + Maven, Node.js 20+
 
-### Running locally (Docker)
+### One-command stack
 
-```bash
-# 1. Copy the template and fill in real values
-cp .env.example .env
+Each environment lives in its own `.env.<name>` file at the repo root. Pick the one you want
+and run the helper script — it brings up the database, the backend, and (in `local`) SonarQube:
 
-# 2. Start PostgreSQL + backend
-docker compose up --build
+```powershell
+# First-time setup: copy the template and fill in real values
+cp .env.example .env.local
+
+# Start everything for local development
+./scripts/up.ps1 local
+
+# Detached
+./scripts/up.ps1 local -d
+
+# Stop
+./scripts/down.ps1 local
 ```
 
-Backend available at http://localhost:8080
-Swagger UI: http://localhost:8080/swagger-ui.html
+Bash/macOS/Linux equivalents: `./scripts/up.sh local`, `./scripts/down.sh local`.
 
-### Environment variables
+Once it boots:
 
-See [.env.example](.env.example). You will need a valid `ANTHROPIC_API_KEY` to use the AI endpoints.
+| Service     | URL                                         |
+|-------------|---------------------------------------------|
+| Backend     | http://localhost:8080                       |
+| Swagger UI  | http://localhost:8080/swagger-ui.html       |
+| SonarQube   | http://localhost:9000  (admin / admin)      |
+
+### How environments work
+
+| File              | Purpose                                                                 |
+|-------------------|-------------------------------------------------------------------------|
+| `.env.example`    | Template, **versioned**. Lists every variable the stack expects.        |
+| `.env.local`      | Your local-dev values, **gitignored**. `SPRING_PROFILES_ACTIVE=local`.  |
+| `.env.dev`, `.env.prod` | Add as needed. Same shape, different secrets / profile.            |
+
+Two environment variables drive everything:
+
+- **`SPRING_PROFILES_ACTIVE`** picks `application-<profile>.properties` inside the backend
+  (e.g. `local` → auth disabled, debug logging, dev user auto-seeded).
+- **`COMPOSE_PROFILES`** picks which optional Docker services come up
+  (e.g. `quality` → SonarQube alongside the app).
+
+In `.env.local`, both are set to give you the comfiest dev experience by default.
+
+### Running the backend with `mvnw` (hot reload / IDE debugger)
+
+If you prefer to run the backend on the host (e.g. for hot reload from IntelliJ), bring up
+**only the database** in Docker and let `mvnw` do the rest:
+
+```powershell
+docker compose --env-file .env.local up -d db
+cd backend
+./mvnw spring-boot:run
+```
+
+The backend uses [`spring-dotenv`](https://github.com/paulschwarz/spring-dotenv), so it reads
+`../.env.local` automatically — no need to set anything in IntelliJ or PowerShell. Real
+environment variables always take precedence over the file, which keeps production safe.
+
+### What the `local` profile does
+
+- `foresight.security.auth-disabled=true` → every endpoint is `permitAll`.
+- `JwtAuthFilter` injects the dev user (`00000000-0000-0000-0000-000000000001`,
+  `dev@foresight.local`) when no token is present, so `@CurrentUser` still works.
+- A `DevUserSeeder` ensures the matching row exists in the `users` table on startup.
+- A loud `WARN` is logged at boot so you cannot miss it: `AUTHENTICATION IS DISABLED`.
+
+> ⚠️ The `local` profile must NEVER be activated in production. The toggle defaults to `false`
+> in `application.properties` and is only flipped on by `application-local.properties`.
+
+To test the **real** auth path (recommended before shipping anything that touches security),
+spin up with a different env file (e.g. `.env.dev`) where `SPRING_PROFILES_ACTIVE` is unset
+or set to a non-`local` value, then grab a JWT via `POST /api/auth/register` →
+`POST /api/auth/login` and click **Authorize** in Swagger.
 
 ---
 

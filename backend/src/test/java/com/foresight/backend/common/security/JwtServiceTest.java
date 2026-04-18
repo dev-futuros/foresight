@@ -14,13 +14,17 @@ import com.foresight.backend.common.config.SecurityProperties;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 
+// The two literals below look like credentials to Sonar (S2068) but they are deliberate
+// fixtures — only ever used to build SecurityProperties for unit tests, never persisted
+// or shipped. Suppressing the rule at class scope keeps the intent explicit.
+@SuppressWarnings("java:S2068")
 class JwtServiceTest {
 
     private static final String SECRET = "this-is-a-test-secret-that-is-long-enough-32b+";
 
     private JwtService jwtService(Duration ttl) {
-        SecurityProperties props =
-                new SecurityProperties(new SecurityProperties.Jwt(SECRET, ttl), new SecurityProperties.Cors(List.of()));
+        SecurityProperties props = new SecurityProperties(
+                false, new SecurityProperties.Jwt(SECRET, ttl), new SecurityProperties.Cors(List.of()));
         return new JwtService(props);
     }
 
@@ -53,11 +57,11 @@ class JwtServiceTest {
     }
 
     @Test
-    void rejectsExpiredToken() throws InterruptedException {
-        JwtService service = jwtService(Duration.ofMillis(1));
+    void rejectsExpiredToken() {
+        // Negative TTL → token is born already expired. Deterministic and avoids Thread.sleep
+        // (which would make the test race-prone, hence Sonar's S2925).
+        JwtService service = jwtService(Duration.ofSeconds(-1));
         String token = service.generateToken(UUID.randomUUID(), "user@example.com", "USER");
-
-        Thread.sleep(50);
 
         assertThatThrownBy(() -> service.parse(token)).isInstanceOf(JwtException.class);
     }
@@ -68,6 +72,7 @@ class JwtServiceTest {
         String token = signer.generateToken(UUID.randomUUID(), "user@example.com", "USER");
 
         SecurityProperties otherProps = new SecurityProperties(
+                false,
                 new SecurityProperties.Jwt("another-very-long-secret-that-is-also-32b++", Duration.ofHours(1)),
                 new SecurityProperties.Cors(List.of()));
         JwtService verifier = new JwtService(otherProps);

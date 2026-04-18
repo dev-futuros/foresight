@@ -12,11 +12,14 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * Using {@code @ConfigurationProperties} instead of scattered {@code @Value} annotations gives us
  * compile-time safety and keeps security knobs in one place.
  *
- * @param jwt  JWT-related settings (secret, TTL)
- * @param cors CORS-related settings (allowed origins)
+ * @param authDisabled when {@code true}, every endpoint becomes public and a synthetic dev user
+ *                     is injected as the principal. NEVER enable this in production — only
+ *                     activated via the {@code local} profile.
+ * @param jwt          JWT-related settings (secret, TTL)
+ * @param cors         CORS-related settings (allowed origins)
  */
 @ConfigurationProperties(prefix = "foresight.security")
-public record SecurityProperties(Jwt jwt, Cors cors) {
+public record SecurityProperties(boolean authDisabled, Jwt jwt, Cors cors) {
 
     /**
      * @param secret         HMAC secret used to sign/verify JWTs. Must be at least 32 bytes.

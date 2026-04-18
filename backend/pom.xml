@@ -113,6 +113,18 @@
       <optional>true</optional>
     </dependency>
 
+    <!--
+				spring-dotenv: lets Spring read the project .env automatically so devs do not have to
+				duplicate DB / JWT / Anthropic credentials between docker-compose and IntelliJ.
+				The .env stays gitignored; values declared in real environment variables (e.g. on
+				CI or in production containers) still take precedence over the file.
+			-->
+    <dependency>
+      <groupId>me.paulschwarz</groupId>
+      <artifactId>spring-dotenv</artifactId>
+      <version>4.0.0</version>
+    </dependency>
+
     <dependency>
       <groupId>org.springdoc</groupId>
       <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>

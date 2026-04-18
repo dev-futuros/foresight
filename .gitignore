@@ -3,7 +3,10 @@
 .claude/
 
 # --- Env ---
+# Ignore every per-environment file but keep the template versioned.
 .env
+.env.*
+!.env.example
 
 # --- IntelliJ ---
 .idea/
