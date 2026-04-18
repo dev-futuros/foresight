@@ -9,6 +9,8 @@ services:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    networks:
+      - services
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d foresight_db"]
       interval: 10s
@@ -27,9 +29,12 @@ services:
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000}
     ports:
       - "8080:8080"
+    networks:
+      - services
     depends_on:
       db:
         condition: service_healthy
+    restart : unless-stopped
 
   # Optional local SonarQube (only started with `docker compose --profile quality up`).
   # Default creds: admin / admin (you'll be asked to change it on first login).
@@ -40,10 +45,16 @@ services:
       SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
     ports:
       - "9000:9000"
+    networks:
+      - services
     volumes:
       - sonarqube_data:/opt/sonarqube/data
       - sonarqube_logs:/opt/sonarqube/logs
       - sonarqube_extensions:/opt/sonarqube/extensions
+
+networks:
+  services:
+    driver: bridge
 
 volumes:
   postgres_data:

@@ -28,3 +28,6 @@ Thumbs.db
 
 # --- Docker (opcional según uso) ---
 docker-data/
+
+# --- Token Sonar ---
+sonarToken.txt
