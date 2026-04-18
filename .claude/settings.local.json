@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh repo *)",
+      "Bash(gh api *)",
+      "Bash(curl -s https://api.github.com/repos/rogerhenares/foresight/git/trees/main?recursive=1)",
+      "Bash(./mvnw compile *)",
+      "Bash(java -version)",
+      "Bash(./mvnw clean *)",
+      "Bash(export JAVA_HOME=\"/c/Program Files/Eclipse Adoptium/jdk-21.0.10.7-hotspot\")",
+      "Bash(export PATH=\"$JAVA_HOME/bin:$PATH\")",
+      "Bash(./mvnw -q clean compile)",
+      "Bash(./mvnw spotless:check)",
+      "Bash(./mvnw spotless:apply)",
+      "Bash(./mvnw verify *)",
+      "Bash(./mvnw spotless:apply verify)"
+    ]
+  }
+}
