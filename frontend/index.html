@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<!-- saved from url=(0024)https://demo.futuros.io/ -->
+<html lang="es"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Futuros — Foresight Strategy</title>
+<link href="./index_files/css2" rel="stylesheet">
+<style>
+:root {
+  --bg:#09090b; --bg-card:#111113; --bg-el:#1a1a1d;
+  --border:rgba(255,255,255,0.07); --border-h:rgba(255,255,255,0.13);
+  --border-a:rgba(212,168,83,0.35);
+  --text:#f0ece4; --muted:#8a8680;
+  --accent:#d4a853; --accent-bg:rgba(212,168,83,0.10);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'DM Sans',sans-serif;
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding:2rem;
+  position:relative;
+  overflow:hidden;
+}
+
+/* Background decoration */
+.bg-orb{
+  position:fixed;
+  border-radius:50%;
+  filter:blur(80px);
+  pointer-events:none;
+}
+.bg-orb-1{
+  width:500px;height:500px;
+  top:-100px;right:-150px;
+  background:rgba(212,168,83,0.055);
+}
+.bg-orb-2{
+  width:400px;height:400px;
+  bottom:-120px;left:-120px;
+  background:rgba(212,168,83,0.04);
+}
+.bg-grid{
+  position:fixed;inset:0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+  background-size:48px 48px;
+  pointer-events:none;
+  mask-image:radial-gradient(ellipse 80% 80% at 50% 50%, black, transparent);
+}
+
+/* Card */
+.card{
+  background:var(--bg-card);
+  border:1px solid var(--border-a);
+  border-radius:20px;
+  padding:2.75rem 2.5rem 2.5rem;
+  width:100%;
+  max-width:460px;
+  position:relative;
+  z-index:1;
+  box-shadow:0 0 80px rgba(212,168,83,0.05), 0 40px 80px rgba(0,0,0,0.4);
+}
+
+.logo-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-bottom:2.25rem;
+}
+.logo-mark{
+  width:34px;height:34px;
+  border:1px solid var(--border-a);
+  border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Playfair Display',serif;
+  font-size:1rem;
+  color:var(--accent);
+  background:var(--accent-bg);
+  flex-shrink:0;
+}
+.logo-text{
+  font-family:'Playfair Display',serif;
+  font-size:1.05rem;
+  color:var(--accent);
+  line-height:1.2;
+}
+.logo-sub{
+  font-family:'DM Mono',monospace;
+  font-size:0.6rem;
+  color:var(--muted);
+  letter-spacing:0.1em;
+  display:block;
+  margin-top:1px;
+}
+
+.eyebrow{
+  font-family:'DM Mono',monospace;
+  font-size:0.65rem;
+  color:var(--accent);
+  letter-spacing:0.14em;
+  text-transform:uppercase;
+  margin-bottom:0.6rem;
+}
+h1{
+  font-family:'Playfair Display',serif;
+  font-size:1.7rem;
+  font-weight:400;
+  line-height:1.2;
+  margin-bottom:0.6rem;
+}
+.desc{
+  font-size:0.83rem;
+  color:var(--muted);
+  line-height:1.65;
+  margin-bottom:2rem;
+}
+
+.field{
+  margin-bottom:1.25rem;
+}
+label{
+  display:block;
+  font-family:'DM Mono',monospace;
+  font-size:0.68rem;
+  color:var(--muted);
+  margin-bottom:6px;
+  letter-spacing:0.04em;
+}
+.input-wrap{
+  position:relative;
+}
+input[type="password"]{
+  width:100%;
+  background:var(--bg-el);
+  border:1px solid var(--border);
+  color:var(--text);
+  padding:11px 44px 11px 14px;
+  border-radius:10px;
+  font-family:'DM Mono',monospace;
+  font-size:0.85rem;
+  outline:none;
+  transition:border-color 0.2s, box-shadow 0.2s;
+  letter-spacing:0.12em;
+}
+input[type="password"]::placeholder{
+  letter-spacing:0;
+  font-family:'DM Sans',sans-serif;
+  font-size:0.82rem;
+  color:var(--muted);
+  opacity:0.5;
+}
+input[type="password"]:focus{
+  border-color:var(--border-a);
+  box-shadow:0 0 0 3px rgba(212,168,83,0.08);
+}
+input[type="password"].error{
+  border-color:rgba(248,113,113,0.5);
+  box-shadow:0 0 0 3px rgba(248,113,113,0.06);
+}
+
+.eye-btn{
+  position:absolute;
+  right:12px;top:50%;transform:translateY(-50%);
+  background:none;border:none;cursor:pointer;
+  color:var(--muted);font-size:0.9rem;padding:2px;
+  transition:color 0.15s;
+}
+.eye-btn:hover{color:var(--text);}
+
+.err-msg{
+  font-family:'DM Mono',monospace;
+  font-size:0.67rem;
+  color:#f87171;
+  margin-top:6px;
+  display:none;
+}
+.err-msg.show{display:block;}
+
+.btn-primary{
+  width:100%;
+  padding:12px 20px;
+  border-radius:10px;
+  background:var(--accent);
+  border:none;
+  color:#0a0a0a;
+  font-family:'DM Sans',sans-serif;
+  font-size:0.9rem;
+  font-weight:600;
+  cursor:pointer;
+  transition:opacity 0.18s, transform 0.12s;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  margin-top:0.25rem;
+}
+.btn-primary:hover{opacity:0.88;}
+.btn-primary:active{transform:scale(0.98);}
+.btn-primary:disabled{opacity:0.45;cursor:not-allowed;transform:none;}
+
+/* Spinner inside button */
+.btn-spinner{
+  width:14px;height:14px;
+  border-radius:50%;
+  border:2px solid rgba(0,0,0,0.2);
+  border-top-color:#0a0a0a;
+  animation:spin 0.8s linear infinite;
+  display:none;
+}
+.btn-primary.loading .btn-spinner{display:block;}
+.btn-primary.loading .btn-label{display:none;}
+
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.divider{
+  height:1px;
+  background:var(--border);
+  margin:1.75rem 0 1.25rem;
+}
+
+.features{
+  display:flex;
+  flex-direction:column;
+  gap:0.55rem;
+}
+.feature{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-size:0.78rem;
+  color:var(--muted);
+}
+.feature-dot{
+  width:5px;height:5px;
+  border-radius:50%;
+  background:var(--accent);
+  flex-shrink:0;
+  opacity:0.7;
+}
+
+.footer-note{
+  margin-top:1.75rem;
+  font-family:'DM Mono',monospace;
+  font-size:0.6rem;
+  color:var(--muted);
+  opacity:0.45;
+  text-align:center;
+  letter-spacing:0.04em;
+}
+
+/* Success flash */
+.success-flash{
+  position:fixed;inset:0;
+  background:rgba(9,9,11,0.92);
+  z-index:9999;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  gap:1rem;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity 0.3s;
+}
+.success-flash.show{opacity:1;pointer-events:all;}
+.success-icon{
+  font-size:2rem;
+  animation:pop 0.4s cubic-bezier(0.175,0.885,0.32,1.275);
+}
+.success-text{
+  font-family:'Playfair Display',serif;
+  font-size:1.1rem;
+  color:var(--accent);
+  font-style:italic;
+}
+@keyframes pop{from{transform:scale(0.5)}to{transform:scale(1)}}
+</style>
+<style>@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}</style></head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="bg-orb bg-orb-1"></div>
+<div class="bg-orb bg-orb-2"></div>
+
+<div class="card">
+  <div class="logo-row">
+    <div class="logo-mark">F</div>
+    <div>
+      <div class="logo-text">Futuros</div>
+      <span class="logo-sub">Foresight Strategy · Powered by Claude AI</span>
+    </div>
+  </div>
+
+  <div class="eyebrow">Acceso privado</div>
+  <h1>Bienvenido a Futuros</h1>
+  <p class="desc">Introduce la contraseña de acceso para continuar a la herramienta de análisis estratégico de foresight.</p>
+
+  <div class="field">
+    <label>Contraseña de acceso</label>
+    <div class="input-wrap">
+      <input type="password" id="pwd-input" placeholder="Introduce la contraseña" autocomplete="current-password" onkeydown="if(event.key===&#39;Enter&#39;)doLogin()">
+      <button class="eye-btn" type="button" onclick="toggleEye()" title="Mostrar/ocultar">👁</button>
+    </div>
+    <div class="err-msg" id="err-msg">Contraseña incorrecta. Inténtalo de nuevo.</div>
+  </div>
+
+  <button class="btn-primary" id="login-btn" onclick="doLogin()">
+    <span class="btn-label">Acceder a la plataforma →</span>
+    <span class="btn-spinner"></span>
+  </button>
+
+  <div class="divider"></div>
+
+  <div class="features">
+    <div class="feature"><div class="feature-dot"></div><span>Análisis STEEP con asistencia de IA</span></div>
+    <div class="feature"><div class="feature-dot"></div><span>Escenarios futuros — Marco 3P</span></div>
+    <div class="feature"><div class="feature-dot"></div><span>Backcasting estratégico por horizontes</span></div>
+    <div class="feature"><div class="feature-dot"></div><span>Exportación a PDF e informe de cliente</span></div>
+  </div>
+</div>
+
+<p class="footer-note">FUTUROS · FORESIGHT STRATEGY · HERRAMIENTA DE USO RESTRINGIDO · BETA</p>
+
+<div class="success-flash" id="success-flash">
+  <div class="success-icon">✦</div>
+  <div class="success-text">Acceso concedido — Cargando...</div>
+</div>
+
+<script>
+// ── Load config (password + API key live in config.json, not in source) ──
+let ACCESS_PASSWORD = null;
+
+async function loadConfig() {
+  try {
+    const resp = await fetch('config.json');
+    if (!resp.ok) throw new Error('config not found');
+    const cfg = await resp.json();
+    ACCESS_PASSWORD = cfg.password || null;
+    return true;
+  } catch(e) {
+    console.error('Could not load config:', e);
+    return false;
+  }
+}
+
+// Attempt silently on page load — don't block the UI if it fails
+loadConfig();
+
+async function doLogin() {
+  const pwd = document.getElementById('pwd-input').value.trim();
+  const btn = document.getElementById('login-btn');
+  const errMsg = document.getElementById('err-msg');
+  const input = document.getElementById('pwd-input');
+
+  if (!pwd) return;
+
+  btn.classList.add('loading');
+  btn.disabled = true;
+  input.classList.remove('error');
+  errMsg.classList.remove('show');
+
+  // If the initial load failed, try once more before giving up
+  if (ACCESS_PASSWORD === null) {
+    await loadConfig();
+  }
+
+  if (ACCESS_PASSWORD === null) {
+    errMsg.textContent = 'Error de configuración. Contacta al administrador.';
+    errMsg.classList.add('show');
+    btn.classList.remove('loading');
+    btn.disabled = false;
+    return;
+  }
+
+  await new Promise(r => setTimeout(r, 350));
+
+  if (pwd === ACCESS_PASSWORD) {
+    sessionStorage.setItem('fs_auth', '1');
+    document.getElementById('success-flash').classList.add('show');
+    setTimeout(() => { window.location.href = 'app.html'; }, 900);
+  } else {
+    btn.classList.remove('loading');
+    btn.disabled = false;
+    input.classList.add('error');
+    errMsg.textContent = 'Contraseña incorrecta. Inténtalo de nuevo.';
+    errMsg.classList.add('show');
+    input.focus();
+    input.style.animation = 'none';
+    input.offsetHeight;
+    input.style.animation = 'shake 0.35s ease';
+  }
+}
+
+function toggleEye() {
+  const input = document.getElementById('pwd-input');
+  input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+const style = document.createElement('style');
+style.textContent = '@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}';
+document.head.appendChild(style);
+</script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9ee2d77adda3cbd6',t:'MTc3NjUwNjYyOA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><iframe height="1" width="1" style="position: absolute; top: 0px; left: 0px; border-width: medium; border-style: none; border-color: currentcolor; border-image: initial; visibility: hidden;" src="./index_files/saved_resource.html"></iframe>
+
+</body></html>

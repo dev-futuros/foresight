@@ -1,0 +1,2422 @@
+<!DOCTYPE html>
+<!-- saved from url=(0032)https://demo.futuros.io/app.html -->
+<html lang="es"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Futuros — Foresight Strategy</title>
+<link href="./Futuros — Foresight Strategy_files/css2" rel="stylesheet">
+<style>
+:root {
+  --bg:#09090b; --bg-card:#111113; --bg-el:#1a1a1d;
+  --border:rgba(255,255,255,0.07); --border-h:rgba(255,255,255,0.13);
+  --border-a:rgba(212,168,83,0.35);
+  --text:#f0ece4; --muted:#8a8680;
+  --accent:#d4a853; --accent-bg:rgba(212,168,83,0.10);
+  --blue:#60a5fa; --green:#4ade80; --red:#f87171;
+  --purple:#c084fc; --orange:#fb923c;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;line-height:1.6}
+
+/* Header */
+.header{border-bottom:1px solid var(--border);padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:rgba(9,9,11,0.92);backdrop-filter:blur(12px);z-index:100;gap:1rem;flex-wrap:wrap}
+.logo{font-family:'Playfair Display',serif;font-size:1.1rem;color:var(--accent)}
+.logo-sub{font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--muted);margin-left:8px}
+.step-bar{display:flex;align-items:center}
+.step-item{display:flex;align-items:center;gap:6px;font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--muted);padding:0 12px;border-right:1px solid var(--border);transition:color 0.3s}
+.step-item:last-child{border-right:none}
+.step-item.active{color:var(--accent)}
+.step-item.done{opacity:0.35}
+.step-dot{width:17px;height:17px;border-radius:50%;border:1px solid currentColor;display:flex;align-items:center;justify-content:center;font-size:8px;flex-shrink:0}
+.step-item.active .step-dot{background:var(--accent);border-color:var(--accent);color:#000;font-weight:700}
+
+/* Layout */
+.main{max-width:960px;margin:0 auto;padding:2.5rem 1.5rem 4rem}
+.eyebrow{font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.14em;text-transform:uppercase;margin-bottom:0.5rem}
+.page-title{font-family:'Playfair Display',serif;font-size:2rem;font-weight:400;line-height:1.15;margin-bottom:0.4rem}
+.page-desc{color:var(--muted);font-size:0.85rem;margin-bottom:2rem;max-width:540px}
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:1.4rem;margin-bottom:1rem}
+.card-label{font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.7rem}
+label{display:block;font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--muted);margin-bottom:4px}
+input,select,textarea{width:100%;background:var(--bg-el);border:1px solid var(--border);color:var(--text);padding:9px 13px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.86rem;transition:border-color 0.2s;outline:none;appearance:none}
+input:focus,select:focus,textarea:focus{border-color:var(--border-a)}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238a8680'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:30px}
+select option{background:#1a1a1d}
+textarea{resize:vertical;min-height:78px;line-height:1.5}
+.field{margin-bottom:1rem}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem}
+
+/* Buttons */
+.btn{padding:9px 20px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.85rem;font-weight:500;cursor:pointer;border:1px solid var(--border-h);background:transparent;color:var(--text);transition:all 0.18s;display:inline-flex;align-items:center;gap:5px}
+.btn:hover{background:var(--bg-el)}
+.btn:active{transform:scale(0.98)}
+.btn:disabled{opacity:0.4;cursor:not-allowed;transform:none}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#0a0a0a;font-weight:600}
+.btn-primary:hover{opacity:0.85;background:var(--accent)}
+.btn-ai{padding:4px 11px;font-family:'DM Mono',monospace;font-size:0.68rem;background:var(--accent-bg);border-color:var(--border-a);color:var(--accent)}
+.btn-ai:hover{background:rgba(212,168,83,0.18)}
+.btn-row{display:flex;justify-content:flex-end;gap:10px;margin-top:1.75rem;flex-wrap:wrap}
+.btn-ghost{padding:5px 12px;font-family:'DM Mono',monospace;font-size:0.68rem;background:transparent;border:1px solid var(--border);border-radius:7px;color:var(--muted);cursor:pointer;transition:all 0.18s}
+.btn-ghost:hover{border-color:var(--border-a);color:var(--accent)}
+
+/* STEEP */
+.steep-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.steep-card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:1.2rem;transition:border-color 0.2s}
+.steep-card:hover{border-color:var(--border-h)}
+.steep-card.full{grid-column:1/-1}
+.steep-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:0.85rem}
+.steep-info{display:flex;align-items:center;gap:9px}
+.steep-icon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px}
+.steep-dim{font-family:'DM Mono',monospace;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em}
+.steep-sub{font-size:0.68rem;color:var(--muted);margin-top:1px}
+.tags-wrap{margin-top:7px;display:flex;flex-wrap:wrap;gap:4px}
+.sug-tag{font-size:0.7rem;background:var(--bg-el);border:1px solid var(--border);border-radius:20px;padding:3px 9px;color:var(--muted);cursor:pointer;transition:all 0.15s}
+.sug-tag:hover{border-color:var(--accent);color:var(--accent)}
+
+/* Loading */
+.loading-wrap{min-height:55vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2rem}
+.spinner{width:56px;height:56px;border-radius:50%;border:1.5px solid var(--border);border-top-color:var(--accent);animation:spin 1.1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-head{font-family:'Playfair Display',serif;font-size:1.3rem;font-style:italic;color:var(--muted);text-align:center}
+.loading-sub{font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--muted);opacity:0.5;text-align:center}
+.loading-bar-wrap{width:200px;height:2px;background:var(--border);border-radius:1px;overflow:hidden}
+.loading-bar{height:100%;background:var(--accent);border-radius:1px;animation:lbar 12s ease forwards}
+@keyframes lbar{0%{width:0%}15%{width:18%}40%{width:42%}70%{width:65%}90%{width:82%}100%{width:88%}}
+
+/* Result tabs */
+.tab-row{display:flex;border-bottom:1px solid var(--border);margin-bottom:2rem;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
+.tab-row::-webkit-scrollbar{display:none}
+.tab-btn{padding:10px 16px;font-family:'DM Mono',monospace;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);background:transparent;border:none;border-bottom:2px solid transparent;cursor:pointer;margin-bottom:-1px;transition:all 0.18s;white-space:nowrap}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.exec-summary{font-family:'Playfair Display',serif;font-size:1.02rem;line-height:1.85;color:var(--text);border-left:2px solid var(--accent);padding-left:1.4rem;margin-bottom:1.75rem}
+.uncertainty-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem}
+.unc-card{background:var(--bg-card);border:1px solid var(--border);border-left:2px solid var(--accent);border-radius:8px;padding:1rem 1.2rem}
+.unc-name{font-weight:500;font-size:0.88rem;margin-bottom:4px}
+.unc-desc{font-size:0.76rem;color:var(--muted);line-height:1.5}
+
+/* Scenarios 3P */
+.scenarios-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem}
+.scen-card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:1.4rem;position:relative;overflow:hidden}
+.scen-stripe{position:absolute;top:0;left:0;right:0;height:3px}
+.scen-type-badge{font-family:'DM Mono',monospace;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:5px}
+.scen-name{font-family:'Playfair Display',serif;font-size:1.1rem;line-height:1.25;margin-bottom:8px}
+.prob-pill{display:inline-flex;align-items:center;font-family:'DM Mono',monospace;font-size:0.63rem;padding:2px 8px;border-radius:20px;background:var(--bg-el);color:var(--muted);border:1px solid var(--border);margin-bottom:10px}
+.scen-desc{font-size:0.78rem;color:var(--muted);line-height:1.6;margin-bottom:0.85rem}
+.scen-section-label{font-family:'DM Mono',monospace;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:5px}
+.scen-items{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.scen-item{display:flex;align-items:flex-start;gap:7px;font-size:0.74rem;color:var(--muted)}
+.scen-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;margin-top:5px}
+
+/* Scenario Planning */
+.sp-intro{font-size:0.82rem;color:var(--muted);line-height:1.65;margin-bottom:1.75rem;border-left:2px solid var(--border);padding-left:1rem}
+.forces-grid{display:grid;grid-template-columns:1fr 1fr;gap:0.85rem;margin-bottom:1.75rem}
+.force-card{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:1rem 1.2rem}
+.force-head{display:flex;align-items:center;gap:9px;margin-bottom:7px}
+.force-rank{font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--accent);background:var(--accent-bg);border-radius:4px;padding:2px 6px}
+.force-title{font-size:0.85rem;font-weight:500}
+.force-desc{font-size:0.74rem;color:var(--muted);line-height:1.5;margin-bottom:7px}
+.force-bar-bg{flex:1;height:3px;background:var(--bg-el);border-radius:2px}
+.force-bar-fill{height:3px;border-radius:2px;background:var(--accent)}
+.force-score{font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted)}
+.axes-box{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:1.4rem;margin-bottom:1.75rem}
+.axes-title{font-family:'DM Mono',monospace;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:1rem}
+.axes-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem}
+.axis-label{font-size:0.85rem;font-weight:500;margin-bottom:4px}
+.axis-poles{display:flex;justify-content:space-between;margin-bottom:5px}
+.axis-pole{font-family:'DM Mono',monospace;font-size:0.64rem;color:var(--muted)}
+.axis-bar{height:2px;background:var(--bg-el);border-radius:1px;position:relative}
+.axis-bar::after{content:'';position:absolute;left:50%;transform:translateX(-50%);width:7px;height:7px;border-radius:50%;background:var(--accent);top:-2.5px}
+.axis-rationale{font-size:0.72rem;color:var(--muted);line-height:1.4;margin-top:5px}
+.sp-scen-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.85rem}
+.sp-scen-card{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:1rem 1.1rem}
+.sp-scen-name{font-family:'Playfair Display',serif;font-size:0.92rem;margin-bottom:4px}
+.sp-scen-logic{font-size:0.73rem;color:var(--muted);line-height:1.5}
+
+/* Backcasting */
+.bc-selector{display:flex;gap:7px;margin-bottom:1.75rem;flex-wrap:wrap}
+.bc-tab{padding:6px 15px;border-radius:20px;border:1px solid var(--border);font-family:'DM Mono',monospace;font-size:0.68rem;cursor:pointer;background:transparent;color:var(--muted);transition:all 0.18s}
+.bc-tab.active{color:var(--accent);border-color:var(--border-a);background:var(--accent-bg)}
+.bc-panel{display:none}
+.bc-panel.active{display:block}
+.bc-vision{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:1.2rem 1.4rem;margin-bottom:1.75rem;position:relative;overflow:hidden}
+.bc-vision-stripe{position:absolute;top:0;left:0;right:0;height:2px}
+.bc-vision-label{font-family:'DM Mono',monospace;font-size:0.64rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:5px}
+.bc-vision-text{font-family:'Playfair Display',serif;font-style:italic;font-size:0.98rem;line-height:1.75;color:var(--text)}
+.bc-timeline{position:relative;padding-left:26px}
+.bc-timeline::before{content:'';position:absolute;left:6px;top:0;bottom:0;width:1px;background:var(--border)}
+.bc-milestone{position:relative;margin-bottom:1.4rem}
+.bc-milestone::before{content:'';position:absolute;left:-22px;top:5px;width:9px;height:9px;border-radius:50%;border:1.5px solid var(--accent);background:var(--bg)}
+.bc-m-time{font-family:'DM Mono',monospace;font-size:0.64rem;color:var(--accent);margin-bottom:3px}
+.bc-m-title{font-size:0.86rem;font-weight:500;margin-bottom:3px}
+.bc-m-desc{font-size:0.75rem;color:var(--muted);line-height:1.5}
+.bc-m-actions{margin-top:7px;display:flex;flex-direction:column;gap:3px}
+.bc-action{font-size:0.71rem;color:var(--muted);padding-left:11px;position:relative}
+.bc-action::before{content:'→';position:absolute;left:0;color:var(--accent);font-size:0.65rem}
+.bc-now{background:var(--bg-el);border:1px solid var(--border);border-radius:8px;padding:0.8rem 1rem;margin-top:1.25rem}
+.bc-now-label{font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px}
+.bc-now-text{font-size:0.78rem;color:var(--muted)}
+
+/* Signals & wildcards */
+.signals-grid{display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;margin-bottom:1.75rem}
+.sig-card{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:0.95rem 1.05rem;display:flex;gap:11px}
+.sig-icon{width:32px;height:32px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.sig-title{font-size:0.84rem;font-weight:500;margin-bottom:2px}
+.sig-dim{font-family:'DM Mono',monospace;font-size:0.62rem;margin-bottom:3px}
+.sig-desc{font-size:0.74rem;color:var(--muted);line-height:1.5}
+.wild-item{background:var(--bg-card);border:1px solid var(--border);border-left:3px solid var(--purple);border-radius:8px;padding:0.9rem 1.2rem;margin-bottom:0.65rem}
+.wild-title{font-size:0.84rem;font-weight:500;color:var(--purple);margin-bottom:3px}
+.wild-desc{font-size:0.75rem;color:var(--muted)}
+
+/* Strategy map */
+.horizon-section{margin-bottom:2rem}
+.horizon-label{display:flex;align-items:center;gap:9px;margin-bottom:0.85rem}
+.h-badge{font-family:'DM Mono',monospace;font-size:0.65rem;padding:3px 10px;border-radius:20px;border:1px solid}
+.h1{border-color:var(--green);color:var(--green);background:rgba(74,222,128,0.08)}
+.h2{border-color:var(--blue);color:var(--blue);background:rgba(96,165,250,0.08)}
+.h3{border-color:var(--purple);color:var(--purple);background:rgba(192,132,252,0.08)}
+.h-time{font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--muted)}
+.action-card{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:1.05rem 1.2rem;margin-bottom:0.7rem;transition:border-color 0.2s}
+.action-card:hover{border-color:var(--border-h)}
+.action-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:7px}
+.action-title{font-size:0.86rem;font-weight:500}
+.impact-tag{font-family:'DM Mono',monospace;font-size:0.6rem;padding:2px 7px;border-radius:4px;white-space:nowrap;flex-shrink:0}
+.imp-high{background:rgba(74,222,128,0.1);color:var(--green)}
+.imp-med{background:rgba(251,146,60,0.1);color:var(--orange)}
+.imp-low{background:rgba(96,165,250,0.1);color:var(--blue)}
+.action-list{list-style:none;padding:0}
+.action-list li{font-size:0.74rem;color:var(--muted);padding:2px 0 2px 13px;position:relative}
+.action-list li::before{content:'—';position:absolute;left:0;color:var(--accent)}
+
+/* Error */
+.err-box{background:rgba(248,113,113,0.07);border:1px solid rgba(248,113,113,0.25);border-radius:8px;padding:0.85rem 1rem;color:var(--red);font-size:0.8rem;margin-bottom:1rem}
+
+/* Utils */
+/* Onboarding modal */
+.ob-overlay{position:fixed;inset:0;background:rgba(9,9,11,0.88);z-index:99998;display:flex;align-items:center;justify-content:center;padding:1.5rem;backdrop-filter:blur(6px)}
+.ob-modal{background:var(--bg-card);border:1px solid var(--border-a);border-radius:16px;max-width:640px;width:100%;padding:2.2rem 2.4rem;position:relative}
+.ob-logo{font-family:'Playfair Display',serif;font-size:1rem;color:var(--accent);margin-bottom:1.4rem}
+.ob-title{font-family:'Playfair Display',serif;font-size:1.6rem;font-weight:400;line-height:1.2;margin-bottom:0.6rem}
+.ob-desc{font-size:0.84rem;color:var(--muted);line-height:1.65;margin-bottom:1.6rem}
+.ob-steps{display:flex;flex-direction:column;gap:0.6rem;margin-bottom:1.8rem}
+.ob-step{display:flex;align-items:flex-start;gap:10px;font-size:0.82rem;color:var(--muted);line-height:1.5}
+.ob-num{width:20px;height:20px;border-radius:50%;border:1px solid var(--border-a);display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:0.6rem;color:var(--accent);flex-shrink:0;margin-top:1px}
+.ob-step strong{color:var(--text)}
+.ob-actions{display:flex;gap:10px;flex-wrap:wrap}
+.ob-tag{font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--accent);background:var(--accent-bg);border:1px solid rgba(212,168,83,0.2);border-radius:20px;padding:3px 9px;display:inline-block;margin-bottom:0.9rem}
+/* Impact matrix */
+.matrix-wrap{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:1.4rem;margin-bottom:1.5rem}
+.matrix-tip{position:absolute;background:#1a1a1d;border:1px solid var(--border-a);border-radius:8px;padding:8px 11px;font-size:0.75rem;pointer-events:none;z-index:10;max-width:180px;line-height:1.4;display:none}
+.matrix-tip strong{display:block;color:var(--accent);margin-bottom:2px}
+.hidden{display:none!important}
+.section-label{font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.9rem}
+
+/* Dashboard */
+.db-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.75rem;flex-wrap:wrap;gap:1rem}
+.db-view-toggle{display:flex;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:3px;gap:3px}
+.db-view-btn{padding:6px 15px;border-radius:6px;font-family:'DM Mono',monospace;font-size:0.68rem;border:none;cursor:pointer;background:transparent;color:var(--muted);transition:all 0.18s}
+.db-view-btn.active{background:var(--accent);color:#0a0a0a;font-weight:600}
+.db-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:1.75rem}
+.db-stat{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:0.95rem 1.05rem}
+.db-stat-n{font-size:1.55rem;font-weight:500;font-family:'Playfair Display',serif;color:var(--text)}
+.db-stat-l{font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--muted);margin-top:2px}
+.db-reports-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:1rem;margin-bottom:1.75rem}
+.db-report-card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:1.2rem;cursor:pointer;transition:border-color 0.2s,transform 0.15s}
+.db-report-card:hover{border-color:var(--border-a);transform:translateY(-1px)}
+.db-r-sector{font-family:'DM Mono',monospace;font-size:0.64rem;color:var(--accent);margin-bottom:5px}
+.db-r-name{font-family:'Playfair Display',serif;font-size:0.98rem;margin-bottom:3px}
+.db-r-date{font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);margin-bottom:8px}
+.db-r-pills{display:flex;gap:5px;flex-wrap:wrap}
+.db-r-pill{font-size:0.64rem;font-family:'DM Mono',monospace;background:var(--bg-el);border:1px solid var(--border);border-radius:20px;padding:2px 8px;color:var(--muted)}
+.db-r-actions{display:flex;gap:5px;margin-top:10px;border-top:1px solid var(--border);padding-top:9px}
+.db-r-btn{font-size:0.68rem;font-family:'DM Mono',monospace;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all 0.15s}
+.db-r-btn:hover{border-color:var(--border-a);color:var(--accent)}
+.db-r-btn.danger:hover{border-color:rgba(248,113,113,0.4);color:var(--red)}
+.db-empty{text-align:center;padding:4rem 0;color:var(--muted);grid-column:1/-1}
+.db-empty-icon{font-size:2rem;margin-bottom:0.85rem;opacity:0.25}
+/* Client view */
+.cv-wrap{max-width:740px;margin:0 auto}
+.cv-selector{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:1rem 1.2rem;margin-bottom:1.25rem;display:flex;align-items:center;gap:10px}
+.cv-selector label{font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--muted);white-space:nowrap}
+.cv-selector select{flex:1}
+.cv-cover{background:linear-gradient(135deg,#111113 0%,#1a1a1d 100%);border:1px solid var(--border-a);border-radius:16px;padding:2.25rem;margin-bottom:1.25rem;position:relative;overflow:hidden}
+.cv-cover::before{content:'';position:absolute;top:-30px;right:-30px;width:110px;height:110px;border-radius:50%;background:rgba(212,168,83,0.06)}
+.cv-cover-logo{font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--accent);opacity:0.7;margin-bottom:0.9rem;letter-spacing:0.12em}
+.cv-cover-title{font-family:'Playfair Display',serif;font-size:1.55rem;margin-bottom:0.4rem}
+.cv-cover-meta{font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--muted)}
+.cv-block{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:1.4rem;margin-bottom:1rem}
+.cv-block-label{font-family:'DM Mono',monospace;font-size:0.64rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--accent);margin-bottom:0.9rem}
+.cv-exec{font-family:'Playfair Display',serif;font-size:0.98rem;line-height:1.85;color:var(--text)}
+.cv-scen-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.65rem}
+.cv-scen{border:1px solid var(--border);border-radius:8px;padding:0.9rem}
+.cv-scen-type{font-family:'DM Mono',monospace;font-size:0.62rem;margin-bottom:3px}
+.cv-scen-name{font-family:'Playfair Display',serif;font-size:0.88rem;margin-bottom:5px}
+.cv-scen-p{font-size:0.73rem;color:var(--muted)}
+.cv-action-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.65rem}
+.cv-h-card{border:1px solid var(--border);border-radius:8px;padding:0.9rem}
+.cv-h-label{font-family:'DM Mono',monospace;font-size:0.62rem;margin-bottom:5px}
+.cv-h-item{font-size:0.74rem;color:var(--muted);padding:4px 0;border-bottom:1px solid var(--border)}
+.cv-h-item:last-child{border:none}
+
+/* PDF hidden container */
+#pdf-report{display:none}
+#pdf-overlay{display:none;position:fixed;inset:0;background:rgba(9,9,11,0.92);z-index:99999;align-items:center;justify-content:center;flex-direction:column;gap:1.25rem}
+.pdf-ov-spinner{width:44px;height:44px;border-radius:50%;border:1.5px solid rgba(212,168,83,0.2);border-top-color:#d4a853;animation:spin 1.1s linear infinite}
+.pdf-ov-text{font-family:'DM Mono',monospace;font-size:0.78rem;color:#d4a853;letter-spacing:0.08em}
+/* PDF styles - all px, no mm, for reliable html2pdf rendering */
+.pdf-cover-page{width:794px;min-height:1123px;background:#0d0d0f;color:#f0ece4;display:flex;flex-direction:column;position:relative;overflow:hidden;font-family:'DM Sans',sans-serif}
+.pdf-ca{position:absolute;top:0;right:0;width:340px;height:340px;border-radius:0 0 0 100%;background:rgba(212,168,83,0.06)}
+.pdf-ca2{position:absolute;bottom:113px;left:-76px;width:302px;height:302px;border-radius:50%;border:1px solid rgba(212,168,83,0.09)}
+.pdf-cv-top{padding:42px 57px 0;display:flex;align-items:center;justify-content:space-between}
+.pdf-cv-logo{font-family:'Playfair Display',serif;font-size:14px;color:#d4a853}
+.pdf-cv-date{font-family:'DM Mono',monospace;font-size:9px;color:#8a8680}
+.pdf-cv-body{padding:0 57px;flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:60px}
+.pdf-cv-label{font-family:'DM Mono',monospace;font-size:9px;color:#d4a853;letter-spacing:0.18em;text-transform:uppercase;margin-top:auto;padding-top:106px;margin-bottom:19px}
+.pdf-cv-title{font-family:'Playfair Display',serif;font-size:34px;font-weight:400;line-height:1.15;color:#f0ece4;margin-bottom:11px}
+.pdf-cv-sector{font-size:13px;color:#8a8680;margin-bottom:42px}
+.pdf-cv-divider{width:76px;height:1px;background:#d4a853;margin-bottom:19px}
+.pdf-cv-pills{display:flex;gap:34px}
+.pdf-cv-pl{font-family:'DM Mono',monospace;font-size:8px;color:#8a8680;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.08em}
+.pdf-cv-pv{font-size:11px;color:#d4a853;font-weight:500}
+.pdf-cv-bottom{padding:23px 57px;border-top:1px solid rgba(255,255,255,0.06);display:flex;justify-content:space-between;font-family:'DM Mono',monospace;font-size:8px;color:#5a5a58}
+.pdf-ip{width:794px;min-height:1123px;background:#fff;color:#1a1a1a;display:flex;flex-direction:column;font-family:'DM Sans',sans-serif}
+.pdf-ph{padding:19px 57px 15px;border-bottom:0.5px solid #e8e4da;display:flex;align-items:center;justify-content:space-between}
+.pdf-ph-logo{font-family:'Playfair Display',serif;font-size:11px;color:#d4a853}
+.pdf-ph-co{font-family:'DM Mono',monospace;font-size:8px;color:#bbb}
+.pdf-pb{padding:20px 57px;flex:1}
+.pdf-pf{padding:13px 57px;border-top:0.5px solid #e8e4da;display:flex;justify-content:space-between;align-items:center}
+.pdf-pft{font-family:'DM Mono',monospace;font-size:8px;color:#ccc}
+.pdf-pn{font-family:'DM Mono',monospace;font-size:9px;color:#d4a853}
+.pdf-sh{display:flex;align-items:center;gap:9px;margin-bottom:15px}
+.pdf-sb{width:2px;height:9px;background:#d4a853;border-radius:1px;flex-shrink:0}
+.pdf-st{font-family:'DM Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.12em;color:#888}
+.pdf-exec-bl{border-left:2px solid #d4a853;padding:13px 19px;background:#fdf9f2;border-radius:0 4px 4px 0;margin-bottom:19px}
+.pdf-exec-t{font-family:'Playfair Display',serif;font-size:13px;line-height:1.78;color:#222}
+.pdf-g2{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-bottom:19px}
+.pdf-g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;margin-bottom:19px}
+.pdf-card{border:0.5px solid #e8e4da;border-radius:4px;padding:11px 13px;background:#fff}
+.pdf-ca-accent{border-left:2px solid #d4a853}
+.pdf-cl{font-family:'DM Mono',monospace;font-size:8px;color:#bbb;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px}
+.pdf-ct{font-size:11px;font-weight:600;color:#111;margin-bottom:5px}
+.pdf-cb{font-size:10px;color:#555;line-height:1.55}
+.pdf-sc-card{border:0.5px solid #e8e4da;border-radius:5px;padding:13px;background:#fff;overflow:hidden;page-break-inside:avoid}
+.pdf-sc-top{height:3px;margin:-13px -13px 11px}
+.pdf-sc-type{font-family:'DM Mono',monospace;font-size:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:5px}
+.pdf-sc-name{font-family:'Playfair Display',serif;font-size:12px;color:#111;margin-bottom:5px;line-height:1.25}
+.pdf-sc-prob{font-family:'DM Mono',monospace;font-size:8px;color:#aaa;background:#f5f3ef;border-radius:3px;padding:2px 6px;display:inline-block;margin-bottom:8px}
+.pdf-sc-desc{font-size:9px;color:#666;line-height:1.5;margin-bottom:8px}
+.pdf-ml{font-family:'DM Mono',monospace;font-size:7px;text-transform:uppercase;letter-spacing:0.08em;color:#bbb;margin-bottom:4px}
+.pdf-bl{list-style:none;padding:0;margin:0 0 8px}
+.pdf-bl li{font-size:8px;color:#666;padding:3px 0 3px 10px;border-left:1.5px solid #e8e4da;margin-bottom:3px;line-height:1.4}
+.pdf-fr{display:flex;align-items:flex-start;gap:11px;padding:8px 0;border-bottom:0.5px solid #f0ece4}
+.pdf-frk{font-family:'DM Mono',monospace;font-size:9px;color:#d4a853;background:#fdf6e8;border-radius:3px;padding:2px 6px;flex-shrink:0;margin-top:1px}
+.pdf-frc{flex:1}
+.pdf-frt{font-size:10px;font-weight:600;margin-bottom:4px;color:#222}
+.pdf-frd{font-size:9px;color:#666;line-height:1.45;margin-bottom:5px}
+.pdf-fb{height:3px;background:#f0ece4;border-radius:2px}
+.pdf-ff{height:3px;background:#d4a853;border-radius:2px}
+.pdf-fs{font-family:'DM Mono',monospace;font-size:8px;color:#aaa;text-align:right;margin-top:3px}
+.pdf-ax{border:0.5px solid #e8e4da;border-radius:4px;padding:11px 13px}
+.pdf-axt{font-size:11px;font-weight:600;color:#111;margin-bottom:8px}
+.pdf-axp{display:flex;justify-content:space-between;margin-bottom:5px}
+.pdf-axpl{font-family:'DM Mono',monospace;font-size:8px;color:#aaa}
+.pdf-axb{height:2px;background:#f0ece4;border-radius:1px;position:relative;margin-bottom:5px}
+.pdf-axb::after{content:'';position:absolute;left:50%;transform:translateX(-50%);width:6px;height:6px;border-radius:50%;background:#d4a853;top:-2px}
+.pdf-axr{font-size:9px;color:#666;line-height:1.45}
+.pdf-bc-bl{border:0.5px solid #e8e4da;border-radius:5px;overflow:hidden;margin-bottom:11px;page-break-inside:avoid}
+.pdf-bc-h{padding:9px 13px;border-bottom:0.5px solid #e8e4da;display:flex;align-items:center;gap:8px}
+.pdf-bc-dot{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+.pdf-bc-sl{font-family:'DM Mono',monospace;font-size:8px;text-transform:uppercase;letter-spacing:0.08em}
+.pdf-bc-n{font-size:11px;font-weight:600;color:#111}
+.pdf-bc-v{padding:9px 13px;background:#fdf9f2;font-family:'Playfair Display',serif;font-style:italic;font-size:10px;color:#444;line-height:1.55;border-bottom:0.5px solid #e8e4da}
+.pdf-bc-bd{padding:9px 13px}
+.pdf-bc-m{display:flex;gap:9px;margin-bottom:7px}
+.pdf-bc-y{font-family:'DM Mono',monospace;font-size:9px;color:#d4a853;min-width:34px;padding-top:2px;flex-shrink:0}
+.pdf-bc-mt{font-size:10px;font-weight:600;color:#222;margin-bottom:3px}
+.pdf-bc-md{font-size:8px;color:#666;line-height:1.4;margin-bottom:3px}
+.pdf-bc-ac{display:flex;flex-direction:column;gap:2px}
+.pdf-bc-a{font-size:8px;color:#888;padding-left:11px;position:relative}
+.pdf-bc-a::before{content:'→';position:absolute;left:0;color:#d4a853}
+.pdf-bc-s{padding:6px 13px;background:#f8f6f0;border-top:0.5px solid #e8e4da;font-size:8px;color:#666}
+.pdf-bc-sl2{font-family:'DM Mono',monospace;font-size:7px;color:#bbb;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:2px}
+.pdf-sr{display:flex;gap:8px;padding:7px 0;border-bottom:0.5px solid #f0ece4}
+.pdf-sd{font-family:'DM Mono',monospace;font-size:8px;color:#d4a853;min-width:60px;padding-top:2px;text-transform:uppercase;letter-spacing:0.06em}
+.pdf-st2{font-size:10px;font-weight:600;margin-bottom:2px;color:#222}
+.pdf-sdesc{font-size:8px;color:#666;line-height:1.4}
+.pdf-wr{padding:8px 13px;border-left:2px solid #c084fc;background:#fdf8ff;border-radius:0 4px 4px 0;margin-bottom:7px}
+.pdf-wt{font-size:10px;font-weight:600;color:#7c3aed;margin-bottom:2px}
+.pdf-wd{font-size:8px;color:#666;line-height:1.4}
+.pdf-hs{margin-bottom:15px}
+.pdf-hh{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.pdf-hb{font-family:'DM Mono',monospace;font-size:8px;padding:2px 8px;border-radius:10px;border:1px solid}
+.pdf-hn{font-size:10px;font-weight:600;color:#222}
+.pdf-ht{font-family:'DM Mono',monospace;font-size:8px;color:#aaa}
+.pdf-ac{border:0.5px solid #e8e4da;border-radius:4px;padding:9px 11px;margin-bottom:6px;page-break-inside:avoid}
+.pdf-ah{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px}
+.pdf-at{font-size:10px;font-weight:600;color:#222}
+.pdf-it{font-family:'DM Mono',monospace;font-size:7px;padding:2px 5px;border-radius:3px;white-space:nowrap;flex-shrink:0}
+.pdf-al{list-style:none;padding:0}
+.pdf-al li{font-size:8px;color:#666;padding:3px 0 3px 11px;position:relative}
+.pdf-al li::before{content:'—';position:absolute;left:0;color:#d4a853}
+.pdf-pb2{}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div>
+      <span class="logo">Futuros</span>
+      <span class="logo-sub">Foresight Strategy · Powered by Claude AI</span>
+    </div>
+    <button class="btn-ghost" onclick="openDashboard()">⊞ Dashboard</button>
+  </div>
+
+  <nav class="step-bar">
+    <div class="step-item active" id="si-1"><div class="step-dot">1</div><span>Empresa</span></div>
+    <div class="step-item" id="si-2"><div class="step-dot">2</div><span>STEEP</span></div>
+    <div class="step-item" id="si-3"><div class="step-dot">3</div><span>Horizon Scan</span></div>
+    <div class="step-item" id="si-4"><div class="step-dot">4</div><span>Análisis</span></div>
+    <div class="step-item" id="si-5"><div class="step-dot">5</div><span>Resultados</span></div>
+  </nav>
+</header>
+
+<main class="main">
+
+<!-- DASHBOARD -->
+<div id="s-db" class="hidden">
+  <div class="db-header">
+    <div>
+      <div class="eyebrow">Panel de control</div>
+      <h1 class="page-title" style="font-size:1.6rem;">Dashboard</h1>
+    </div>
+    <div style="display:flex;align-items:center;gap:9px;">
+      <div class="db-view-toggle">
+        <button class="db-view-btn active" id="dv-consultant" onclick="setDbView(&#39;consultant&#39;)">Consultor</button>
+        <button class="db-view-btn" id="dv-client" onclick="setDbView(&#39;client&#39;)">Vista cliente</button>
+      </div>
+      <button class="btn btn-primary" onclick="closeDashboard()" style="font-size:0.8rem;padding:7px 15px;">+ Nuevo informe</button>
+    </div>
+  </div>
+  <div id="db-consultant-view">
+    <div class="db-stats" id="db-stats"></div>
+    <p class="section-label">Informes guardados</p>
+    <div class="db-reports-grid" id="db-reports-grid"></div>
+  </div>
+  <div id="db-client-view" class="hidden">
+    <div class="cv-wrap">
+      <div class="cv-selector">
+        <label>Informe</label>
+        <select id="cv-select" onchange="renderClientView(this.value)"></select>
+      </div>
+      <div id="cv-content"></div>
+    </div>
+  </div>
+</div>
+
+<!-- STEP 1 -->
+<div id="s1">
+  <div class="eyebrow">Paso 01 — Contexto</div>
+  <h1 class="page-title">Perfil de la empresa</h1>
+  <p class="page-desc">Define el contexto organizativo y el reto estratégico que quieres explorar con el análisis de foresight.</p>
+  <div class="card">
+    <div class="g2">
+      <div class="field"><label>Nombre de la empresa</label><input type="text" id="f-name" placeholder="Ej: Innovatech S.L."></div>
+      <div class="field"><label>Sector / Industria</label><input type="text" id="f-sector" placeholder="Ej: Manufactura industrial, Fintech, Retail..."></div>
+    </div>
+    <div class="g3">
+      <div class="field"><label>Tamaño de empresa</label>
+        <select id="f-size"><option value="">Seleccionar...</option><option value="startup">Startup (&lt;50 empl.)</option><option value="PYME">PYME (50–250)</option><option value="mediana empresa">Mediana (250–1000)</option><option value="gran empresa">Grande (+1000)</option></select>
+      </div>
+      <div class="field"><label>Horizonte temporal</label>
+        <select id="f-horizon"><option value="3">3 años</option><option value="5" selected="">5 años</option><option value="10">10 años</option></select>
+      </div>
+      <div class="field"><label>Ámbito de mercado</label>
+        <select id="f-market"><option value="local/nacional">Local / Nacional</option><option value="europeo">Europeo</option><option value="global">Global</option></select>
+      </div>
+    </div>
+    <div class="field"><label>Reto estratégico — pregunta de foresight</label><textarea id="f-challenge" placeholder="¿Qué desafío o pregunta estratégica quieres explorar? Ej: ¿Cómo adaptar nuestro modelo de negocio a la automatización del sector?"></textarea></div>
+    <div class="field" style="margin-bottom:0"><label>Capacidades y ventajas competitivas actuales (opcional)</label><textarea id="f-strengths" placeholder="Ej: Red de distribución propia, know-how técnico diferencial, base de clientes fidelizada..." style="min-height:60px;"></textarea></div>
+  </div>
+  <div class="card" style="border-color:var(--border-a);margin-top:0.75rem;">
+    <div class="card-label">Datos del consultor — aparecerán en la portada del informe</div>
+    <div class="g2">
+      <div class="field" style="margin-bottom:0"><label>Nombre del consultor</label><input type="text" id="f-consultant-name" placeholder="Ej: Ana García"></div>
+      <div class="field" style="margin-bottom:0"><label>Empresa consultora</label><input type="text" id="f-consultant-company" placeholder="Ej: Strategy Partners S.L."></div>
+    </div>
+  </div>
+  <div class="btn-row"><button class="btn btn-primary" onclick="goTo(2)">Continuar — Análisis STEEP →</button></div>
+</div>
+
+<!-- STEP 2 -->
+<div id="s2" class="hidden">
+  <div class="eyebrow">Paso 02 — Entorno</div>
+  <h1 class="page-title">Análisis STEEP</h1>
+  <p class="page-desc">Introduce los factores clave de cada dimensión. Usa el botón IA para recibir sugerencias específicas para tu sector.</p>
+  <div id="err2" class="err-box hidden"></div>
+  <div class="steep-grid">
+    <div class="steep-card">
+      <div class="steep-head">
+        <div class="steep-info"><div class="steep-icon" style="background:rgba(96,165,250,0.1);">👥</div><div><div class="steep-dim" style="color:var(--blue);">Social</div><div class="steep-sub">Demografía, valores, estilos de vida</div></div></div>
+        <button class="btn btn-ai" id="ai-s" onclick="aiSuggest(&#39;s&#39;,&#39;Social&#39;,&#39;demografía, valores sociales, estilos de vida&#39;)">✦ IA</button>
+      </div>
+      <textarea id="steep-s" placeholder="Ej: Envejecimiento de la población, generación Z como consumidores, nuevas formas de trabajo..."></textarea>
+      <div class="tags-wrap" id="tags-s"></div>
+    </div>
+    <div class="steep-card">
+      <div class="steep-head">
+        <div class="steep-info"><div class="steep-icon" style="background:rgba(74,222,128,0.1);">⚡</div><div><div class="steep-dim" style="color:var(--green);">Tecnológico</div><div class="steep-sub">IA, automatización, digitalización</div></div></div>
+        <button class="btn btn-ai" id="ai-t" onclick="aiSuggest(&#39;t&#39;,&#39;Tecnológico&#39;,&#39;tecnología, innovación, digitalización, automatización&#39;)">✦ IA</button>
+      </div>
+      <textarea id="steep-t" placeholder="Ej: IA generativa, automatización robótica, computación cuántica, plataformas cloud..."></textarea>
+      <div class="tags-wrap" id="tags-t"></div>
+    </div>
+    <div class="steep-card">
+      <div class="steep-head">
+        <div class="steep-info"><div class="steep-icon" style="background:rgba(212,168,83,0.1);">💹</div><div><div class="steep-dim" style="color:var(--accent);">Económico</div><div class="steep-sub">Mercados, inflación, financiación</div></div></div>
+        <button class="btn btn-ai" id="ai-e" onclick="aiSuggest(&#39;e&#39;,&#39;Económico&#39;,&#39;macroeconomía, mercados, inflación, financiación, comercio&#39;)">✦ IA</button>
+      </div>
+      <textarea id="steep-e" placeholder="Ej: Tipos de interés altos, reshoring industrial, economía circular, acceso a capital..."></textarea>
+      <div class="tags-wrap" id="tags-e"></div>
+    </div>
+    <div class="steep-card">
+      <div class="steep-head">
+        <div class="steep-info"><div class="steep-icon" style="background:rgba(134,239,172,0.1);">🌱</div><div><div class="steep-dim" style="color:#86efac;">Medioambiental</div><div class="steep-sub">Clima, regulación verde, recursos</div></div></div>
+        <button class="btn btn-ai" id="ai-env" onclick="aiSuggest(&#39;env&#39;,&#39;Medioambiental&#39;,&#39;medioambiente, clima, sostenibilidad, recursos naturales, ESG&#39;)">✦ IA</button>
+      </div>
+      <textarea id="steep-env" placeholder="Ej: Normativa ESG, escasez de materias primas, huella de carbono, transición energética..."></textarea>
+      <div class="tags-wrap" id="tags-env"></div>
+    </div>
+    <div class="steep-card full">
+      <div class="steep-head">
+        <div class="steep-info"><div class="steep-icon" style="background:rgba(192,132,252,0.1);">🏛️</div><div><div class="steep-dim" style="color:var(--purple);">Político</div><div class="steep-sub">Regulación, geopolítica, políticas públicas</div></div></div>
+        <button class="btn btn-ai" id="ai-p" onclick="aiSuggest(&#39;p&#39;,&#39;Político&#39;,&#39;geopolítica, regulación, políticas públicas, proteccionismo&#39;)">✦ IA</button>
+      </div>
+      <textarea id="steep-p" placeholder="Ej: Tensiones geopolíticas, regulación IA, políticas de transición energética, proteccionismo comercial..."></textarea>
+      <div class="tags-wrap" id="tags-p"></div>
+    </div>
+  </div>
+  <div class="btn-row">
+    <button class="btn" onclick="goTo(1)">← Volver</button>
+    <button class="btn btn-primary" onclick="goTo(3)">Continuar — Horizon Scan →</button>
+  </div>
+</div>
+
+<!-- STEP 3: HORIZON SCAN -->
+<div id="s3" class="hidden">
+  <div class="eyebrow">Paso 03 — Señales de cambio</div>
+  <h1 class="page-title">Horizon Scanning</h1>
+  <p class="page-desc">Explora señales de cambio por horizonte temporal. H1 es lo que ya está ocurriendo, H2 lo que está emergiendo, H3 lo que podría transformar el sector en el largo plazo.</p>
+  <div id="err3" class="err-box hidden"></div>
+
+  <div style="display:flex;flex-direction:column;gap:1rem;margin-bottom:1.5rem;">
+
+    <!-- H1 -->
+    <div class="card" style="border-left:3px solid var(--green);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.85rem;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:28px;height:28px;border-radius:6px;background:rgba(74,222,128,0.1);display:flex;align-items:center;justify-content:center;font-family:&#39;DM Mono&#39;,monospace;font-size:0.72rem;font-weight:600;color:var(--green);">H1</div>
+          <div>
+            <div style="font-family:&#39;DM Mono&#39;,monospace;font-size:0.72rem;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:0.08em;">Presente extendido</div>
+            <div style="font-size:0.68rem;color:var(--muted);">0–2 años · Señales ya visibles, tendencias que se están materializando</div>
+          </div>
+        </div>
+        <button class="btn btn-ai" id="ai-h1" onclick="aiSuggestHorizon(&#39;h1&#39;,&#39;H1&#39;,&#39;tendencias ya visibles y cambios que se están materializando ahora mismo&#39;)">✦ IA</button>
+      </div>
+      <textarea id="hs-h1" placeholder="¿Qué está cambiando ya? Ej: nuevas regulaciones en vigor, tecnologías en fase de adopción, cambios de comportamiento del consumidor ya observables..." style="min-height:80px;"></textarea>
+      <div class="tags-wrap" id="tags-h1"></div>
+    </div>
+
+    <!-- H2 -->
+    <div class="card" style="border-left:3px solid var(--blue);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.85rem;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:28px;height:28px;border-radius:6px;background:rgba(96,165,250,0.1);display:flex;align-items:center;justify-content:center;font-family:&#39;DM Mono&#39;,monospace;font-size:0.72rem;font-weight:600;color:var(--blue);">H2</div>
+          <div>
+            <div style="font-family:&#39;DM Mono&#39;,monospace;font-size:0.72rem;font-weight:600;color:var(--blue);text-transform:uppercase;letter-spacing:0.08em;">Futuro emergente</div>
+            <div style="font-size:0.68rem;color:var(--muted);">2–5 años · Señales débiles que podrían convertirse en tendencias dominantes</div>
+          </div>
+        </div>
+        <button class="btn btn-ai" id="ai-h2" onclick="aiSuggestHorizon(&#39;h2&#39;,&#39;H2&#39;,&#39;señales débiles y tendencias emergentes que podrían consolidarse en 2-5 años&#39;)">✦ IA</button>
+      </div>
+      <textarea id="hs-h2" placeholder="¿Qué está emergiendo? Ej: tecnologías en fase experimental, cambios sociales en gestación, modelos de negocio alternativos que ganan tracción..." style="min-height:80px;"></textarea>
+      <div class="tags-wrap" id="tags-h2"></div>
+    </div>
+
+    <!-- H3 -->
+    <div class="card" style="border-left:3px solid var(--purple);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.85rem;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:28px;height:28px;border-radius:6px;background:rgba(192,132,252,0.1);display:flex;align-items:center;justify-content:center;font-family:&#39;DM Mono&#39;,monospace;font-size:0.72rem;font-weight:600;color:var(--purple);">H3</div>
+          <div>
+            <div style="font-family:&#39;DM Mono&#39;,monospace;font-size:0.72rem;font-weight:600;color:var(--purple);text-transform:uppercase;letter-spacing:0.08em;">Futuro posible</div>
+            <div style="font-size:0.68rem;color:var(--muted);">5+ años · Ideas especulativas, wildcards y cambios sistémicos de fondo</div>
+          </div>
+        </div>
+        <button class="btn btn-ai" id="ai-h3" onclick="aiSuggestHorizon(&#39;h3&#39;,&#39;H3&#39;,&#39;cambios sistémicos especulativos, disrupciones de fondo y futuros posibles a largo plazo&#39;)">✦ IA</button>
+      </div>
+      <textarea id="hs-h3" placeholder="¿Qué podría transformarlo todo? Ej: cambios tecnológicos radicales, reconfiguración geopolítica, nuevos paradigmas sociales o económicos..." style="min-height:80px;"></textarea>
+      <div class="tags-wrap" id="tags-h3"></div>
+    </div>
+
+  </div>
+
+  <div class="btn-row">
+    <button class="btn" onclick="goTo(2)">← Volver</button>
+    <button class="btn btn-primary" onclick="runAnalysis()">✦ Generar análisis de foresight →</button>
+  </div>
+</div>
+
+<!-- STEP 4: Loading -->
+<div id="s4" class="hidden">
+  <div class="loading-wrap">
+    <div class="spinner"></div>
+    <div style="text-align:center;">
+      <div class="loading-head" id="l-title">Analizando el entorno estratégico...</div>
+      <div class="loading-sub" id="l-sub">Procesando los 5 factores STEEP</div>
+    </div>
+    <div class="loading-bar-wrap"><div class="loading-bar"></div></div>
+  </div>
+</div>
+
+<!-- STEP 5: Results -->
+<div id="s5" class="hidden">
+  <div class="eyebrow">Análisis completo — Foresight Report</div>
+  <h1 class="page-title" id="r-title">Informe estratégico</h1>
+  <p class="page-desc" id="r-sub" style="margin-bottom:1.5rem;"></p>
+  <div class="tab-row">
+    <button class="tab-btn active" onclick="switchTab(&#39;res&#39;)">Resumen</button>
+    <button class="tab-btn" onclick="switchTab(&#39;esc&#39;)">Escenarios 3P</button>
+    <button class="tab-btn" onclick="switchTab(&#39;sp&#39;)">Scenario Planning</button>
+    <button class="tab-btn" onclick="switchTab(&#39;bc&#39;)">Backcasting</button>
+    <button class="tab-btn" onclick="switchTab(&#39;sig&#39;)">Señales &amp; wildcards</button>
+    <button class="tab-btn" onclick="switchTab(&#39;str&#39;)">Mapa estratégico</button>
+  </div>
+  <div id="tab-res">
+    <p class="exec-summary" id="exec-sum"></p>
+    <p class="section-label">Incertidumbres clave</p>
+    <div class="uncertainty-grid" id="unc-grid"></div>
+  </div>
+  <div id="tab-esc" class="hidden"><div class="scenarios-grid" id="scen-grid"></div></div>
+  <div id="tab-sp" class="hidden">
+    <p class="sp-intro" id="sp-intro"></p>
+    <p class="section-label">Fuerzas motrices del cambio</p>
+    <div class="forces-grid" id="forces-grid"></div>
+    <div class="axes-box"><div class="axes-title">Ejes de incertidumbre crítica</div><div class="axes-grid" id="axes-grid"></div></div>
+    <p class="section-label">Matriz de impacto e incertidumbre</p>
+    <div id="impact-matrix-wrap"></div>
+    <p class="section-label">Lógica narrativa por escenario</p>
+    <div class="sp-scen-row" id="sp-scen-row"></div>
+  </div>
+  <div id="tab-bc" class="hidden">
+    <p style="font-size:0.8rem;color:var(--muted);margin-bottom:1.5rem;">El backcasting parte del estado futuro deseado y traza hacia atrás los hitos y decisiones necesarias para llegar a él.</p>
+    <div class="bc-selector" id="bc-selector"></div>
+    <div id="bc-panels"></div>
+  </div>
+  <div id="tab-sig" class="hidden">
+    <p class="section-label">Señales débiles detectadas</p>
+    <div class="signals-grid" id="sig-grid"></div>
+    <p class="section-label">Wildcards — eventos de alto impacto</p>
+    <div id="wild-list"></div>
+  </div>
+  <div id="tab-str" class="hidden">
+    <div id="str-h1"></div><div id="str-h2"></div><div id="str-h3"></div>
+  </div>
+  <div class="btn-row">
+    <button class="btn" onclick="goTo(3)">← Editar inputs</button>
+    <button class="btn" id="btn-preview" onclick="openPreview()" style="display:none;">◉ Vista previa</button>
+    <button class="btn" id="btn-client" onclick="generateClientFile()" style="display:none;">⬡ Informe cliente</button>
+    <button class="btn" id="btn-ppt" onclick="exportPPT()" style="display:none;">⬦ PowerPoint</button>
+    <button class="btn" id="btn-pdf" onclick="exportPDF()" style="display:none;">↓ Exportar PDF</button>
+    <button class="btn btn-primary" onclick="runAnalysis()">↺ Regenerar</button>
+  </div>
+</div>
+
+</main>
+
+<!-- Onboarding Modal -->
+<div id="ob-overlay" class="ob-overlay" style="display: none;">
+  <div class="ob-modal">
+    <div class="ob-logo">Foresight <em>Strategy</em></div>
+    <div class="ob-tag">Plataforma de foresight estratégico · Powered by Claude AI</div>
+    <div class="ob-title">Anticipa el futuro.<br>Diseña mejores estrategias.</div>
+    <div class="ob-desc">Esta herramienta combina metodología de foresight profesional con IA para generar análisis de escenarios, backcasting y mapas estratégicos en minutos. Sigue estos pasos para tu primer informe:</div>
+    <div class="ob-steps">
+      <div class="ob-step"><div class="ob-num">1</div><div><strong>Perfil de empresa</strong> — nombre, sector, horizonte temporal y reto estratégico a explorar</div></div>
+      <div class="ob-step"><div class="ob-num">2</div><div><strong>Análisis STEEP</strong> — factores del entorno por dimensión. Usa el botón IA ✦ para sugerencias contextualizadas</div></div>
+      <div class="ob-step"><div class="ob-num">3</div><div><strong>Horizon Scan</strong> — señales de cambio por horizonte H1/H2/H3. Alimenta los escenarios con mayor riqueza</div></div>
+      <div class="ob-step"><div class="ob-num">4</div><div><strong>Análisis IA</strong> — genera escenarios 3P, scenario planning, backcasting y mapa estratégico automáticamente</div></div>
+    </div>
+    <div class="ob-actions">
+      <button class="btn btn-primary" onclick="closeOnboarding(false)">Empezar →</button>
+      <button class="btn" onclick="closeOnboarding(true)">Cargar ejemplo (Restalia)</button>
+    </div>
+    <div style="margin-top:1rem;font-family:&#39;DM Mono&#39;,monospace;font-size:0.62rem;color:var(--muted);">
+      <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:0;">
+        <input type="checkbox" id="ob-no-show" style="width:auto;accent-color:var(--accent);"> No mostrar de nuevo
+      </label>
+    </div>
+  </div>
+</div>
+<div class="matrix-tip" id="matrix-tip"></div>
+
+<!-- Preview Modal -->
+<div id="preview-modal" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.85);overflow-y:auto;">
+  <div style="max-width:860px;margin:2rem auto;padding:0 1rem 4rem;">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:1rem 0;position:sticky;top:0;z-index:2;background:rgba(0,0,0,0.9);backdrop-filter:blur(8px);border-bottom:1px solid rgba(212,168,83,0.2);margin-bottom:1.5rem;">
+      <div>
+        <span style="font-family:&#39;Playfair Display&#39;,serif;font-size:1rem;color:#d4a853;">Vista previa del informe</span>
+        <span style="font-family:&#39;DM Mono&#39;,monospace;font-size:0.65rem;color:#6b7280;margin-left:12px;">Así se verá el PDF</span>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" onclick="exportPDF()" style="font-size:0.78rem;padding:7px 14px;">↓ Exportar PDF</button>
+        <button class="btn" onclick="closePreview()" style="font-size:0.78rem;padding:7px 14px;">✕ Cerrar</button>
+      </div>
+    </div>
+    <div id="preview-content" style="border-radius:8px;overflow:hidden;box-shadow:0 0 60px rgba(0,0,0,0.6);"></div>
+  </div>
+</div>
+
+<div id="pdf-report"></div>
+<div id="pdf-overlay">
+  <div class="pdf-ov-spinner"></div>
+  <div class="pdf-ov-text" id="pdf-ov-text">Preparando informe...</div>
+</div>
+
+<script>
+// ── Auth guard — redirect to landing if not authenticated ──
+(function() {
+  if (!sessionStorage.getItem('fs_auth')) {
+    window.location.replace('index.html');
+  }
+})();
+
+let reportData = null;
+let API_KEY = '';
+
+// ── API Key — loaded from config.json at startup ──
+async function initApiKey() {
+  try {
+    const resp = await fetch('config.json');
+    if (!resp.ok) throw new Error('config not found');
+    const cfg = await resp.json();
+    API_KEY = cfg.apiKey || '';
+  } catch(e) {
+    console.error('Could not load API config:', e);
+  }
+}
+function getKey() { return API_KEY; }
+function apiHdr() {
+  return {
+    'Content-Type': 'application/json',
+    'x-api-key': getKey(),
+    'anthropic-version': '2023-06-01',
+    'anthropic-dangerous-direct-browser-access': 'true'
+  };
+}
+initApiKey();
+
+// ── Reports storage ──
+function getReports() {
+  try { return JSON.parse(localStorage.getItem('fs_reports') || '[]'); } catch(e) { return []; }
+}
+function saveReport(d, meta) {
+  try {
+    const reports = getReports();
+    reports.unshift({ id: 'r_' + Date.now(), meta, data: d, savedAt: new Date().toISOString() });
+    localStorage.setItem('fs_reports', JSON.stringify(reports.slice(0, 50)));
+  } catch(e) {}
+}
+function deleteReport(id) {
+  try {
+    const r = getReports().filter(x => x.id !== id);
+    localStorage.setItem('fs_reports', JSON.stringify(r));
+  } catch(e) {}
+}
+
+// ── Navigation ──
+function goTo(n) {
+  document.getElementById('s-db').classList.add('hidden');
+  [1,2,3,4,5].forEach(i => {
+    document.getElementById('s'+i).classList.add('hidden');
+    const si = document.getElementById('si-'+i);
+    si.classList.remove('active','done');
+    if (i < n) si.classList.add('done');
+    else if (i === n) si.classList.add('active');
+  });
+  document.getElementById('s'+n).classList.remove('hidden');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function openDashboard() {
+  [1,2,3,4,5].forEach(i => document.getElementById('s'+i).classList.add('hidden'));
+  document.getElementById('s-db').classList.remove('hidden');
+  renderDashboard();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function closeDashboard() {
+  document.getElementById('s-db').classList.add('hidden');
+  goTo(1);
+}
+
+// ── Dashboard ──
+function setDbView(v) {
+  document.getElementById('dv-consultant').classList.toggle('active', v === 'consultant');
+  document.getElementById('dv-client').classList.toggle('active', v === 'client');
+  document.getElementById('db-consultant-view').classList.toggle('hidden', v !== 'consultant');
+  document.getElementById('db-client-view').classList.toggle('hidden', v !== 'client');
+  if (v === 'client') renderClientSelector();
+}
+function renderDashboard() {
+  const reports = getReports();
+  const sectors = [...new Set(reports.map(r => r.meta.sector))];
+  const avgH = reports.length ? Math.round(reports.reduce((a,r)=>a+parseInt(r.meta.horizon||5),0)/reports.length) : 0;
+  document.getElementById('db-stats').innerHTML =
+    ['<div class="db-stat"><div class="db-stat-n">'+reports.length+'</div><div class="db-stat-l">Informes generados</div></div>',
+     '<div class="db-stat"><div class="db-stat-n">'+sectors.length+'</div><div class="db-stat-l">Sectores analizados</div></div>',
+     '<div class="db-stat"><div class="db-stat-n">'+(avgH||'—')+'</div><div class="db-stat-l">Horizonte medio (años)</div></div>',
+     '<div class="db-stat"><div class="db-stat-n">'+reports.filter(r=>r.data.scenarios&&r.data.scenarios.length).length+'</div><div class="db-stat-l">Con escenarios 3P</div></div>'].join('');
+  if (!reports.length) {
+    document.getElementById('db-reports-grid').innerHTML = '<div class="db-empty"><div class="db-empty-icon">◈</div><div style="font-size:0.85rem;margin-bottom:4px;">Aún no hay informes guardados</div><div style="font-size:0.75rem;opacity:0.6;">Los informes se guardan automáticamente al generarlos</div></div>';
+    return;
+  }
+  document.getElementById('db-reports-grid').innerHTML = reports.map(r => {
+    const dt = new Date(r.savedAt).toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'});
+    const scens = r.data.scenarios ? r.data.scenarios.map(s=>s.type).join(' · ') : '';
+    return '<div class="db-report-card" onclick="loadReport(\''+r.id+'\')">'+
+      '<div class="db-r-sector">'+(r.meta.sector||'Sin sector')+'</div>'+
+      '<div class="db-r-name">'+r.meta.name+'</div>'+
+      '<div class="db-r-date">'+dt+' · '+r.meta.horizon+' años · '+r.meta.market+'</div>'+
+      '<div class="db-r-pills">'+(scens?'<span class="db-r-pill">'+scens+'</span>':'')+(r.data.strategicPriorities?'<span class="db-r-pill">'+r.data.strategicPriorities.length+' acciones</span>':'')+'</div>'+
+      '<div class="db-r-actions" onclick="event.stopPropagation()">'+
+        '<button class="db-r-btn" onclick="loadReport(\''+r.id+'\')">Ver</button>'+
+        '<button class="db-r-btn" onclick="dbExportPDF(\''+r.id+'\')">↓ PDF</button>'+
+        '<button class="db-r-btn" onclick="dbClientFile(\''+r.id+'\')">⬡ Cliente</button>'+
+        '<button class="db-r-btn danger" onclick="if(confirm(\'¿Eliminar?\'))deleteReport(\''+r.id+'\'),renderDashboard()">✕</button>'+
+      '</div></div>';
+  }).join('');
+}
+function loadReport(id) {
+  const r = getReports().find(x => x.id === id);
+  if (!r) return;
+  reportData = r.data;
+  document.getElementById('f-name').value = r.meta.name;
+  document.getElementById('f-sector').value = r.meta.sector;
+  document.getElementById('f-horizon').value = r.meta.horizon;
+  document.getElementById('f-market').value = r.meta.market;
+  document.getElementById('f-consultant-name').value = r.meta.consultantName || '';
+  document.getElementById('f-consultant-company').value = r.meta.consultantCompany || '';
+  renderResults(r.meta.name, r.meta.sector, r.meta.horizon);
+  goTo(5);
+}
+async function dbExportPDF(id) {
+  const r = getReports().find(x => x.id === id);
+  if (!r) return;
+  reportData = r.data;
+  document.getElementById('f-name').value = r.meta.name;
+  document.getElementById('f-sector').value = r.meta.sector;
+  document.getElementById('f-horizon').value = r.meta.horizon;
+  document.getElementById('f-market').value = r.meta.market;
+  document.getElementById('f-consultant-name').value = r.meta.consultantName || '';
+  document.getElementById('f-consultant-company').value = r.meta.consultantCompany || '';
+  document.getElementById('r-title').textContent = r.meta.name + ' — Informe Foresight';
+  document.getElementById('r-sub').textContent = 'Horizonte ' + r.meta.horizon + ' años · ' + r.meta.sector;
+  await exportPDF();
+}
+function dbClientFile(id) {
+  const r = getReports().find(x => x.id === id);
+  if (!r) return;
+  reportData = r.data;
+  document.getElementById('f-name').value = r.meta.name;
+  document.getElementById('f-sector').value = r.meta.sector;
+  document.getElementById('f-horizon').value = r.meta.horizon;
+  document.getElementById('f-market').value = r.meta.market;
+  document.getElementById('f-consultant-name').value = r.meta.consultantName || '';
+  document.getElementById('f-consultant-company').value = r.meta.consultantCompany || '';
+  generateClientFile();
+}
+function renderClientSelector() {
+  const reports = getReports();
+  const sel = document.getElementById('cv-select');
+  if (!reports.length) {
+    sel.innerHTML = '<option>Sin informes guardados</option>';
+    document.getElementById('cv-content').innerHTML = '<p style="text-align:center;padding:2rem 0;font-size:0.8rem;color:var(--muted);">Genera primero un informe</p>';
+    return;
+  }
+  sel.innerHTML = reports.map(r => '<option value="'+r.id+'">'+r.meta.name+' — '+r.meta.sector+' ('+r.meta.horizon+'a)</option>').join('');
+  renderClientView(reports[0].id);
+}
+function renderClientView(id) {
+  const r = getReports().find(x => x.id === id);
+  if (!r) return;
+  const d = r.data;
+  const sc = {Probable:'#4ade80',Plausible:'#60a5fa',Posible:'#fb923c'};
+  const dt = new Date(r.savedAt).toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'});
+  let html = '<div style="display:flex;justify-content:flex-end;margin-bottom:1rem;gap:8px;">'+
+    '<button class="btn" onclick="dbClientFile(\''+id+'\')">⬡ Descargar HTML</button>'+
+    '<button class="btn" onclick="dbExportPDF(\''+id+'\')">↓ Descargar PDF</button>'+
+    '</div>'+
+    '<div class="cv-cover"><div class="cv-cover-logo">FORESIGHT STRATEGY REPORT</div>'+
+    '<div class="cv-cover-title">'+r.meta.name+'</div>'+
+    '<div class="cv-cover-meta">'+r.meta.sector+' · Horizonte '+r.meta.horizon+' años · '+r.meta.market+' · '+dt+'</div></div>'+
+    '<div class="cv-block"><div class="cv-block-label">Resumen ejecutivo</div><div class="cv-exec">'+d.executiveSummary+'</div></div>'+
+    '<div class="cv-block"><div class="cv-block-label">Escenarios futuros — 3P</div><div class="cv-scen-row">'+
+    d.scenarios.map(s=>'<div class="cv-scen" style="border-top:2px solid '+(sc[s.type]||'var(--accent)')+';">'+
+      '<div class="cv-scen-type" style="color:'+(sc[s.type]||'var(--accent)')+';">'+s.type+'</div>'+
+      '<div class="cv-scen-name">'+s.name+'</div>'+
+      '<div class="cv-scen-p">P: '+s.probability+'</div>'+
+      '<div class="cv-scen-p" style="margin-top:5px;">'+s.description.substring(0,90)+'...</div>'+
+    '</div>').join('')+'</div></div>'+
+    '<div class="cv-block"><div class="cv-block-label">Prioridades estratégicas</div><div class="cv-action-row">'+
+    ['H1','H2','H3'].map((hk,hi)=>{
+      const hc=['#4ade80','#60a5fa','#c084fc'][hi];
+      const items = d.strategicPriorities.filter(p=>p.horizon===hk);
+      return '<div class="cv-h-card" style="border-top:2px solid '+hc+';">'+
+        '<div class="cv-h-label" style="color:'+hc+';">'+hk+' — '+['Corto','Medio','Largo'][hi]+' plazo</div>'+
+        items.map(p=>'<div class="cv-h-item">'+p.title+'</div>').join('')+'</div>';
+    }).join('')+'</div></div>'+
+    '<div class="cv-block"><div class="cv-block-label">Incertidumbres clave</div>'+
+    d.keyUncertainties.map(u=>'<div style="padding:8px 0;border-bottom:1px solid var(--border);"><div style="font-weight:500;font-size:0.86rem;margin-bottom:3px;">'+u.name+'</div><div style="font-size:0.74rem;color:var(--muted);">'+u.description+'</div></div>').join('')+'</div>';
+  document.getElementById('cv-content').innerHTML = html;
+}
+
+// ── AI suggest ──
+async function aiSuggest(key, dimName, dimKeywords) {
+  const sector = document.getElementById('f-sector').value || 'sector genérico';
+  const btn = document.getElementById('ai-'+key);
+  const wrap = document.getElementById('tags-'+key);
+  btn.disabled = true; btn.textContent = '...'; wrap.innerHTML = '';
+  if (!getKey()) {
+    wrap.innerHTML = '<span style="font-size:0.7rem;color:var(--red);">Introduce tu API key primero</span>';
+    btn.disabled = false; btn.textContent = '✦ IA'; return;
+  }
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST', headers: apiHdr(),
+      body: JSON.stringify({
+        model:'claude-sonnet-4-20250514', max_tokens:600,
+        messages:[{role:'user',content:'Eres un experto en foresight estratégico. Para una empresa del sector "'+sector+'", genera exactamente 5 tendencias relevantes del factor '+dimName+' ('+dimKeywords+') para los próximos 5-10 años. Sé específico y concreto. Devuelve ÚNICAMENTE un array JSON sin backticks ni texto adicional. Formato: ["Tendencia 1","Tendencia 2","Tendencia 3","Tendencia 4","Tendencia 5"]'}]
+      })
+    });
+    const d = await res.json();
+    if (d.error) throw new Error(d.error.message);
+    const tags = JSON.parse(d.content[0].text.trim());
+    wrap.innerHTML = tags.map(t=>'<span class="sug-tag" onclick="addTag(\'steep-'+key+'\',this.textContent)">'+t+'</span>').join('');
+  } catch(e) {
+    wrap.innerHTML = '<span style="font-size:0.7rem;color:var(--red);">Error: '+e.message+'</span>';
+  }
+  btn.disabled = false; btn.textContent = '✦ IA';
+}
+
+async function aiSuggestHorizon(key, horizonLabel, horizonDesc) {
+  const sector  = document.getElementById('f-sector').value || 'sector genérico';
+  const name    = document.getElementById('f-name').value || 'la empresa';
+  const steep   = [
+    document.getElementById('steep-s').value,
+    document.getElementById('steep-t').value,
+    document.getElementById('steep-e').value,
+    document.getElementById('steep-env').value,
+    document.getElementById('steep-p').value
+  ].filter(Boolean).join('. ');
+  const btn  = document.getElementById('ai-'+key);
+  const wrap = document.getElementById('tags-'+key);
+  btn.disabled = true; btn.textContent = '...'; wrap.innerHTML = '';
+  if (!getKey()) {
+    wrap.innerHTML = '<span style="font-size:0.7rem;color:var(--red);">Introduce tu API key primero</span>';
+    btn.disabled = false; btn.textContent = '✦ IA'; return;
+  }
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST', headers: apiHdr(),
+      body: JSON.stringify({
+        model:'claude-sonnet-4-20250514', max_tokens:700,
+        messages:[{role:'user',content:`Eres un experto en foresight estratégico y horizon scanning. Para una empresa llamada "${name}" del sector "${sector}", con este contexto STEEP: "${steep}", identifica exactamente 5 señales de cambio para el horizonte ${horizonLabel} (${horizonDesc}). Las señales deben ser específicas, concretas y relevantes para este sector. Devuelve ÚNICAMENTE un array JSON sin backticks ni texto adicional. Formato: ["Señal 1","Señal 2","Señal 3","Señal 4","Señal 5"]`}]
+      })
+    });
+    const d = await res.json();
+    if (d.error) throw new Error(d.error.message);
+    const tags = JSON.parse(d.content[0].text.trim());
+    wrap.innerHTML = tags.map(t=>'<span class="sug-tag" onclick="addTag(\'hs-'+key+'\',this.textContent)">'+t+'</span>').join('');
+  } catch(e) {
+    wrap.innerHTML = '<span style="font-size:0.7rem;color:var(--red);">Error: '+e.message+'</span>';
+  }
+  btn.disabled = false; btn.textContent = '✦ IA';
+}
+
+function addTag(id, text) {
+  const el = document.getElementById(id);
+  el.value = el.value ? el.value.trimEnd()+'\n'+text : text;
+}
+
+// ── Analysis ──
+async function runAnalysis() {
+  const name     = document.getElementById('f-name').value || 'Empresa';
+  const sector   = document.getElementById('f-sector').value || 'sector no especificado';
+  const size     = document.getElementById('f-size').value || 'empresa';
+  const horizon  = document.getElementById('f-horizon').value || '5';
+  const market   = document.getElementById('f-market').value || 'local';
+  const challenge= document.getElementById('f-challenge').value || 'No especificado';
+  const strengths= document.getElementById('f-strengths').value || 'No especificadas';
+  const stS  = document.getElementById('steep-s').value || 'No especificado';
+  const stT  = document.getElementById('steep-t').value || 'No especificado';
+  const stE  = document.getElementById('steep-e').value || 'No especificado';
+  const stEnv= document.getElementById('steep-env').value || 'No especificado';
+  const stP  = document.getElementById('steep-p').value || 'No especificado';
+  const hsH1 = document.getElementById('hs-h1').value || 'No especificado';
+  const hsH2 = document.getElementById('hs-h2').value || 'No especificado';
+  const hsH3 = document.getElementById('hs-h3').value || 'No especificado';
+
+  document.getElementById('err3').classList.add('hidden');
+
+  if (!getKey()) {
+    const e = document.getElementById('err3');
+    e.classList.remove('hidden');
+    e.textContent = 'Introduce tu API key de Anthropic en la parte superior antes de continuar.';
+    return;
+  }
+
+  goTo(4);
+  const steps = [
+    ['Analizando fuerzas motrices del entorno...','Procesando los 5 factores STEEP'],
+    ['Explorando señales por horizonte temporal...','Integrando el Horizon Scan H1 · H2 · H3'],
+    ['Construyendo los escenarios Probable · Plausible · Posible...','Aplicando ejes de incertidumbre crítica'],
+    ['Trazando el backcasting desde cada futuro...','Finalizando el mapa estratégico']
+  ];
+  let si = 0;
+  const iv = setInterval(()=>{ if(si<steps.length){document.getElementById('l-title').textContent=steps[si][0];document.getElementById('l-sub').textContent=steps[si][1];si++;} },3000);
+
+  const h = parseInt(horizon);
+  const hMid = Math.round(h/2);
+  const y0 = new Date().getFullYear();
+
+  const prompt = `Eres un experto consultor de foresight estratégico con dominio de metodología STEEP, Horizon Scanning, Scenario Planning (método Shell/GBN) y Backcasting. Genera un informe de foresight completo y riguroso.
+
+CONTEXTO:
+- Empresa: ${name} | Sector: ${sector} | Tamaño: ${size}
+- Horizonte: ${horizon} años | Mercado: ${market}
+- Reto estratégico: ${challenge}
+- Capacidades actuales: ${strengths}
+
+FACTORES STEEP:
+- Social: ${stS}
+- Tecnológico: ${stT}
+- Económico: ${stE}
+- Medioambiental: ${stEnv}
+- Político: ${stP}
+
+HORIZON SCAN:
+- H1 (0-2 años, señales ya visibles): ${hsH1}
+- H2 (2-5 años, señales emergentes): ${hsH2}
+- H3 (5+ años, cambios sistémicos): ${hsH3}
+
+INSTRUCCIONES METODOLÓGICAS:
+1. ESCENARIOS 3P Y PROBABILIDADES: Los tres tipos de escenario son "Probable", "Plausible" y "Posible". Las probabilidades NO son rangos fijos — debes derivarlas del análisis real del contexto de esta empresa concreta. Para calcularlas, razona sobre: (a) la velocidad de cambio actual del sector según los factores STEEP identificados, (b) la solidez de las tendencias dominantes, (c) la capacidad de adaptación de la empresa según sus fortalezas declaradas, (d) la intensidad de las incertidumbres clave, y (e) la densidad de señales detectadas en H2 y H3 del Horizon Scan. Si hay muchas señales emergentes en H2/H3, el escenario Posible gana peso. Las tres probabilidades deben sumar exactamente 100% y expresarse como porcentaje exacto (ej: "72%", "21%", "7%"), no como rangos.
+2. HORIZON SCAN: Usa las señales H1/H2/H3 para enriquecer los escenarios — las señales H1 refuerzan el escenario Probable, las H2 el Plausible, y las H3 el Posible. Los wildcards deben derivarse principalmente de las señales H3.
+3. SCENARIO PLANNING: Identifica las 4 fuerzas motrices más influyentes integrando STEEP y Horizon Scan. Define 2 ejes de incertidumbre crítica. Explica la lógica narrativa de cada escenario respecto a esos ejes.
+4. BACKCASTING: Para cada escenario, parte del estado final en ${y0+h} y traza hitos en ${y0+h}, ${y0+hMid} y ${y0+Math.round(hMid/2)}. Acciones concretas en cada hito.
+
+Devuelve ÚNICAMENTE un objeto JSON válido, sin backticks, sin markdown:
+
+{"executiveSummary":"3-4 frases sobre el panorama estratégico específico para esta empresa","keyUncertainties":[{"name":"Incertidumbre 1","description":"Por qué es crítica"},{"name":"Incertidumbre 2","description":"Descripción"}],"scenarios":[{"type":"Probable","name":"Nombre evocador","probability":"XX%","description":"Narrativa 2-3 frases","opportunities":["Op1","Op2","Op3"],"threats":["Am1","Am2"]},{"type":"Plausible","name":"Nombre","probability":"XX%","description":"Narrativa","opportunities":["Op1","Op2","Op3"],"threats":["Am1","Am2"]},{"type":"Posible","name":"Nombre disruptivo","probability":"XX%","description":"Narrativa","opportunities":["Op1","Op2"],"threats":["Am1","Am2","Am3"]}],"scenarioPlanning":{"intro":"2 frases sobre los ejes que estructuran el espacio de futuros","drivingForces":[{"rank":1,"title":"Fuerza 1","description":"Descripción concreta","impactScore":90},{"rank":2,"title":"Fuerza 2","description":"Descripción","impactScore":78},{"rank":3,"title":"Fuerza 3","description":"Descripción","impactScore":65},{"rank":4,"title":"Fuerza 4","description":"Descripción","impactScore":54}],"axes":[{"label":"Nombre eje 1","poleHigh":"Polo positivo","poleLow":"Polo negativo","rationale":"Justificación"},{"label":"Nombre eje 2","poleHigh":"Polo positivo","poleLow":"Polo negativo","rationale":"Justificación"}],"scenarioLogics":[{"name":"Nombre probable","logic":"Posición en ejes y coherencia interna"},{"name":"Nombre plausible","logic":"Lógica narrativa"},{"name":"Nombre posible","logic":"Lógica narrativa"}]},"backcasting":[{"scenarioType":"Probable","scenarioName":"Nombre","visionStatement":"Estado en ${y0+h}: descripción concreta","milestones":[{"year":"${y0+h}","title":"Estado final","description":"Descripción","actions":["Acción 1","Acción 2"]},{"year":"${y0+hMid}","title":"Hito intermedio","description":"Descripción","actions":["Acción 1","Acción 2","Acción 3"]},{"year":"${y0+Math.round(hMid/2)}","title":"Primeras apuestas","description":"Descripción","actions":["Acción 1","Acción 2"]}],"startingPoint":"Situación actual y brecha crítica"},{"scenarioType":"Plausible","scenarioName":"Nombre","visionStatement":"Estado en ${y0+h}","milestones":[{"year":"${y0+h}","title":"Estado final","description":"Desc","actions":["A1","A2"]},{"year":"${y0+hMid}","title":"Hito intermedio","description":"Desc","actions":["A1","A2","A3"]},{"year":"${y0+Math.round(hMid/2)}","title":"Señal temprana","description":"Desc","actions":["A1","A2"]}],"startingPoint":"Situación actual"},{"scenarioType":"Posible","scenarioName":"Nombre","visionStatement":"Estado en ${y0+h}","milestones":[{"year":"${y0+h}","title":"Estado final","description":"Desc","actions":["A1","A2"]},{"year":"${y0+hMid}","title":"Punto de inflexión","description":"Desc","actions":["A1","A2","A3"]},{"year":"${y0+Math.round(hMid/2)}","title":"Señal de alerta","description":"Desc","actions":["A1","A2"]}],"startingPoint":"Situación actual"}],"weakSignals":[{"title":"Señal 1","dimension":"Social","description":"Descripción"},{"title":"Señal 2","dimension":"Tecnológico","description":"Descripción"},{"title":"Señal 3","dimension":"Económico","description":"Descripción"},{"title":"Señal 4","dimension":"Medioambiental","description":"Descripción"}],"wildcards":[{"title":"Wildcard 1","description":"Evento baja prob alto impacto"},{"title":"Wildcard 2","description":"Descripción"},{"title":"Wildcard 3","description":"Descripción"}],"strategicPriorities":[{"horizon":"H1","timeframe":"0-18 meses","title":"Prioridad H1 principal","impact":"high","actions":["A1","A2","A3"]},{"horizon":"H1","timeframe":"0-18 meses","title":"Prioridad H1 secundaria","impact":"medium","actions":["A1","A2"]},{"horizon":"H2","timeframe":"18 meses-${hMid} años","title":"Prioridad H2 principal","impact":"high","actions":["A1","A2","A3"]},{"horizon":"H2","timeframe":"18 meses-${hMid} años","title":"Prioridad H2 secundaria","impact":"medium","actions":["A1","A2"]},{"horizon":"H3","timeframe":"${hMid}-${horizon} años","title":"Prioridad H3 principal","impact":"high","actions":["A1","A2","A3"]},{"horizon":"H3","timeframe":"${hMid}-${horizon} años","title":"Prioridad H3 exploratoria","impact":"low","actions":["A1","A2"]}]}`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST', headers: apiHdr(),
+      body: JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:8000,messages:[{role:'user',content:prompt}]})
+    });
+    clearInterval(iv);
+    const d = await res.json();
+    if (d.error) throw new Error(d.error.message);
+    let txt = d.content[0].text.trim();
+    // Strip markdown fences if present
+    txt = txt.replace(/^```json\s*/,'').replace(/^```\s*/,'').replace(/\s*```$/,'').trim();
+    // Extract just the JSON object — find outermost { }
+    const firstBrace = txt.indexOf('{');
+    const lastBrace = txt.lastIndexOf('}');
+    if (firstBrace === -1 || lastBrace === -1) throw new Error('No JSON object found in response');
+    txt = txt.slice(firstBrace, lastBrace + 1);
+    reportData = JSON.parse(txt);
+    const cName = document.getElementById('f-consultant-name').value || '';
+    const cCompany = document.getElementById('f-consultant-company').value || '';
+    saveReport(reportData, {name, sector, horizon, market, consultantName: cName, consultantCompany: cCompany});
+    renderResults(name, sector, horizon);
+    goTo(5);
+  } catch(e) {
+    clearInterval(iv);
+    goTo(2);
+    const errEl = document.getElementById('err2');
+    errEl.classList.remove('hidden');
+    errEl.textContent = 'Error al generar el análisis: ' + e.message;
+  }
+}
+
+// ── Render results ──
+function renderResults(name, sector, horizon) {
+  document.getElementById('r-title').textContent = name + ' — Informe Foresight';
+  document.getElementById('r-sub').textContent = 'Horizonte ' + horizon + ' años · ' + sector;
+  const d = reportData;
+
+  document.getElementById('exec-sum').textContent = d.executiveSummary;
+  document.getElementById('unc-grid').innerHTML = d.keyUncertainties.map(u=>
+    '<div class="unc-card"><div class="unc-name">'+u.name+'</div><div class="unc-desc">'+u.description+'</div></div>'
+  ).join('');
+
+  const sc = {Probable:'var(--green)',Plausible:'var(--blue)',Posible:'var(--orange)'};
+  document.getElementById('scen-grid').innerHTML = d.scenarios.map(s=>
+    '<div class="scen-card"><div class="scen-stripe" style="background:'+sc[s.type]+';"></div>'+
+    '<div class="scen-type-badge" style="color:'+sc[s.type]+';">'+s.type+'</div>'+
+    '<div class="scen-name">'+s.name+'</div>'+
+    '<div class="prob-pill">P: '+s.probability+'</div>'+
+    '<div class="scen-desc">'+s.description+'</div>'+
+    '<div class="scen-section-label">Oportunidades</div>'+
+    '<div class="scen-items">'+s.opportunities.map(o=>'<div class="scen-item"><div class="scen-dot" style="background:var(--green);"></div><span>'+o+'</span></div>').join('')+'</div>'+
+    '<div class="scen-section-label">Amenazas</div>'+
+    '<div class="scen-items">'+s.threats.map(t=>'<div class="scen-item"><div class="scen-dot" style="background:var(--red);"></div><span>'+t+'</span></div>').join('')+'</div>'+
+    '</div>'
+  ).join('');
+
+  const sp = d.scenarioPlanning;
+  document.getElementById('sp-intro').textContent = sp.intro;
+  document.getElementById('forces-grid').innerHTML = sp.drivingForces.map(f=>
+    '<div class="force-card"><div class="force-head"><span class="force-rank">#'+f.rank+'</span><span class="force-title">'+f.title+'</span></div>'+
+    '<div class="force-desc">'+f.description+'</div>'+
+    '<div style="display:flex;align-items:center;gap:6px;">'+
+    '<div class="force-bar-bg"><div class="force-bar-fill" style="width:'+f.impactScore+'%;"></div></div>'+
+    '<span class="force-score">'+f.impactScore+'/100</span></div></div>'
+  ).join('');
+  document.getElementById('axes-grid').innerHTML = sp.axes.map(ax=>
+    '<div><div class="axis-label">'+ax.label+'</div>'+
+    '<div class="axis-poles"><span class="axis-pole">− '+ax.poleLow+'</span><span class="axis-pole">'+ax.poleHigh+' +</span></div>'+
+    '<div class="axis-bar"></div><div class="axis-rationale">'+ax.rationale+'</div></div>'
+  ).join('');
+  const spColors = ['var(--green)','var(--blue)','var(--orange)'];
+  document.getElementById('sp-scen-row').innerHTML = sp.scenarioLogics.map((sl,i)=>
+    '<div class="sp-scen-card"><div class="sp-scen-name" style="color:'+spColors[i]+';">'+sl.name+'</div><div class="sp-scen-logic">'+sl.logic+'</div></div>'
+  ).join('');
+
+  const bcColors = {Probable:'var(--green)',Plausible:'var(--blue)',Posible:'var(--orange)'};
+  document.getElementById('bc-selector').innerHTML = d.backcasting.map((bc,i)=>
+    '<button class="bc-tab'+(i===0?' active':'')+'" onclick="selectBcPanel('+i+')">'+bc.scenarioType+': '+bc.scenarioName+'</button>'
+  ).join('');
+  document.getElementById('bc-panels').innerHTML = d.backcasting.map((bc,i)=>
+    '<div class="bc-panel'+(i===0?' active':'')+'" id="bc-panel-'+i+'">'+
+    '<div class="bc-vision"><div class="bc-vision-stripe" style="background:'+bcColors[bc.scenarioType]+';"></div>'+
+    '<div class="bc-vision-label">Visión — '+bc.scenarioType+'</div>'+
+    '<div class="bc-vision-text">'+bc.visionStatement+'</div></div>'+
+    '<div class="bc-timeline">'+
+    bc.milestones.map(m=>
+      '<div class="bc-milestone"><div class="bc-m-time">'+m.year+'</div><div class="bc-m-title">'+m.title+'</div>'+
+      '<div class="bc-m-desc">'+m.description+'</div>'+
+      '<div class="bc-m-actions">'+m.actions.map(a=>'<div class="bc-action">'+a+'</div>').join('')+'</div></div>'
+    ).join('')+'</div>'+
+    '<div class="bc-now"><div class="bc-now-label">Punto de partida — Hoy</div><div class="bc-now-text">'+bc.startingPoint+'</div></div>'+
+    '</div>'
+  ).join('');
+
+  const dimIcon = {Social:'👥',Tecnológico:'⚡',Económico:'💹',Medioambiental:'🌱',Político:'🏛️'};
+  const dimColor = {Social:'var(--blue)',Tecnológico:'var(--green)',Económico:'var(--accent)',Medioambiental:'#86efac',Político:'var(--purple)'};
+  document.getElementById('sig-grid').innerHTML = d.weakSignals.map(s=>
+    '<div class="sig-card"><div class="sig-icon" style="background:'+(dimColor[s.dimension]||'var(--accent)')+'22;">'+
+    '<span>'+(dimIcon[s.dimension]||'◈')+'</span></div>'+
+    '<div><div class="sig-title">'+s.title+'</div>'+
+    '<div class="sig-dim" style="color:'+(dimColor[s.dimension]||'var(--accent)')+';">'+s.dimension+'</div>'+
+    '<div class="sig-desc">'+s.description+'</div></div></div>'
+  ).join('');
+  document.getElementById('wild-list').innerHTML = d.wildcards.map(w=>
+    '<div class="wild-item"><div class="wild-title">⚑ '+w.title+'</div><div class="wild-desc">'+w.description+'</div></div>'
+  ).join('');
+
+  const hCfg = {H1:{id:'str-h1',cls:'h1',label:'Horizonte 1 — Corto plazo'},H2:{id:'str-h2',cls:'h2',label:'Horizonte 2 — Medio plazo'},H3:{id:'str-h3',cls:'h3',label:'Horizonte 3 — Largo plazo'}};
+  ['H1','H2','H3'].forEach(hk=>{
+    const items = d.strategicPriorities.filter(p=>p.horizon===hk);
+    const cfg = hCfg[hk];
+    document.getElementById(cfg.id).innerHTML = '<div class="horizon-section">'+
+      '<div class="horizon-label"><span class="h-badge '+cfg.cls+'">'+hk+'</span>'+
+      '<span style="font-size:0.82rem;font-weight:500;">'+cfg.label+'</span>'+
+      '<span class="h-time">'+(items[0]&&items[0].timeframe||'')+'</span></div>'+
+      items.map(p=>'<div class="action-card"><div class="action-head">'+
+        '<div class="action-title">'+p.title+'</div>'+
+        '<span class="impact-tag '+(p.impact==='high'?'imp-high':p.impact==='medium'?'imp-med':'imp-low')+'">'+(p.impact==='high'?'Alto impacto':p.impact==='medium'?'Impacto medio':'Exploración')+'</span></div>'+
+        '<ul class="action-list">'+p.actions.map(a=>'<li>'+a+'</li>').join('')+'</ul></div>'
+      ).join('')+'</div>';
+  });
+
+  document.getElementById('btn-pdf').style.display = 'inline-flex';
+  document.getElementById('btn-client').style.display = 'inline-flex';
+  document.getElementById('btn-preview').style.display = 'inline-flex';
+  document.getElementById('btn-ppt').style.display = 'inline-flex';
+  renderImpactMatrix(sp.drivingForces, sp.axes);
+  switchTab('res');
+}
+
+// ── Impact Matrix ──
+function renderImpactMatrix(forces, axes) {
+  const wrap = document.getElementById('impact-matrix-wrap');
+  if (!wrap || !forces || forces.length < 2) return;
+  const W = 560, H = 360, pad = 56;
+  const iW = W - pad*2, iH = H - pad*2;
+  const axX = axes[0] ? axes[0].label : 'Eje X';
+  const axY = axes[1] ? axes[1].label : 'Eje Y';
+  const axXlo = axes[0] ? axes[0].poleLow : '';
+  const axXhi = axes[0] ? axes[0].poleHigh : '';
+  const axYlo = axes[1] ? axes[1].poleLow : '';
+  const axYhi = axes[1] ? axes[1].poleHigh : '';
+
+  // Distribute forces across quadrants based on impactScore
+  // High impact + high uncertainty → top-right
+  // High impact + low uncertainty → top-left
+  // Low impact + high uncertainty → bottom-right
+  // Low impact + low uncertainty → bottom-left
+  const sorted = [...forces].sort((a,b) => b.impactScore - a.impactScore);
+  const positions = [
+    {qx:0.72, qy:0.22}, // Q1 top-right
+    {qx:0.26, qy:0.25}, // Q2 top-left
+    {qx:0.70, qy:0.70}, // Q3 bottom-right
+    {qx:0.28, qy:0.68}, // Q4 bottom-left
+  ];
+  const nodeColors = ['var(--accent)','var(--blue)','var(--green)','var(--purple)'];
+  const quadLabels = [
+    {x:W-pad-4,y:pad+18,anchor:'end',text:'Alto impacto · Alta incertidumbre',col:'rgba(212,168,83,0.45)'},
+    {x:pad+4,y:pad+18,anchor:'start',text:'Alto impacto · Baja incertidumbre',col:'rgba(96,165,250,0.45)'},
+    {x:W-pad-4,y:H-pad-8,anchor:'end',text:'Bajo impacto · Alta incertidumbre',col:'rgba(74,222,128,0.35)'},
+    {x:pad+4,y:H-pad-8,anchor:'start',text:'Bajo impacto · Baja incertidumbre',col:'rgba(140,140,140,0.3)'},
+  ];
+
+  let nodes = sorted.slice(0,4).map((f,i) => ({
+    f,
+    cx: pad + positions[i].qx * iW,
+    cy: pad + positions[i].qy * iH,
+    r: 10 + Math.round(f.impactScore/14),
+    col: nodeColors[i]
+  }));
+
+  const qlSvg = quadLabels.map(q =>
+    `<text x="${q.x}" y="${q.y}" text-anchor="${q.anchor}" font-family="DM Mono,monospace" font-size="8" fill="${q.col}">${q.text}</text>`
+  ).join('');
+
+  const nodesSvg = nodes.map((n,i) =>
+    `<g class="matrix-node" onmouseenter="showMatrixTip(event,${i})" onmouseleave="hideMatrixTip()">
+      <circle cx="${n.cx}" cy="${n.cy}" r="${n.r+4}" fill="${n.col}" opacity="0.10"/>
+      <circle cx="${n.cx}" cy="${n.cy}" r="${n.r}" fill="${n.col}" opacity="0.85"/>
+      <text x="${n.cx}" y="${n.cy+4}" text-anchor="middle" font-family="DM Mono,monospace" font-size="8.5" font-weight="600" fill="#09090b">#${n.f.rank}</text>
+    </g>`
+  ).join('');
+
+  wrap.innerHTML = `<div class="matrix-wrap" style="position:relative;">
+    <div style="font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.75rem;">
+      Posicionamiento de fuerzas — Impacto × Incertidumbre
+    </div>
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;display:block;">
+      <!-- Quadrant backgrounds -->
+      <rect x="${pad}" y="${pad}" width="${iW/2}" height="${iH/2}" fill="rgba(96,165,250,0.04)" rx="2"/>
+      <rect x="${pad+iW/2}" y="${pad}" width="${iW/2}" height="${iH/2}" fill="rgba(212,168,83,0.05)" rx="2"/>
+      <rect x="${pad}" y="${pad+iH/2}" width="${iW/2}" height="${iH/2}" fill="rgba(120,120,120,0.03)" rx="2"/>
+      <rect x="${pad+iW/2}" y="${pad+iH/2}" width="${iW/2}" height="${iH/2}" fill="rgba(74,222,128,0.03)" rx="2"/>
+      <!-- Axes -->
+      <line x1="${pad}" y1="${pad}" x2="${pad}" y2="${H-pad}" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+      <line x1="${pad}" y1="${H-pad}" x2="${W-pad}" y2="${H-pad}" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+      <!-- Centre cross -->
+      <line x1="${pad+iW/2}" y1="${pad}" x2="${pad+iW/2}" y2="${H-pad}" stroke="rgba(255,255,255,0.05)" stroke-width="1" stroke-dasharray="4,4"/>
+      <line x1="${pad}" y1="${pad+iH/2}" x2="${W-pad}" y2="${pad+iH/2}" stroke="rgba(255,255,255,0.05)" stroke-width="1" stroke-dasharray="4,4"/>
+      <!-- Axis arrows -->
+      <polygon points="${W-pad+8},${H-pad} ${W-pad+1},${H-pad-4} ${W-pad+1},${H-pad+4}" fill="rgba(255,255,255,0.15)"/>
+      <polygon points="${pad},${pad-8} ${pad-4},${pad-1} ${pad+4},${pad-1}" fill="rgba(255,255,255,0.15)"/>
+      <!-- Axis labels -->
+      <text x="${W/2}" y="${H-8}" text-anchor="middle" font-family="DM Mono,monospace" font-size="9" fill="rgba(212,168,83,0.7)">${axX}</text>
+      <text x="11" y="${H/2}" text-anchor="middle" font-family="DM Mono,monospace" font-size="9" fill="rgba(212,168,83,0.7)" transform="rotate(-90,11,${H/2})">${axY}</text>
+      <!-- Pole labels -->
+      <text x="${pad+4}" y="${H-pad+14}" font-family="DM Mono,monospace" font-size="7.5" fill="rgba(255,255,255,0.2)">− ${axXlo}</text>
+      <text x="${W-pad-4}" y="${H-pad+14}" text-anchor="end" font-family="DM Mono,monospace" font-size="7.5" fill="rgba(255,255,255,0.2)">${axXhi} +</text>
+      <text x="${pad-10}" y="${pad+4}" text-anchor="middle" font-family="DM Mono,monospace" font-size="7.5" fill="rgba(255,255,255,0.2)" transform="rotate(-90,${pad-10},${pad+4})">+ ${axYhi}</text>
+      <text x="${pad-10}" y="${H-pad}" text-anchor="middle" font-family="DM Mono,monospace" font-size="7.5" fill="rgba(255,255,255,0.2)" transform="rotate(-90,${pad-10},${H-pad})">− ${axYlo}</text>
+      <!-- Quadrant labels -->
+      ${qlSvg}
+      <!-- Force nodes -->
+      ${nodesSvg}
+    </svg>
+    <!-- Legend -->
+    <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:0.6rem;">
+      ${nodes.map(n=>`<div style="display:flex;align-items:center;gap:6px;font-size:0.75rem;color:var(--muted);">
+        <div style="width:8px;height:8px;border-radius:50%;background:${n.col};flex-shrink:0;"></div>
+        <span><strong style="color:var(--text);">#${n.f.rank}</strong> ${n.f.title}</span>
+      </div>`).join('')}
+    </div>
+  </div>`;
+
+  // Store nodes for tooltip
+  window._matrixNodes = nodes;
+}
+function showMatrixTip(e, i) {
+  const nodes = window._matrixNodes;
+  if (!nodes || !nodes[i]) return;
+  const tip = document.getElementById('matrix-tip');
+  const n = nodes[i];
+  tip.innerHTML = `<strong>#${n.f.rank} ${n.f.title}</strong>${n.f.description}<br><span style="color:var(--accent);font-family:'DM Mono',monospace;font-size:0.65rem;">Impacto: ${n.f.impactScore}/100</span>`;
+  tip.style.display = 'block';
+  tip.style.left = (e.clientX + 12) + 'px';
+  tip.style.top = (e.clientY - 20) + 'px';
+}
+function hideMatrixTip() {
+  document.getElementById('matrix-tip').style.display = 'none';
+}
+document.addEventListener('mousemove', function(e) {
+  const tip = document.getElementById('matrix-tip');
+  if (tip && tip.style.display === 'block') {
+    tip.style.left = (e.clientX + 14) + 'px';
+    tip.style.top = (e.clientY - 20) + 'px';
+  }
+});
+
+// ── Onboarding ──
+const OB_EXAMPLE = {
+  name:'Restalia', sector:'Franquicias de restauración', size:'gran empresa',
+  horizon:'5', market:'local/nacional',
+  challenge:'¿Cómo adaptar el modelo de franquicia tradicional ante la automatización, la presión regulatoria nutricional y el cambio generacional en el consumo?',
+  strengths:'Red de 800+ locales, poder de compra y volumen, tres marcas consolidadas (100 Montaditos, The Good Burger, La Sureña), capilaridad nacional',
+  steepS:'Cambio en preferencias generacionales hacia experiencias auténticas y sostenibles, auge plant-based, food anxiety en Gen Z',
+  steepT:'Automatización de cocinas, IA conversacional en pedidos, ghost kitchens, plataformas de delivery omnicanal',
+  steepE:'Inflación en materias primas, incremento de costes laborales, presión en márgenes del sector',
+  steepEnv:'Regulación de packaging, sostenibilidad en cadena de suministro, presión ESG de inversores',
+  steepP:'Regulación nutricional sobre ultraprocesados, posibles impuestos específicos, normativa laboral en hostelería',
+  hsH1:'Plataformas de delivery consolidadas como canal principal, primeras regulaciones de packaging monouso, subida SMI',
+  hsH2:'Cocinas semi-automatizadas en cadenas líderes, proteínas alternativas en menús mainstream, apps de fidelización con IA',
+  hsH3:'Impresión 3D de alimentos, restaurantes completamente autónomos, regulación global de ultraprocesados similar a tabaco'
+};
+function initOnboarding() {
+  if (localStorage.getItem('fs_ob_skip') === '1') {
+    document.getElementById('ob-overlay').style.display = 'none';
+  }
+}
+function closeOnboarding(loadExample) {
+  if (document.getElementById('ob-no-show').checked) {
+    localStorage.setItem('fs_ob_skip','1');
+  }
+  document.getElementById('ob-overlay').style.display = 'none';
+  if (loadExample) {
+    const e = OB_EXAMPLE;
+    document.getElementById('f-name').value = e.name;
+    document.getElementById('f-sector').value = e.sector;
+    document.getElementById('f-size').value = e.size;
+    document.getElementById('f-horizon').value = e.horizon;
+    document.getElementById('f-market').value = e.market;
+    document.getElementById('f-challenge').value = e.challenge;
+    document.getElementById('f-strengths').value = e.strengths;
+    document.getElementById('steep-s').value = e.steepS;
+    document.getElementById('steep-t').value = e.steepT;
+    document.getElementById('steep-e').value = e.steepE;
+    document.getElementById('steep-env').value = e.steepEnv;
+    document.getElementById('steep-p').value = e.steepP;
+    document.getElementById('hs-h1').value = e.hsH1;
+    document.getElementById('hs-h2').value = e.hsH2;
+    document.getElementById('hs-h3').value = e.hsH3;
+  }
+}
+initOnboarding();
+
+function selectBcPanel(idx) {
+  document.querySelectorAll('.bc-panel').forEach((p,i)=>p.classList.toggle('active',i===idx));
+  document.querySelectorAll('.bc-tab').forEach((t,i)=>t.classList.toggle('active',i===idx));
+}
+function switchTab(t) {
+  ['res','esc','sp','bc','sig','str'].forEach(id=>document.getElementById('tab-'+id).classList.add('hidden'));
+  document.getElementById('tab-'+t).classList.remove('hidden');
+  document.querySelectorAll('.tab-btn').forEach((btn,i)=>btn.classList.toggle('active',['res','esc','sp','bc','sig','str'][i]===t));
+}
+
+// ── PDF ──
+function buildPDFHTML() {
+  const d = reportData;
+  const name = document.getElementById('f-name').value || 'Empresa';
+  const sector = document.getElementById('f-sector').value || '';
+  const horizon = document.getElementById('f-horizon').value || '5';
+  const market = document.getElementById('f-market').value || '';
+  const today = new Date().toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'});
+  const sc = {Probable:'#4ade80',Plausible:'#60a5fa',Posible:'#fb923c'};
+  const sp = d.scenarioPlanning;
+
+  function ph(co) { return '<div class="pdf-ph"><span class="pdf-ph-logo">Foresight Strategy</span><span class="pdf-ph-co">'+co+'</span></div>'; }
+  function pf(n,total) { return '<div class="pdf-pf"><span class="pdf-pft">Confidencial · Foresight Strategy Platform · Powered by Claude AI</span><span class="pdf-pn">'+n+' / '+total+'</span></div>'; }
+  function sh(title) { return '<div class="pdf-sh"><div class="pdf-sb"></div><div class="pdf-st">'+title+'</div></div>'; }
+
+  var impStyle = function(impact) {
+    if (impact === 'high') return 'background:#f0fdf4;color:#166534';
+    if (impact === 'medium') return 'background:#fff7ed;color:#9a3412';
+    return 'background:#eff6ff;color:#1e40af';
+  };
+  var impLabel = function(impact) {
+    if (impact === 'high') return 'Alto';
+    if (impact === 'medium') return 'Medio';
+    return 'Exploración';
+  };
+  var hColors = ['#4ade80','#60a5fa','#c084fc'];
+  var hLabels = ['H1 — Corto plazo','H2 — Medio plazo','H3 — Largo plazo'];
+
+  return '<div id="pdf-inner" style="font-family:DM Sans,sans-serif;width:794px;margin:0;padding:0;display:block;">'+
+
+  // Cover
+  '<div class="pdf-cover-page">'+
+    '<div class="pdf-ca"></div><div class="pdf-ca2"></div>'+
+    '<div class="pdf-cv-top"><span class="pdf-cv-logo">Foresight <em>Strategy</em></span><span class="pdf-cv-date">'+today+'</span></div>'+
+    '<div class="pdf-cv-body">'+
+      '<div class="pdf-cv-label">Informe de foresight estratégico</div>'+
+      '<div class="pdf-cv-title">'+name+'</div>'+
+      '<div class="pdf-cv-sector">'+sector+'</div>'+
+      '<div class="pdf-cv-divider"></div>'+
+      '<div class="pdf-cv-pills">'+
+        '<div><div class="pdf-cv-pl">Horizonte</div><div class="pdf-cv-pv">'+horizon+' años</div></div>'+
+        '<div><div class="pdf-cv-pl">Mercado</div><div class="pdf-cv-pv">'+market+'</div></div>'+
+        '<div><div class="pdf-cv-pl">Metodología</div><div class="pdf-cv-pv">STEEP · 3P · Backcasting</div></div>'+
+      '</div>'+
+    '</div>'+
+    '<div class="pdf-cv-bottom"><span>Confidencial — Foresight Strategy Platform</span><span>Powered by Claude AI</span></div>'+
+  '</div>'+
+
+  // Page 1: Exec summary + uncertainties + driving forces
+  '<div class="pdf-ip pdf-pb2">'+ph(name)+
+    '<div class="pdf-pb">'+
+      sh('Resumen ejecutivo')+
+      '<div class="pdf-exec-bl"><div class="pdf-exec-t">'+d.executiveSummary+'</div></div>'+
+      sh('Incertidumbres clave')+
+      '<div class="pdf-g2" style="margin-bottom:6mm;">'+
+        d.keyUncertainties.map(u=>'<div class="pdf-card pdf-ca-accent"><div class="pdf-ct">'+u.name+'</div><div class="pdf-cb">'+u.description+'</div></div>').join('')+
+      '</div>'+
+      sh('Scenario planning — Fuerzas motrices del cambio')+
+      '<div style="font-size:7pt;color:#666;line-height:1.55;margin-bottom:3mm;">'+sp.intro+'</div>'+
+      sp.drivingForces.map(f=>
+        '<div class="pdf-fr"><span class="pdf-frk">#'+f.rank+'</span>'+
+        '<div class="pdf-frc"><div class="pdf-frt">'+f.title+'</div>'+
+        '<div class="pdf-frd">'+f.description+'</div>'+
+        '<div class="pdf-fb"><div class="pdf-ff" style="width:'+f.impactScore+'%;"></div></div>'+
+        '<div class="pdf-fs">'+f.impactScore+'/100</div></div></div>'
+      ).join('')+
+    '</div>'+pf(1,4)+
+  '</div>'+
+
+  // Page 2: Scenarios 3P + axes + logics
+  '<div class="pdf-ip pdf-pb2">'+ph(name)+
+    '<div class="pdf-pb">'+
+      sh('Escenarios futuros — Marco de las 3P')+
+      '<div class="pdf-g3" style="margin-bottom:6mm;">'+
+        d.scenarios.map(s=>
+          '<div class="pdf-sc-card">'+
+          '<div class="pdf-sc-top" style="background:'+(sc[s.type]||'#d4a853')+'"></div>'+
+          '<div class="pdf-sc-type" style="color:'+(sc[s.type]||'#d4a853')+'">'+s.type+'</div>'+
+          '<div class="pdf-sc-name">'+s.name+'</div>'+
+          '<div class="pdf-sc-prob">P: '+s.probability+'</div>'+
+          '<div class="pdf-sc-desc">'+s.description+'</div>'+
+          '<div class="pdf-ml">Oportunidades</div>'+
+          '<ul class="pdf-bl">'+s.opportunities.map(o=>'<li style="border-left-color:'+(sc[s.type]||'#d4a853')+'">+ '+o+'</li>').join('')+'</ul>'+
+          '<div class="pdf-ml">Amenazas</div>'+
+          '<ul class="pdf-bl">'+s.threats.map(t=>'<li style="border-left-color:#f87171">− '+t+'</li>').join('')+'</ul>'+
+          '</div>'
+        ).join('')+
+      '</div>'+
+      sh('Ejes de incertidumbre')+
+      '<div class="pdf-g2" style="margin-bottom:6mm;">'+
+        sp.axes.map(ax=>
+          '<div class="pdf-ax"><div class="pdf-axt">'+ax.label+'</div>'+
+          '<div class="pdf-axp"><span class="pdf-axpl">− '+ax.poleLow+'</span><span class="pdf-axpl">'+ax.poleHigh+' +</span></div>'+
+          '<div class="pdf-axb"></div><div class="pdf-axr">'+ax.rationale+'</div></div>'
+        ).join('')+
+      '</div>'+
+      sh('Lógica narrativa de los escenarios')+
+      '<div class="pdf-g3">'+
+        sp.scenarioLogics.map((sl,i)=>
+          '<div class="pdf-card" style="border-top:2px solid '+([sc.Probable,sc.Plausible,sc.Posible][i]||'#d4a853')+'">'+
+          '<div class="pdf-ct">'+sl.name+'</div><div class="pdf-cb">'+sl.logic+'</div></div>'
+        ).join('')+
+      '</div>'+
+    '</div>'+pf(2,4)+
+  '</div>'+
+
+  // Page 3: Backcasting
+  '<div class="pdf-ip pdf-pb2">'+ph(name)+
+    '<div class="pdf-pb">'+
+      sh('Backcasting — Del futuro al presente')+
+      '<div style="font-size:7pt;color:#666;margin-bottom:4mm;">El backcasting parte del estado futuro deseado y traza hacia atrás los hitos y decisiones críticas necesarias para llegar a él.</div>'+
+      d.backcasting.map(bc=>
+        '<div class="pdf-bc-bl">'+
+        '<div class="pdf-bc-h">'+
+          '<div class="pdf-bc-dot" style="background:'+(sc[bc.scenarioType]||'#d4a853')+'"></div>'+
+          '<span class="pdf-bc-sl" style="color:'+(sc[bc.scenarioType]||'#d4a853')+'">'+bc.scenarioType+'</span>'+
+          '<span class="pdf-bc-n">'+bc.scenarioName+'</span>'+
+        '</div>'+
+        '<div class="pdf-bc-v">"'+bc.visionStatement+'"</div>'+
+        '<div class="pdf-bc-bd">'+
+          bc.milestones.map(m=>
+            '<div class="pdf-bc-m"><span class="pdf-bc-y">'+m.year+'</span>'+
+            '<div><div class="pdf-bc-mt">'+m.title+'</div>'+
+            '<div class="pdf-bc-md">'+m.description+'</div>'+
+            '<div class="pdf-bc-ac">'+m.actions.map(a=>'<div class="pdf-bc-a">'+a+'</div>').join('')+'</div>'+
+            '</div></div>'
+          ).join('')+
+        '</div>'+
+        '<div class="pdf-bc-s"><div class="pdf-bc-sl2">Punto de partida — Hoy</div>'+bc.startingPoint+'</div>'+
+        '</div>'
+      ).join('')+
+    '</div>'+pf(3,4)+
+  '</div>'+
+
+  // Page 4: Signals + wildcards + strategy map
+  '<div class="pdf-ip pdf-pb2">'+ph(name)+
+    '<div class="pdf-pb">'+
+      sh('Señales débiles detectadas')+
+      '<div style="margin-bottom:5mm;">'+
+        d.weakSignals.map(s=>
+          '<div class="pdf-sr"><span class="pdf-sd">'+s.dimension+'</span>'+
+          '<div><div class="pdf-st2">'+s.title+'</div><div class="pdf-sdesc">'+s.description+'</div></div></div>'
+        ).join('')+
+      '</div>'+
+      sh('Wildcards — Eventos de alto impacto')+
+      '<div style="margin-bottom:5mm;">'+
+        d.wildcards.map(w=>'<div class="pdf-wr"><div class="pdf-wt">⚑ '+w.title+'</div><div class="pdf-wd">'+w.description+'</div></div>').join('')+
+      '</div>'+
+      sh('Mapa estratégico por horizontes')+
+      ['H1','H2','H3'].map(function(hk,hi) {
+        var items = d.strategicPriorities.filter(function(p){ return p.horizon === hk; });
+        var tf = items.length ? items[0].timeframe : '';
+        return '<div class="pdf-hs">'+
+          '<div class="pdf-hh">'+
+            '<span class="pdf-hb" style="color:'+hColors[hi]+';border-color:'+hColors[hi]+';background:'+hColors[hi]+'18;">'+hk+'</span>'+
+            '<span class="pdf-hn">'+hLabels[hi]+'</span>'+
+            '<span class="pdf-ht">'+tf+'</span>'+
+          '</div>'+
+          '<div class="pdf-g2">'+
+            items.map(function(p){
+              return '<div class="pdf-ac">'+
+                '<div class="pdf-ah">'+
+                  '<div class="pdf-at">'+p.title+'</div>'+
+                  '<span class="pdf-it" style="'+impStyle(p.impact)+'">'+impLabel(p.impact)+'</span>'+
+                '</div>'+
+                '<ul class="pdf-al">'+p.actions.map(function(a){ return '<li>'+a+'</li>'; }).join('')+'</ul>'+
+              '</div>';
+            }).join('')+
+          '</div></div>';
+      }).join('')+
+    '</div>'+pf(4,4)+
+  '</div>'+
+
+  '</div>';
+}
+
+function openPreview() {
+  var html = buildPrintHTML();
+  var modal = document.getElementById('preview-modal');
+  var content = document.getElementById('preview-content');
+  // Render in an iframe so styles don't conflict
+  var iframe = document.createElement('iframe');
+  iframe.style.cssText = 'width:100%;border:none;display:block;min-height:600px;';
+  iframe.setAttribute('scrolling', 'no');
+  content.innerHTML = '';
+  content.appendChild(iframe);
+  var doc = iframe.contentDocument || iframe.contentWindow.document;
+  doc.open(); doc.write(html); doc.close();
+  // Auto-resize iframe to content height
+  iframe.onload = function() {
+    try {
+      iframe.style.height = (iframe.contentDocument.body.scrollHeight + 40) + 'px';
+    } catch(e) {}
+  };
+  setTimeout(function() {
+    try { iframe.style.height = (iframe.contentDocument.body.scrollHeight + 40) + 'px'; } catch(e) {}
+  }, 800);
+  modal.style.display = 'block';
+  document.body.style.overflow = 'hidden';
+}
+function closePreview() {
+  document.getElementById('preview-modal').style.display = 'none';
+  document.getElementById('preview-content').innerHTML = '';
+  document.body.style.overflow = '';
+}
+
+function buildPrintHTML() {
+  var d = reportData;
+  var name = document.getElementById('f-name').value || 'Empresa';
+  var sector = document.getElementById('f-sector').value || '';
+  var horizon = document.getElementById('f-horizon').value || '5';
+  var market = document.getElementById('f-market').value || '';
+  var consultantName = document.getElementById('f-consultant-name').value || '';
+  var consultantCompany = document.getElementById('f-consultant-company').value || '';
+  var today = new Date().toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'});
+  var sp = d.scenarioPlanning;
+  var sc = {Probable:'#16a34a',Plausible:'#2563eb',Posible:'#ea580c'};
+  var scBg = {Probable:'#f0fdf4',Plausible:'#eff6ff',Posible:'#fff7ed'};
+
+  function secHead(t){ return '<div class="sh"><div class="sb"></div><div class="st">'+t+'</div></div>'; }
+  function pgHeader(){ return '<div class="ph"><span class="ph-logo">Foresight <em>Strategy</em></span><span class="ph-co">'+name+'</span></div>'; }
+  function pgFooter(n){ return '<div class="pf"><span>Confidencial &middot; Foresight Strategy Platform &middot; Powered by Claude AI</span><span>P&aacute;gina '+n+'</span></div>'; }
+
+  var impStyle = function(imp){ return imp==='high'?'background:#14532d;color:#86efac':imp==='medium'?'background:#431407;color:#fed7aa':'background:#1e1b4b;color:#c7d2fe'; };
+  var impLabel = function(imp){ return imp==='high'?'Alto impacto':imp==='medium'?'Impacto medio':'Exploraci\u00f3n'; };
+  var hColors = ['#4ade80','#60a5fa','#c084fc'];
+  var hLabels = ['Horizonte 1 \u2014 Corto plazo','Horizonte 2 \u2014 Medio plazo','Horizonte 3 \u2014 Largo plazo'];
+
+  return '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>'+name+' \u2014 Informe Foresight</title>'+
+  '<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">'+
+  '<style>'+
+  '*{box-sizing:border-box;margin:0;padding:0}html,body{background:#0d0d0f!important}'+
+  '@page{size:A4 portrait;margin:16mm 14mm;background:#0d0d0f}'+
+  '@media print{*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}'+
+  '.pb{break-after:page!important;page-break-after:always!important}'+
+  '.nopb{break-inside:avoid;page-break-inside:avoid}}'+
+  'body{font-family:"DM Sans",sans-serif;font-size:9pt;line-height:1.5;color:#e8e4dc;background:#0d0d0f}'+
+  // Cover
+  '.cover{min-height:265mm;display:flex;flex-direction:column;background:#0d0d0f}'+
+  '.cv-logo{font-family:"Playfair Display",serif;font-size:12pt;color:#d4a853;padding-bottom:60mm}'+
+  '.cv-label{font-family:"DM Mono",monospace;font-size:7pt;color:#d4a853;letter-spacing:0.16em;text-transform:uppercase;margin-bottom:4mm}'+
+  '.cv-title{font-family:"Playfair Display",serif;font-size:26pt;font-weight:400;line-height:1.15;color:#f0ece4;margin-bottom:2.5mm}'+
+  '.cv-sector{font-size:11pt;color:#8a8680;margin-bottom:10mm}'+
+  '.cv-divider{width:38mm;height:1px;background:#d4a853;margin-bottom:5mm}'+
+  '.cv-pills{display:flex;gap:10mm;margin-bottom:auto}'+
+  '.cp-label{font-family:"DM Mono",monospace;font-size:6pt;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:1.5mm}'+
+  '.cp-val{font-size:9pt;color:#d4a853;font-weight:600}'+
+  '.cv-footer{padding-top:8mm;border-top:0.5px solid #2a2a2d;display:flex;justify-content:space-between;font-family:"DM Mono",monospace;font-size:6.5pt;color:#4b4b4e}'+
+  // Page layout
+  '.pw{display:flex;flex-direction:column;min-height:265mm;background:#0d0d0f}'+
+  '.ph{display:flex;justify-content:space-between;align-items:center;padding-bottom:4mm;border-bottom:0.5px solid #2a2a2d;margin-bottom:6mm}'+
+  '.ph-logo{font-family:"Playfair Display",serif;font-size:9pt;color:#d4a853}'+
+  '.ph-co{font-family:"DM Mono",monospace;font-size:6.5pt;color:#5a5a5e}'+
+  '.pc{flex:1}'+
+  '.pf{margin-top:auto;padding-top:4mm;border-top:0.5px solid #2a2a2d;display:flex;justify-content:space-between;font-family:"DM Mono",monospace;font-size:6.5pt;color:#4b4b4e}'+
+  // Section heading
+  '.sh{display:flex;align-items:center;gap:2mm;margin-bottom:4mm}'+
+  '.sb{width:2px;height:9px;background:#d4a853;border-radius:1px;flex-shrink:0}'+
+  '.st{font-family:"DM Mono",monospace;font-size:7pt;text-transform:uppercase;letter-spacing:0.12em;color:#6b7280}'+
+  // Exec
+  '.eb{border-left:2px solid #d4a853;padding:3.5mm 4.5mm;background:#161610;border-radius:0 3px 3px 0;margin-bottom:5mm}'+
+  '.et{font-family:"Playfair Display",serif;font-size:10.5pt;line-height:1.82;color:#e8e4dc}'+
+  // Grids
+  '.g2{display:grid;grid-template-columns:1fr 1fr;gap:3mm;margin-bottom:5mm}'+
+  '.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:2.5mm;margin-bottom:5mm}'+
+  // Cards
+  '.card{border:0.5px solid #2a2a2d;border-radius:4px;padding:3mm 3.5mm;background:#111113}'+
+  '.cacc{border-left:2px solid #d4a853}'+
+  '.ct{font-size:8.5pt;font-weight:600;color:#f0ece4;margin-bottom:1.5mm}'+
+  '.cb{font-size:8pt;color:#9ca3af;line-height:1.55}'+
+  // Force rows
+  '.fr{display:flex;align-items:flex-start;gap:3mm;padding:2.5mm 0;border-bottom:0.5px solid #1e1e21}'+
+  '.frk{font-family:"DM Mono",monospace;font-size:7pt;color:#d4a853;background:#1e1a0e;border-radius:3px;padding:1.5px 5px;flex-shrink:0;margin-top:1mm}'+
+  '.frt{font-size:8.5pt;font-weight:600;margin-bottom:1mm;color:#f0ece4}'+
+  '.frd{font-size:7.5pt;color:#9ca3af;line-height:1.45;margin-bottom:1.5mm}'+
+  '.fbg{height:3px;background:#1e1e21;border-radius:2px}'+
+  '.ffi{height:3px;background:#d4a853;border-radius:2px}'+
+  '.fsc{font-family:"DM Mono",monospace;font-size:6pt;color:#4b5563;text-align:right;margin-top:1mm}'+
+  // Scenarios
+  '.sc{border:0.5px solid #2a2a2d;border-radius:4px;overflow:hidden;background:#111113}'+
+  '.st2{height:3px}'+
+  '.sb2{padding:3mm}'+
+  '.sty{font-family:"DM Mono",monospace;font-size:6.5pt;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:1.5mm}'+
+  '.sna{font-family:"Playfair Display",serif;font-size:9.5pt;color:#f0ece4;margin-bottom:1.5mm;line-height:1.25}'+
+  '.spr{font-family:"DM Mono",monospace;font-size:6pt;color:#6b7280;background:#1a1a1d;border-radius:3px;padding:1px 5px;display:inline-block;margin-bottom:2mm}'+
+  '.sde{font-size:7.5pt;color:#9ca3af;line-height:1.5;margin-bottom:2mm}'+
+  '.ml{font-family:"DM Mono",monospace;font-size:6pt;text-transform:uppercase;letter-spacing:0.08em;color:#4b5563;margin-bottom:1mm}'+
+  '.bl{list-style:none;padding:0;margin:0 0 2mm}'+
+  '.bl li{font-size:7pt;color:#9ca3af;padding:1mm 0 1mm 3mm;border-left:1.5px solid #2a2a2d;margin-bottom:0.8mm;line-height:1.4}'+
+  // Axes
+  '.ax{border:0.5px solid #2a2a2d;border-radius:4px;padding:3mm 3.5mm;background:#111113}'+
+  '.axt{font-size:8.5pt;font-weight:600;color:#f0ece4;margin-bottom:2mm}'+
+  '.axp{display:flex;justify-content:space-between;margin-bottom:1.5mm}'+
+  '.axpl{font-family:"DM Mono",monospace;font-size:6pt;color:#4b5563}'+
+  '.axb{height:2px;background:#1e1e21;border-radius:1px;position:relative;margin-bottom:1.5mm}'+
+  '.axb::after{content:"";position:absolute;left:50%;transform:translateX(-50%);width:6px;height:6px;border-radius:50%;background:#d4a853;top:-2px}'+
+  '.axr{font-size:7.5pt;color:#9ca3af;line-height:1.45}'+
+  // Backcasting
+  '.bc{border:0.5px solid #2a2a2d;border-radius:4px;overflow:hidden;margin-bottom:4mm;background:#111113}'+
+  '.bch{padding:2.5mm 3.5mm;border-bottom:0.5px solid #2a2a2d;display:flex;align-items:center;gap:2mm;background:#161618}'+
+  '.bcd{width:8px;height:8px;border-radius:2px;flex-shrink:0}'+
+  '.bct{font-family:"DM Mono",monospace;font-size:6pt;text-transform:uppercase;letter-spacing:0.08em}'+
+  '.bcn{font-size:9pt;font-weight:600;color:#f0ece4}'+
+  '.bcv{padding:3mm 3.5mm;background:#14130e;font-family:"Playfair Display",serif;font-style:italic;font-size:8pt;color:#c9b97a;line-height:1.65;border-bottom:0.5px solid #2a2a2d}'+
+  '.bcb{padding:2.5mm 3.5mm}'+
+  '.bcm{display:flex;gap:2.5mm;margin-bottom:2.5mm;padding-bottom:2.5mm;border-bottom:0.5px solid #1a1a1d}'+
+  '.bcm:last-child{border:none;margin-bottom:0;padding-bottom:0}'+
+  '.bcy{font-family:"DM Mono",monospace;font-size:7pt;color:#d4a853;min-width:8mm;padding-top:0.5mm;flex-shrink:0;font-weight:500}'+
+  '.bmt{font-size:8pt;font-weight:600;color:#f0ece4;margin-bottom:1mm}'+
+  '.bmd{font-size:7pt;color:#9ca3af;line-height:1.4;margin-bottom:1.5mm}'+
+  '.bma{font-size:6.5pt;color:#5a5a5e;padding-left:3mm;position:relative;margin-bottom:0.8mm}'+
+  '.bma::before{content:"\\2192";position:absolute;left:0;color:#d4a853}'+
+  '.bcs{padding:2mm 3.5mm;background:#161618;border-top:0.5px solid #2a2a2d}'+
+  '.bcsl{font-family:"DM Mono",monospace;font-size:5.5pt;color:#4b5563;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.5mm}'+
+  '.bct2{font-size:7.5pt;color:#9ca3af}'+
+  // Signals
+  '.sr{display:flex;gap:2mm;padding:2.5mm 0;border-bottom:0.5px solid #1e1e21}'+
+  '.sd{font-family:"DM Mono",monospace;font-size:6.5pt;color:#d4a853;min-width:20mm;padding-top:1mm;text-transform:uppercase;letter-spacing:0.06em}'+
+  '.sit{font-size:8pt;font-weight:600;margin-bottom:0.5mm;color:#f0ece4}'+
+  '.sid{font-size:7pt;color:#9ca3af;line-height:1.4}'+
+  // Wildcards
+  '.wr{padding:2.5mm 3.5mm 2.5mm 4mm;border-left:2px solid #8b5cf6;background:#160f2a;border-radius:0 4px 4px 0;margin-bottom:2mm}'+
+  '.wt{font-size:8pt;font-weight:600;color:#c084fc;margin-bottom:0.5mm}'+
+  '.wd{font-size:7pt;color:#9ca3af;line-height:1.4}'+
+  // Strategy
+  '.hs{margin-bottom:4mm}'+
+  '.hh{display:flex;align-items:center;gap:2mm;margin-bottom:2.5mm}'+
+  '.hb{font-family:"DM Mono",monospace;font-size:7pt;padding:2px 7px;border-radius:10px;border:1px solid;font-weight:500}'+
+  '.hn{font-size:8.5pt;font-weight:600;color:#f0ece4}'+
+  '.ht{font-family:"DM Mono",monospace;font-size:6.5pt;color:#5a5a5e}'+
+  '.ac{border:0.5px solid #2a2a2d;border-radius:4px;padding:2.5mm 3mm;margin-bottom:1.5mm;background:#111113}'+
+  '.ah{display:flex;justify-content:space-between;align-items:flex-start;gap:2mm;margin-bottom:1.5mm}'+
+  '.ati{font-size:8pt;font-weight:600;color:#f0ece4}'+
+  '.ait{font-family:"DM Mono",monospace;font-size:6pt;padding:1.5px 4px;border-radius:3px;white-space:nowrap;flex-shrink:0}'+
+  '.al{list-style:none;padding:0}'+
+  '.al li{font-size:7.5pt;color:#9ca3af;padding:1mm 0 1mm 3mm;position:relative}'+
+  '.al li::before{content:"\\2014";position:absolute;left:0;color:#d4a853}'+
+  '.sec{margin-bottom:5mm}'+
+  '</style></head><body>'+
+
+  // ── PORTADA ──
+  '<div class="cover pb">'+
+  '<div class="cv-logo">Foresight <em>Strategy</em></div>'+
+  '<div class="cv-label">Informe de foresight estrat\u00e9gico</div>'+
+  '<div class="cv-title">'+name+'</div>'+
+  '<div class="cv-sector">'+sector+'</div>'+
+  '<div class="cv-divider"></div>'+
+  '<div class="cv-pills">'+
+  '<div><div class="cp-label">Horizonte</div><div class="cp-val">'+horizon+' a\u00f1os</div></div>'+
+  '<div><div class="cp-label">Mercado</div><div class="cp-val">'+market+'</div></div>'+
+  '<div><div class="cp-label">Metodolog\u00eda</div><div class="cp-val">STEEP \u00b7 3P \u00b7 Backcasting</div></div>'+
+  '</div>'+
+  (consultantName || consultantCompany ?
+    '<div style="margin-top:8mm;padding:4mm 5mm;border:0.5px solid rgba(212,168,83,0.2);border-radius:4px;background:rgba(212,168,83,0.04);">'+
+    '<div style="font-family:\'DM Mono\',monospace;font-size:6pt;color:#4b4b4e;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:2mm;">Elaborado por</div>'+
+    (consultantName ? '<div style="font-size:9pt;font-weight:500;color:#e8e4dc;margin-bottom:1mm;">'+consultantName+'</div>' : '')+
+    (consultantCompany ? '<div style="font-family:\'DM Mono\',monospace;font-size:7.5pt;color:#d4a853;">'+consultantCompany+'</div>' : '')+
+    '</div>'
+  : '')+
+  '<div class="cv-footer">'+
+  '<span>Confidencial \u2014 Foresight Strategy Platform</span>'+
+  '<span>Generado el '+today+'</span>'+
+  '<span>Powered by Claude AI</span>'+
+  '</div></div>'+
+
+  // ── P1: Resumen + Incertidumbres + Fuerzas motrices ──
+  '<div class="pw pb">'+pgHeader()+
+  '<div class="pc">'+
+  '<div class="sec">'+secHead('Resumen ejecutivo')+
+  '<div class="eb"><div class="et">'+d.executiveSummary+'</div></div></div>'+
+  '<div class="sec">'+secHead('Incertidumbres clave')+
+  '<div class="g2">'+
+  d.keyUncertainties.map(function(u){
+    return '<div class="card cacc nopb"><div class="ct">'+u.name+'</div><div class="cb">'+u.description+'</div></div>';
+  }).join('')+'</div></div>'+
+  '<div class="sec">'+secHead('Scenario Planning \u2014 Fuerzas motrices del cambio')+
+  '<div class="cb" style="margin-bottom:3.5mm">'+sp.intro+'</div>'+
+  sp.drivingForces.map(function(f){
+    return '<div class="fr nopb"><span class="frk">#'+f.rank+'</span><div style="flex:1">'+
+    '<div class="frt">'+f.title+'</div>'+
+    '<div class="frd">'+f.description+'</div>'+
+    '<div class="fbg"><div class="ffi" style="width:'+f.impactScore+'%"></div></div>'+
+    '<div class="fsc">'+f.impactScore+'/100</div>'+
+    '</div></div>';
+  }).join('')+
+  '</div></div>'+
+  pgFooter(1)+'</div>'+
+
+  // ── P2: Contexto — Ejes + Lógica narrativa ──
+  '<div class="pw pb">'+pgHeader()+
+  '<div class="pc">'+
+  '<div class="sec">'+secHead('Scenario Planning \u2014 Ejes de incertidumbre cr\u00edtica')+
+  '<div class="cb" style="margin-bottom:4mm">'+sp.intro+'</div>'+
+  '<div class="g2" style="margin-bottom:6mm">'+
+  sp.axes.map(function(ax){
+    return '<div class="ax nopb"><div class="axt">'+ax.label+'</div>'+
+    '<div class="axp"><span class="axpl">\u2212 '+ax.poleLow+'</span><span class="axpl">'+ax.poleHigh+' +</span></div>'+
+    '<div class="axb"></div><div class="axr">'+ax.rationale+'</div></div>';
+  }).join('')+'</div></div>'+
+  '<div class="sec">'+secHead('L\u00f3gica narrativa de los escenarios')+
+  '<div style="display:flex;flex-direction:column;gap:3mm">'+
+  sp.scenarioLogics.map(function(sl,i){
+    var col = [sc.Probable,sc.Plausible,sc.Posible][i]||'#d4a853';
+    return '<div class="card nopb" style="border-left:3px solid '+col+';display:flex;gap:4mm;align-items:flex-start;">'+
+    '<div style="min-width:18mm;padding-top:0.5mm"><span style="font-family:\'DM Mono\',monospace;font-size:6.5pt;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:'+col+'">'+['Probable','Plausible','Posible'][i]+'</span></div>'+
+    '<div><div class="ct" style="margin-bottom:1.5mm">'+sl.name+'</div><div class="cb">'+sl.logic+'</div></div>'+
+    '</div>';
+  }).join('')+'</div></div>'+
+  '<div class="sec" style="margin-top:6mm">'+secHead('Resumen de los tres escenarios')+
+  '<div class="g3">'+
+  d.scenarios.map(function(s){
+    return '<div class="sc nopb">'+
+    '<div class="st2" style="background:'+(sc[s.type]||'#d4a853')+'"></div>'+
+    '<div class="sb2">'+
+    '<div class="sty" style="color:'+(sc[s.type]||'#d4a853')+'">'+s.type+'</div>'+
+    '<div class="sna">'+s.name+'</div>'+
+    '<div class="spr">P: '+s.probability+'</div>'+
+    '<div class="sde">'+s.description+'</div>'+
+    '</div></div>';
+  }).join('')+'</div></div>'+
+  '</div>'+pgFooter(2)+'</div>'+
+
+  // ── P3, P4, P5: Página dedicada por escenario ──
+  d.scenarios.map(function(s, si){
+    var col = sc[s.type] || '#d4a853';
+    var colDim = s.type==='Probable'?'rgba(22,163,74,0.08)':s.type==='Plausible'?'rgba(37,99,235,0.08)':'rgba(234,88,12,0.08)';
+    var colBorder = s.type==='Probable'?'rgba(22,163,74,0.25)':s.type==='Plausible'?'rgba(37,99,235,0.25)':'rgba(234,88,12,0.25)';
+    // Find matching backcasting
+    var bc = d.backcasting.filter(function(b){ return b.scenarioType === s.type; })[0] || null;
+    return '<div class="pw pb">'+pgHeader()+
+    '<div class="pc">'+
+
+    // Hero header
+    '<div style="border:1px solid '+colBorder+';border-radius:6px;background:'+colDim+';padding:5mm 6mm;margin-bottom:5mm;">'+
+    '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:4mm;margin-bottom:3mm;">'+
+    '<div>'+
+    '<div style="font-family:\'DM Mono\',monospace;font-size:7pt;font-weight:600;text-transform:uppercase;letter-spacing:0.14em;color:'+col+';margin-bottom:2mm;">Escenario '+(si+1)+' de 3 \u00b7 '+s.type+'</div>'+
+    '<div style="font-family:\'Playfair Display\',serif;font-size:18pt;font-weight:400;line-height:1.15;color:#f0ece4;margin-bottom:2mm;">'+s.name+'</div>'+
+    '</div>'+
+    '<div style="text-align:right;flex-shrink:0">'+
+    '<div style="font-family:\'DM Mono\',monospace;font-size:6pt;color:#4b5563;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:1mm;">Probabilidad</div>'+
+    '<div style="font-size:13pt;font-weight:600;color:'+col+'">'+s.probability+'</div>'+
+    '</div>'+
+    '</div>'+
+    '<div style="font-size:9pt;line-height:1.72;color:#b0a89e;">'+s.description+'</div>'+
+    '</div>'+
+
+    // Opportunities + Threats
+    '<div class="g2" style="margin-bottom:5mm">'+
+    '<div class="card" style="border-left:2px solid '+col+'">'+
+    '<div style="font-family:\'DM Mono\',monospace;font-size:6.5pt;text-transform:uppercase;letter-spacing:0.1em;color:'+col+';margin-bottom:3mm;">Oportunidades</div>'+
+    '<div style="display:flex;flex-direction:column;gap:2mm;">'+
+    s.opportunities.map(function(o){
+      return '<div style="display:flex;gap:2mm;align-items:flex-start;">'+
+      '<span style="color:'+col+';font-weight:600;flex-shrink:0;font-size:8pt">+</span>'+
+      '<span style="font-size:8pt;color:#b0a89e;line-height:1.5">'+o+'</span></div>';
+    }).join('')+
+    '</div></div>'+
+    '<div class="card" style="border-left:2px solid #ef4444">'+
+    '<div style="font-family:\'DM Mono\',monospace;font-size:6.5pt;text-transform:uppercase;letter-spacing:0.1em;color:#f87171;margin-bottom:3mm;">Amenazas</div>'+
+    '<div style="display:flex;flex-direction:column;gap:2mm;">'+
+    s.threats.map(function(t){
+      return '<div style="display:flex;gap:2mm;align-items:flex-start;">'+
+      '<span style="color:#f87171;font-weight:600;flex-shrink:0;font-size:8pt">\u2212</span>'+
+      '<span style="font-size:8pt;color:#b0a89e;line-height:1.5">'+t+'</span></div>';
+    }).join('')+
+    '</div></div>'+
+    '</div>'+
+
+    // Backcasting for this scenario
+    (bc ?
+      '<div class="sec">'+
+      '<div class="sh"><div class="sb" style="background:'+col+'"></div>'+
+      '<div class="st">Backcasting \u2014 Camino desde este futuro al presente</div></div>'+
+      '<div style="border:1px solid '+colBorder+';border-radius:5px;overflow:hidden;background:#111113">'+
+      '<div style="padding:3mm 4mm;background:'+colDim+';border-bottom:0.5px solid '+colBorder+'">'+
+      '<div style="font-family:\'Playfair Display\',serif;font-style:italic;font-size:8.5pt;color:#c9b97a;line-height:1.65;">&ldquo;'+bc.visionStatement+'&rdquo;</div>'+
+      '</div>'+
+      '<div style="padding:3mm 4mm;">'+
+      bc.milestones.map(function(m){
+        return '<div style="display:flex;gap:3mm;padding-bottom:2.5mm;margin-bottom:2.5mm;border-bottom:0.5px solid #1a1a1d;">'+
+        '<span style="font-family:\'DM Mono\',monospace;font-size:7pt;color:'+col+';min-width:8mm;padding-top:1mm;font-weight:600;flex-shrink:0">'+m.year+'</span>'+
+        '<div>'+
+        '<div style="font-size:8pt;font-weight:600;color:#f0ece4;margin-bottom:1mm">'+m.title+'</div>'+
+        '<div style="font-size:7pt;color:#9ca3af;line-height:1.4;margin-bottom:1.5mm">'+m.description+'</div>'+
+        m.actions.map(function(a){
+          return '<div style="font-size:6.5pt;color:#6b7280;padding-left:3mm;position:relative;margin-bottom:0.8mm">'+
+          '<span style="position:absolute;left:0;color:'+col+'">\u2192</span>'+a+'</div>';
+        }).join('')+
+        '</div></div>';
+      }).join('')+
+      '</div>'+
+      '<div style="padding:2mm 4mm;background:#161618;border-top:0.5px solid #2a2a2d;">'+
+      '<div style="font-family:\'DM Mono\',monospace;font-size:5.5pt;color:#4b5563;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:1mm">Punto de partida \u2014 Hoy</div>'+
+      '<div style="font-size:7.5pt;color:#9ca3af">'+bc.startingPoint+'</div>'+
+      '</div></div></div>'
+    : '')+
+
+    '</div>'+pgFooter(si+3)+'</div>';
+  }).join('')+
+
+  // ── P6: Señales + Wildcards + Mapa estratégico ──
+  '<div class="pw">'+pgHeader()+
+  '<div class="pc">'+
+  '<div class="sec">'+secHead('Se\u00f1ales d\u00e9biles detectadas')+
+  d.weakSignals.map(function(s){
+    return '<div class="sr"><span class="sd">'+s.dimension+'</span>'+
+    '<div><div class="sit">'+s.title+'</div><div class="sid">'+s.description+'</div></div></div>';
+  }).join('')+'</div>'+
+  '<div class="sec" style="margin-top:4mm">'+secHead('Wildcards \u2014 Eventos de alto impacto')+
+  d.wildcards.map(function(w){
+    return '<div class="wr nopb"><div class="wt">\u2691 '+w.title+'</div><div class="wd">'+w.description+'</div></div>';
+  }).join('')+'</div>'+
+  '<div class="sec" style="margin-top:4mm">'+secHead('Mapa estrat\u00e9gico por horizontes')+
+  (function(){
+    return ['H1','H2','H3'].map(function(hk,hi){
+      var items = d.strategicPriorities.filter(function(p){return p.horizon===hk;});
+      var tf = items.length ? items[0].timeframe : '';
+      return '<div class="hs">'+
+      '<div class="hh">'+
+      '<span class="hb" style="color:'+hColors[hi]+';border-color:'+hColors[hi]+';background:'+hColors[hi]+'18">'+hk+'</span>'+
+      '<span class="hn">'+hLabels[hi]+'</span>'+
+      '<span class="ht">'+tf+'</span></div>'+
+      '<div class="g2">'+
+      items.map(function(p){
+        return '<div class="ac nopb">'+
+        '<div class="ah"><div class="ati">'+p.title+'</div>'+
+        '<span class="ait" style="'+impStyle(p.impact)+'">'+impLabel(p.impact)+'</span></div>'+
+        '<ul class="al">'+p.actions.map(function(a){return '<li>'+a+'</li>';}).join('')+'</ul>'+
+        '</div>';
+      }).join('')+
+      '</div></div>';
+    }).join('');
+  })()+
+  '</div></div>'+
+  pgFooter(6)+'</div>'+
+
+  // ── PÁGINA DE CIERRE ──
+  '<div class="pw" style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;background:#0d0d0f;min-height:265mm;">'+
+  '<div style="max-width:120mm;">'+
+
+  // Logo
+  '<div style="font-family:\'Playfair Display\',serif;font-size:14pt;color:#d4a853;margin-bottom:14mm;">Foresight <em>Strategy</em></div>'+
+
+  // Divider
+  '<div style="width:12mm;height:1px;background:#d4a853;margin:0 auto 12mm;"></div>'+
+
+  // Thank you
+  '<div style="font-family:\'Playfair Display\',serif;font-size:19pt;font-weight:400;line-height:1.3;color:#f0ece4;margin-bottom:4mm;">El futuro no se predice,<br>se dise\u00f1a.</div>'+
+  '<div style="font-size:9pt;color:#6b7280;line-height:1.75;margin-bottom:14mm;">Este informe ha sido elaborado con metodolog\u00eda de foresight estrat\u00e9gico.<br>Esperamos que sea una herramienta \u00fatil para anticipar el futuro<br>y tomar mejores decisiones hoy.</div>'+
+
+  // Contact
+  '<div style="border:0.5px solid rgba(212,168,83,0.25);border-radius:6px;background:rgba(212,168,83,0.04);padding:5mm 7mm;margin-bottom:14mm;">'+
+  '<div style="font-family:\'DM Mono\',monospace;font-size:6.5pt;text-transform:uppercase;letter-spacing:0.12em;color:#4b5563;margin-bottom:3mm;">\u00bfTienes dudas sobre este informe?</div>'+
+  '<div style="font-size:9pt;color:#e8e4dc;margin-bottom:1.5mm;">Oliver Henares</div>'+
+  '<a href="mailto:oliverhenares@gmail.com" style="font-family:\'DM Mono\',monospace;font-size:8pt;color:#d4a853;text-decoration:none;">oliverhenares@gmail.com</a>'+
+  '<div style="margin-top:3mm;font-size:7.5pt;color:#4b5563;line-height:1.55;">Para dudas sobre el informe, para conocer m\u00e1s<br>sobre la herramienta o para nuevos an\u00e1lisis.</div>'+
+  '</div>'+
+
+  // Bottom divider
+  '<div style="width:8mm;height:1px;background:#2a2a2d;margin:0 auto;"></div>'+
+  '<div style="font-family:\'DM Mono\',monospace;font-size:6pt;color:#2a2a2d;margin-top:4mm;letter-spacing:0.08em;">POWERED BY CLAUDE AI</div>'+
+
+  '</div></div>'+
+
+  '</body></html>';
+}
+
+// ── PowerPoint Export ──
+async function exportPPT() {
+  if (!reportData) return;
+  const btn = document.getElementById('btn-ppt');
+  btn.textContent = '⏳ Generando...'; btn.disabled = true;
+
+  const d = reportData;
+  const name     = document.getElementById('f-name').value || 'Empresa';
+  const sector   = document.getElementById('f-sector').value || '';
+  const horizon  = document.getElementById('f-horizon').value || '5';
+  const market   = document.getElementById('f-market').value || '';
+  const cName    = document.getElementById('f-consultant-name').value || '';
+  const cCompany = document.getElementById('f-consultant-company').value || '';
+  const today    = new Date().toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'});
+
+  const pres = new PptxGenJS();
+  pres.layout = 'LAYOUT_WIDE'; // 13.33 x 7.5 inches
+
+  // ── Palette ──
+  const BG    = '0D0D0F';
+  const CARD  = '111113';
+  const GOLD  = 'D4A853';
+  const TEXT  = 'F0ECE4';
+  const MUTED = '8A8680';
+  const DIM   = '4B5563';
+  const GREEN = '4ADE80';
+  const BLUE  = '60A5FA';
+  const ORANGE= 'FB923C';
+  const RED   = 'F87171';
+  const PURP  = 'C084FC';
+  const scCol = {Probable:GREEN, Plausible:BLUE, Posible:ORANGE};
+
+  // Helper: add dark background to slide
+  function darkSlide(slide) {
+    slide.background = {fill: BG};
+  }
+  // Helper: small gold mono label
+  function addLabel(slide, text, x, y, w) {
+    slide.addText(text.toUpperCase(), {
+      x, y, w, h:0.22, fontSize:7, fontFace:'Courier New',
+      color:GOLD, bold:false, charSpacing:2
+    });
+  }
+  // Helper: section divider line
+  function addLine(slide, x, y, w) {
+    slide.addShape(pres.ShapeType.line, {
+      x, y, w, h:0, line:{color:GOLD, width:0.5, dashType:'solid'}, lineHead:'none', lineTail:'none'
+    });
+  }
+  // Helper: card background rect
+  function addCard(slide, x, y, w, h, color) {
+    slide.addShape(pres.ShapeType.rect, {
+      x, y, w, h, fill:{color: color||CARD},
+      line:{color:'2A2A2D', width:0.5}
+    });
+  }
+  // Helper: wrap text to avoid overflow (basic)
+  function safe(str, max) {
+    if (!str) return '';
+    return str.length > max ? str.slice(0, max-1) + '…' : str;
+  }
+
+  // ═══════════════════════════════════════════
+  // SLIDE 1 — PORTADA
+  // ═══════════════════════════════════════════
+  const s1 = pres.addSlide();
+  darkSlide(s1);
+  // Background accent shape
+  s1.addShape(pres.ShapeType.rect, {x:7.5,y:0,w:5.83,h:7.5, fill:{color:'1A1A0E'}, line:{color:'1A1A0E',width:0}});
+  s1.addShape(pres.ShapeType.rect, {x:0,y:6.8,w:13.33,h:0.7, fill:{color:'141410'}, line:{color:'141410',width:0}});
+  // Logo
+  s1.addText('Foresight Strategy', {x:0.55,y:0.38,w:4,h:0.3, fontSize:13, fontFace:'Georgia', color:GOLD, italic:false});
+  // Gold line
+  addLine(s1, 0.55, 3.6, 1.2);
+  // Label
+  s1.addText('INFORME DE FORESIGHT ESTRATÉGICO', {x:0.55,y:3.0,w:7,h:0.25, fontSize:7.5, fontFace:'Courier New', color:GOLD, charSpacing:2});
+  // Company name
+  s1.addText(safe(name,40), {x:0.55,y:3.75,w:6.8,h:1.0, fontSize:42, fontFace:'Georgia', color:TEXT, bold:false, fit:'shrink'});
+  // Sector
+  s1.addText(safe(sector,60), {x:0.55,y:4.72,w:6.8,h:0.35, fontSize:13, fontFace:'Arial', color:MUTED});
+  // Pills row
+  const pills = [
+    {l:'HORIZONTE', v:horizon+' años'},
+    {l:'MERCADO', v:market},
+    {l:'METODOLOGÍA', v:'STEEP · 3P · Backcasting'}
+  ];
+  pills.forEach((p,i) => {
+    const px = 0.55 + i*2.2;
+    s1.addText(p.l, {x:px,y:5.55,w:2.1,h:0.18, fontSize:6.5, fontFace:'Courier New', color:DIM, charSpacing:1.5});
+    s1.addText(p.v, {x:px,y:5.75,w:2.1,h:0.25, fontSize:10, fontFace:'Arial', color:GOLD, bold:true, fit:'shrink'});
+  });
+  // Consultant block
+  if (cName || cCompany) {
+    addCard(s1, 0.55, 6.1, 3.5, 0.55, '161610');
+    s1.addText('ELABORADO POR', {x:0.7,y:6.14,w:3.2,h:0.18, fontSize:6, fontFace:'Courier New', color:DIM, charSpacing:1.5});
+    s1.addText((cName||'')+(cCompany?' · '+cCompany:''), {x:0.7,y:6.33,w:3.2,h:0.22, fontSize:9, fontFace:'Arial', color:TEXT, fit:'shrink'});
+  }
+  // Footer
+  s1.addText('Generado el '+today+'   ·   Powered by Claude AI', {x:0.55,y:7.15,w:12,h:0.2, fontSize:7, fontFace:'Courier New', color:DIM, align:'left'});
+
+  // ═══════════════════════════════════════════
+  // SLIDE 2 — RESUMEN EJECUTIVO
+  // ═══════════════════════════════════════════
+  const s2 = pres.addSlide();
+  darkSlide(s2);
+  addLabel(s2, 'Resumen ejecutivo', 0.45, 0.32, 5);
+  addLine(s2, 0.45, 0.62, 12.4);
+  // Executive summary block
+  addCard(s2, 0.45, 0.75, 12.4, 1.55, '161610');
+  s2.addShape(pres.ShapeType.rect, {x:0.45,y:0.75,w:0.06,h:1.55, fill:{color:GOLD}, line:{color:GOLD,width:0}});
+  s2.addText(safe(d.executiveSummary, 420), {
+    x:0.62, y:0.82, w:12.1, h:1.4,
+    fontSize:11.5, fontFace:'Georgia', color:TEXT, valign:'top',
+    wrap:true, lineSpacingMultiple:1.45
+  });
+  // Uncertainties
+  addLabel(s2, 'Incertidumbres clave', 0.45, 2.5, 5);
+  addLine(s2, 0.45, 2.78, 12.4);
+  d.keyUncertainties.forEach((u,i) => {
+    const col = i===0 ? 0.45 : 6.65;
+    addCard(s2, col, 2.92, 6.0, 1.3, CARD);
+    s2.addShape(pres.ShapeType.rect, {x:col,y:2.92,w:0.05,h:1.3, fill:{color:GOLD}, line:{color:GOLD,width:0}});
+    s2.addText(safe(u.name,55), {x:col+0.15,y:3.0,w:5.7,h:0.28, fontSize:10.5, fontFace:'Arial', color:TEXT, bold:true, fit:'shrink'});
+    s2.addText(safe(u.description,140), {x:col+0.15,y:3.3,w:5.7,h:0.85, fontSize:9, fontFace:'Arial', color:MUTED, wrap:true, valign:'top'});
+  });
+  // Slide footer
+  s2.addText(name+' — Foresight Report', {x:0.45,y:7.18,w:8,h:0.18, fontSize:7, fontFace:'Courier New', color:DIM});
+  s2.addText('1 / 9', {x:12.4,y:7.18,w:0.6,h:0.18, fontSize:7, fontFace:'Courier New', color:GOLD, align:'right'});
+
+  // ═══════════════════════════════════════════
+  // SLIDE 3 — FUERZAS MOTRICES + EJES
+  // ═══════════════════════════════════════════
+  const s3 = pres.addSlide();
+  darkSlide(s3);
+  const sp = d.scenarioPlanning;
+  addLabel(s3, 'Scenario Planning — Fuerzas motrices', 0.45, 0.32, 7);
+  addLine(s3, 0.45, 0.62, 12.4);
+  // Driving forces (2 columns x 2 rows)
+  sp.drivingForces.slice(0,4).forEach((f,i) => {
+    const col = i%2===0 ? 0.45 : 6.65;
+    const row = i<2 ? 0.75 : 2.7;
+    addCard(s3, col, row, 6.0, 1.75, CARD);
+    // Rank badge
+    s3.addShape(pres.ShapeType.rect, {x:col,y:row,w:0.45,h:1.75, fill:{color:'1A1A1D'}, line:{color:'2A2A2D',width:0.5}});
+    s3.addText('#'+f.rank, {x:col+0.02,y:row+0.72,w:0.41,h:0.28, fontSize:10, fontFace:'Courier New', color:GOLD, align:'center', bold:true});
+    s3.addText(safe(f.title,40), {x:col+0.55,y:row+0.1,w:5.3,h:0.32, fontSize:10.5, fontFace:'Arial', color:TEXT, bold:true, fit:'shrink'});
+    s3.addText(safe(f.description,120), {x:col+0.55,y:row+0.45,w:5.3,h:0.75, fontSize:8.5, fontFace:'Arial', color:MUTED, wrap:true, valign:'top'});
+    // Impact bar bg
+    s3.addShape(pres.ShapeType.rect, {x:col+0.55,y:row+1.33,w:5.3,h:0.1, fill:{color:'1E1E21'}, line:{color:'1E1E21',width:0}});
+    // Impact bar fill
+    s3.addShape(pres.ShapeType.rect, {x:col+0.55,y:row+1.33,w:5.3*(f.impactScore/100),h:0.1, fill:{color:GOLD}, line:{color:GOLD,width:0}});
+    s3.addText(f.impactScore+'/100', {x:col+0.55,y:row+1.48,w:5.3,h:0.18, fontSize:7, fontFace:'Courier New', color:DIM, align:'right'});
+  });
+  // Axes row
+  addLabel(s3, 'Ejes de incertidumbre crítica', 0.45, 4.62, 7);
+  addLine(s3, 0.45, 4.9, 12.4);
+  sp.axes.forEach((ax,i) => {
+    const col = i===0 ? 0.45 : 6.65;
+    addCard(s3, col, 5.04, 6.0, 1.35, CARD);
+    s3.addText(safe(ax.label,45), {x:col+0.15,y:5.1,w:5.7,h:0.28, fontSize:10, fontFace:'Arial', color:TEXT, bold:true, fit:'shrink'});
+    s3.addText('− '+safe(ax.poleLow,28), {x:col+0.15,y:5.42,w:2.7,h:0.2, fontSize:8, fontFace:'Courier New', color:DIM});
+    s3.addText(safe(ax.poleHigh,28)+' +', {x:col+3.15,y:5.42,w:2.7,h:0.2, fontSize:8, fontFace:'Courier New', color:DIM, align:'right'});
+    s3.addShape(pres.ShapeType.rect, {x:col+0.15,y:5.65,w:5.7,h:0.06, fill:{color:'1E1E21'}, line:{color:'1E1E21',width:0}});
+    s3.addShape(pres.ShapeType.ellipse, {x:col+0.15+2.55,y:5.58,w:0.2,h:0.2, fill:{color:GOLD}, line:{color:GOLD,width:0}});
+    s3.addText(safe(ax.rationale,140), {x:col+0.15,y:5.8,w:5.7,h:0.5, fontSize:8.5, fontFace:'Arial', color:MUTED, wrap:true, valign:'top'});
+  });
+  s3.addText(name+' — Foresight Report', {x:0.45,y:7.18,w:8,h:0.18, fontSize:7, fontFace:'Courier New', color:DIM});
+  s3.addText('2 / 9', {x:12.4,y:7.18,w:0.6,h:0.18, fontSize:7, fontFace:'Courier New', color:GOLD, align:'right'});
+
+  // ═══════════════════════════════════════════
+  // SLIDES 4, 5, 6 — Un escenario por slide
+  // ═══════════════════════════════════════════
+  d.scenarios.forEach((sc, si) => {
+    const slide = pres.addSlide();
+    darkSlide(slide);
+    const col = scCol[sc.type] || GOLD;
+    const pageN = (si+3);
+
+    // Hero header band
+    slide.addShape(pres.ShapeType.rect, {x:0,y:0,w:13.33,h:1.8, fill:{color:'111113'}, line:{color:col,width:0}});
+    slide.addShape(pres.ShapeType.rect, {x:0,y:0,w:0.08,h:1.8, fill:{color:col}, line:{color:col,width:0}});
+    slide.addText((sc.type+' · Escenario '+(si+1)+' de 3').toUpperCase(), {x:0.3,y:0.12,w:10,h:0.2, fontSize:7.5, fontFace:'Courier New', color:col, charSpacing:2});
+    slide.addText(safe(sc.name,50), {x:0.3,y:0.33,w:9.5,h:0.85, fontSize:34, fontFace:'Georgia', color:TEXT, bold:false, fit:'shrink'});
+    // Probability badge
+    slide.addShape(pres.ShapeType.rect, {x:11.1,y:0.38,w:1.9,h:1.0, fill:{color:BG}, line:{color:col,width:1}});
+    slide.addText('PROB.', {x:11.1,y:0.44,w:1.9,h:0.22, fontSize:6.5, fontFace:'Courier New', color:DIM, align:'center', charSpacing:1.5});
+    slide.addText(sc.probability, {x:11.1,y:0.68,w:1.9,h:0.5, fontSize:26, fontFace:'Georgia', color:col, align:'center', bold:false, fit:'shrink'});
+    // Description
+    slide.addText(safe(sc.description,250), {x:0.45,y:1.92,w:12.4,h:0.85, fontSize:10.5, fontFace:'Arial', color:'B0A89E', wrap:true, lineSpacingMultiple:1.5});
+
+    // Opportunities column
+    slide.addShape(pres.ShapeType.rect, {x:0.45,y:2.92,w:6.0,h:0.32, fill:{color:'14'+col.slice(0,6)+'22'}, line:{color:col,width:0.5}});
+    slide.addText('OPORTUNIDADES', {x:0.6,y:2.96,w:5.8,h:0.2, fontSize:7.5, fontFace:'Courier New', color:col, charSpacing:2});
+    sc.opportunities.slice(0,4).forEach((o,oi) => {
+      const oy = 3.3 + oi*0.72;
+      addCard(slide, 0.45, oy, 6.0, 0.62, CARD);
+      slide.addText('+', {x:0.55,y:oy+0.17,w:0.22,h:0.28, fontSize:12, fontFace:'Arial', color:col, bold:true, align:'center'});
+      slide.addText(safe(o,90), {x:0.85,y:oy+0.08,w:5.45,h:0.46, fontSize:9, fontFace:'Arial', color:TEXT, wrap:true, valign:'middle'});
+    });
+
+    // Threats column
+    slide.addShape(pres.ShapeType.rect, {x:6.88,y:2.92,w:6.0,h:0.32, fill:{color:'2A0808'}, line:{color:RED,width:0.5}});
+    slide.addText('AMENAZAS', {x:7.02,y:2.96,w:5.8,h:0.2, fontSize:7.5, fontFace:'Courier New', color:RED, charSpacing:2});
+    sc.threats.slice(0,4).forEach((t,ti) => {
+      const ty = 3.3 + ti*0.72;
+      addCard(slide, 6.88, ty, 6.0, 0.62, CARD);
+      slide.addText('−', {x:6.98,y:ty+0.17,w:0.22,h:0.28, fontSize:12, fontFace:'Arial', color:RED, bold:true, align:'center'});
+      slide.addText(safe(t,90), {x:7.28,y:ty+0.08,w:5.45,h:0.46, fontSize:9, fontFace:'Arial', color:TEXT, wrap:true, valign:'middle'});
+    });
+
+    slide.addText(name+' — Foresight Report', {x:0.45,y:7.18,w:8,h:0.18, fontSize:7, fontFace:'Courier New', color:DIM});
+    slide.addText(pageN+' / 9', {x:12.4,y:7.18,w:0.6,h:0.18, fontSize:7, fontFace:'Courier New', color:GOLD, align:'right'});
+  });
+
+  // ═══════════════════════════════════════════
+  // SLIDE 7 — BACKCASTING (3 columnas)
+  // ═══════════════════════════════════════════
+  const s7 = pres.addSlide();
+  darkSlide(s7);
+  addLabel(s7, 'Backcasting — Del futuro al presente', 0.45, 0.32, 7);
+  addLine(s7, 0.45, 0.62, 12.4);
+  const colW = 3.95;
+  d.backcasting.forEach((bc,bi) => {
+    const cx = 0.45 + bi*(colW+0.15);
+    const bcCol = scCol[bc.scenarioType] || GOLD;
+    // Header
+    addCard(s7, cx, 0.75, colW, 0.45, '161618');
+    s7.addShape(pres.ShapeType.rect, {x:cx,y:0.75,w:0.06,h:0.45, fill:{color:bcCol}, line:{color:bcCol,width:0}});
+    s7.addText(bc.scenarioType.toUpperCase(), {x:cx+0.14,y:0.78,w:2.2,h:0.18, fontSize:6.5, fontFace:'Courier New', color:bcCol, charSpacing:1.5});
+    s7.addText(safe(bc.scenarioName,30), {x:cx+0.14,y:0.96,w:colW-0.2,h:0.2, fontSize:9, fontFace:'Arial', color:TEXT, bold:true, fit:'shrink'});
+    // Vision statement
+    addCard(s7, cx, 1.28, colW, 0.75, '14130E');
+    s7.addShape(pres.ShapeType.rect, {x:cx,y:1.28,w:0.06,h:0.75, fill:{color:GOLD}, line:{color:GOLD,width:0}});
+    s7.addText('"'+safe(bc.visionStatement,110)+'"', {x:cx+0.14,y:1.32,w:colW-0.22,h:0.65, fontSize:8, fontFace:'Georgia', italic:true, color:'C9B97A', wrap:true, valign:'top'});
+    // Milestones
+    bc.milestones.slice(0,3).forEach((m,mi) => {
+      const my = 2.12 + mi*1.55;
+      addCard(s7, cx, my, colW, 1.45, CARD);
+      s7.addText(String(m.year), {x:cx+0.08,y:my+0.08,w:0.8,h:0.25, fontSize:9.5, fontFace:'Courier New', color:bcCol, bold:true});
+      s7.addText(safe(m.title,30), {x:cx+0.08,y:my+0.33,w:colW-0.16,h:0.25, fontSize:9, fontFace:'Arial', color:TEXT, bold:true, fit:'shrink'});
+      s7.addText(safe(m.description,80), {x:cx+0.08,y:my+0.58,w:colW-0.16,h:0.48, fontSize:7.5, fontFace:'Arial', color:MUTED, wrap:true, valign:'top'});
+      if (m.actions && m.actions[0]) {
+        s7.addText('→ '+safe(m.actions[0],45), {x:cx+0.08,y:my+1.1,w:colW-0.16,h:0.22, fontSize:7, fontFace:'Arial', color:DIM, wrap:true});
+      }
+    });
+  });
+  s7.addText(name+' — Foresight Report', {x:0.45,y:7.18,w:8,h:0.18, fontSize:7, fontFace:'Courier New', color:DIM});
+  s7.addText('6 / 9', {x:12.4,y:7.18,w:0.6,h:0.18, fontSize:7, fontFace:'Courier New', color:GOLD, align:'right'});
+
+  // ═══════════════════════════════════════════
+  // SLIDE 8 — SEÑALES DÉBILES + WILDCARDS
+  // ═══════════════════════════════════════════
+  const s8 = pres.addSlide();
+  darkSlide(s8);
+  addLabel(s8, 'Señales débiles detectadas', 0.45, 0.32, 6);
+  addLine(s8, 0.45, 0.62, 12.4);
+  const dimCol = {Social:BLUE,Tecnológico:GREEN,Económico:GOLD,Medioambiental:'86EFAC',Político:PURP};
+  d.weakSignals.slice(0,4).forEach((sig,i) => {
+    const sx = i%2===0 ? 0.45 : 6.65;
+    const sy = i<2 ? 0.75 : 2.05;
+    const dc = dimCol[sig.dimension]||GOLD;
+    addCard(s8, sx, sy, 6.0, 1.15, CARD);
+    s8.addShape(pres.ShapeType.rect, {x:sx,y:sy,w:6.0,h:0.06, fill:{color:dc}, line:{color:dc,width:0}});
+    s8.addText(sig.dimension.toUpperCase(), {x:sx+0.12,y:sy+0.1,w:5.7,h:0.18, fontSize:6.5, fontFace:'Courier New', color:dc, charSpacing:1.5});
+    s8.addText(safe(sig.title,55), {x:sx+0.12,y:sy+0.3,w:5.7,h:0.28, fontSize:10.5, fontFace:'Arial', color:TEXT, bold:true, fit:'shrink'});
+    s8.addText(safe(sig.description,130), {x:sx+0.12,y:sy+0.62,w:5.7,h:0.48, fontSize:8.5, fontFace:'Arial', color:MUTED, wrap:true, valign:'top'});
+  });
+  // Wildcards
+  addLabel(s8, 'Wildcards — Eventos de alto impacto', 0.45, 3.42, 7);
+  addLine(s8, 0.45, 3.7, 12.4);
+  d.wildcards.slice(0,3).forEach((w,i) => {
+    const wx = 0.45 + i*4.12;
+    addCard(s8, wx, 3.85, 3.95, 1.5, '160F2A');
+    s8.addShape(pres.ShapeType.rect, {x:wx,y:3.85,w:0.06,h:1.5, fill:{color:PURP}, line:{color:PURP,width:0}});
+    s8.addText('⚑', {x:wx+0.15,y:3.9,w:0.4,h:0.35, fontSize:14, color:PURP});
+    s8.addText(safe(w.title,45), {x:wx+0.55,y:3.9,w:3.25,h:0.35, fontSize:10, fontFace:'Arial', color:PURP, bold:true, fit:'shrink'});
+    s8.addText(safe(w.description,140), {x:wx+0.15,y:4.3,w:3.65,h:0.95, fontSize:8.5, fontFace:'Arial', color:MUTED, wrap:true, valign:'top'});
+  });
+  s8.addText(name+' — Foresight Report', {x:0.45,y:7.18,w:8,h:0.18, fontSize:7, fontFace:'Courier New', color:DIM});
+  s8.addText('7 / 9', {x:12.4,y:7.18,w:0.6,h:0.18, fontSize:7, fontFace:'Courier New', color:GOLD, align:'right'});
+
+  // ═══════════════════════════════════════════
+  // SLIDE 9 — MAPA ESTRATÉGICO H1/H2/H3
+  // ═══════════════════════════════════════════
+  const s9 = pres.addSlide();
+  darkSlide(s9);
+  addLabel(s9, 'Mapa estratégico por horizontes', 0.45, 0.32, 7);
+  addLine(s9, 0.45, 0.62, 12.4);
+  const hCols = [GREEN,BLUE,PURP];
+  const hKeys = ['H1','H2','H3'];
+  const hNames = ['Corto plazo · 0-18 meses','Medio plazo · 18 meses-2 años','Largo plazo · 2-'+horizon+' años'];
+  hKeys.forEach((hk,hi) => {
+    const hx = 0.45 + hi*4.32;
+    const items = d.strategicPriorities.filter(p=>p.horizon===hk);
+    const hc = hCols[hi];
+    // Header
+    s9.addShape(pres.ShapeType.rect, {x:hx,y:0.75,w:4.0,h:0.42, fill:{color:'111113'}, line:{color:hc,width:0.8}});
+    s9.addText(hk, {x:hx+0.1,y:0.8,w:0.5,h:0.3, fontSize:11, fontFace:'Courier New', color:hc, bold:true});
+    s9.addText(hNames[hi].toUpperCase(), {x:hx+0.62,y:0.85,w:3.25,h:0.2, fontSize:6.5, fontFace:'Courier New', color:hc, charSpacing:1, fit:'shrink'});
+    // Items
+    items.slice(0,3).forEach((p,pi) => {
+      const py = 1.28 + pi*1.98;
+      addCard(s9, hx, py, 4.0, 1.85, CARD);
+      s9.addShape(pres.ShapeType.rect, {x:hx,y:py,w:4.0,h:0.06, fill:{color:hc}, line:{color:hc,width:0}});
+      // Impact label
+      const impCol = p.impact==='high'?'14532D':p.impact==='medium'?'431407':'1E1B4B';
+      const impTxt = p.impact==='high'?'Alto':p.impact==='medium'?'Medio':'Exploración';
+      const impTextCol = p.impact==='high'?'86EFAC':p.impact==='medium'?'FED7AA':'C7D2FE';
+      s9.addShape(pres.ShapeType.rect, {x:hx+0.1,y:py+0.12,w:0.85,h:0.2, fill:{color:impCol}, line:{color:impCol,width:0}});
+      s9.addText(impTxt, {x:hx+0.1,y:py+0.12,w:0.85,h:0.2, fontSize:6.5, fontFace:'Courier New', color:impTextCol, align:'center'});
+      s9.addText(safe(p.title,42), {x:hx+0.12,y:py+0.38,w:3.75,h:0.3, fontSize:10, fontFace:'Arial', color:TEXT, bold:true, fit:'shrink'});
+      p.actions.slice(0,3).forEach((a,ai) => {
+        s9.addText('— '+safe(a,50), {x:hx+0.12,y:py+0.72+ai*0.32,w:3.75,h:0.28, fontSize:8, fontFace:'Arial', color:MUTED, wrap:true});
+      });
+    });
+  });
+  s9.addText(name+' — Foresight Report', {x:0.45,y:7.18,w:8,h:0.18, fontSize:7, fontFace:'Courier New', color:DIM});
+  s9.addText('9 / 9', {x:12.4,y:7.18,w:0.6,h:0.18, fontSize:7, fontFace:'Courier New', color:GOLD, align:'right'});
+
+  // ═══════════════════════════════════════════
+  // SLIDE FINAL — CIERRE
+  // ═══════════════════════════════════════════
+  const sf = pres.addSlide();
+  darkSlide(sf);
+  sf.addShape(pres.ShapeType.rect, {x:0,y:0,w:13.33,h:7.5, fill:{color:BG}, line:{color:BG,width:0}});
+  sf.addText('Foresight Strategy', {x:1.5,y:2.1,w:10.3,h:0.55, fontSize:16, fontFace:'Georgia', color:GOLD, align:'center'});
+  sf.addShape(pres.ShapeType.rect, {x:6.17,y:2.78,w:1.0,h:0.04, fill:{color:GOLD}, line:{color:GOLD,width:0}});
+  sf.addText('El futuro no se predice,\nse diseña.', {x:1.5,y:3.0,w:10.3,h:1.4, fontSize:30, fontFace:'Georgia', color:TEXT, align:'center', lineSpacingMultiple:1.3});
+  if (cName || cCompany) {
+    sf.addShape(pres.ShapeType.rect, {x:4.17,y:4.72,w:5.0,h:0.7, fill:{color:'161610'}, line:{color:'2A2A2D',width:0.5}});
+    sf.addText('ELABORADO POR', {x:4.17,y:4.77,w:5.0,h:0.2, fontSize:6.5, fontFace:'Courier New', color:DIM, align:'center', charSpacing:1.5});
+    sf.addText((cName||'')+(cCompany?' · '+cCompany:''), {x:4.17,y:4.97,w:5.0,h:0.3, fontSize:10, fontFace:'Arial', color:TEXT, align:'center', fit:'shrink'});
+  }
+  sf.addText('oliverhenares@gmail.com', {x:1.5,y:5.65,w:10.3,h:0.25, fontSize:9.5, fontFace:'Courier New', color:GOLD, align:'center'});
+  sf.addText('Powered by Claude AI', {x:1.5,y:6.9,w:10.3,h:0.2, fontSize:7, fontFace:'Courier New', color:'2A2A2D', align:'center', charSpacing:1});
+
+  // ── Save ──
+  await pres.writeFile({fileName: name.replace(/\s+/g,'-')+'-foresight.pptx'});
+  btn.textContent = '⬦ PowerPoint'; btn.disabled = false;
+}
+
+async function exportPDF() {
+  var btn = document.getElementById('btn-pdf');
+  btn.textContent = '\u29D7 Preparando...'; btn.disabled = true;
+  var overlay = document.getElementById('pdf-overlay');
+  var ovText = document.getElementById('pdf-ov-text');
+  overlay.style.display = 'flex';
+  if (ovText) ovText.textContent = 'Abriendo informe para imprimir...';
+
+  var name = document.getElementById('f-name').value || 'foresight';
+  var printHTML = buildPrintHTML();
+
+  var win = window.open('', '_blank', 'width=900,height=750');
+  if (!win) {
+    overlay.style.display = 'none';
+    btn.textContent = '\u2193 Exportar PDF'; btn.disabled = false;
+    alert('El navegador bloqu\u00f3 la ventana emergente.\nPermite ventanas emergentes para este sitio e int\u00e9ntalo de nuevo.');
+    return;
+  }
+
+  win.document.write(printHTML);
+  win.document.close();
+
+  // Wait for fonts
+  await new Promise(function(r){setTimeout(r, 2500);});
+
+  if (ovText) ovText.textContent = 'Selecciona \u201cGuardar como PDF\u201d en el di\u00e1logo';
+  win.print();
+
+  overlay.style.display = 'none';
+  btn.textContent = '\u2193 Exportar PDF'; btn.disabled = false;
+}
+
+// ── Client HTML file ──
+function generateClientFile() {
+  const d = reportData;
+  if (!d) return;
+  const name = document.getElementById('f-name').value || 'Empresa';
+  const sector = document.getElementById('f-sector').value || '';
+  const horizon = document.getElementById('f-horizon').value || '5';
+  const market = document.getElementById('f-market').value || '';
+  const today = new Date().toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'});
+  const sc = {Probable:'#2563eb',Plausible:'#0891b2',Posible:'#d97706'};
+
+  var impLabel2 = function(impact) {
+    if (impact === 'high') return 'Alto impacto';
+    if (impact === 'medium') return 'Impacto medio';
+    return 'Exploración';
+  };
+  var impBg = function(impact) {
+    if (impact === 'high') return '#f0fdf4;color:#166534';
+    if (impact === 'medium') return '#fff7ed;color:#9a3412';
+    return '#eff6ff;color:#1e40af';
+  };
+
+  const html = '<!DOCTYPE html>\n<html lang="es">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<title>Informe Foresight — '+name+'</title>\n<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">\n<style>\n*{box-sizing:border-box;margin:0;padding:0}\nbody{font-family:\'DM Sans\',sans-serif;background:#f8f7f4;color:#1a1a1a;min-height:100vh}\n.cover{background:#0d0d0f;color:#f0ece4;min-height:55vh;display:flex;flex-direction:column;position:relative;overflow:hidden}\n.cva{position:absolute;top:0;right:0;width:40%;height:100%;background:linear-gradient(135deg,transparent 50%,rgba(212,168,83,0.04) 100%)}\n.cva2{position:absolute;bottom:-60px;left:-60px;width:200px;height:200px;border-radius:50%;border:1px solid rgba(212,168,83,0.1)}\n.ct{padding:1.8rem 2.5rem;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.06)}\n.cl{font-family:\'Playfair Display\',serif;font-size:1rem;color:#d4a853}\n.cd{font-family:\'DM Mono\',monospace;font-size:0.68rem;color:#8a8680}\n.cb{padding:2.5rem 2.5rem;flex:1;display:flex;flex-direction:column;justify-content:flex-end}\n.cla{font-family:\'DM Mono\',monospace;font-size:0.65rem;letter-spacing:0.16em;text-transform:uppercase;color:#d4a853;margin-bottom:0.9rem}\n.cti{font-family:\'Playfair Display\',serif;font-size:2.4rem;font-weight:400;line-height:1.15;margin-bottom:0.4rem}\n.cse{font-size:0.95rem;color:#8a8680;margin-bottom:1.8rem}\n.cdv{width:44px;height:2px;background:#d4a853;margin-bottom:1.4rem}\n.cpi{display:flex;gap:1.4rem}\n.cpl{font-family:\'DM Mono\',monospace;font-size:0.58rem;text-transform:uppercase;letter-spacing:0.08em;color:#8a8680;margin-bottom:2px}\n.cpv{font-size:0.86rem;color:#d4a853;font-weight:500}\n.cbo{padding:0.9rem 2.5rem;border-top:1px solid rgba(255,255,255,0.06);display:flex;justify-content:space-between;font-family:\'DM Mono\',monospace;font-size:0.62rem;color:#5a5a58}\n.w{max-width:820px;margin:0 auto;padding:2.5rem 1.5rem}\n.sec{margin-bottom:2.75rem}\n.sl{font-family:\'DM Mono\',monospace;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.12em;color:#d4a853;display:flex;align-items:center;gap:8px;margin-bottom:1.1rem}\n.sl::after{content:\'\';flex:1;height:1px;background:#e8e4da}\n.eb{border-left:3px solid #d4a853;padding:1.2rem 1.4rem;background:#fff;border-radius:0 8px 8px 0;margin-bottom:1.4rem}\n.et{font-family:\'Playfair Display\',serif;font-size:1.08rem;line-height:1.85;color:#222}\n.g2{display:grid;grid-template-columns:1fr 1fr;gap:0.9rem}\n.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:0.9rem}\n@media(max-width:600px){.g2,.g3{grid-template-columns:1fr}}\n.card{background:#fff;border:1px solid #e8e4da;border-radius:10px;padding:1.1rem}\n.cacc{border-left:3px solid #d4a853}\n.ct2{font-size:0.9rem;font-weight:600;color:#111;margin-bottom:0.4rem}\n.cb2{font-size:0.78rem;color:#555;line-height:1.6}\n.sc{background:#fff;border:1px solid #e8e4da;border-radius:10px;overflow:hidden}\n.stb{height:4px}\n.sb{padding:1.1rem}\n.sty{font-family:\'DM Mono\',monospace;font-size:0.62rem;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.4rem}\n.sna{font-family:\'Playfair Display\',serif;font-size:1.05rem;margin-bottom:0.4rem;line-height:1.2}\n.spr{font-family:\'DM Mono\',monospace;font-size:0.62rem;color:#aaa;background:#f5f3ef;border-radius:20px;padding:2px 8px;display:inline-block;margin-bottom:0.65rem}\n.sde{font-size:0.78rem;color:#555;line-height:1.6;margin-bottom:0.9rem}\n.mla{font-family:\'DM Mono\',monospace;font-size:0.58rem;text-transform:uppercase;letter-spacing:0.08em;color:#bbb;margin-bottom:0.35rem}\n.bli{list-style:none;padding:0}\n.bli li{font-size:0.75rem;color:#555;padding:4px 0 4px 9px;border-left:2px solid #e8e4da;margin-bottom:3px;line-height:1.4}\n.bccard{background:#fff;border:1px solid #e8e4da;border-radius:10px;overflow:hidden;margin-bottom:0.9rem}\n.bch{padding:0.9rem 1.1rem;border-bottom:1px solid #e8e4da;display:flex;align-items:center;gap:9px}\n.bcd{width:9px;height:9px;border-radius:2px;flex-shrink:0}\n.bct{font-family:\'DM Mono\',monospace;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.08em}\n.bcn{font-size:0.92rem;font-weight:600;color:#111}\n.bcv{padding:0.9rem 1.1rem;background:#fdf9f2;border-bottom:1px solid #e8e4da;font-family:\'Playfair Display\',serif;font-style:italic;font-size:0.9rem;color:#444;line-height:1.7}\n.bcb{padding:0.9rem 1.1rem}\n.bcm{display:flex;gap:11px;margin-bottom:0.9rem;padding-bottom:0.9rem;border-bottom:1px solid #f0ece4}\n.bcm:last-child{border:none;margin-bottom:0}\n.bcy{font-family:\'DM Mono\',monospace;font-size:0.65rem;color:#d4a853;min-width:34px;padding-top:2px;flex-shrink:0}\n.bcmt{font-size:0.85rem;font-weight:600;margin-bottom:3px;color:#222}\n.bcmd{font-size:0.76rem;color:#666;line-height:1.5;margin-bottom:5px}\n.bca{font-size:0.7rem;color:#888;padding-left:11px;position:relative;margin-bottom:2px}\n.bca::before{content:\'→\';position:absolute;left:0;color:#d4a853}\n.bcs{padding:0.7rem 1.1rem;background:#f8f6f0;border-top:1px solid #e8e4da;font-size:0.76rem;color:#666}\n.bcsl{font-family:\'DM Mono\',monospace;font-size:0.58rem;text-transform:uppercase;letter-spacing:0.08em;color:#bbb;margin-bottom:2px}\n.sr2{display:flex;gap:11px;padding:0.7rem 0;border-bottom:1px solid #f0ece4}\n.sd2{font-family:\'DM Mono\',monospace;font-size:0.6rem;color:#d4a853;min-width:75px;padding-top:2px;text-transform:uppercase;letter-spacing:0.06em}\n.st2{font-size:0.83rem;font-weight:600;margin-bottom:2px;color:#222}\n.sd3{font-size:0.72rem;color:#666;line-height:1.5}\n.wi{padding:0.85rem 1rem 0.85rem 1.2rem;border-left:3px solid #c084fc;background:#fdf8ff;border-radius:0 8px 8px 0;margin-bottom:0.55rem}\n.wt{font-size:0.85rem;font-weight:600;color:#7c3aed;margin-bottom:3px}\n.wd{font-size:0.75rem;color:#666;line-height:1.5}\n.hs{margin-bottom:1.4rem}\n.hh{display:flex;align-items:center;gap:7px;margin-bottom:0.7rem}\n.hb{font-family:\'DM Mono\',monospace;font-size:0.62rem;padding:3px 9px;border-radius:20px;border:1px solid}\n.hn{font-size:0.86rem;font-weight:600;color:#222}\n.ht{font-family:\'DM Mono\',monospace;font-size:0.62rem;color:#aaa}\n.ac{background:#fff;border:1px solid #e8e4da;border-radius:8px;padding:0.9rem;margin-bottom:0.55rem}\n.ah{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:0.55rem}\n.at{font-size:0.85rem;font-weight:600;color:#222}\n.ait{font-family:\'DM Mono\',monospace;font-size:0.6rem;padding:2px 6px;border-radius:4px;white-space:nowrap}\n.ali{list-style:none;padding:0}\n.ali li{font-size:0.75rem;color:#555;padding:3px 0 3px 11px;position:relative}\n.ali li::before{content:\'—\';position:absolute;left:0;color:#d4a853}\n.footer{background:#0d0d0f;color:#5a5a58;padding:1.8rem 2.5rem;display:flex;justify-content:space-between;align-items:center;margin-top:3.5rem}\n.fl{font-family:\'Playfair Display\',serif;font-size:0.92rem;color:#d4a853}\n.ft{font-family:\'DM Mono\',monospace;font-size:0.62rem}\n</style>\n</head>\n<body>\n'+
+
+  '<div class="cover">'+
+    '<div class="cva"></div><div class="cva2"></div>'+
+    '<div class="ct"><span class="cl">Foresight <em>Strategy</em></span><span class="cd">'+today+'</span></div>'+
+    '<div class="cb">'+
+      '<div class="cla">Informe de foresight estratégico</div>'+
+      '<div class="cti">'+name+'</div>'+
+      '<div class="cse">'+sector+'</div>'+
+      '<div class="cdv"></div>'+
+      '<div class="cpi">'+
+        '<div><div class="cpl">Horizonte</div><div class="cpv">'+horizon+' años</div></div>'+
+        '<div><div class="cpl">Mercado</div><div class="cpv">'+market+'</div></div>'+
+        '<div><div class="cpl">Metodología</div><div class="cpv">STEEP · 3P · Backcasting</div></div>'+
+      '</div>'+
+    '</div>'+
+    '<div class="cbo"><span>Confidencial — Preparado por Foresight Strategy Platform</span><span>Powered by Claude AI</span></div>'+
+  '</div>'+
+
+  '<div class="w">'+
+    '<div class="sec">'+
+      '<div class="sl">Resumen ejecutivo</div>'+
+      '<div class="eb"><div class="et">'+d.executiveSummary+'</div></div>'+
+      '<div class="g2">'+
+        d.keyUncertainties.map(u=>'<div class="card cacc"><div class="ct2">'+u.name+'</div><div class="cb2">'+u.description+'</div></div>').join('')+
+      '</div>'+
+    '</div>'+
+
+    '<div class="sec">'+
+      '<div class="sl">Escenarios futuros — Marco 3P</div>'+
+      '<div class="g3">'+
+        d.scenarios.map(s=>
+          '<div class="sc"><div class="stb" style="background:'+(sc[s.type]||'#d4a853')+'"></div>'+
+          '<div class="sb">'+
+            '<div class="sty" style="color:'+(sc[s.type]||'#d4a853')+'">'+s.type+'</div>'+
+            '<div class="sna">'+s.name+'</div>'+
+            '<div class="spr">P: '+s.probability+'</div>'+
+            '<div class="sde">'+s.description+'</div>'+
+            '<div class="mla">Oportunidades</div>'+
+            '<ul class="bli">'+s.opportunities.map(o=>'<li style="border-left-color:'+(sc[s.type]||'#d4a853')+'">+ '+o+'</li>').join('')+'</ul>'+
+            '<div class="mla" style="margin-top:0.7rem;">Amenazas</div>'+
+            '<ul class="bli">'+s.threats.map(t=>'<li style="border-left-color:#ef4444">− '+t+'</li>').join('')+'</ul>'+
+          '</div></div>'
+        ).join('')+
+      '</div>'+
+    '</div>'+
+
+    '<div class="sec">'+
+      '<div class="sl">Backcasting — Del futuro al presente</div>'+
+      '<p style="font-size:0.78rem;color:#888;margin-bottom:1.1rem;">Para cada escenario, el backcasting define la visión del futuro y traza hacia atrás los hitos y acciones necesarios para alcanzarlo.</p>'+
+      d.backcasting.map(bc=>
+        '<div class="bccard">'+
+        '<div class="bch">'+
+          '<div class="bcd" style="background:'+(sc[bc.scenarioType]||'#d4a853')+'"></div>'+
+          '<span class="bct" style="color:'+(sc[bc.scenarioType]||'#d4a853')+'">'+bc.scenarioType+'</span>'+
+          '<span class="bcn">'+bc.scenarioName+'</span>'+
+        '</div>'+
+        '<div class="bcv">"'+bc.visionStatement+'"</div>'+
+        '<div class="bcb">'+
+          bc.milestones.map(m=>
+            '<div class="bcm"><span class="bcy">'+m.year+'</span>'+
+            '<div><div class="bcmt">'+m.title+'</div>'+
+            '<div class="bcmd">'+m.description+'</div>'+
+            m.actions.map(a=>'<div class="bca">'+a+'</div>').join('')+
+            '</div></div>'
+          ).join('')+
+        '</div>'+
+        '<div class="bcs"><div class="bcsl">Punto de partida — Hoy</div>'+bc.startingPoint+'</div>'+
+        '</div>'
+      ).join('')+
+    '</div>'+
+
+    '<div class="sec">'+
+      '<div class="sl">Señales débiles & wildcards</div>'+
+      '<div class="card" style="margin-bottom:1rem;">'+
+        d.weakSignals.map(s=>
+          '<div class="sr2"><span class="sd2">'+s.dimension+'</span>'+
+          '<div><div class="st2">'+s.title+'</div><div class="sd3">'+s.description+'</div></div></div>'
+        ).join('')+
+      '</div>'+
+      d.wildcards.map(w=>'<div class="wi"><div class="wt">⚑ '+w.title+'</div><div class="wd">'+w.description+'</div></div>').join('')+
+    '</div>'+
+
+    '<div class="sec">'+
+      '<div class="sl">Mapa estratégico por horizontes</div>'+
+      (function(){
+        var hColors2 = ['#22c55e','#3b82f6','#a855f7'];
+        var hLabels2 = ['Horizonte 1 — Corto plazo','Horizonte 2 — Medio plazo','Horizonte 3 — Largo plazo'];
+        return ['H1','H2','H3'].map(function(hk,hi){
+          var items = d.strategicPriorities.filter(function(p){ return p.horizon === hk; });
+          var tf = items.length ? items[0].timeframe : '';
+          return '<div class="hs">'+
+            '<div class="hh">'+
+              '<span class="hb" style="color:'+hColors2[hi]+';border-color:'+hColors2[hi]+';background:'+hColors2[hi]+'15;">'+hk+'</span>'+
+              '<span class="hn">'+hLabels2[hi]+'</span>'+
+              '<span class="ht">'+tf+'</span>'+
+            '</div>'+
+            items.map(function(p){
+              return '<div class="ac">'+
+                '<div class="ah">'+
+                  '<div class="at">'+p.title+'</div>'+
+                  '<span class="ait" style="background:'+impBg(p.impact)+'">'+impLabel2(p.impact)+'</span>'+
+                '</div>'+
+                '<ul class="ali">'+p.actions.map(function(a){ return '<li>'+a+'</li>'; }).join('')+'</ul>'+
+              '</div>';
+            }).join('')+
+          '</div>';
+        }).join('');
+      })()+
+    '</div>'+
+  '</div>'+
+
+  '<div class="footer">'+
+    '<span class="fl">Foresight <em>Strategy</em></span>'+
+    '<span class="ft">Informe generado el '+today+' · Confidencial</span>'+
+    '<span class="ft">Powered by Claude AI</span>'+
+  '</div>'+
+
+  '</body>\n</html>';
+
+  const blob = new Blob([html],{type:'text/html;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'Foresight-'+name.replace(/\s+/g,'-')+'-Cliente.html';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+</script>
+<script src="./Futuros — Foresight Strategy_files/html2pdf.bundle.min.js.descarga"></script>
+<script src="./Futuros — Foresight Strategy_files/pptxgen.bundle.js.descarga"></script>
+
+
+</body></html>
