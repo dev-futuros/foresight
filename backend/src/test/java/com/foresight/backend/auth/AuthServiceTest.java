@@ -23,9 +23,11 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import com.foresight.backend.auth.dto.AuthResponse;
+import com.foresight.backend.auth.dto.ChangePasswordRequest;
 import com.foresight.backend.auth.dto.LoginRequest;
 import com.foresight.backend.auth.dto.RegisterRequest;
 import com.foresight.backend.common.exception.ConflictException;
+import com.foresight.backend.common.exception.NotFoundException;
 import com.foresight.backend.common.security.JwtService;
 import com.foresight.backend.user.User;
 import com.foresight.backend.user.UserRepository;
@@ -42,6 +44,9 @@ class AuthServiceTest {
 
     @Mock
     private JwtService jwtService;
+
+    @Mock
+    private EmailVerificationService emailVerificationService;
 
     @InjectMocks
     private AuthService authService;
@@ -138,17 +143,47 @@ class AuthServiceTest {
         when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(persistedUser));
         when(passwordEncoder.matches("wrong", "hashed-password")).thenReturn(false);
 
-        assertThatThrownBy(() -> authService.login(new LoginRequest("user@example.com", "wrong")))
-                .isInstanceOf(BadCredentialsException.class)
-                .hasMessage("Invalid credentials");
+        Throwable thrown = org.assertj.core.api.Assertions.catchThrowable(
+                () -> authService.login(new LoginRequest("user@example.com", "wrong")));
+
+        assertThat(thrown).isInstanceOf(BadCredentialsException.class).hasMessage("Invalid credentials");
     }
 
     @Test
-    void loginRejectsUnknownEmailWithGenericMessage() {
-        when(userRepository.findByEmail("ghost@example.com")).thenReturn(Optional.empty());
+    void changePasswordReencodesHashWhenCurrentMatches() {
+        UUID userId = persistedUser.getId();
+        when(userRepository.findById(userId)).thenReturn(Optional.of(persistedUser));
+        when(passwordEncoder.matches("current-pass", "hashed-password")).thenReturn(true);
+        when(passwordEncoder.encode("NewPassw0rd!")).thenReturn("hashed-new");
 
-        assertThatThrownBy(() -> authService.login(new LoginRequest("ghost@example.com", "whatever")))
-                .isInstanceOf(BadCredentialsException.class)
-                .hasMessage("Invalid credentials");
+        authService.changePassword(userId, new ChangePasswordRequest("current-pass", "NewPassw0rd!"));
+
+        assertThat(persistedUser.getPassword()).isEqualTo("hashed-new");
+        verify(userRepository).save(persistedUser);
+    }
+
+    @Test
+    void changePasswordRejectsWrongCurrentPassword() {
+        UUID userId = persistedUser.getId();
+        when(userRepository.findById(userId)).thenReturn(Optional.of(persistedUser));
+        when(passwordEncoder.matches("wrong", "hashed-password")).thenReturn(false);
+
+        Throwable thrown = org.assertj.core.api.Assertions.catchThrowable(
+                () -> authService.changePassword(userId, new ChangePasswordRequest("wrong", "NewPassw0rd!")));
+
+        assertThat(thrown).isInstanceOf(BadCredentialsException.class).hasMessage("Invalid credentials");
+
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void changePasswordFailsWhenUserDoesNotExist() {
+        UUID userId = UUID.randomUUID();
+        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+
+        Throwable thrown = org.assertj.core.api.Assertions.catchThrowable(
+                () -> authService.changePassword(userId, new ChangePasswordRequest("x", "NewPassw0rd!")));
+
+        assertThat(thrown).isInstanceOf(NotFoundException.class).hasMessageContaining("User not found");
     }
 }

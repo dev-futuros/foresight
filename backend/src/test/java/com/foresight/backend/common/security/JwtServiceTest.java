@@ -33,7 +33,8 @@ class JwtServiceTest {
                 new SecurityProperties.Cors(List.of()),
                 Duration.ofMinutes(30),
                 Duration.ofHours(24),
-                new SecurityProperties.RateLimit(new SecurityProperties.RateLimit.Bucket(10, 10, Duration.ofMinutes(1))));
+                new SecurityProperties.RateLimit(
+                        new SecurityProperties.RateLimit.Bucket(10, 10, Duration.ofMinutes(1))));
     }
 
     @Test
@@ -45,9 +46,7 @@ class JwtServiceTest {
         Claims claims = service.parse(token);
 
         assertThat(claims.getSubject()).isEqualTo(userId.toString());
-        assertThat(claims)
-            .containsEntry("email", "user@example.com")
-            .containsEntry("role", "USER");
+        assertThat(claims).containsEntry("email", "user@example.com").containsEntry("role", "USER");
         assertThat(claims.getExpiration()).isAfter(claims.getIssuedAt());
     }
 
@@ -87,9 +86,7 @@ class JwtServiceTest {
                 Duration.ofMinutes(30),
                 Duration.ofHours(24),
                 new SecurityProperties.RateLimit(
-                        new SecurityProperties.RateLimit.Bucket(10, 10, Duration.ofMinutes(1))
-                )
-        );
+                        new SecurityProperties.RateLimit.Bucket(10, 10, Duration.ofMinutes(1))));
         JwtService verifier = new JwtService(otherProps);
 
         assertThatThrownBy(() -> verifier.parse(token)).isInstanceOf(JwtException.class);

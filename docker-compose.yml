@@ -29,8 +29,12 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000}
+      DEBUG_PORT: ${DEBUG_PORT:-5005}
+      JAVA_TOOL_OPTIONS: >
+        -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
     ports:
       - "8080:8080"
+      - "5005:5005"
     networks:
       - services
     depends_on:
