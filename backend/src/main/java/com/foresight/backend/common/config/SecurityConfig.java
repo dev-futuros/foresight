@@ -21,6 +21,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import com.foresight.backend.common.security.JwtAuthFilter;
+import com.foresight.backend.common.security.RateLimitFilter;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,8 +39,13 @@ import lombok.extern.slf4j.Slf4j;
  *       authentication takes precedence.</li>
  * </ul>
  *
- * <p>Public endpoints: {@code /api/auth/**}, {@code /api/health},
- * and the Swagger UI / OpenAPI docs. Everything else requires a valid JWT.
+ * <p>Public auth endpoints (no token required): {@code /api/auth/register},
+ * {@code /api/auth/login}, {@code /api/auth/forgot-password}, {@code /api/auth/reset-password},
+ * {@code /api/auth/verify-email}. Other {@code /api/auth/*} routes (change-password,
+ * resend-verification-email) still require a valid JWT.
+ *
+ * <p>Other public endpoints: {@code /api/health}, {@code /actuator/health}, and the Swagger
+ * UI / OpenAPI docs. Everything else requires a valid JWT.
  */
 @Slf4j
 @Configuration
@@ -49,6 +55,7 @@ import lombok.extern.slf4j.Slf4j;
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
+    private final RateLimitFilter rateLimitFilter;
     private final SecurityProperties properties;
 
     /**
@@ -90,8 +97,17 @@ public class SecurityConfig {
                         auth.anyRequest().permitAll();
                     } else {
                         auth.requestMatchers(
-                                        "/api/auth/**",
+                                        HttpMethod.POST,
+                                        "/api/auth/register",
+                                        "/api/auth/login",
+                                        "/api/auth/forgot-password",
+                                        "/api/auth/reset-password",
+                                        "/api/auth/verify-email")
+                                .permitAll()
+                                .requestMatchers(
                                         "/api/health",
+                                        "/actuator/health",
+                                        "/actuator/health/**",
                                         "/v3/api-docs/**",
                                         "/swagger-ui/**",
                                         "/swagger-ui.html")
@@ -100,6 +116,8 @@ public class SecurityConfig {
                                 .authenticated();
                     }
                 })
+                // Rate limit FIRST so brute-force traffic never reaches JWT parsing / the DB.
+                .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

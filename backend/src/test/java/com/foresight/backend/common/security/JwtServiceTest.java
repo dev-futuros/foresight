@@ -23,9 +23,17 @@ class JwtServiceTest {
     private static final String SECRET = "this-is-a-test-secret-that-is-long-enough-32b+";
 
     private JwtService jwtService(Duration ttl) {
-        SecurityProperties props = new SecurityProperties(
-                false, new SecurityProperties.Jwt(SECRET, ttl), new SecurityProperties.Cors(List.of()));
-        return new JwtService(props);
+        return new JwtService(propsWithSecret(SECRET, ttl));
+    }
+
+    private static SecurityProperties propsWithSecret(String secret, Duration ttl) {
+        return new SecurityProperties(
+                false,
+                new SecurityProperties.Jwt(secret, ttl),
+                new SecurityProperties.Cors(List.of()),
+                Duration.ofMinutes(30),
+                Duration.ofHours(24),
+                new SecurityProperties.RateLimit(new SecurityProperties.RateLimit.Bucket(10, 10, Duration.ofMinutes(1))));
     }
 
     @Test
@@ -37,8 +45,9 @@ class JwtServiceTest {
         Claims claims = service.parse(token);
 
         assertThat(claims.getSubject()).isEqualTo(userId.toString());
-        assertThat(claims.get("email")).isEqualTo("user@example.com");
-        assertThat(claims.get("role")).isEqualTo("USER");
+        assertThat(claims)
+            .containsEntry("email", "user@example.com")
+            .containsEntry("role", "USER");
         assertThat(claims.getExpiration()).isAfter(claims.getIssuedAt());
     }
 
@@ -74,7 +83,13 @@ class JwtServiceTest {
         SecurityProperties otherProps = new SecurityProperties(
                 false,
                 new SecurityProperties.Jwt("another-very-long-secret-that-is-also-32b++", Duration.ofHours(1)),
-                new SecurityProperties.Cors(List.of()));
+                new SecurityProperties.Cors(List.of()),
+                Duration.ofMinutes(30),
+                Duration.ofHours(24),
+                new SecurityProperties.RateLimit(
+                        new SecurityProperties.RateLimit.Bucket(10, 10, Duration.ofMinutes(1))
+                )
+        );
         JwtService verifier = new JwtService(otherProps);
 
         assertThatThrownBy(() -> verifier.parse(token)).isInstanceOf(JwtException.class);

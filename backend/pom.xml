@@ -69,7 +69,24 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-validation</artifactId>
     </dependency>
-
+    <!--
+				Actuator: exposes operational endpoints (health, info, metrics) under /actuator/*.
+				Only /actuator/health is publicly exposed; the rest are opt-in via management.endpoints.
+			-->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+    <!--
+				Bucket4j: in-memory token-bucket rate limiter used to throttle authentication
+				endpoints (login / register / forgot-password) and mitigate brute-force + spam.
+				Swap for a Redis-backed variant when we scale beyond a single instance.
+			-->
+    <dependency>
+      <groupId>com.bucket4j</groupId>
+      <artifactId>bucket4j_jdk17-core</artifactId>
+      <version>8.14.0</version>
+    </dependency>
     <dependency>
       <groupId>io.jsonwebtoken</groupId>
       <artifactId>jjwt-api</artifactId>

@@ -97,15 +97,15 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Maps generic {@link IllegalArgumentException} to HTTP 400. Used as a shortcut by services
-     * that just need to reject an input.
+     * Maps {@link BadRequestException} (domain-level 400) and
+     * {@link IllegalArgumentException} (lightweight shortcut used by services) to HTTP 400.
      *
      * @param ex  the thrown exception
      * @param req current HTTP request
      * @return 400 response
      */
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ApiError> handleBadRequest(IllegalArgumentException ex, HttpServletRequest req) {
+    @ExceptionHandler({BadRequestException.class, IllegalArgumentException.class})
+    public ResponseEntity<ApiError> handleBadRequest(Exception ex, HttpServletRequest req) {
         return ResponseEntity.badRequest().body(ApiError.of(400, "Bad Request", ex.getMessage(), req.getRequestURI()));
     }
 

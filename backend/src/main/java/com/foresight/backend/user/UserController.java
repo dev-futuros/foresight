@@ -2,6 +2,8 @@ package com.foresight.backend.user;
 
 import jakarta.validation.Valid;
 
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -52,5 +54,23 @@ public class UserController {
     public UserResponse updateMe(
             @CurrentUser AuthenticatedUser principal, @Valid @RequestBody UpdateUserRequest request) {
         return UserResponse.from(userService.updateProfile(principal.id(), request.name(), request.language()));
+    }
+
+    /**
+     * Permanently deletes the caller's account and every resource they own (reports, pending
+     * auth tokens, etc.). This is irreversible and implements GDPR's right to erasure.
+     *
+     * <p>The JWT the client used to call this endpoint is NOT invalidated server-side — we
+     * remain stateless. In practice its {@code sub} will no longer resolve to a user on the
+     * next request, so every subsequent call fails with 401 / 404 and the client should drop
+     * the token locally.
+     *
+     * @param principal authenticated caller
+     * @return HTTP 204 on success
+     */
+    @DeleteMapping("/me")
+    public ResponseEntity<Void> deleteMe(@CurrentUser AuthenticatedUser principal) {
+        userService.deleteAccount(principal.id());
+        return ResponseEntity.noContent().build();
     }
 }

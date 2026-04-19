@@ -25,8 +25,7 @@ class JwtAuthFilterTest {
 
     private static final String SECRET = "this-is-a-test-secret-that-is-long-enough-32b+";
 
-    private final JwtService realJwtService = new JwtService(new SecurityProperties(
-            false, new SecurityProperties.Jwt(SECRET, Duration.ofHours(1)), new SecurityProperties.Cors(List.of())));
+    private final JwtService realJwtService = new JwtService(testProperties(false));
 
     @AfterEach
     void clearContext() {
@@ -34,11 +33,22 @@ class JwtAuthFilterTest {
     }
 
     private JwtAuthFilter filter(boolean authDisabled) {
-        SecurityProperties props = new SecurityProperties(
+        return new JwtAuthFilter(realJwtService, testProperties(authDisabled));
+    }
+
+    /**
+     * Builds a {@link SecurityProperties} populated with harmless defaults — these tests
+     * only exercise the JWT + auth-disabled switch, so the password-reset / email-verify
+     * TTLs and rate-limit bucket are unused at runtime but must be non-null for the record.
+     */
+    private static SecurityProperties testProperties(boolean authDisabled) {
+        return new SecurityProperties(
                 authDisabled,
                 new SecurityProperties.Jwt(SECRET, Duration.ofHours(1)),
-                new SecurityProperties.Cors(List.of()));
-        return new JwtAuthFilter(realJwtService, props);
+                new SecurityProperties.Cors(List.of()),
+                Duration.ofMinutes(30),
+                Duration.ofHours(24),
+                new SecurityProperties.RateLimit(new SecurityProperties.RateLimit.Bucket(10, 10, Duration.ofMinutes(1))));
     }
 
     @Test
@@ -158,9 +168,7 @@ class JwtAuthFilterTest {
     @Test
     void doesNotConsultJwtServiceWhenAuthDisabledAndNoHeader() throws Exception {
         JwtService mockJwt = mock(JwtService.class);
-        SecurityProperties props = new SecurityProperties(
-                true, new SecurityProperties.Jwt(SECRET, Duration.ofHours(1)), new SecurityProperties.Cors(List.of()));
-        JwtAuthFilter f = new JwtAuthFilter(mockJwt, props);
+        JwtAuthFilter f = new JwtAuthFilter(mockJwt, testProperties(true));
 
         HttpServletRequest req = mock(HttpServletRequest.class);
         HttpServletResponse res = mock(HttpServletResponse.class);

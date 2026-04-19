@@ -4,6 +4,7 @@ import java.util.UUID;
 
 import jakarta.validation.Valid;
 
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +17,8 @@ import com.foresight.backend.report.dto.ReportResponse;
 import com.foresight.backend.report.dto.ReportSummary;
 import com.foresight.backend.report.dto.UpdateReportRequest;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -45,15 +48,30 @@ public class ReportController {
     }
 
     /**
-     * Lists the caller's reports. Pagination is driven by standard Spring query parameters:
-     * {@code ?page=0&size=20}.
+     * Lists the caller's reports. Pagination is driven by standard Spring query parameters.
      *
      * @param principal authenticated caller
-     * @param pageable  pagination info (Spring resolves this automatically)
+     * @param pageable  pagination info (Spring resolves {@code page}, {@code size}, {@code sort}
+     *                  automatically)
      * @return a page of lightweight report summaries
      */
+    @Operation(
+            summary = "List the caller's reports",
+            description =
+                    """
+                    Paginated list of the authenticated user's reports, lightweight projection (no inputData/resultData blobs).
+
+                    **Pagination parameters** (all optional):
+                    - `page`  — zero-indexed page number. Default: `0`.
+                    - `size`  — page size. Default: `20`. Typical max: `100`.
+                    - `sort`  — `property,(asc|desc)`. Repeat the parameter to sort by multiple properties.
+                              Valid properties: `createdAt`, `updatedAt`, `title`, `status`.
+                              Examples: `createdAt,desc` (default-ish) · `title,asc` · `status,asc&sort=createdAt,desc`.
+                    """)
     @GetMapping
-    public Page<ReportSummary> list(@CurrentUser AuthenticatedUser principal, Pageable pageable) {
+    public Page<ReportSummary> list(
+            @CurrentUser AuthenticatedUser principal,
+            @Parameter(example = "createdAt,desc") @ParameterObject Pageable pageable) {
         return reportService.list(principal.id(), pageable).map(ReportSummary::from);
     }
 
