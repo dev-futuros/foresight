@@ -53,6 +53,26 @@ class AiServiceTest {
     }
 
     @Test
+    void suggestSteepDefaultsLanguageToSpanishWhenNull() throws Exception {
+        when(anthropicClient.sendMessage(
+                        org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.eq(700)))
+                .thenReturn(MAPPER.readTree("{\"factors\":[]}"));
+
+        aiService.suggestSteep(new SteepSuggestRequest("social", "Acme", null));
+
+        ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+        verify(anthropicClient)
+                .sendMessage(
+                        org.mockito.ArgumentMatchers.anyString(),
+                        promptCaptor.capture(),
+                        org.mockito.ArgumentMatchers.eq(700));
+
+        assertThat(promptCaptor.getValue()).contains("Language: es");
+    }
+
+    @Test
     void suggestHorizonUsesHorizonSystemPromptAndBudget() throws Exception {
         JsonNode expected = MAPPER.readTree("{\"signals\":[]}");
         when(anthropicClient.sendMessage(
@@ -69,7 +89,6 @@ class AiServiceTest {
                 .sendMessage(systemCaptor.capture(), promptCaptor.capture(), org.mockito.ArgumentMatchers.eq(800));
 
         assertThat(systemCaptor.getValue()).contains("Horizon Scanning");
-        // Language defaults to "es" when null
         assertThat(promptCaptor.getValue()).contains("Language: es").contains("Horizon: H2");
     }
 
@@ -94,30 +113,12 @@ class AiServiceTest {
                         org.mockito.ArgumentMatchers.anyString(),
                         promptCaptor.capture(),
                         org.mockito.ArgumentMatchers.eq(8000));
+
         String prompt = promptCaptor.getValue();
         assertThat(prompt)
                 .contains("Acme")
                 .contains("technological")
                 .contains("H1")
                 .contains("Language: en");
-    }
-
-    @Test
-    void languageFallsBackToSpanishOnUnknownTag() {
-        when(anthropicClient.sendMessage(
-                        org.mockito.ArgumentMatchers.anyString(),
-                        org.mockito.ArgumentMatchers.anyString(),
-                        org.mockito.ArgumentMatchers.anyInt()))
-                .thenReturn(null);
-
-        aiService.suggestSteep(new SteepSuggestRequest("social", "Acme", "fr"));
-
-        ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
-        verify(anthropicClient)
-                .sendMessage(
-                        org.mockito.ArgumentMatchers.anyString(),
-                        promptCaptor.capture(),
-                        org.mockito.ArgumentMatchers.anyInt());
-        assertThat(promptCaptor.getValue()).contains("Language: es");
     }
 }

@@ -48,7 +48,8 @@ class JwtAuthFilterTest {
                 new SecurityProperties.Cors(List.of()),
                 Duration.ofMinutes(30),
                 Duration.ofHours(24),
-                new SecurityProperties.RateLimit(new SecurityProperties.RateLimit.Bucket(10, 10, Duration.ofMinutes(1))));
+                new SecurityProperties.RateLimit(
+                        new SecurityProperties.RateLimit.Bucket(10, 10, Duration.ofMinutes(1))));
     }
 
     @Test
