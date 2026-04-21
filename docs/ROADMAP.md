@@ -52,11 +52,11 @@ Vite · React 18 · TypeScript · React Router v6 · Axios · TanStack Query v5 
 - [x] Screens:
   - [x] `/login` — LoginPage with dark design system
   - [x] `/register` — RegisterPage with dark design system
-  - [ ] `/dashboard` (report list)
-  - [ ] `/reports/new` — 3-step wizard (Empresa → STEEP → Horizon Scan)
-  - [ ] `/reports/:id` — tabbed result view (Escenarios 3P, Backcasting, Señales débiles, Matriz)
+  - [x] `/dashboard` — report list with status badges, empty state, delete
+  - [x] `/reports/new` — 3-step wizard (Empresa → STEEP → Horizon Scan)
+  - [x] `/reports/:id` — tabbed result view (Escenarios 3P, señales débiles, wildcards, incertidumbres)
   - [ ] `/account` — profile + language preference
-- [ ] Frontend tests: Vitest + React Testing Library (auth flow, protected routes)
+- [x] Frontend tests: Vitest + React Testing Library — 30 tests (auth, protected routes, dashboard, report hooks)
 - [ ] i18n: i18next with ES (default) and EN catalogs
 - [ ] Export: port `html2pdf.js` + `pptxgenjs` from the prototype
 - [ ] Loading / error states across all screens

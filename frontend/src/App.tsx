@@ -4,11 +4,9 @@ import { queryClient } from './lib/queryClient';
 import ProtectedRoute from './components/ProtectedRoute';
 import LoginPage from './features/auth/LoginPage';
 import RegisterPage from './features/auth/RegisterPage';
-
-// Stubs — implemented in upcoming features
-const DashboardPage = () => <div>Dashboard</div>;
-const NewReportPage = () => <div>New Report</div>;
-const ReportPage = () => <div>Report</div>;
+import DashboardPage from './features/dashboard/DashboardPage';
+import NewReportPage from './features/report/NewReportPage';
+import ReportPage from './features/report/ReportPage';
 const AccountPage = () => <div>Account</div>;
 
 export default function App() {
