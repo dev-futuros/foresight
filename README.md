@@ -7,10 +7,11 @@ Strategic foresight platform powered by Claude AI. Helps organizations anticipat
 ```
 Foresight/
 ├── backend/              # Spring Boot 3.5 backend (Java 21)
-├── frontend/             # React + Vite + TypeScript (to be built in M2)
+├── frontend/             # React 18 + Vite + TypeScript frontend
 ├── docker-compose.yml    # Orchestrates backend + PostgreSQL
 ├── .env.example          # Template for environment variables
 └── docs/
+    ├── API.md            # Full REST API reference
     ├── ARCHITECTURE.md   # System architecture and design decisions
     └── ROADMAP.md        # Development plan (M1–M4)
 ```
@@ -20,7 +21,8 @@ Foresight/
 ### Requirements
 
 - Docker Desktop
-- (Optional, only if you want to run the backend with `mvnw` outside Docker) JDK 21 + Maven, Node.js 20+
+- Node.js 20+ (for the frontend)
+- (Optional, only if you want to run the backend with `mvnw` outside Docker) JDK 21 + Maven
 
 ### One-command stack
 
@@ -50,6 +52,24 @@ Once it boots:
 | Backend     | http://localhost:8080                       |
 | Swagger UI  | http://localhost:8080/swagger-ui.html       |
 | SonarQube   | http://localhost:9000  (admin / admin)      |
+
+### Starting the frontend
+
+In a separate terminal:
+
+```bash
+cd frontend
+npm install      # first time only
+npm run dev
+```
+
+| Service     | URL                        |
+|-------------|----------------------------|
+| Frontend    | http://localhost:5173      |
+
+The frontend proxies all `/api/*` calls to `http://localhost:8080` automatically — no CORS setup needed in development.
+
+> **First-time setup:** register a new account at http://localhost:5173/register. The backend in `local` profile has auth disabled for the dev user, but real JWT auth works — your account is stored in PostgreSQL and persists between restarts.
 
 ### How environments work
 
@@ -120,9 +140,9 @@ All core backend infrastructure is in place:
 
 Package structure follows **package-by-feature** (`auth/`, `user/`, `report/`, `ai/`, `common/`) to make the codebase scalable — modules can be extracted to microservices later if needed.
 
-### 🚧 Next up — M2: Frontend
+### 🚧 M2 — Frontend (in progress)
 
-Build the React frontend that replaces the existing vanilla-JS prototype in `frontend/`. See [ROADMAP.md](docs/ROADMAP.md) for full plan.
+React 18 + TypeScript frontend scaffolded and auth flow complete. See [ROADMAP.md](docs/ROADMAP.md) for full plan.
 
 ---
 
