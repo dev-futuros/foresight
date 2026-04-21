@@ -36,21 +36,29 @@ Goal: a production-quality backend skeleton ready to plug a frontend into.
 
 Goal: replace the vanilla-JS prototype in `frontend/` with a production React app that consumes the backend API.
 
+### Stack decided
+Vite · React 18 · TypeScript · React Router v6 · Axios · TanStack Query v5 · i18next · html2pdf.js · pptxgenjs · CSS variables (no CSS framework). See [ARCHITECTURE.md](ARCHITECTURE.md) for full rationale.
+
 ### Deliverables
 
-- [ ] Scaffold: Vite + React 18 + TypeScript + ESLint + Prettier
-- [ ] Router: React Router v6 with protected routes
-- [ ] HTTP layer: Axios / Fetch wrapper with JWT injection and 401 handling
-- [ ] Data fetching: TanStack Query for caching, invalidation, background refresh
-- [ ] i18n: i18next with ES (default) and EN catalogs
-- [ ] Screens:
-  - [ ] `/login`, `/register`
+- [x] Scaffold: Vite + React 18 + TypeScript + ESLint + Prettier
+- [x] Router: React Router v6 with protected routes (`ProtectedRoute` component)
+- [x] HTTP layer: Axios instance with JWT injection and 401 → logout handler (`src/lib/api.ts`)
+- [x] Data fetching: TanStack Query v5 configured (`src/lib/queryClient.ts`)
+- [x] TypeScript types for all backend DTOs (`src/types/api.ts`)
+- [x] Global design system: dark theme + accent dorado, fuentes DM Sans/DM Mono/Playfair Display (`src/index.css`)
+- [x] Auth hooks: `useLogin`, `useRegister`, `useCurrentUser`, `useLogout` (`src/hooks/useAuth.ts`)
+- [x] Auth: JWT in memory + restore via `GET /api/users/me` on reload
+- [x] Screens:
+  - [x] `/login` — LoginPage with dark design system
+  - [x] `/register` — RegisterPage with dark design system
   - [ ] `/dashboard` (report list)
-  - [ ] `/reports/new` — 3-step wizard (Company profile → STEEP → Horizon)
-  - [ ] `/reports/:id` — tabbed report view (Scenarios, Backcasting, Weak Signals, …)
+  - [ ] `/reports/new` — 3-step wizard (Empresa → STEEP → Horizon Scan)
+  - [ ] `/reports/:id` — tabbed result view (Escenarios 3P, Backcasting, Señales débiles, Matriz)
   - [ ] `/account` — profile + language preference
-- [ ] Export: port `html2pdf` + `pptxgen` from the prototype
-- [ ] Auth: JWT in memory + refresh via `/api/users/me` on reload
+- [ ] Frontend tests: Vitest + React Testing Library (auth flow, protected routes)
+- [ ] i18n: i18next with ES (default) and EN catalogs
+- [ ] Export: port `html2pdf.js` + `pptxgenjs` from the prototype
 - [ ] Loading / error states across all screens
 
 ### Done when
