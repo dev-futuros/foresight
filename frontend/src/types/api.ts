@@ -81,3 +81,8 @@ export interface UpdateUserRequest {
   name?: string;
   language?: 'es' | 'en';
 }
+
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}

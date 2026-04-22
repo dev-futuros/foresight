@@ -7,7 +7,7 @@ import RegisterPage from './features/auth/RegisterPage';
 import DashboardPage from './features/dashboard/DashboardPage';
 import NewReportPage from './features/report/NewReportPage';
 import ReportPage from './features/report/ReportPage';
-const AccountPage = () => <div>Account</div>;
+import AccountPage from './features/account/AccountPage';
 
 export default function App() {
   return (
