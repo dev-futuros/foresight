@@ -44,6 +44,7 @@ export default function DashboardPage() {
           {user && (
             <span className="nav-user">{user.name || user.email}</span>
           )}
+          <Link to="/account" className="nav-logout">Mi cuenta</Link>
           <button className="nav-logout" onClick={logout}>
             Cerrar sesión
           </button>
