@@ -45,6 +45,10 @@ const en = {
       steep: 'STEEP Analysis',
       horizon: 'Horizon Scan',
     },
+    export: {
+      pdfTitle: 'Export as PDF',
+      pptTitle: 'Export as PowerPoint',
+    },
     results: {
       pendingTitle: 'Analysis pending',
       pendingDesc: 'AI analysis will be available once you connect your Anthropic API key. Inputs are already saved and ready to process.',

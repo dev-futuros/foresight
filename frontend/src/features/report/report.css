@@ -37,6 +37,22 @@
 }
 .btn-back-nav:hover { border-color: var(--border-h); color: var(--text); text-decoration: none; }
 
+.btn-export {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  padding: 4px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+.btn-export:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.btn-export:disabled { opacity: 0.3; cursor: not-allowed; }
+
 .report-title-nav {
   font-family: var(--font-serif);
   font-size: 1rem;

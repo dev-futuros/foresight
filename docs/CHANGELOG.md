@@ -7,6 +7,13 @@ Format: `[version/milestone] — date — description`.
 
 ## [Unreleased — M2 in progress]
 
+### 2026-04-22 (continuación)
+- **Exports PDF y PPT** — botones en la nav de ReportPage, activos solo cuando hay `resultData`
+  - `src/lib/exportPdf.ts` — genera PDF programático con jspdf (portada, inputs, STEEP, horizon, resultados)
+  - `src/lib/exportPpt.ts` — genera presentación con pptxgenjs (slides por sección, diseño oscuro con acento dorado)
+  - Botones deshabilitados en informes DRAFT, tooltip i18n (ES/EN)
+  - Exports 100% client-side — leen datos ya guardados en PostgreSQL
+
 ### 2026-04-22
 - **i18n infrastructure** — i18next + react-i18next configured with ES (default) and EN catalogs
   - Catálogos en `frontend/src/i18n/locales/{es,en}.ts` (nav, dashboard, account)

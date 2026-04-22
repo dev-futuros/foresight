@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useReport } from '../../hooks/useReports';
+import { exportReportPdf } from '../../lib/exportPdf';
+import { exportReportPpt } from '../../lib/exportPpt';
 import './report.css';
 
 type Tab = 'inputs' | 'resultados';
@@ -47,9 +49,27 @@ export default function ReportPage() {
           <Link to="/dashboard" className="btn-back-nav">{t('report.backToDashboard')}</Link>
           <span className="report-title-nav">{report.title}</span>
         </div>
-        <span className={`status-badge ${report.status}`} style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '3px 9px', borderRadius: '20px' }}>
-          {t(`report.status.${report.status}`)}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <span className={`status-badge ${report.status}`} style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '3px 9px', borderRadius: '20px' }}>
+            {t(`report.status.${report.status}`)}
+          </span>
+          <button
+            className="btn-export"
+            onClick={() => exportReportPdf(report)}
+            disabled={!report.resultData}
+            title={t('report.export.pdfTitle')}
+          >
+            PDF
+          </button>
+          <button
+            className="btn-export"
+            onClick={() => exportReportPpt(report)}
+            disabled={!report.resultData}
+            title={t('report.export.pptTitle')}
+          >
+            PPT
+          </button>
+        </div>
       </nav>
 
       <div className="report-header">
