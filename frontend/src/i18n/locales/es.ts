@@ -1,0 +1,98 @@
+const es = {
+  nav: {
+    myAccount: 'Mi cuenta',
+    logout: 'Cerrar sesión',
+  },
+  dashboard: {
+    title: 'Mis informes',
+    reports_one: '{{count}} informe',
+    reports_other: '{{count}} informes',
+    newReport: 'Nuevo informe',
+    emptyTitle: 'Aún no tienes informes',
+    emptyDesc: 'Crea tu primer informe de foresight estratégico.',
+    emptyAction: 'Crear informe',
+    deleteConfirm: '¿Eliminar este informe? Esta acción no se puede deshacer.',
+    status: {
+      DRAFT: 'Borrador',
+      PROCESSING: 'Procesando',
+      COMPLETED: 'Completado',
+      FAILED: 'Error',
+    },
+  },
+  report: {
+    backToDashboard: '← Mis informes',
+    eyebrow: 'Informe de foresight estratégico',
+    loading: 'Cargando informe...',
+    notFound: 'Informe no encontrado.',
+    tabs: {
+      inputs: 'INPUTS',
+      results: 'RESULTADOS',
+    },
+    meta: {
+      created: 'Creado {{date}}',
+      horizon: '· Horizonte {{value}} años',
+    },
+    status: {
+      DRAFT: 'Borrador',
+      PROCESSING: 'Procesando',
+      COMPLETED: 'Completado',
+      FAILED: 'Error',
+    },
+    inputs: {
+      organization: 'Organización',
+      sector: 'Sector',
+      challenge: 'Reto estratégico',
+      steep: 'Análisis STEEP',
+      horizon: 'Horizon Scan',
+    },
+    results: {
+      pendingTitle: 'Análisis pendiente',
+      pendingDesc: 'El análisis con IA estará disponible cuando conectes tu API key de Anthropic. Los inputs ya están guardados y listos para procesar.',
+      generateBtn: '✦ Generar análisis con IA',
+      scenarios: 'Escenarios 3P',
+      uncertainties: 'Incertidumbres clave',
+      weakSignals: 'Señales débiles',
+      wildcards: 'Wildcards',
+    },
+  },
+  account: {
+    title: 'Mi cuenta',
+    backToDashboard: '← Mis informes',
+    profile: {
+      title: 'Perfil',
+      email: 'Email',
+      name: 'Nombre',
+      namePlaceholder: 'Tu nombre',
+      role: 'Rol',
+      save: 'Guardar cambios',
+      saving: 'Guardando…',
+      successMsg: 'Perfil actualizado correctamente.',
+      errorMsg: 'No se pudo actualizar el perfil.',
+    },
+    preferences: {
+      title: 'Preferencias',
+      language: 'Idioma',
+      save: 'Guardar preferencias',
+      saving: 'Guardando…',
+    },
+    security: {
+      title: 'Seguridad',
+      currentPassword: 'Contraseña actual',
+      newPassword: 'Nueva contraseña',
+      newPasswordPlaceholder: 'Mínimo 8 caracteres',
+      confirmPassword: 'Confirmar contraseña',
+      confirmPasswordPlaceholder: 'Repite la nueva contraseña',
+      save: 'Cambiar contraseña',
+      saving: 'Cambiando…',
+      successMsg: 'Contraseña cambiada correctamente.',
+      errorMsg: 'Contraseña actual incorrecta.',
+      mismatchMsg: 'Las contraseñas no coinciden.',
+    },
+    roles: {
+      USER: 'Usuario',
+      ADMIN: 'Administrador',
+    },
+  },
+} as const;
+
+export default es;

@@ -44,8 +44,8 @@ describe('DashboardPage', () => {
     vi.mocked(useReports).mockReturnValue(mockPage([]) as ReturnType<typeof useReports>);
     renderWithProviders(<DashboardPage />);
 
-    expect(screen.getByText(/sin informes todavía/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /crear primer informe/i })).toBeInTheDocument();
+    expect(screen.getByText(/aún no tienes informes/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /crear informe/i })).toBeInTheDocument();
   });
 
   it('shows loading state', () => {

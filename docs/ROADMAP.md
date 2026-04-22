@@ -57,7 +57,7 @@ Vite · React 18 · TypeScript · React Router v6 · Axios · TanStack Query v5 
   - [x] `/reports/:id` — tabbed result view (Escenarios 3P, señales débiles, wildcards, incertidumbres)
   - [x] `/account` — perfil (nombre, email, rol), preferencias (idioma), seguridad (cambio contraseña)
 - [x] Frontend tests: Vitest + React Testing Library — 41 tests (auth, protected routes, dashboard, report hooks, account)
-- [ ] i18n: i18next with ES (default) and EN catalogs
+- [x] i18n: i18next con catálogos ES/EN — dashboard y account traducidos; arquitectura lista para extender al resto de pantallas
 - [ ] Export: port `html2pdf.js` + `pptxgenjs` from the prototype
 - [ ] Loading / error states across all screens
 

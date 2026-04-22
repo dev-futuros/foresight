@@ -8,32 +8,28 @@ import DashboardPage from './features/dashboard/DashboardPage';
 import NewReportPage from './features/report/NewReportPage';
 import ReportPage from './features/report/ReportPage';
 import AccountPage from './features/account/AccountPage';
+import { useLanguageSync } from './hooks/useLanguageSync';
+
+function AppRoutes() {
+  useLanguageSync();
+  return (
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
+      <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+      <Route path="/reports/new" element={<ProtectedRoute><NewReportPage /></ProtectedRoute>} />
+      <Route path="/reports/:id" element={<ProtectedRoute><ReportPage /></ProtectedRoute>} />
+      <Route path="/account" element={<ProtectedRoute><AccountPage /></ProtectedRoute>} />
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+    </Routes>
+  );
+}
 
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route
-            path="/dashboard"
-            element={<ProtectedRoute><DashboardPage /></ProtectedRoute>}
-          />
-          <Route
-            path="/reports/new"
-            element={<ProtectedRoute><NewReportPage /></ProtectedRoute>}
-          />
-          <Route
-            path="/reports/:id"
-            element={<ProtectedRoute><ReportPage /></ProtectedRoute>}
-          />
-          <Route
-            path="/account"
-            element={<ProtectedRoute><AccountPage /></ProtectedRoute>}
-          />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
+        <AppRoutes />
       </BrowserRouter>
     </QueryClientProvider>
   );

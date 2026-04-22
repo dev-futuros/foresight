@@ -1,15 +1,9 @@
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useReports, useDeleteReport } from '../../hooks/useReports';
 import { useCurrentUser, useLogout } from '../../hooks/useAuth';
 import type { ReportStatus } from '../../types/api';
 import './dashboard.css';
-
-const STATUS_LABEL: Record<ReportStatus, string> = {
-  DRAFT: 'Borrador',
-  PROCESSING: 'Procesando',
-  COMPLETED: 'Completado',
-  FAILED: 'Error',
-};
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('es-ES', {
@@ -20,6 +14,7 @@ function formatDate(iso: string) {
 }
 
 export default function DashboardPage() {
+  const { t } = useTranslation();
   const { data: user } = useCurrentUser();
   const { data, isLoading, isError } = useReports();
   const deleteReport = useDeleteReport();
@@ -28,7 +23,7 @@ export default function DashboardPage() {
   function handleDelete(e: React.MouseEvent, id: string) {
     e.preventDefault();
     e.stopPropagation();
-    if (confirm('¿Eliminar este informe? Esta acción no se puede deshacer.')) {
+    if (confirm(t('dashboard.deleteConfirm'))) {
       deleteReport.mutate(id);
     }
   }
@@ -44,9 +39,9 @@ export default function DashboardPage() {
           {user && (
             <span className="nav-user">{user.name || user.email}</span>
           )}
-          <Link to="/account" className="nav-logout">Mi cuenta</Link>
+          <Link to="/account" className="nav-logout">{t('nav.myAccount')}</Link>
           <button className="nav-logout" onClick={logout}>
-            Cerrar sesión
+            {t('nav.logout')}
           </button>
         </div>
       </nav>
@@ -54,13 +49,13 @@ export default function DashboardPage() {
       <main className="dashboard-main">
         <div className="dashboard-header">
           <div>
-            <h1 className="dashboard-title">Mis informes</h1>
+            <h1 className="dashboard-title">{t('dashboard.title')}</h1>
             <p className="dashboard-subtitle">
-              {data ? `${data.totalElements} informe${data.totalElements !== 1 ? 's' : ''}` : ' '}
+              {data ? t('dashboard.reports', { count: data.totalElements }) : ' '}
             </p>
           </div>
           <Link to="/reports/new" className="btn-new-report">
-            ✦ Nuevo informe
+            ✦ {t('dashboard.newReport')}
           </Link>
         </div>
 
@@ -75,12 +70,10 @@ export default function DashboardPage() {
         {!isLoading && !isError && data && data.content.length === 0 && (
           <div className="empty-state">
             <div className="empty-state-icon">◈</div>
-            <h2 className="empty-state-title">Sin informes todavía</h2>
-            <p className="empty-state-desc">
-              Crea tu primer análisis de foresight estratégico.
-            </p>
+            <h2 className="empty-state-title">{t('dashboard.emptyTitle')}</h2>
+            <p className="empty-state-desc">{t('dashboard.emptyDesc')}</p>
             <Link to="/reports/new" className="btn-new-report" style={{ display: 'inline-flex' }}>
-              ✦ Crear primer informe
+              ✦ {t('dashboard.emptyAction')}
             </Link>
           </div>
         )}
@@ -101,7 +94,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="report-card-actions">
                   <span className={`status-badge ${report.status}`}>
-                    {STATUS_LABEL[report.status]}
+                    {t(`dashboard.status.${report.status}` as `dashboard.status.${ReportStatus}`)}
                   </span>
                   <button
                     className="btn-delete"

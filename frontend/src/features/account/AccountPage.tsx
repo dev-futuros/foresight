@@ -1,13 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useCurrentUser } from '../../hooks/useAuth';
 import { useUpdateProfile, useChangePassword } from '../../hooks/useAccount';
 import './account.css';
-
-const ROLE_LABELS: Record<string, string> = {
-  USER: 'Usuario',
-  ADMIN: 'Administrador',
-};
 
 const LANGUAGE_OPTIONS = [
   { value: 'es', label: 'Español' },
@@ -15,6 +11,7 @@ const LANGUAGE_OPTIONS = [
 ];
 
 export default function AccountPage() {
+  const { t, i18n } = useTranslation();
   const { data: user, isLoading } = useCurrentUser();
   const updateProfile = useUpdateProfile();
   const changePassword = useChangePassword();
@@ -40,9 +37,10 @@ export default function AccountPage() {
     setProfileMsg(null);
     try {
       await updateProfile.mutateAsync({ name: name.trim() || undefined, language });
-      setProfileMsg({ type: 'ok', text: 'Perfil actualizado correctamente.' });
+      i18n.changeLanguage(language);
+      setProfileMsg({ type: 'ok', text: t('account.profile.successMsg') });
     } catch {
-      setProfileMsg({ type: 'err', text: 'No se pudo actualizar el perfil.' });
+      setProfileMsg({ type: 'err', text: t('account.profile.errorMsg') });
     }
   }
 
@@ -50,17 +48,17 @@ export default function AccountPage() {
     e.preventDefault();
     setPasswordMsg(null);
     if (newPassword !== confirmPassword) {
-      setPasswordMsg({ type: 'err', text: 'Las contraseñas no coinciden.' });
+      setPasswordMsg({ type: 'err', text: t('account.security.mismatchMsg') });
       return;
     }
     try {
       await changePassword.mutateAsync({ currentPassword, newPassword });
-      setPasswordMsg({ type: 'ok', text: 'Contraseña cambiada correctamente.' });
+      setPasswordMsg({ type: 'ok', text: t('account.security.successMsg') });
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch {
-      setPasswordMsg({ type: 'err', text: 'Contraseña actual incorrecta.' });
+      setPasswordMsg({ type: 'err', text: t('account.security.errorMsg') });
     }
   }
 
@@ -70,134 +68,122 @@ export default function AccountPage() {
     <div className="account-page">
       <nav className="account-nav">
         <div className="account-nav-left">
-          <Link to="/dashboard" className="btn-back-nav">← Mis informes</Link>
-          <span className="account-nav-title">Mi cuenta</span>
+          <Link to="/dashboard" className="btn-back-nav">{t('account.backToDashboard')}</Link>
+          <span className="account-nav-title">{t('account.title')}</span>
         </div>
       </nav>
 
       <div className="account-content">
         {/* Perfil */}
         <section className="account-section">
-          <h2 className="account-section-title">Perfil</h2>
+          <h2 className="account-section-title">{t('account.profile.title')}</h2>
           <form className="account-form" onSubmit={handleProfileSubmit}>
             <div className="account-field">
-              <label className="account-label">Email</label>
+              <label className="account-label">{t('account.profile.email')}</label>
               <input
                 className="account-input account-input--readonly"
                 value={user?.email ?? ''}
                 readOnly
-                aria-label="Email"
+                aria-label={t('account.profile.email')}
               />
             </div>
             <div className="account-field">
-              <label className="account-label">Nombre</label>
+              <label className="account-label">{t('account.profile.name')}</label>
               <input
                 className="account-input"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Tu nombre"
-                aria-label="Nombre"
+                placeholder={t('account.profile.namePlaceholder')}
+                aria-label={t('account.profile.name')}
               />
             </div>
             <div className="account-field">
-              <label className="account-label">Rol</label>
+              <label className="account-label">{t('account.profile.role')}</label>
               <input
                 className="account-input account-input--readonly"
-                value={ROLE_LABELS[user?.role ?? 'USER']}
+                value={t(`account.roles.${user?.role ?? 'USER'}`)}
                 readOnly
-                aria-label="Rol"
+                aria-label={t('account.profile.role')}
               />
             </div>
             {profileMsg && (
               <p className={`account-msg account-msg--${profileMsg.type}`}>{profileMsg.text}</p>
             )}
-            <button
-              type="submit"
-              className="btn-account-save"
-              disabled={updateProfile.isPending}
-            >
-              {updateProfile.isPending ? 'Guardando…' : 'Guardar cambios'}
+            <button type="submit" className="btn-account-save" disabled={updateProfile.isPending}>
+              {updateProfile.isPending ? t('account.profile.saving') : t('account.profile.save')}
             </button>
           </form>
         </section>
 
         {/* Preferencias */}
         <section className="account-section">
-          <h2 className="account-section-title">Preferencias</h2>
+          <h2 className="account-section-title">{t('account.preferences.title')}</h2>
           <form className="account-form" onSubmit={handleProfileSubmit}>
             <div className="account-field">
-              <label className="account-label">Idioma</label>
+              <label className="account-label">{t('account.preferences.language')}</label>
               <select
                 className="account-input account-select"
                 value={language}
                 onChange={(e) => setLanguage(e.target.value as 'es' | 'en')}
-                aria-label="Idioma"
+                aria-label={t('account.preferences.language')}
               >
                 {LANGUAGE_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
               </select>
             </div>
-            <button
-              type="submit"
-              className="btn-account-save"
-              disabled={updateProfile.isPending}
-            >
-              {updateProfile.isPending ? 'Guardando…' : 'Guardar preferencias'}
+            <button type="submit" className="btn-account-save" disabled={updateProfile.isPending}>
+              {updateProfile.isPending ? t('account.preferences.saving') : t('account.preferences.save')}
             </button>
           </form>
         </section>
 
         {/* Seguridad */}
         <section className="account-section">
-          <h2 className="account-section-title">Seguridad</h2>
+          <h2 className="account-section-title">{t('account.security.title')}</h2>
           <form className="account-form" onSubmit={handlePasswordSubmit}>
             <div className="account-field">
-              <label className="account-label">Contraseña actual</label>
+              <label className="account-label">{t('account.security.currentPassword')}</label>
               <input
                 type="password"
                 className="account-input"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 placeholder="••••••••"
-                aria-label="Contraseña actual"
+                aria-label={t('account.security.currentPassword')}
                 required
               />
             </div>
             <div className="account-field">
-              <label className="account-label">Nueva contraseña</label>
+              <label className="account-label">{t('account.security.newPassword')}</label>
               <input
                 type="password"
                 className="account-input"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Mínimo 8 caracteres"
-                aria-label="Nueva contraseña"
+                placeholder={t('account.security.newPasswordPlaceholder')}
+                aria-label={t('account.security.newPassword')}
                 minLength={8}
                 required
               />
             </div>
             <div className="account-field">
-              <label className="account-label">Confirmar contraseña</label>
+              <label className="account-label">{t('account.security.confirmPassword')}</label>
               <input
                 type="password"
                 className="account-input"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Repite la nueva contraseña"
-                aria-label="Confirmar contraseña"
+                placeholder={t('account.security.confirmPasswordPlaceholder')}
+                aria-label={t('account.security.confirmPassword')}
                 required
               />
             </div>
             {passwordMsg && (
               <p className={`account-msg account-msg--${passwordMsg.type}`}>{passwordMsg.text}</p>
             )}
-            <button
-              type="submit"
-              className="btn-account-save"
-              disabled={changePassword.isPending}
-            >
-              {changePassword.isPending ? 'Cambiando…' : 'Cambiar contraseña'}
+            <button type="submit" className="btn-account-save" disabled={changePassword.isPending}>
+              {changePassword.isPending ? t('account.security.saving') : t('account.security.save')}
             </button>
           </form>
         </section>

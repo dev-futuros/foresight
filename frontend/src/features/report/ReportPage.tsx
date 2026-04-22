@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useReport } from '../../hooks/useReports';
 import './report.css';
 
@@ -19,19 +20,14 @@ const HORIZON_LABELS: Record<string, string> = {
   H3: 'H3 — Largo plazo (5+ años)',
 };
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('es-ES', {
-    day: '2-digit', month: 'short', year: 'numeric',
-  });
-}
-
 export default function ReportPage() {
+  const { t, i18n } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const { data: report, isLoading, isError } = useReport(id!);
   const [tab, setTab] = useState<Tab>('inputs');
 
-  if (isLoading) return <div className="loading-screen">Cargando informe...</div>;
-  if (isError || !report) return <div className="loading-screen" style={{ color: '#f87171' }}>Informe no encontrado.</div>;
+  if (isLoading) return <div className="loading-screen">{t('report.loading')}</div>;
+  if (isError || !report) return <div className="loading-screen" style={{ color: '#f87171' }}>{t('report.notFound')}</div>;
 
   const input = report.inputData as {
     companyProfile: { name: string; sector: string; horizon: string; challenge: string };
@@ -39,25 +35,30 @@ export default function ReportPage() {
     horizon: Record<string, string>;
   };
 
+  const formattedDate = new Date(report.createdAt).toLocaleDateString(
+    i18n.language === 'en' ? 'en-GB' : 'es-ES',
+    { day: '2-digit', month: 'short', year: 'numeric' }
+  );
+
   return (
     <div className="report-page">
       <nav className="report-nav">
         <div className="report-nav-left">
-          <Link to="/dashboard" className="btn-back-nav">← Mis informes</Link>
+          <Link to="/dashboard" className="btn-back-nav">{t('report.backToDashboard')}</Link>
           <span className="report-title-nav">{report.title}</span>
         </div>
         <span className={`status-badge ${report.status}`} style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '3px 9px', borderRadius: '20px' }}>
-          {report.status === 'DRAFT' ? 'Borrador' : report.status === 'COMPLETED' ? 'Completado' : report.status === 'PROCESSING' ? 'Procesando' : 'Error'}
+          {t(`report.status.${report.status}`)}
         </span>
       </nav>
 
       <div className="report-header">
-        <p className="report-eyebrow">Informe de foresight estratégico</p>
+        <p className="report-eyebrow">{t('report.eyebrow')}</p>
         <h1 className="report-main-title">{report.title}</h1>
         <div className="report-meta">
-          <span className="report-meta-item">Creado {formatDate(report.createdAt)}</span>
+          <span className="report-meta-item">{t('report.meta.created', { date: formattedDate })}</span>
           {input?.companyProfile?.horizon && (
-            <span className="report-meta-item">· Horizonte {input.companyProfile.horizon} años</span>
+            <span className="report-meta-item">{t('report.meta.horizon', { value: input.companyProfile.horizon })}</span>
           )}
           {input?.companyProfile?.sector && (
             <span className="report-meta-item">· {input.companyProfile.sector}</span>
@@ -67,62 +68,59 @@ export default function ReportPage() {
 
       <div className="report-tabs">
         <button className={`tab-btn ${tab === 'inputs' ? 'active' : ''}`} onClick={() => setTab('inputs')}>
-          INPUTS
+          {t('report.tabs.inputs')}
         </button>
         <button className={`tab-btn ${tab === 'resultados' ? 'active' : ''}`} onClick={() => setTab('resultados')}>
-          RESULTADOS
+          {t('report.tabs.results')}
         </button>
       </div>
 
       <div className="report-content">
         {tab === 'inputs' && (
           <div>
-            {/* Company profile */}
             <div className="input-grid">
               <div className="input-card">
-                <div className="input-card-label">Organización</div>
+                <div className="input-card-label">{t('report.inputs.organization')}</div>
                 <div className="input-card-value">{input?.companyProfile?.name || '—'}</div>
               </div>
               <div className="input-card">
-                <div className="input-card-label">Sector</div>
+                <div className="input-card-label">{t('report.inputs.sector')}</div>
                 <div className="input-card-value">{input?.companyProfile?.sector || '—'}</div>
               </div>
               <div className="input-card full">
-                <div className="input-card-label">Reto estratégico</div>
+                <div className="input-card-label">{t('report.inputs.challenge')}</div>
                 <div className="input-card-value">{input?.companyProfile?.challenge || '—'}</div>
               </div>
             </div>
 
-            {/* STEEP */}
             {input?.steep && (
               <>
-                <p className="input-card-label" style={{ marginBottom: '0.75rem' }}>Análisis STEEP</p>
+                <p className="input-card-label" style={{ marginBottom: '0.75rem' }}>{t('report.inputs.steep')}</p>
                 <div className="steep-grid">
-                  {Object.entries(input.steep).map(([key, value]) => (
+                  {Object.entries(input.steep).map(([key, value]) =>
                     value ? (
                       <div key={key} className="input-card">
                         <div className="input-card-label">{STEEP_LABELS[key] || key}</div>
                         <div className="input-card-value">{value}</div>
                       </div>
                     ) : null
-                  ))}
+                  )}
                 </div>
               </>
             )}
 
-            {/* Horizon */}
             {input?.horizon && (
               <>
-                <p className="input-card-label" style={{ marginBottom: '0.75rem' }}>Horizon Scan</p>
+                <p className="input-card-label" style={{ marginBottom: '0.75rem' }}>{t('report.inputs.horizon')}</p>
                 <div className="horizon-list">
-                  {Object.entries(input.horizon).map(([key, value]) => (
+                  {Object.entries(input.horizon).map(([key, value]) =>
                     value ? (
                       <div key={key} className="input-card">
                         <div className="input-card-label">{HORIZON_LABELS[key] || key}</div>
                         <div className="input-card-value">{value}</div>
                       </div>
                     ) : null
-                  ))}
+                  )}
                 </div>
               </>
             )}
@@ -132,13 +130,10 @@ export default function ReportPage() {
         {tab === 'resultados' && !report.resultData && (
           <div className="report-draft-state">
             <div className="report-draft-icon">◈</div>
-            <h2 className="report-draft-title">Análisis pendiente</h2>
-            <p className="report-draft-desc">
-              El análisis con IA estará disponible cuando conectes tu API key de Anthropic.
-              Los inputs ya están guardados y listos para procesar.
-            </p>
+            <h2 className="report-draft-title">{t('report.results.pendingTitle')}</h2>
+            <p className="report-draft-desc">{t('report.results.pendingDesc')}</p>
             <button className="btn-analyze" disabled>
-              ✦ Generar análisis con IA
+              {t('report.results.generateBtn')}
             </button>
           </div>
         )}
@@ -154,7 +149,7 @@ export default function ReportPage() {
             <div>
               {r.scenarios && r.scenarios.length > 0 && (
                 <>
-                  <p className="input-card-label" style={{ marginBottom: '0.75rem' }}>Escenarios 3P</p>
+                  <p className="input-card-label" style={{ marginBottom: '0.75rem' }}>{t('report.results.scenarios')}</p>
                   <div className="steep-grid" style={{ marginBottom: '1.5rem' }}>
                     {r.scenarios.map((s) => (
                       <div key={s.type} className="input-card">
@@ -169,7 +164,7 @@ export default function ReportPage() {
 
               {r.keyUncertainties && r.keyUncertainties.length > 0 && (
                 <>
-                  <p className="input-card-label" style={{ marginBottom: '0.75rem' }}>Incertidumbres clave</p>
+                  <p className="input-card-label" style={{ marginBottom: '0.75rem' }}>{t('report.results.uncertainties')}</p>
                   <div className="input-card full" style={{ marginBottom: '1.5rem' }}>
                     <ul style={{ paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                       {r.keyUncertainties.map((u, i) => (
@@ -182,7 +177,7 @@ export default function ReportPage() {
 
               {r.weakSignals && r.weakSignals.length > 0 && (
                 <>
-                  <p className="input-card-label" style={{ marginBottom: '0.75rem' }}>Señales débiles</p>
+                  <p className="input-card-label" style={{ marginBottom: '0.75rem' }}>{t('report.results.weakSignals')}</p>
                   <div className="input-card full" style={{ marginBottom: '1.5rem' }}>
                     <ul style={{ paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                       {r.weakSignals.map((s, i) => (
@@ -195,7 +190,7 @@ export default function ReportPage() {
 
               {r.wildcards && r.wildcards.length > 0 && (
                 <>
-                  <p className="input-card-label" style={{ marginBottom: '0.75rem' }}>Wildcards</p>
+                  <p className="input-card-label" style={{ marginBottom: '0.75rem' }}>{t('report.results.wildcards')}</p>
                   <div className="input-card full">
                     <ul style={{ paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                       {r.wildcards.map((w, i) => (

@@ -1,0 +1,98 @@
+const en = {
+  nav: {
+    myAccount: 'My account',
+    logout: 'Log out',
+  },
+  dashboard: {
+    title: 'My reports',
+    reports_one: '{{count}} report',
+    reports_other: '{{count}} reports',
+    newReport: 'New report',
+    emptyTitle: 'No reports yet',
+    emptyDesc: 'Create your first strategic foresight report.',
+    emptyAction: 'Create report',
+    deleteConfirm: 'Delete this report? This action cannot be undone.',
+    status: {
+      DRAFT: 'Draft',
+      PROCESSING: 'Processing',
+      COMPLETED: 'Completed',
+      FAILED: 'Error',
+    },
+  },
+  report: {
+    backToDashboard: '← My reports',
+    eyebrow: 'Strategic foresight report',
+    loading: 'Loading report...',
+    notFound: 'Report not found.',
+    tabs: {
+      inputs: 'INPUTS',
+      results: 'RESULTS',
+    },
+    meta: {
+      created: 'Created {{date}}',
+      horizon: '· Horizon {{value}} years',
+    },
+    status: {
+      DRAFT: 'Draft',
+      PROCESSING: 'Processing',
+      COMPLETED: 'Completed',
+      FAILED: 'Error',
+    },
+    inputs: {
+      organization: 'Organisation',
+      sector: 'Sector',
+      challenge: 'Strategic challenge',
+      steep: 'STEEP Analysis',
+      horizon: 'Horizon Scan',
+    },
+    results: {
+      pendingTitle: 'Analysis pending',
+      pendingDesc: 'AI analysis will be available once you connect your Anthropic API key. Inputs are already saved and ready to process.',
+      generateBtn: '✦ Generate AI analysis',
+      scenarios: '3P Scenarios',
+      uncertainties: 'Key uncertainties',
+      weakSignals: 'Weak signals',
+      wildcards: 'Wildcards',
+    },
+  },
+  account: {
+    title: 'My account',
+    backToDashboard: '← My reports',
+    profile: {
+      title: 'Profile',
+      email: 'Email',
+      name: 'Name',
+      namePlaceholder: 'Your name',
+      role: 'Role',
+      save: 'Save changes',
+      saving: 'Saving…',
+      successMsg: 'Profile updated successfully.',
+      errorMsg: 'Could not update profile.',
+    },
+    preferences: {
+      title: 'Preferences',
+      language: 'Language',
+      save: 'Save preferences',
+      saving: 'Saving…',
+    },
+    security: {
+      title: 'Security',
+      currentPassword: 'Current password',
+      newPassword: 'New password',
+      newPasswordPlaceholder: 'At least 8 characters',
+      confirmPassword: 'Confirm password',
+      confirmPasswordPlaceholder: 'Repeat the new password',
+      save: 'Change password',
+      saving: 'Changing…',
+      successMsg: 'Password changed successfully.',
+      errorMsg: 'Current password is incorrect.',
+      mismatchMsg: 'Passwords do not match.',
+    },
+    roles: {
+      USER: 'User',
+      ADMIN: 'Administrator',
+    },
+  },
+} as const;
+
+export default en;
