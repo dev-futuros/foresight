@@ -102,7 +102,7 @@ class AiServiceTest {
                         org.mockito.ArgumentMatchers.eq(1500)))
                 .thenReturn(expected);
 
-        aiService.globalSteep(new GlobalSteepRequest("Movilidad eléctrica", "en"));
+        aiService.globalSteep(new GlobalSteepRequest("Movilidad eléctrica", "en", null));
 
         ArgumentCaptor<String> systemCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
@@ -114,7 +114,32 @@ class AiServiceTest {
         assertThat(promptCaptor.getValue())
                 .contains("Language: en")
                 .contains("Sector: Movilidad eléctrica")
-                .contains("Current year:");
+                .contains("Current year:")
+                .doesNotContain("Return ONLY the");
+    }
+
+    @Test
+    void globalSteepWithDimensionPinsPromptToSingleKey() throws Exception {
+        JsonNode expected = MAPPER.readTree("{\"P\":\"some political signal\"}");
+        when(anthropicClient.sendMessageWithWebSearch(
+                        org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.eq(1500)))
+                .thenReturn(expected);
+
+        aiService.globalSteep(new GlobalSteepRequest("Movilidad eléctrica", "es", "P"));
+
+        ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+        verify(anthropicClient)
+                .sendMessageWithWebSearch(
+                        org.mockito.ArgumentMatchers.anyString(),
+                        promptCaptor.capture(),
+                        org.mockito.ArgumentMatchers.eq(1500));
+
+        assertThat(promptCaptor.getValue())
+                .contains("Sector: Movilidad eléctrica")
+                .contains("Return ONLY the \"P\" key")
+                .contains("{\"P\":\"...\"}");
     }
 
     @Test

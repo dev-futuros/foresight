@@ -236,8 +236,10 @@ const es = {
     },
     results: {
       pendingTitle: 'Análisis pendiente',
-      pendingDesc: 'El análisis con IA estará disponible cuando conectes tu API key de Anthropic. Los inputs ya están guardados y listos para procesar.',
+      pendingDesc: 'Tus inputs están guardados. Genera el análisis con IA para construir el informe completo.',
       generateBtn: '✦ Generar análisis con IA',
+      analyzing: 'Generando análisis…',
+      errorDefault: 'No se pudo generar el análisis. Inténtalo de nuevo.',
       scenarios: 'Escenarios 3P',
       uncertainties: 'Incertidumbres clave',
       weakSignals: 'Señales débiles',

@@ -88,10 +88,34 @@ export async function suggestHorizon(args: {
   return parsed.signals ?? [];
 }
 
+export type GlobalSteepDimension = keyof GlobalSteep;
+
 export async function globalSteep(args: {
   sector: string;
   language: 'es' | 'en';
-}): Promise<GlobalSteep> {
+  dimension?: GlobalSteepDimension;
+}): Promise<Partial<GlobalSteep>> {
+  // When `dimension` is set the backend returns a single-key payload
+  // (e.g. {"P":"..."}); without it, all five keys come back. The caller
+  // merges only the keys it asked for.
   const { data } = await api.post<AnthropicResponse>('ai/global-steep', args);
-  return parseJson<GlobalSteep>(data);
+  return parseJson<Partial<GlobalSteep>>(data);
+}
+
+export interface AnalyzeReport {
+  scenarios?: { type: string; title: string; description: string }[];
+  weakSignals?: string[];
+  wildcards?: string[];
+  keyUncertainties?: string[];
+  [key: string]: unknown;
+}
+
+export async function analyze(args: {
+  companyProfile: unknown;
+  steep: unknown;
+  horizon: unknown;
+  language: 'es' | 'en';
+}): Promise<AnalyzeReport> {
+  const { data } = await api.post<AnthropicResponse>('ai/analyze', args);
+  return parseJson<AnalyzeReport>(data);
 }

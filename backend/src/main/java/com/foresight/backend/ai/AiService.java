@@ -79,6 +79,12 @@ public class AiService {
     public JsonNode globalSteep(GlobalSteepRequest request) {
         String prompt = "Language: %s\nSector: %s\nCurrent year: %d"
                 .formatted(lang(request.language()), request.sector(), java.time.Year.now().getValue());
+        if (request.dimension() != null) {
+            // Single-dimension regeneration. Pin the model to the exact JSON shape
+            // expected by the frontend so we don't leak unwanted keys.
+            prompt += "\n\nReturn ONLY the \"%s\" key. Output exactly: {\"%s\":\"...\"}"
+                    .formatted(request.dimension(), request.dimension());
+        }
         return AiResponseSanitizer.sanitize(
                 anthropicClient.sendMessageWithWebSearch(GLOBAL_STEEP_SYSTEM, prompt, 1500));
     }

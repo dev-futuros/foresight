@@ -236,8 +236,10 @@ const en = {
     },
     results: {
       pendingTitle: 'Analysis pending',
-      pendingDesc: 'AI analysis will be available once you connect your Anthropic API key. Inputs are already saved and ready to process.',
+      pendingDesc: 'Your inputs are saved. Generate the AI analysis to build the full report.',
       generateBtn: '✦ Generate AI analysis',
+      analyzing: 'Generating analysis…',
+      errorDefault: 'Could not generate the analysis. Please try again.',
       scenarios: '3P Scenarios',
       uncertainties: 'Key uncertainties',
       weakSignals: 'Weak signals',

@@ -39,6 +39,14 @@ const DIM_COLOR: Record<FieldKey, string> = {
   P: 'var(--purple)',
 };
 
+const EMPTY_LOADING: Record<FieldKey, boolean> = {
+  S: false,
+  T: false,
+  E: false,
+  ENV: false,
+  P: false,
+};
+
 export default function StepGlobal({
   data,
   sector,
@@ -48,21 +56,25 @@ export default function StepGlobal({
   onBack,
 }: Props) {
   const { t } = useTranslation();
-  const [loading, setLoading] = useState(false);
+  // The initial fetch loads all 5 dimensions and is gated on `bulkLoading`
+  // (full-page spinner with cycling progress copy). Per-card regeneration uses
+  // `cardLoading[key]` so the user can tap "↺" on a single card without
+  // freezing the rest of the form.
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [cardLoading, setCardLoading] = useState<Record<FieldKey, boolean>>(EMPTY_LOADING);
   const [progressMsg, setProgressMsg] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const fetchedFor = useRef<string | null>(null);
 
   const hasAny = FIELD_KEYS.some((k) => data[k].trim());
+  const anyCardLoading = FIELD_KEYS.some((k) => cardLoading[k]);
 
-  async function fetchGlobalSteep() {
+  async function fetchAll() {
     if (!sector.trim()) return;
-    setLoading(true);
+    setBulkLoading(true);
     setError(null);
     setProgressMsg(t('wizard.global.progress.0'));
 
-    // Demo cycles three messages every 2s while the request is in flight
-    // (Futuros.html:966-972).
     const messages = [
       t('wizard.global.progress.0'),
       t('wizard.global.progress.1'),
@@ -88,21 +100,34 @@ export default function StepGlobal({
       setError(extractApiErrorMessage(e, t('wizard.global.errorDefault')));
     } finally {
       window.clearInterval(interval);
-      setLoading(false);
+      setBulkLoading(false);
+    }
+  }
+
+  async function regenerateOne(dim: FieldKey) {
+    if (!sector.trim()) return;
+    setCardLoading((s) => ({ ...s, [dim]: true }));
+    setError(null);
+    try {
+      const result = await globalSteep({ sector, language, dimension: dim });
+      // Only merge the requested key — the backend may return just that one,
+      // but if it returned more we still ignore the extras.
+      onChange({ ...data, [dim]: result[dim] ?? '' });
+    } catch (e) {
+      setError(extractApiErrorMessage(e, t('wizard.global.errorDefault')));
+    } finally {
+      setCardLoading((s) => ({ ...s, [dim]: false }));
     }
   }
 
   useEffect(() => {
     if (!hasAny && sector.trim() && fetchedFor.current !== sector) {
-      void fetchGlobalSteep();
+      void fetchAll();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sector]);
 
-  // Demo (Futuros.html:458-501): while loading the `gs-loading` row is visible and
-  // `gs-content` is hidden via `.hidden`. After the fetch the loading row hides and
-  // the content becomes visible. Error block lives below the grid as a separate node.
-  const showContent = !loading;
+  const showContent = !bulkLoading;
 
   return (
     <div>
@@ -110,7 +135,7 @@ export default function StepGlobal({
       <h1 className="page-title">{t('wizard.global.title')}</h1>
       <p className="page-desc">{t('wizard.global.description')}</p>
 
-      {loading && (
+      {bulkLoading && (
         <div className="global-loading">
           <div className="spinner" />
           <span className="global-loading-text">
@@ -129,6 +154,7 @@ export default function StepGlobal({
           <div className="steep-grid">
             {FIELD_KEYS.map((key, i) => {
               const isFull = i === FIELD_KEYS.length - 1;
+              const isLoading = cardLoading[key];
               return (
                 <div key={key} className={`steep-card${isFull ? ' full' : ''}`}>
                   <div className="steep-head">
@@ -146,22 +172,25 @@ export default function StepGlobal({
                         <div className="steep-sub">{t(`wizard.global.subs.${key}`)}</div>
                       </div>
                     </div>
-                    {isFull && (
-                      <button
-                        className="btn-ghost"
-                        type="button"
-                        onClick={fetchGlobalSteep}
-                        disabled={!sector.trim()}
-                        style={{ fontSize: '0.68rem' }}
-                      >
-                        ↺ {t('wizard.global.regenerate')}
-                      </button>
-                    )}
+                    <button
+                      className="btn-ghost"
+                      type="button"
+                      onClick={() => regenerateOne(key)}
+                      disabled={!sector.trim() || isLoading}
+                      style={{ fontSize: '0.68rem' }}
+                    >
+                      {isLoading ? (
+                        <span className="btn-spinner" aria-hidden />
+                      ) : (
+                        <>↺ {t('wizard.global.regenerate')}</>
+                      )}
+                    </button>
                   </div>
                   <textarea
                     value={data[key]}
                     onChange={(e) => onChange({ ...data, [key]: e.target.value })}
                     style={{ minHeight: '72px', opacity: 0.9 }}
+                    disabled={isLoading}
                   />
                 </div>
               );
@@ -173,10 +202,15 @@ export default function StepGlobal({
       {error && <div className="err-box">{error}</div>}
 
       <div className="btn-row">
-        <button type="button" className="btn" onClick={onBack} disabled={loading}>
+        <button type="button" className="btn" onClick={onBack} disabled={bulkLoading || anyCardLoading}>
           {t('wizard.back')}
         </button>
-        <button type="button" className="btn btn-primary" onClick={onNext} disabled={loading}>
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={onNext}
+          disabled={bulkLoading || anyCardLoading}
+        >
           {t('wizard.global.next')}
         </button>
       </div>

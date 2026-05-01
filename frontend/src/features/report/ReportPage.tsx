@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useReport } from '../../hooks/useReports';
+import { useReport, useUpdateReport } from '../../hooks/useReports';
+import { useCurrentUser } from '../../hooks/useAuth';
+import { analyze } from '../../lib/aiClient';
+import { extractApiErrorMessage } from '../../lib/apiError';
 import { exportReportPdf } from '../../lib/exportPdf';
 import { exportReportPpt } from '../../lib/exportPpt';
 import './report.css';
@@ -12,7 +15,11 @@ export default function ReportPage() {
   const { t, i18n } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const { data: report, isLoading, isError, refetch } = useReport(id!);
+  const { data: user } = useCurrentUser();
+  const updateReport = useUpdateReport();
   const [tab, setTab] = useState<Tab>('inputs');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
 
   if (isLoading) return <div className="loading-screen">{t('report.loading')}</div>;
   if (isError || !report) {
@@ -38,6 +45,37 @@ export default function ReportPage() {
     i18n.language === 'en' ? 'en-GB' : 'es-ES',
     { day: '2-digit', month: 'short', year: 'numeric' }
   );
+
+  const language: 'es' | 'en' =
+    user?.language === 'en' || i18n.language === 'en' ? 'en' : 'es';
+
+  async function handleAnalyze() {
+    if (!report) return;
+    setIsAnalyzing(true);
+    setAnalyzeError(null);
+    try {
+      const inputs = report.inputData as {
+        companyProfile?: unknown;
+        steep?: unknown;
+        horizon?: unknown;
+      };
+      const result = await analyze({
+        companyProfile: inputs.companyProfile ?? {},
+        steep: inputs.steep ?? {},
+        horizon: inputs.horizon ?? {},
+        language,
+      });
+      await updateReport.mutateAsync({
+        id: report.id,
+        body: { resultData: result as unknown as Record<string, unknown> },
+      });
+      setTab('resultados');
+    } catch (e) {
+      setAnalyzeError(extractApiErrorMessage(e, t('report.results.errorDefault')));
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }
 
   return (
     <div className="report-page">
@@ -149,9 +187,22 @@ export default function ReportPage() {
             <div className="report-draft-icon">◈</div>
             <h2 className="report-draft-title">{t('report.results.pendingTitle')}</h2>
             <p className="report-draft-desc">{t('report.results.pendingDesc')}</p>
-            <button className="btn-analyze" disabled>
-              {t('report.results.generateBtn')}
+            <button
+              className="btn-analyze"
+              onClick={handleAnalyze}
+              disabled={isAnalyzing}
+            >
+              {isAnalyzing ? (
+                <>
+                  <span className="btn-spinner" aria-hidden /> {t('report.results.analyzing')}
+                </>
+              ) : (
+                t('report.results.generateBtn')
+              )}
             </button>
+            {analyzeError && (
+              <div className="err-box" style={{ marginTop: '1rem' }}>{analyzeError}</div>
+            )}
           </div>
         )}
 
