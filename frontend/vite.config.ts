@@ -5,7 +5,14 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api': 'http://localhost:8080',
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        // The /ai/analyze call can take 1-2 minutes for the full report. Default
+        // http-proxy timeouts cut it short and surface as a generic network error.
+        timeout: 600_000,
+        proxyTimeout: 600_000,
+      },
     },
   },
   test: {

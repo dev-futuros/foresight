@@ -1,6 +1,7 @@
 package com.foresight.backend.ai;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -12,15 +13,17 @@ import com.fasterxml.jackson.databind.JsonNode;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 
 /**
  * Thin transport wrapper around the Anthropic Messages API.
  *
- * <p>Keeps HTTP concerns (headers, timeouts, retries, error translation) out of
- * {@link AiService}. Uses {@link reactor.core.publisher.Mono#block(java.time.Duration)} — we
- * intentionally call it synchronously because the controller contract is synchronous and
- * the upstream request dominates latency anyway.
+ * <p>Returns a {@link Mono} so cancellation propagates end-to-end: when the inbound HTTP
+ * client disconnects, Spring cancels the response Mono, reactor-netty closes the upstream
+ * socket to Anthropic, and the model stops generating (token billing stops with it). The
+ * earlier {@code .block()} flow defeated this — calls would run to completion even after
+ * the user closed the tab.
  *
  * <p>Retry strategy:
  * <ul>
@@ -53,10 +56,9 @@ public class AnthropicClient {
      * @param systemPrompt the system instruction (sets the model's role/format constraints)
      * @param userPrompt   the user's turn content
      * @param maxTokens    upper bound on response length; pick generously for long outputs
-     * @return the raw JSON response from Anthropic
-     * @throws AiException if Anthropic returns a non-retriable error or retries are exhausted
+     * @return a Mono that emits the raw JSON response from Anthropic
      */
-    public JsonNode sendMessage(String systemPrompt, String userPrompt, int maxTokens) {
+    public Mono<JsonNode> sendMessage(String systemPrompt, String userPrompt, int maxTokens) {
         return doSend(systemPrompt, userPrompt, maxTokens, null);
     }
 
@@ -66,13 +68,13 @@ public class AnthropicClient {
      * {@code tool_use}/{@code tool_result} blocks — callers should filter content by
      * {@code type == "text"} before parsing.
      */
-    public JsonNode sendMessageWithWebSearch(String systemPrompt, String userPrompt, int maxTokens) {
+    public Mono<JsonNode> sendMessageWithWebSearch(String systemPrompt, String userPrompt, int maxTokens) {
         return doSend(systemPrompt, userPrompt, maxTokens, WEB_SEARCH_TOOLS);
     }
 
-    private JsonNode doSend(
+    private Mono<JsonNode> doSend(
             String systemPrompt, String userPrompt, int maxTokens, List<Map<String, Object>> tools) {
-        Map<String, Object> body = new java.util.HashMap<>();
+        Map<String, Object> body = new HashMap<>();
         body.put("model", properties.model());
         body.put("max_tokens", maxTokens);
         body.put("system", systemPrompt);
@@ -81,29 +83,29 @@ public class AnthropicClient {
             body.put("tools", tools);
         }
 
-        try {
-            return anthropicWebClient
-                    .post()
-                    .uri("/v1/messages")
-                    .bodyValue(body)
-                    .retrieve()
-                    .bodyToMono(JsonNode.class)
-                    .retryWhen(Retry.backoff(properties.maxRetries(), properties.retryBackoff())
-                            .filter(AnthropicClient::isRetriable)
-                            .doBeforeRetry(rs -> log.warn(
-                                    "Retrying Anthropic call (attempt {} of {}): {}",
-                                    rs.totalRetries() + 1,
-                                    properties.maxRetries(),
-                                    rs.failure().getMessage()))
-                            .onRetryExhaustedThrow((spec, rs) -> rs.failure()))
-                    .block(properties.readTimeout().plusSeconds(5));
-        } catch (WebClientResponseException e) {
-            log.error("Anthropic API error: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
-            throw new AiException("AI provider error: " + e.getStatusCode());
-        } catch (Exception e) {
-            log.error("Anthropic call failed: {}", e.getMessage(), e);
-            throw new AiException("AI provider unavailable");
-        }
+        return anthropicWebClient
+                .post()
+                .uri("/v1/messages")
+                .bodyValue(body)
+                .retrieve()
+                .bodyToMono(JsonNode.class)
+                .retryWhen(Retry.backoff(properties.maxRetries(), properties.retryBackoff())
+                        .filter(AnthropicClient::isRetriable)
+                        .doBeforeRetry(rs -> log.warn(
+                                "Retrying Anthropic call (attempt {} of {}): {}",
+                                rs.totalRetries() + 1,
+                                properties.maxRetries(),
+                                rs.failure().getMessage()))
+                        .onRetryExhaustedThrow((spec, rs) -> rs.failure()))
+                .doOnCancel(() -> log.info("Anthropic call cancelled by downstream subscriber"))
+                .onErrorResume(WebClientResponseException.class, e -> {
+                    log.error("Anthropic API error: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
+                    return Mono.error(new AiException("AI provider error: " + e.getStatusCode()));
+                })
+                .onErrorResume(t -> !(t instanceof AiException), t -> {
+                    log.error("Anthropic call failed: {}", t.getMessage(), t);
+                    return Mono.error(new AiException("AI provider unavailable"));
+                });
     }
 
     /**
