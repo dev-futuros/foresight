@@ -176,7 +176,7 @@ public class AiService {
     }
 
     /**
-     * Normalises the language hint to either {@code "en"} or {@code "es"} (default).
+     * Normalizes the language hint to either {@code "en"} or {@code "es"} (default).
      *
      * @param language raw language tag from the request (may be {@code null})
      * @return {@code "en"} if explicitly English, otherwise {@code "es"}

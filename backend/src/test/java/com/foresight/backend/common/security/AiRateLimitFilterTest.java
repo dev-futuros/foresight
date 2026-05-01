@@ -40,7 +40,10 @@ class AiRateLimitFilterTest {
 
     private static void authenticateAs(UUID userId) {
         AuthenticatedUser principal = new AuthenticatedUser(userId, "u@example.com", "USER");
-        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(principal, null));
+        // 3-arg ctor flips isAuthenticated() to true; the 2-arg ctor leaves it false and the
+        // filter would treat the request as anonymous.
+        SecurityContextHolder.getContext()
+                .setAuthentication(new UsernamePasswordAuthenticationToken(principal, null, java.util.List.of()));
     }
 
     private static MockHttpServletRequest postTo(String path) {
