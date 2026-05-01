@@ -1,0 +1,35 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+/Futuros — Advanced AI Strategic Tools_files/Futuros.html
+/Futuros — Advanced AI Strategic Tools_files/css2
+/Futuros — Advanced AI Strategic Tools_files/Futuros — Foresight Strategy.html
+/Futuros — Advanced AI Strategic Tools_files/saved_resource.html
+/Futuros — Advanced AI Strategic Tools_files/Futuros_files/html2pdf.bundle.min.js.descarga
+/Futuros — Advanced AI Strategic Tools_files/Futuros_files/pptxgen.bundle.js.descarga
+/Futuros — Advanced AI Strategic Tools_files/Futuros_files/css2
+/Futuros — Advanced AI Strategic Tools_files/Futuros — Foresight Strategy_files/css2
+/Futuros — Advanced AI Strategic Tools_files/Futuros — Foresight Strategy_files/html2pdf.bundle.min.js.descarga
+/Futuros — Advanced AI Strategic Tools_files/Futuros — Foresight Strategy_files/pptxgen.bundle.js.descarga
+/Futuros — Advanced AI Strategic Tools.html

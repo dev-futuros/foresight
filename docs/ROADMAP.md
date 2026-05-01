@@ -32,26 +32,35 @@ Goal: a production-quality backend skeleton ready to plug a frontend into.
 
 ---
 
-## M2 — Frontend (React + i18n)
+## M2 — Frontend (React + i18n) ✅ (completed)
 
 Goal: replace the vanilla-JS prototype in `frontend/` with a production React app that consumes the backend API.
 
+### Stack decided
+Vite · React 19 · TypeScript · React Router v7 · Axios · TanStack Query v5 · i18next · jsPDF · pptxgenjs · CSS variables (no CSS framework). See [ARCHITECTURE.md](ARCHITECTURE.md) for full rationale.
+
 ### Deliverables
 
-- [ ] Scaffold: Vite + React 18 + TypeScript + ESLint + Prettier
-- [ ] Router: React Router v6 with protected routes
-- [ ] HTTP layer: Axios / Fetch wrapper with JWT injection and 401 handling
-- [ ] Data fetching: TanStack Query for caching, invalidation, background refresh
-- [ ] i18n: i18next with ES (default) and EN catalogs
-- [ ] Screens:
-  - [ ] `/login`, `/register`
-  - [ ] `/dashboard` (report list)
-  - [ ] `/reports/new` — 3-step wizard (Company profile → STEEP → Horizon)
-  - [ ] `/reports/:id` — tabbed report view (Scenarios, Backcasting, Weak Signals, …)
-  - [ ] `/account` — profile + language preference
-- [ ] Export: port `html2pdf` + `pptxgen` from the prototype
-- [ ] Auth: JWT in memory + refresh via `/api/users/me` on reload
-- [ ] Loading / error states across all screens
+- [x] Scaffold: Vite + React 19 + TypeScript + ESLint
+- [x] Router: React Router v7 with protected routes (`ProtectedRoute` component)
+- [x] HTTP layer: Axios instance with JWT injection and 401 → logout handler (`src/lib/api.ts`)
+- [x] Backend `ApiError` → user-facing message helper (`src/lib/apiError.ts`)
+- [x] Data fetching: TanStack Query v5 configured (`src/lib/queryClient.ts`)
+- [x] TypeScript types for all backend DTOs (`src/types/api.ts`)
+- [x] Global design system: dark theme + accent dorado, fuentes DM Sans/DM Mono/Playfair Display (`src/index.css`)
+- [x] Auth hooks: `useLogin`, `useRegister`, `useCurrentUser`, `useLogout` (`src/hooks/useAuth.ts`)
+- [x] Auth: JWT in memory + restore via `GET /api/users/me` on reload
+- [x] Screens:
+  - [x] `/login` — LoginPage with dark design system, fully i18n
+  - [x] `/register` — RegisterPage with dark design system, fully i18n
+  - [x] `/dashboard` — report list with status badges, empty state, delete, retry on error
+  - [x] `/reports/new` — 3-step wizard (Empresa → STEEP → Horizon Scan), fully i18n
+  - [x] `/reports/:id` — tabbed result view (Escenarios 3P, señales débiles, wildcards, incertidumbres) with retry on error
+  - [x] `/account` — perfil (nombre, email, rol), preferencias (idioma), seguridad (cambio contraseña)
+- [x] Frontend tests: Vitest + React Testing Library — 41 tests (auth, protected routes, dashboard, report hooks, account)
+- [x] i18n: i18next con catálogos ES/EN — todas las pantallas traducidas (auth, dashboard, wizard, report, account)
+- [x] Export: jsPDF + pptxgenjs (`src/lib/exportPdf.ts`, `src/lib/exportPpt.ts`)
+- [x] Loading / error states across all screens (loading text + error with retry)
 
 ### Done when
 

@@ -14,6 +14,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.foresight.backend.ai.dto.AnalyzeRequest;
+import com.foresight.backend.ai.dto.GlobalSteepRequest;
 import com.foresight.backend.ai.dto.HorizonSuggestRequest;
 import com.foresight.backend.ai.dto.SteepSuggestRequest;
 
@@ -90,6 +91,55 @@ class AiServiceTest {
 
         assertThat(systemCaptor.getValue()).contains("Horizon Scanning");
         assertThat(promptCaptor.getValue()).contains("Language: es").contains("Horizon: H2");
+    }
+
+    @Test
+    void globalSteepCallsWebSearchVariantWithSectorAndYear() throws Exception {
+        JsonNode expected = MAPPER.readTree("{\"S\":\"\",\"T\":\"\",\"E\":\"\",\"ENV\":\"\",\"P\":\"\"}");
+        when(anthropicClient.sendMessageWithWebSearch(
+                        org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.eq(1500)))
+                .thenReturn(expected);
+
+        aiService.globalSteep(new GlobalSteepRequest("Movilidad eléctrica", "en", null));
+
+        ArgumentCaptor<String> systemCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+        verify(anthropicClient)
+                .sendMessageWithWebSearch(
+                        systemCaptor.capture(), promptCaptor.capture(), org.mockito.ArgumentMatchers.eq(1500));
+
+        assertThat(systemCaptor.getValue()).contains("web_search");
+        assertThat(promptCaptor.getValue())
+                .contains("Language: en")
+                .contains("Sector: Movilidad eléctrica")
+                .contains("Current year:")
+                .doesNotContain("Return ONLY the");
+    }
+
+    @Test
+    void globalSteepWithDimensionPinsPromptToSingleKey() throws Exception {
+        JsonNode expected = MAPPER.readTree("{\"P\":\"some political signal\"}");
+        when(anthropicClient.sendMessageWithWebSearch(
+                        org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.eq(1500)))
+                .thenReturn(expected);
+
+        aiService.globalSteep(new GlobalSteepRequest("Movilidad eléctrica", "es", "P"));
+
+        ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+        verify(anthropicClient)
+                .sendMessageWithWebSearch(
+                        org.mockito.ArgumentMatchers.anyString(),
+                        promptCaptor.capture(),
+                        org.mockito.ArgumentMatchers.eq(1500));
+
+        assertThat(promptCaptor.getValue())
+                .contains("Sector: Movilidad eléctrica")
+                .contains("Return ONLY the \"P\" key")
+                .contains("{\"P\":\"...\"}");
     }
 
     @Test

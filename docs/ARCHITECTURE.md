@@ -139,14 +139,70 @@ The `ReportService` enforces ownership at query time (`findByIdAndUserId`), not 
 | SQL injection | JPA + parameterized queries only |
 | Logging secrets | API key never logged; JWT content never logged |
 
-## Frontend (planned for M2)
+## Frontend (M2)
 
-- **Stack**: React 18 + TypeScript + Vite
-- **Routing**: React Router v6
-- **Data fetching**: TanStack Query (caching, invalidation, optimistic updates)
-- **i18n**: i18next with JSON catalogs (ES default, EN)
-- **Auth**: JWT stored in-memory + refresh on reload via `/api/users/me`
-- **PDF/PPTX**: continue using client-side `html2pdf` + `pptxgen` (already works in the prototype)
+### Tech stack
+
+| Concern | Choice | Why |
+|---|---|---|
+| Build | Vite | Fast HMR, native ESM, minimal config |
+| Language | TypeScript | Type-safe API contracts, autocomplete on DTOs |
+| Framework | React 19 | Component model, large ecosystem |
+| Routing | React Router v7 | Protected routes, nested layouts |
+| HTTP | Axios | Interceptors for JWT injection and 401 handling |
+| Server state | TanStack Query v5 | Caching, invalidation, background refresh |
+| i18n | i18next | TS catalogs, ES default, EN secondary |
+| Export PDF | jsPDF | Direct multi-page generation with the platform's design system |
+| Export PPT | pptxgenjs | Already proven in prototype |
+| Styles | CSS variables | Port dark design system from prototype (no CSS framework) |
+| Tests | Vitest + React Testing Library | Fast, integrated with Vite |
+
+### Package-by-feature structure
+
+```
+frontend/src/
+├── main.tsx
+├── App.tsx                   # router root
+├── lib/
+│   ├── api.ts                # Axios instance — JWT injection + 401 → logout
+│   ├── apiError.ts           # Backend ApiError → user-facing message
+│   ├── queryClient.ts        # TanStack Query global config
+│   ├── exportPdf.ts          # jsPDF report export
+│   └── exportPpt.ts          # pptxgenjs report export
+├── hooks/
+│   ├── useAuth.ts            # login, register, logout, current user
+│   ├── useAccount.ts         # update profile, change password
+│   ├── useLanguageSync.ts    # syncs user's language to i18n on load
+│   └── useReports.ts         # CRUD reports
+├── features/
+│   ├── auth/                 # LoginPage, RegisterPage
+│   ├── dashboard/            # DashboardPage (report list)
+│   ├── report/
+│   │   ├── NewReportPage.tsx # 3-step wizard
+│   │   ├── ReportPage.tsx    # tabbed result view (Inputs / Resultados)
+│   │   └── steps/            # StepEmpresa, StepSteep, StepHorizon
+│   └── account/              # AccountPage (profile + language + password)
+├── components/
+│   └── ProtectedRoute.tsx    # auth guard for routes
+├── i18n/
+│   ├── index.ts              # i18next init
+│   └── locales/
+│       ├── es.ts
+│       └── en.ts
+├── test/                     # Vitest + RTL tests + setup
+└── types/
+    └── api.ts                # TypeScript types mirroring backend DTOs
+```
+
+### Key decisions
+
+**JWT in memory** — token lives in a module-level variable, never in `localStorage`. On page reload, the user is restored via `GET /api/users/me`. Safer against XSS.
+
+**Vite proxy** — in development, `/api/*` is proxied to `http://localhost:8080` to avoid CORS. In production, CORS is configured on the backend via `CORS_ALLOWED_ORIGINS`.
+
+**No Docker service for frontend in M2** — frontend runs via `vite dev` locally. A `frontend` service will be added to `docker-compose.yml` in M4.
+
+**Prototype as reference, not as code** — the vanilla-JS `frontend/app.html` prototype is the UX/design reference. Logic (AI calls, export) is ported; the code is rewritten in React + TypeScript from scratch.
 
 ## Deployment (planned for M4)
 
