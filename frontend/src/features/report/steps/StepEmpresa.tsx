@@ -10,6 +10,8 @@ export interface EmpresaData {
   strengths: string;
   consultantName: string;
   consultantCompany: string;
+  /** Optional custom report title. When blank, NewReportPage falls back to a generated one. */
+  title: string;
 }
 
 interface Props {
@@ -156,6 +158,24 @@ export default function StepEmpresa({ data, onChange, onNext }: Props) {
               onChange={(e) => onChange({ ...data, consultantCompany: e.target.value })}
             />
           </div>
+        </div>
+      </div>
+
+      <div className="card" style={{ borderColor: 'var(--border-a)', marginTop: '0.75rem' }}>
+        <div className="card-label">{t('wizard.empresa.titleLabel')}</div>
+        <div className="field field-flush">
+          <label htmlFor="f-title">{t('wizard.empresa.titleField')}</label>
+          <input
+            id="f-title"
+            type="text"
+            placeholder={t('wizard.empresa.titlePlaceholder', {
+              fallback: data.name
+                ? `${data.name} — Foresight ${new Date().getFullYear()}`
+                : '',
+            })}
+            value={data.title}
+            onChange={(e) => onChange({ ...data, title: e.target.value })}
+          />
         </div>
       </div>
 

@@ -8,15 +8,43 @@ type ResultData = {
   keyUncertainties?: string[];
 };
 
+type CompanyProfile = {
+  name?: string;
+  sector?: string;
+  size?: string;
+  market?: string;
+  horizon?: string;
+  challenge?: string;
+  strengths?: string;
+  consultantName?: string;
+  consultantCompany?: string;
+};
+
 type InputData = {
-  companyProfile?: { name?: string; sector?: string; horizon?: string; challenge?: string };
+  companyProfile?: CompanyProfile;
   steep?: Record<string, string>;
   horizon?: Record<string, string>;
 };
 
 const STEEP_LABELS: Record<string, string> = {
-  social: 'Social', technological: 'Tecnológico', economic: 'Económico',
-  environmental: 'Ambiental', political: 'Político',
+  social: 'Social',
+  technological: 'Tecnológico',
+  economic: 'Económico',
+  environmental: 'Ambiental',
+  political: 'Político',
+};
+
+const SIZE_LABELS: Record<string, string> = {
+  startup: 'Startup (<50 empl.)',
+  pyme: 'PYME (50–250)',
+  mediana: 'Mediana (250–1000)',
+  grande: 'Grande (+1000)',
+};
+
+const MARKET_LABELS: Record<string, string> = {
+  local: 'Local / Nacional',
+  european: 'Europeo',
+  global: 'Global',
 };
 
 const HORIZON_LABELS: Record<string, string> = {
@@ -25,43 +53,60 @@ const HORIZON_LABELS: Record<string, string> = {
   H3: 'H3 — Largo plazo (5+ años)',
 };
 
+// Dark theme. Pure white for body text so it stays readable on the black fill —
+// the previous `#e5e7eb` was washed out enough that some PDF viewers rendered it
+// near-invisible against the very dark background.
+const BG = '#0F0F0F';
+const TEXT = '#FFFFFF';
 const ACCENT = '#C9A84C';
-const MUTED = '#6b7280';
-const TEXT = '#e5e7eb';
-const BG = '#0f0f0f';
+const MUTED = '#9CA3AF';
+
+const PAGE_W = 210;
+const PAGE_H = 297;
+const MARGIN_X = 20;
+const CONTENT_W = PAGE_W - MARGIN_X * 2;
+const PAGE_BOTTOM = 277;
+
+function paintBackground(doc: jsPDF) {
+  doc.setFillColor(BG);
+  doc.rect(0, 0, PAGE_W, PAGE_H, 'F');
+}
 
 function addPage(doc: jsPDF) {
   doc.addPage();
-  doc.setFillColor(BG);
-  doc.rect(0, 0, 210, 297, 'F');
+  paintBackground(doc);
   return 20;
 }
 
 function checkY(doc: jsPDF, y: number, needed = 20): number {
-  if (y + needed > 277) return addPage(doc);
+  if (y + needed > PAGE_BOTTOM) return addPage(doc);
   return y;
 }
 
 function sectionTitle(doc: jsPDF, y: number, text: string): number {
-  y = checkY(doc, y, 12);
-  doc.setFontSize(7);
+  y = checkY(doc, y, 14);
+  doc.setFontSize(8);
   doc.setTextColor(ACCENT);
   doc.setFont('helvetica', 'bold');
-  doc.text(text.toUpperCase(), 20, y);
+  doc.text(text.toUpperCase(), MARGIN_X, y);
   doc.setDrawColor(ACCENT);
   doc.setLineWidth(0.3);
-  doc.line(20, y + 2, 190, y + 2);
+  doc.line(MARGIN_X, y + 2, PAGE_W - MARGIN_X, y + 2);
   return y + 10;
 }
 
-function bodyText(doc: jsPDF, y: number, text: string, indent = 20): number {
-  doc.setFontSize(9);
+function bodyText(doc: jsPDF, y: number, text: string, indent = MARGIN_X, maxWidth = CONTENT_W): number {
+  doc.setFontSize(10);
   doc.setTextColor(TEXT);
   doc.setFont('helvetica', 'normal');
-  const lines = doc.splitTextToSize(text, 170 - (indent - 20)) as string[];
-  y = checkY(doc, y, lines.length * 5);
-  doc.text(lines, indent, y);
-  return y + lines.length * 5 + 2;
+  const lines = doc.splitTextToSize(text, maxWidth) as string[];
+  // Render line by line, paginating if we cross the bottom mid-block.
+  for (const line of lines) {
+    y = checkY(doc, y, 6);
+    doc.text(line, indent, y);
+    y += 5;
+  }
+  return y + 2;
 }
 
 function labelValue(doc: jsPDF, y: number, label: string, value: string): number {
@@ -69,7 +114,7 @@ function labelValue(doc: jsPDF, y: number, label: string, value: string): number
   doc.setFontSize(7);
   doc.setTextColor(ACCENT);
   doc.setFont('helvetica', 'bold');
-  doc.text(label.toUpperCase(), 20, y);
+  doc.text(label.toUpperCase(), MARGIN_X, y);
   y += 5;
   return bodyText(doc, y, value || '—');
 }
@@ -78,37 +123,62 @@ export function exportReportPdf(report: ReportResponse) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const input = report.inputData as InputData;
   const result = report.resultData as ResultData | null;
+  const cp = input?.companyProfile ?? {};
 
-  // Cover
-  doc.setFillColor(BG);
-  doc.rect(0, 0, 210, 297, 'F');
-
-  doc.setFontSize(7);
-  doc.setTextColor(ACCENT);
-  doc.setFont('helvetica', 'bold');
-  doc.text('INFORME DE FORESIGHT ESTRATÉGICO', 20, 80);
-
-  doc.setFontSize(22);
-  doc.setTextColor(TEXT);
-  doc.setFont('helvetica', 'normal');
-  const titleLines = doc.splitTextToSize(report.title, 170) as string[];
-  doc.text(titleLines, 20, 95);
+  // ── Cover ────────────────────────────────────────────────────────────────
+  paintBackground(doc);
 
   doc.setFontSize(8);
+  doc.setTextColor(ACCENT);
+  doc.setFont('helvetica', 'bold');
+  doc.text('INFORME DE FORESIGHT ESTRATÉGICO', MARGIN_X, 80);
+
+  doc.setFontSize(24);
+  doc.setTextColor(TEXT);
+  doc.setFont('helvetica', 'normal');
+  const titleLines = doc.splitTextToSize(report.title, CONTENT_W) as string[];
+  doc.text(titleLines, MARGIN_X, 95);
+
+  let coverY = 100 + titleLines.length * 10;
+  doc.setFontSize(10);
   doc.setTextColor(MUTED);
-  doc.text(`Creado el ${new Date(report.createdAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}`, 20, 115 + (titleLines.length - 1) * 10);
-  if (input?.companyProfile?.sector) {
-    doc.text(input.companyProfile.sector, 20, 122 + (titleLines.length - 1) * 10);
+  doc.setFont('helvetica', 'normal');
+  const dateStr = new Date(report.createdAt).toLocaleDateString('es-ES', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  });
+  doc.text(`Creado el ${dateStr}`, MARGIN_X, coverY);
+  coverY += 6;
+
+  if (cp.sector) {
+    doc.text(cp.sector, MARGIN_X, coverY);
+    coverY += 6;
   }
 
-  // Inputs page
+  if (cp.consultantName || cp.consultantCompany) {
+    coverY += 4;
+    const consultant = [cp.consultantName, cp.consultantCompany].filter(Boolean).join(' — ');
+    doc.setFont('helvetica', 'italic');
+    doc.text(`Por ${consultant}`, MARGIN_X, coverY);
+  }
+
+  // ── Inputs page ──────────────────────────────────────────────────────────
   let y = addPage(doc);
 
   y = sectionTitle(doc, y, 'Perfil de la organización');
-  if (input?.companyProfile?.name) y = labelValue(doc, y, 'Organización', input.companyProfile.name);
-  if (input?.companyProfile?.sector) y = labelValue(doc, y, 'Sector', input.companyProfile.sector);
-  if (input?.companyProfile?.horizon) y = labelValue(doc, y, 'Horizonte', `${input.companyProfile.horizon} años`);
-  if (input?.companyProfile?.challenge) y = labelValue(doc, y, 'Reto estratégico', input.companyProfile.challenge);
+  if (cp.name) y = labelValue(doc, y, 'Organización', cp.name);
+  if (cp.sector) y = labelValue(doc, y, 'Sector', cp.sector);
+  if (cp.size) y = labelValue(doc, y, 'Tamaño', SIZE_LABELS[cp.size] || cp.size);
+  if (cp.market) y = labelValue(doc, y, 'Ámbito de mercado', MARKET_LABELS[cp.market] || cp.market);
+  if (cp.horizon) y = labelValue(doc, y, 'Horizonte', `${cp.horizon} años`);
+  if (cp.challenge) y = labelValue(doc, y, 'Reto estratégico', cp.challenge);
+  if (cp.strengths) y = labelValue(doc, y, 'Capacidades / ventajas', cp.strengths);
+
+  if (cp.consultantName || cp.consultantCompany) {
+    const consultant = [cp.consultantName, cp.consultantCompany].filter(Boolean).join(' — ');
+    y = labelValue(doc, y, 'Consultor', consultant);
+  }
 
   if (input?.steep) {
     y += 4;
@@ -126,7 +196,7 @@ export function exportReportPdf(report: ReportResponse) {
     }
   }
 
-  // Results
+  // ── Results ──────────────────────────────────────────────────────────────
   if (result) {
     y = addPage(doc);
     y = sectionTitle(doc, y, 'Resultados del análisis IA');
@@ -135,13 +205,22 @@ export function exportReportPdf(report: ReportResponse) {
       y += 2;
       y = sectionTitle(doc, y, 'Escenarios 3P');
       for (const s of result.scenarios) {
-        y = checkY(doc, y, 20);
+        y = checkY(doc, y, 24);
         doc.setFontSize(8);
         doc.setTextColor(ACCENT);
         doc.setFont('helvetica', 'bold');
-        doc.text(s.type, 20, y);
+        doc.text(s.type.toUpperCase(), MARGIN_X, y);
         y += 5;
-        y = bodyText(doc, y, `${s.title} — ${s.description}`);
+        doc.setFontSize(11);
+        doc.setTextColor(TEXT);
+        doc.setFont('helvetica', 'bold');
+        const titleLn = doc.splitTextToSize(s.title, CONTENT_W) as string[];
+        for (const line of titleLn) {
+          y = checkY(doc, y, 6);
+          doc.text(line, MARGIN_X, y);
+          y += 6;
+        }
+        y = bodyText(doc, y, s.description);
         y += 2;
       }
     }
@@ -149,19 +228,19 @@ export function exportReportPdf(report: ReportResponse) {
     if (result.keyUncertainties?.length) {
       y += 4;
       y = sectionTitle(doc, y, 'Incertidumbres clave');
-      for (const u of result.keyUncertainties) y = bodyText(doc, y, `· ${u}`);
+      for (const u of result.keyUncertainties) y = bodyText(doc, y, `• ${u}`);
     }
 
     if (result.weakSignals?.length) {
       y += 4;
       y = sectionTitle(doc, y, 'Señales débiles');
-      for (const s of result.weakSignals) y = bodyText(doc, y, `· ${s}`);
+      for (const s of result.weakSignals) y = bodyText(doc, y, `• ${s}`);
     }
 
     if (result.wildcards?.length) {
       y += 4;
       y = sectionTitle(doc, y, 'Wildcards');
-      for (const w of result.wildcards) y = bodyText(doc, y, `· ${w}`);
+      for (const w of result.wildcards) y = bodyText(doc, y, `• ${w}`);
     }
   }
 

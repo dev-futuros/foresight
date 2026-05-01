@@ -9,6 +9,7 @@ import com.foresight.backend.ai.dto.HorizonSuggestRequest;
 import com.foresight.backend.ai.dto.SteepSuggestRequest;
 
 import lombok.RequiredArgsConstructor;
+import reactor.core.publisher.Mono;
 
 /**
  * Orchestrates prompt construction and Claude invocation for the foresight workflows.
@@ -58,13 +59,41 @@ public class AiService {
             Respond in the requested language.
             """;
 
-    /** System prompt for the full foresight analysis pass. */
+    /**
+     * System prompt for the full foresight analysis pass.
+     *
+     * <p>Pins the output to the exact flat schema the frontend renders today
+     * ({@code scenarios}, {@code keyUncertainties}, {@code weakSignals},
+     * {@code wildcards}). Earlier iterations of this prompt left the structure
+     * open-ended and the model would emit deeply nested narrative ({@code
+     * executiveSummary}, {@code matrix2x2}, multi-year {@code backcasting} per
+     * scenario…) that consumed all 8000 max_tokens and got truncated mid-JSON.
+     */
     private static final String ANALYZE_SYSTEM =
             """
-            You are a strategic foresight expert. Given company profile, STEEP factors, and horizon signals,
-            produce a comprehensive foresight report covering: executive summary, 3P scenarios (probable/plausible/possible),
-            scenario planning (2x2 matrix), backcasting per scenario, weak signals, wildcards, and strategic priorities (H1/H2/H3).
-            Respond ONLY with a valid JSON object matching the expected schema. Respond in the requested language.
+            You are a strategic foresight expert. Given a company profile, STEEP factors, and
+            horizon signals, produce a concise foresight report.
+
+            Respond ONLY with a single JSON object that matches EXACTLY this shape — no
+            additional fields, no nested narrative, no markdown, no preamble:
+
+            {
+              "scenarios": [
+                {"type": "Probable",  "title": "...", "description": "..."},
+                {"type": "Plausible", "title": "...", "description": "..."},
+                {"type": "Possible",  "title": "...", "description": "..."}
+              ],
+              "keyUncertainties": ["...", "...", "..."],
+              "weakSignals":      ["...", "...", "..."],
+              "wildcards":        ["...", "..."]
+            }
+
+            Constraints:
+            - Exactly 3 scenarios, in this order: Probable, Plausible, Possible.
+            - Each scenario description: 2-4 sentences, no nested objects, no bullet points.
+            - 3-5 items per array (keyUncertainties / weakSignals / wildcards), each a single sentence.
+            - No extra top-level keys. No prose outside the JSON.
+            - Respond in the requested language.
             """;
 
     private final AnthropicClient anthropicClient;
@@ -76,7 +105,7 @@ public class AiService {
      * @param request validated request carrying the sector and language
      * @return Claude's raw JSON reply (expected shape: {@code {"S":..., "T":..., ...}})
      */
-    public JsonNode globalSteep(GlobalSteepRequest request) {
+    public Mono<JsonNode> globalSteep(GlobalSteepRequest request) {
         String prompt = "Language: %s\nSector: %s\nCurrent year: %d"
                 .formatted(lang(request.language()), request.sector(), java.time.Year.now().getValue());
         if (request.dimension() != null) {
@@ -85,8 +114,9 @@ public class AiService {
             prompt += "\n\nReturn ONLY the \"%s\" key. Output exactly: {\"%s\":\"...\"}"
                     .formatted(request.dimension(), request.dimension());
         }
-        return AiResponseSanitizer.sanitize(
-                anthropicClient.sendMessageWithWebSearch(GLOBAL_STEEP_SYSTEM, prompt, 1500));
+        return anthropicClient
+                .sendMessageWithWebSearch(GLOBAL_STEEP_SYSTEM, prompt, 1500)
+                .map(AiResponseSanitizer::sanitize);
     }
 
     /**
@@ -95,10 +125,12 @@ public class AiService {
      * @param request validated request carrying dimension, company profile, and language
      * @return Claude's raw JSON reply (expected shape: {@code {"factors": [...]}})
      */
-    public JsonNode suggestSteep(SteepSuggestRequest request) {
+    public Mono<JsonNode> suggestSteep(SteepSuggestRequest request) {
         String prompt = "Language: %s\nDimension: %s\nCompany profile:\n%s"
                 .formatted(lang(request.language()), request.dimension(), request.companyProfile());
-        return AiResponseSanitizer.sanitize(anthropicClient.sendMessage(STEEP_SYSTEM, prompt, 700));
+        return anthropicClient
+                .sendMessage(STEEP_SYSTEM, prompt, 700)
+                .map(AiResponseSanitizer::sanitize);
     }
 
     /**
@@ -107,21 +139,25 @@ public class AiService {
      * @param request validated request carrying horizon, company profile, and language
      * @return Claude's raw JSON reply (expected shape: {@code {"signals": [...]}})
      */
-    public JsonNode suggestHorizon(HorizonSuggestRequest request) {
+    public Mono<JsonNode> suggestHorizon(HorizonSuggestRequest request) {
         String prompt = "Language: %s\nHorizon: %s\nCompany profile:\n%s"
                 .formatted(lang(request.language()), request.horizon(), request.companyProfile());
-        return AiResponseSanitizer.sanitize(anthropicClient.sendMessage(HORIZON_SYSTEM, prompt, 800));
+        return anthropicClient
+                .sendMessage(HORIZON_SYSTEM, prompt, 800)
+                .map(AiResponseSanitizer::sanitize);
     }
 
     /**
      * Produces a full foresight analysis given company profile + STEEP + horizon inputs.
      *
-     * <p>Uses a generous {@code max_tokens} budget (8000) because the output is a full report.
+     * <p>The schema is intentionally flat (see {@link #ANALYZE_SYSTEM}) so the response fits
+     * comfortably below the {@code max_tokens} ceiling. The 16000 budget is a safety margin —
+     * a well-formed response is typically ~2-4k tokens.
      *
      * @param request validated request carrying all three JSON sections and the language
      * @return Claude's raw JSON foresight report
      */
-    public JsonNode analyze(AnalyzeRequest request) {
+    public Mono<JsonNode> analyze(AnalyzeRequest request) {
         String prompt =
                 """
                 Language: %s
@@ -134,11 +170,13 @@ public class AiService {
                                 request.companyProfile().toString(),
                                 request.steep().toString(),
                                 request.horizon().toString());
-        return AiResponseSanitizer.sanitize(anthropicClient.sendMessage(ANALYZE_SYSTEM, prompt, 8000));
+        return anthropicClient
+                .sendMessage(ANALYZE_SYSTEM, prompt, 16000)
+                .map(AiResponseSanitizer::sanitize);
     }
 
     /**
-     * Normalises the language hint to either {@code "en"} or {@code "es"} (default).
+     * Normalizes the language hint to either {@code "en"} or {@code "es"} (default).
      *
      * @param language raw language tag from the request (may be {@code null})
      * @return {@code "en"} if explicitly English, otherwise {@code "es"}

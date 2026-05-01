@@ -18,6 +18,8 @@ import com.foresight.backend.ai.dto.GlobalSteepRequest;
 import com.foresight.backend.ai.dto.HorizonSuggestRequest;
 import com.foresight.backend.ai.dto.SteepSuggestRequest;
 
+import reactor.core.publisher.Mono;
+
 @ExtendWith(MockitoExtension.class)
 class AiServiceTest {
 
@@ -36,9 +38,11 @@ class AiServiceTest {
                         org.mockito.ArgumentMatchers.anyString(),
                         org.mockito.ArgumentMatchers.anyString(),
                         org.mockito.ArgumentMatchers.eq(700)))
-                .thenReturn(expected);
+                .thenReturn(Mono.just(expected));
 
-        JsonNode result = aiService.suggestSteep(new SteepSuggestRequest("technological", "Acme Corp", "en"));
+        JsonNode result = aiService
+                .suggestSteep(new SteepSuggestRequest("technological", "Acme Corp", "en"))
+                .block();
 
         ArgumentCaptor<String> systemCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
@@ -59,9 +63,9 @@ class AiServiceTest {
                         org.mockito.ArgumentMatchers.anyString(),
                         org.mockito.ArgumentMatchers.anyString(),
                         org.mockito.ArgumentMatchers.eq(700)))
-                .thenReturn(MAPPER.readTree("{\"factors\":[]}"));
+                .thenReturn(Mono.just(MAPPER.readTree("{\"factors\":[]}")));
 
-        aiService.suggestSteep(new SteepSuggestRequest("social", "Acme", null));
+        aiService.suggestSteep(new SteepSuggestRequest("social", "Acme", null)).block();
 
         ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
         verify(anthropicClient)
@@ -80,9 +84,9 @@ class AiServiceTest {
                         org.mockito.ArgumentMatchers.anyString(),
                         org.mockito.ArgumentMatchers.anyString(),
                         org.mockito.ArgumentMatchers.eq(800)))
-                .thenReturn(expected);
+                .thenReturn(Mono.just(expected));
 
-        aiService.suggestHorizon(new HorizonSuggestRequest("H2", "Acme Corp", null));
+        aiService.suggestHorizon(new HorizonSuggestRequest("H2", "Acme Corp", null)).block();
 
         ArgumentCaptor<String> systemCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
@@ -100,9 +104,9 @@ class AiServiceTest {
                         org.mockito.ArgumentMatchers.anyString(),
                         org.mockito.ArgumentMatchers.anyString(),
                         org.mockito.ArgumentMatchers.eq(1500)))
-                .thenReturn(expected);
+                .thenReturn(Mono.just(expected));
 
-        aiService.globalSteep(new GlobalSteepRequest("Movilidad eléctrica", "en", null));
+        aiService.globalSteep(new GlobalSteepRequest("Movilidad eléctrica", "en", null)).block();
 
         ArgumentCaptor<String> systemCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
@@ -125,9 +129,9 @@ class AiServiceTest {
                         org.mockito.ArgumentMatchers.anyString(),
                         org.mockito.ArgumentMatchers.anyString(),
                         org.mockito.ArgumentMatchers.eq(1500)))
-                .thenReturn(expected);
+                .thenReturn(Mono.just(expected));
 
-        aiService.globalSteep(new GlobalSteepRequest("Movilidad eléctrica", "es", "P"));
+        aiService.globalSteep(new GlobalSteepRequest("Movilidad eléctrica", "es", "P")).block();
 
         ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
         verify(anthropicClient)
@@ -152,17 +156,17 @@ class AiServiceTest {
         when(anthropicClient.sendMessage(
                         org.mockito.ArgumentMatchers.anyString(),
                         org.mockito.ArgumentMatchers.anyString(),
-                        org.mockito.ArgumentMatchers.eq(8000)))
-                .thenReturn(expected);
+                        org.mockito.ArgumentMatchers.eq(16000)))
+                .thenReturn(Mono.just(expected));
 
-        aiService.analyze(new AnalyzeRequest(companyProfile, steep, horizon, "en"));
+        aiService.analyze(new AnalyzeRequest(companyProfile, steep, horizon, "en")).block();
 
         ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
         verify(anthropicClient)
                 .sendMessage(
                         org.mockito.ArgumentMatchers.anyString(),
                         promptCaptor.capture(),
-                        org.mockito.ArgumentMatchers.eq(8000));
+                        org.mockito.ArgumentMatchers.eq(16000));
 
         String prompt = promptCaptor.getValue();
         assertThat(prompt)

@@ -44,8 +44,10 @@ public record SecurityProperties(
 
     /**
      * @param auth bucket sizing for authentication endpoints (login/register/forgot-password)
+     * @param ai   bucket sizing for AI endpoints (suggest-steep, suggest-horizon, global-steep,
+     *             analyze) — keyed by authenticated user id, not IP, since the calls require auth
      */
-    public record RateLimit(Bucket auth) {
+    public record RateLimit(Bucket auth, Bucket ai) {
 
         /**
          * @param capacity      maximum tokens the bucket holds; determines burst tolerance
