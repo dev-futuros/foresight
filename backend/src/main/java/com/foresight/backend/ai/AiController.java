@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.foresight.backend.ai.dto.AnalyzeRequest;
+import com.foresight.backend.ai.dto.GlobalSteepRequest;
 import com.foresight.backend.ai.dto.HorizonSuggestRequest;
 import com.foresight.backend.ai.dto.SteepSuggestRequest;
 
@@ -26,6 +27,20 @@ import lombok.RequiredArgsConstructor;
 public class AiController {
 
     private final AiService aiService;
+
+    /**
+     * Generates a current global STEEP briefing for the given sector, grounded on live
+     * web search results. The response may contain interleaved {@code tool_use}/
+     * {@code tool_result} blocks alongside the {@code text} blocks; the frontend extracts
+     * the text and parses the JSON.
+     *
+     * @param request validated request payload (sector, language)
+     * @return raw JSON from Claude with macro signals per STEEP dimension
+     */
+    @PostMapping("/global-steep")
+    public JsonNode globalSteep(@Valid @RequestBody GlobalSteepRequest request) {
+        return aiService.globalSteep(request);
+    }
 
     /**
      * Suggests high-impact STEEP factors for a given dimension and company profile.

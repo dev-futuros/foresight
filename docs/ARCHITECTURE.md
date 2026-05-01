@@ -147,14 +147,15 @@ The `ReportService` enforces ownership at query time (`findByIdAndUserId`), not 
 |---|---|---|
 | Build | Vite | Fast HMR, native ESM, minimal config |
 | Language | TypeScript | Type-safe API contracts, autocomplete on DTOs |
-| Framework | React 18 | Component model, large ecosystem |
-| Routing | React Router v6 | Protected routes, nested layouts |
+| Framework | React 19 | Component model, large ecosystem |
+| Routing | React Router v7 | Protected routes, nested layouts |
 | HTTP | Axios | Interceptors for JWT injection and 401 handling |
 | Server state | TanStack Query v5 | Caching, invalidation, background refresh |
-| i18n | i18next | JSON catalogs, ES default, EN secondary |
-| Export PDF | html2pdf.js | Already proven in prototype |
+| i18n | i18next | TS catalogs, ES default, EN secondary |
+| Export PDF | jsPDF | Direct multi-page generation with the platform's design system |
 | Export PPT | pptxgenjs | Already proven in prototype |
 | Styles | CSS variables | Port dark design system from prototype (no CSS framework) |
+| Tests | Vitest + React Testing Library | Fast, integrated with Vite |
 
 ### Package-by-feature structure
 
@@ -164,23 +165,31 @@ frontend/src/
 ├── App.tsx                   # router root
 ├── lib/
 │   ├── api.ts                # Axios instance — JWT injection + 401 → logout
-│   └── queryClient.ts        # TanStack Query global config
+│   ├── apiError.ts           # Backend ApiError → user-facing message
+│   ├── queryClient.ts        # TanStack Query global config
+│   ├── exportPdf.ts          # jsPDF report export
+│   └── exportPpt.ts          # pptxgenjs report export
 ├── hooks/
 │   ├── useAuth.ts            # login, register, logout, current user
+│   ├── useAccount.ts         # update profile, change password
+│   ├── useLanguageSync.ts    # syncs user's language to i18n on load
 │   └── useReports.ts         # CRUD reports
 ├── features/
 │   ├── auth/                 # LoginPage, RegisterPage
 │   ├── dashboard/            # DashboardPage (report list)
 │   ├── report/
 │   │   ├── NewReportPage.tsx # 3-step wizard
-│   │   ├── ReportPage.tsx    # result tabs
-│   │   ├── steps/            # StepEmpresa, StepSteep, StepHorizon
-│   │   └── tabs/             # TabScenarios, TabBackcasting, TabWeakSignals, TabMatrix
-│   └── account/              # AccountPage (profile + language)
-├── components/               # shared UI primitives (Button, Input, Spinner…)
+│   │   ├── ReportPage.tsx    # tabbed result view (Inputs / Resultados)
+│   │   └── steps/            # StepEmpresa, StepSteep, StepHorizon
+│   └── account/              # AccountPage (profile + language + password)
+├── components/
+│   └── ProtectedRoute.tsx    # auth guard for routes
 ├── i18n/
-│   ├── es.json
-│   └── en.json
+│   ├── index.ts              # i18next init
+│   └── locales/
+│       ├── es.ts
+│       └── en.ts
+├── test/                     # Vitest + RTL tests + setup
 └── types/
     └── api.ts                # TypeScript types mirroring backend DTOs
 ```

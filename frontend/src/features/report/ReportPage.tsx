@@ -8,28 +8,25 @@ import './report.css';
 
 type Tab = 'inputs' | 'resultados';
 
-const STEEP_LABELS: Record<string, string> = {
-  social: 'Social',
-  technological: 'Tecnológico',
-  economic: 'Económico',
-  environmental: 'Ambiental',
-  political: 'Político',
-};
-
-const HORIZON_LABELS: Record<string, string> = {
-  H1: 'H1 — Corto plazo (0–2 años)',
-  H2: 'H2 — Medio plazo (2–5 años)',
-  H3: 'H3 — Largo plazo (5+ años)',
-};
-
 export default function ReportPage() {
   const { t, i18n } = useTranslation();
   const { id } = useParams<{ id: string }>();
-  const { data: report, isLoading, isError } = useReport(id!);
+  const { data: report, isLoading, isError, refetch } = useReport(id!);
   const [tab, setTab] = useState<Tab>('inputs');
 
   if (isLoading) return <div className="loading-screen">{t('report.loading')}</div>;
-  if (isError || !report) return <div className="loading-screen" style={{ color: '#f87171' }}>{t('report.notFound')}</div>;
+  if (isError || !report) {
+    return (
+      <div className="loading-screen" style={{ color: '#f87171', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <span>{isError ? t('report.errorLoading') : t('report.notFound')}</span>
+        {isError && (
+          <button type="button" className="btn-retry" onClick={() => refetch()}>
+            {t('common.retry')}
+          </button>
+        )}
+      </div>
+    );
+  }
 
   const input = report.inputData as {
     companyProfile: { name: string; sector: string; horizon: string; challenge: string };
@@ -120,7 +117,7 @@ export default function ReportPage() {
                   {Object.entries(input.steep).map(([key, value]) =>
                     value ? (
                       <div key={key} className="input-card">
-                        <div className="input-card-label">{STEEP_LABELS[key] || key}</div>
+                        <div className="input-card-label">{t(`report.steepLabels.${key}`, { defaultValue: key })}</div>
                         <div className="input-card-value">{value}</div>
                       </div>
                     ) : null
@@ -136,7 +133,7 @@ export default function ReportPage() {
                   {Object.entries(input.horizon).map(([key, value]) =>
                     value ? (
                       <div key={key} className="input-card">
-                        <div className="input-card-label">{HORIZON_LABELS[key] || key}</div>
+                        <div className="input-card-label">{t(`report.horizonLabels.${key}`, { defaultValue: key })}</div>
                         <div className="input-card-value">{value}</div>
                       </div>
                     ) : null

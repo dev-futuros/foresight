@@ -5,20 +5,22 @@ import { useCurrentUser, useLogout } from '../../hooks/useAuth';
 import type { ReportStatus } from '../../types/api';
 import './dashboard.css';
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('es-ES', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
-}
-
 export default function DashboardPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { data: user } = useCurrentUser();
-  const { data, isLoading, isError } = useReports();
+  const { data, isLoading, isError, refetch } = useReports();
   const deleteReport = useDeleteReport();
   const logout = useLogout();
+
+  const dateLocale = i18n.language === 'en' ? 'en-GB' : 'es-ES';
+
+  function formatDate(iso: string) {
+    return new Date(iso).toLocaleDateString(dateLocale, {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+  }
 
   function handleDelete(e: React.MouseEvent, id: string) {
     e.preventDefault();
@@ -60,11 +62,20 @@ export default function DashboardPage() {
         </div>
 
         {isLoading && (
-          <div className="dashboard-loading">Cargando informes...</div>
+          <div className="dashboard-loading">{t('dashboard.loading')}</div>
         )}
 
         {isError && (
-          <div className="dashboard-error">Error al cargar los informes.</div>
+          <div className="dashboard-error" role="alert">
+            <span>{t('dashboard.errorLoading')}</span>
+            <button
+              type="button"
+              className="btn-retry"
+              onClick={() => refetch()}
+            >
+              {t('common.retry')}
+            </button>
+          </div>
         )}
 
         {!isLoading && !isError && data && data.content.length === 0 && (
@@ -72,9 +83,6 @@ export default function DashboardPage() {
             <div className="empty-state-icon">◈</div>
             <h2 className="empty-state-title">{t('dashboard.emptyTitle')}</h2>
             <p className="empty-state-desc">{t('dashboard.emptyDesc')}</p>
-            <Link to="/reports/new" className="btn-new-report" style={{ display: 'inline-flex' }}>
-              ✦ {t('dashboard.emptyAction')}
-            </Link>
           </div>
         )}
 
@@ -99,8 +107,8 @@ export default function DashboardPage() {
                   <button
                     className="btn-delete"
                     onClick={(e) => handleDelete(e, report.id)}
-                    aria-label="Eliminar informe"
-                    title="Eliminar"
+                    aria-label={t('dashboard.deleteLabel')}
+                    title={t('dashboard.deleteTitle')}
                   >
                     ✕
                   </button>

@@ -40,6 +40,14 @@ public class AnthropicClient {
     private final AnthropicProperties properties;
 
     /**
+     * Server-side {@code web_search} tool spec. Anthropic resolves searches inside the
+     * model loop and returns interleaved {@code web_search_tool_use} /
+     * {@code web_search_tool_result} blocks alongside the final {@code text} blocks.
+     */
+    private static final List<Map<String, Object>> WEB_SEARCH_TOOLS = List.of(
+            Map.of("type", "web_search_20250305", "name", "web_search", "max_uses", 5));
+
+    /**
      * Sends a single-turn request to Anthropic's {@code /v1/messages} endpoint.
      *
      * @param systemPrompt the system instruction (sets the model's role/format constraints)
@@ -49,15 +57,29 @@ public class AnthropicClient {
      * @throws AiException if Anthropic returns a non-retriable error or retries are exhausted
      */
     public JsonNode sendMessage(String systemPrompt, String userPrompt, int maxTokens) {
-        Map<String, Object> body = Map.of(
-                "model",
-                properties.model(),
-                "max_tokens",
-                maxTokens,
-                "system",
-                systemPrompt,
-                "messages",
-                List.of(Map.of("role", "user", "content", userPrompt)));
+        return doSend(systemPrompt, userPrompt, maxTokens, null);
+    }
+
+    /**
+     * Same as {@link #sendMessage} but enables Anthropic's server-side {@code web_search} tool
+     * so the model can ground its answer on live data. The response may contain interleaved
+     * {@code tool_use}/{@code tool_result} blocks — callers should filter content by
+     * {@code type == "text"} before parsing.
+     */
+    public JsonNode sendMessageWithWebSearch(String systemPrompt, String userPrompt, int maxTokens) {
+        return doSend(systemPrompt, userPrompt, maxTokens, WEB_SEARCH_TOOLS);
+    }
+
+    private JsonNode doSend(
+            String systemPrompt, String userPrompt, int maxTokens, List<Map<String, Object>> tools) {
+        Map<String, Object> body = new java.util.HashMap<>();
+        body.put("model", properties.model());
+        body.put("max_tokens", maxTokens);
+        body.put("system", systemPrompt);
+        body.put("messages", List.of(Map.of("role", "user", "content", userPrompt)));
+        if (tools != null && !tools.isEmpty()) {
+            body.put("tools", tools);
+        }
 
         try {
             return anthropicWebClient

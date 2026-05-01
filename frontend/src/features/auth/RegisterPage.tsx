@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useRegister } from '../../hooks/useAuth';
+import { extractApiErrorMessage } from '../../lib/apiError';
 import './auth.css';
 
 export default function RegisterPage() {
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const register = useRegister();
   const [name, setName] = useState('');
@@ -12,13 +15,13 @@ export default function RegisterPage() {
   const [showPwd, setShowPwd] = useState(false);
 
   const serverError = register.error
-    ? (register.error as { response?: { data?: { message?: string } } }).response?.data
-        ?.message ?? 'Error al crear la cuenta.'
+    ? extractApiErrorMessage(register.error, t('auth.register.errorDefault'))
     : null;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    await register.mutateAsync({ name, email, password, language: 'es' });
+    const language = i18n.language === 'en' ? 'en' : 'es';
+    await register.mutateAsync({ name, email, password, language });
     navigate('/dashboard');
   }
 
@@ -33,42 +36,42 @@ export default function RegisterPage() {
           <div className="logo-mark">F</div>
           <div>
             <div className="logo-text">Futuros</div>
-            <span className="logo-sub">Foresight Strategy · Powered by Claude AI</span>
+            <span className="logo-sub">{t('common.brand')}</span>
           </div>
         </div>
 
-        <p className="eyebrow">Nueva cuenta</p>
-        <h1>Crear tu cuenta</h1>
-        <p className="auth-desc">Empieza a construir tus análisis de foresight estratégico.</p>
+        <p className="eyebrow">{t('auth.register.eyebrow')}</p>
+        <h1>{t('auth.register.title')}</h1>
+        <p className="auth-desc">{t('auth.register.description')}</p>
 
         <form onSubmit={handleSubmit} noValidate>
           <div className="field">
-            <label htmlFor="name">Nombre (opcional)</label>
+            <label htmlFor="name">{t('auth.register.name')}</label>
             <input
               id="name"
               type="text"
               autoComplete="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Alice Analyst"
+              placeholder={t('auth.register.namePlaceholder')}
             />
           </div>
 
           <div className="field">
-            <label htmlFor="email">Correo electrónico</label>
+            <label htmlFor="email">{t('auth.register.email')}</label>
             <input
               id="email"
               type="email"
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="alice@ejemplo.com"
+              placeholder={t('auth.register.emailPlaceholder')}
               required
             />
           </div>
 
           <div className="field">
-            <label htmlFor="password">Contraseña</label>
+            <label htmlFor="password">{t('auth.register.password')}</label>
             <div className="input-wrap">
               <input
                 id="password"
@@ -76,7 +79,7 @@ export default function RegisterPage() {
                 autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Mínimo 8 caracteres"
+                placeholder={t('auth.register.passwordPlaceholder')}
                 minLength={8}
                 required
               />
@@ -84,7 +87,7 @@ export default function RegisterPage() {
                 type="button"
                 className="eye-btn"
                 onClick={() => setShowPwd((v) => !v)}
-                aria-label="Mostrar/ocultar contraseña"
+                aria-label={t('common.togglePassword')}
               >
                 {showPwd ? '🙈' : '👁'}
               </button>
@@ -98,13 +101,13 @@ export default function RegisterPage() {
             className="btn-primary"
             disabled={register.isPending}
           >
-            {register.isPending ? <span className="btn-spinner" /> : 'Crear cuenta →'}
+            {register.isPending ? <span className="btn-spinner" /> : t('auth.register.submit')}
           </button>
         </form>
 
         <p className="auth-footer">
-          ¿Ya tienes cuenta?{' '}
-          <Link to="/login">Iniciar sesión</Link>
+          {t('auth.register.haveAccount')}{' '}
+          <Link to="/login">{t('auth.register.signIn')}</Link>
         </p>
       </div>
     </div>

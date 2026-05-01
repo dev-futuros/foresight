@@ -12,6 +12,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.foresight.backend.ai.AiException;
+
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -107,6 +109,25 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({BadRequestException.class, IllegalArgumentException.class})
     public ResponseEntity<ApiError> handleBadRequest(Exception ex, HttpServletRequest req) {
         return ResponseEntity.badRequest().body(ApiError.of(400, "Bad Request", ex.getMessage(), req.getRequestURI()));
+    }
+
+    /**
+     * Maps {@link AiException} (upstream Claude failure) to HTTP 502 Bad Gateway.
+     *
+     * <p>The message thrown by {@code AnthropicClient} already encodes the upstream condition
+     * (e.g. {@code "AI provider error: 401"}, {@code "AI provider unavailable"}). We surface it
+     * to the client as the response message so the frontend can display something useful
+     * instead of a generic "unexpected error".
+     *
+     * @param ex  the AI provider exception
+     * @param req current HTTP request
+     * @return 502 response with the upstream-failure message
+     */
+    @ExceptionHandler(AiException.class)
+    public ResponseEntity<ApiError> handleAi(AiException ex, HttpServletRequest req) {
+        log.warn("AI provider failure at {}: {}", req.getRequestURI(), ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(ApiError.of(502, "Bad Gateway", ex.getMessage(), req.getRequestURI()));
     }
 
     /**

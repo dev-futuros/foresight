@@ -1,65 +1,179 @@
-const DIMENSIONS = [
-  { key: 'social',         label: 'Social' },
-  { key: 'technological',  label: 'Tecnológico' },
-  { key: 'economic',       label: 'Económico' },
-  { key: 'environmental',  label: 'Ambiental' },
-  { key: 'political',      label: 'Político' },
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { suggestSteep, type SuggestionItem } from '../../../lib/aiClient';
+import { extractApiErrorMessage } from '../../../lib/apiError';
+
+const DIMENSION_KEYS = [
+  'social',
+  'technological',
+  'economic',
+  'environmental',
+  'political',
 ] as const;
 
-type DimensionKey = typeof DIMENSIONS[number]['key'];
+type DimensionKey = (typeof DIMENSION_KEYS)[number];
 
 export type SteepData = Record<DimensionKey, string>;
 
 interface Props {
   data: SteepData;
   companyProfile: string;
+  language: 'es' | 'en';
   onChange: (data: SteepData) => void;
   onNext: () => void;
   onBack: () => void;
 }
 
-export default function StepSteep({ data, onChange, onNext, onBack }: Props) {
-  const hasAny = DIMENSIONS.some((d) => data[d.key].trim());
+const ICONS: Record<DimensionKey, string> = {
+  social: '👥',
+  technological: '⚡',
+  economic: '💹',
+  environmental: '🌱',
+  political: '🏛️',
+};
+const ICON_BG: Record<DimensionKey, string> = {
+  social: 'rgba(96,165,250,0.1)',
+  technological: 'rgba(74,222,128,0.1)',
+  economic: 'rgba(212,168,83,0.1)',
+  environmental: 'rgba(134,239,172,0.1)',
+  political: 'rgba(192,132,252,0.1)',
+};
+const DIM_COLOR: Record<DimensionKey, string> = {
+  social: 'var(--blue)',
+  technological: 'var(--green)',
+  economic: 'var(--accent)',
+  environmental: '#86efac',
+  political: 'var(--purple)',
+};
+
+type SuggestionsByDim = Partial<Record<DimensionKey, SuggestionItem[]>>;
+type LoadingByDim = Partial<Record<DimensionKey, boolean>>;
+type ErrorByDim = Partial<Record<DimensionKey, string>>;
+
+export default function StepSteep({
+  data,
+  companyProfile,
+  language,
+  onChange,
+  onNext,
+  onBack,
+}: Props) {
+  const { t } = useTranslation();
+  const [suggestions, setSuggestions] = useState<SuggestionsByDim>({});
+  const [loading, setLoading] = useState<LoadingByDim>({});
+  const [errors, setErrors] = useState<ErrorByDim>({});
+
+  const hasAny = DIMENSION_KEYS.some((k) => data[k].trim());
+  const canSuggest = companyProfile.trim().length > 0;
+
+  async function requestSuggestions(dim: DimensionKey) {
+    if (!canSuggest) return;
+    setLoading((prev) => ({ ...prev, [dim]: true }));
+    setErrors((prev) => ({ ...prev, [dim]: undefined }));
+    try {
+      const items = await suggestSteep({ dimension: dim, companyProfile, language });
+      setSuggestions((prev) => ({ ...prev, [dim]: items }));
+    } catch (e) {
+      setErrors((prev) => ({
+        ...prev,
+        [dim]: extractApiErrorMessage(e, t('wizard.steep.errorDefault')),
+      }));
+    } finally {
+      setLoading((prev) => ({ ...prev, [dim]: false }));
+    }
+  }
+
+  function appendSuggestion(dim: DimensionKey, item: SuggestionItem) {
+    const current = data[dim].trimEnd();
+    const next = current ? `${current}\n${item.title}` : item.title;
+    onChange({ ...data, [dim]: next });
+  }
 
   return (
     <div>
-      <h1 className="wizard-page-title">Análisis STEEP</h1>
-      <p className="wizard-page-desc">
-        Identifica los factores del entorno por dimensión. Puedes escribirlos libremente —
-        el botón ✦ IA estará disponible cuando conectes tu API key de Anthropic.
-      </p>
+      <div className="eyebrow">{t('wizard.steep.eyebrow')}</div>
+      <h1 className="page-title">{t('wizard.steep.title')}</h1>
+      <p className="page-desc">{t('wizard.steep.description')}</p>
 
-      {DIMENSIONS.map((dim) => (
-        <div key={dim.key} className="steep-section">
-          <div className="steep-header">
-            <span className="steep-title">{dim.label}</span>
-            <button className="btn-ai" type="button" disabled title="Requiere API key de Anthropic">
-              ✦ Sugerir con IA
-            </button>
-          </div>
-          <div className="steep-body">
-            <textarea
-              className="wtextarea"
-              placeholder={`Factores ${dim.label.toLowerCase()}es relevantes para tu organización...`}
-              value={data[dim.key]}
-              onChange={(e) => onChange({ ...data, [dim.key]: e.target.value })}
-              rows={3}
-            />
-          </div>
-        </div>
-      ))}
+      <div className="steep-grid">
+        {DIMENSION_KEYS.map((key, i) => {
+          const isFull = i === DIMENSION_KEYS.length - 1; // Político: full-width
+          const dimSuggestions = suggestions[key] ?? [];
+          const dimLoading = loading[key] ?? false;
+          const dimError = errors[key];
+          return (
+            <div key={key} className={`steep-card${isFull ? ' full' : ''}`}>
+              <div className="steep-head">
+                <div className="steep-info">
+                  <div className="steep-icon" style={{ background: ICON_BG[key] }}>
+                    {ICONS[key]}
+                  </div>
+                  <div>
+                    <div className="steep-dim" style={{ color: DIM_COLOR[key] }}>
+                      {t(`wizard.steep.dimensions.${key}`)}
+                    </div>
+                    <div className="steep-sub">{t(`wizard.steep.subs.${key}`)}</div>
+                  </div>
+                </div>
+                <button
+                  className="btn btn-ai"
+                  type="button"
+                  onClick={() => requestSuggestions(key)}
+                  disabled={dimLoading || !canSuggest}
+                  title={
+                    canSuggest
+                      ? t('wizard.steep.aiTooltip')
+                      : t('wizard.steep.aiTooltipDisabled')
+                  }
+                >
+                  {dimLoading ? <span className="btn-ai-spinner" /> : '✦'}{' '}
+                  {t('wizard.steep.aiSuggest')}
+                </button>
+              </div>
 
-      <div className="wizard-footer">
-        <button type="button" className="btn-back" onClick={onBack}>
-          ← Volver
+              <textarea
+                placeholder={t(`wizard.steep.placeholders.${key}`)}
+                value={data[key]}
+                onChange={(e) => onChange({ ...data, [key]: e.target.value })}
+              />
+
+              {dimSuggestions.length > 0 && (
+                <div className="tags-wrap">
+                  {dimSuggestions.map((s, j) => (
+                    <button
+                      key={j}
+                      type="button"
+                      className="sug-tag"
+                      title={s.description}
+                      onClick={() => appendSuggestion(key, s)}
+                    >
+                      {s.title}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {dimError && (
+                <div className="err-box" style={{ marginTop: '0.6rem', marginBottom: 0 }}>
+                  {dimError}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="btn-row">
+        <button type="button" className="btn" onClick={onBack}>
+          {t('wizard.back')}
         </button>
         <button
           type="button"
-          className="btn-next"
+          className="btn btn-primary"
           onClick={onNext}
           disabled={!hasAny}
         >
-          Continuar — Horizon Scan →
+          {t('wizard.steep.next')}
         </button>
       </div>
     </div>

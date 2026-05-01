@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useCurrentUser } from '../../hooks/useAuth';
 import { useUpdateProfile, useChangePassword } from '../../hooks/useAccount';
+import { extractApiErrorMessage } from '../../lib/apiError';
 import './account.css';
 
 const LANGUAGE_OPTIONS = [
@@ -25,12 +26,12 @@ export default function AccountPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordMsg, setPasswordMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
-  useEffect(() => {
-    if (user) {
-      setName(user.name ?? '');
-      setLanguage((user.language as 'es' | 'en') ?? 'es');
-    }
-  }, [user]);
+  const [syncedUserId, setSyncedUserId] = useState<string | undefined>(undefined);
+  if (user && user.id !== syncedUserId) {
+    setSyncedUserId(user.id);
+    setName(user.name ?? '');
+    setLanguage((user.language as 'es' | 'en') ?? 'es');
+  }
 
   async function handleProfileSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -39,8 +40,8 @@ export default function AccountPage() {
       await updateProfile.mutateAsync({ name: name.trim() || undefined, language });
       i18n.changeLanguage(language);
       setProfileMsg({ type: 'ok', text: t('account.profile.successMsg') });
-    } catch {
-      setProfileMsg({ type: 'err', text: t('account.profile.errorMsg') });
+    } catch (err) {
+      setProfileMsg({ type: 'err', text: extractApiErrorMessage(err, t('account.profile.errorMsg')) });
     }
   }
 
@@ -57,12 +58,12 @@ export default function AccountPage() {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-    } catch {
-      setPasswordMsg({ type: 'err', text: t('account.security.errorMsg') });
+    } catch (err) {
+      setPasswordMsg({ type: 'err', text: extractApiErrorMessage(err, t('account.security.errorMsg')) });
     }
   }
 
-  if (isLoading) return <div className="loading-screen">Cargando perfil...</div>;
+  if (isLoading) return <div className="loading-screen">{t('account.loading')}</div>;
 
   return (
     <div className="account-page">

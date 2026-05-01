@@ -188,7 +188,7 @@
 }
 .report-draft-desc {
   font-size: 0.82rem;
-  color: var(--muted);
+  color: var(--text2);
   line-height: 1.65;
   margin-bottom: 1.5rem;
 }
@@ -196,16 +196,18 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 11px 22px;
-  background: var(--accent);
+  padding: 14px 32px;
+  background: var(--gold);
   border: none;
-  border-radius: 9px;
+  border-radius: 5px;
   color: #0a0a0a;
-  font-family: var(--font-sans);
-  font-size: 0.88rem;
-  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   cursor: pointer;
-  transition: opacity 0.18s;
+  transition: background 0.18s, transform 0.12s;
 }
-.btn-analyze:hover { opacity: 0.88; }
-.btn-analyze:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-analyze:hover { background: var(--gold2); transform: translateY(-1px); }
+.btn-analyze:disabled { opacity: 0.45; cursor: not-allowed; background: var(--gold); transform: none; }

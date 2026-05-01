@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useLogin } from '../../hooks/useAuth';
+import { extractApiErrorMessage } from '../../lib/apiError';
 import './auth.css';
 
 export default function LoginPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const login = useLogin();
   const [email, setEmail] = useState('');
@@ -11,8 +14,7 @@ export default function LoginPage() {
   const [showPwd, setShowPwd] = useState(false);
 
   const error = login.error
-    ? (login.error as { response?: { data?: { message?: string } } }).response?.data
-        ?.message ?? 'Credenciales incorrectas.'
+    ? extractApiErrorMessage(login.error, t('auth.login.errorDefault'))
     : null;
 
   async function handleSubmit(e: React.FormEvent) {
@@ -32,30 +34,30 @@ export default function LoginPage() {
           <div className="logo-mark">F</div>
           <div>
             <div className="logo-text">Futuros</div>
-            <span className="logo-sub">Foresight Strategy · Powered by Claude AI</span>
+            <span className="logo-sub">{t('common.brand')}</span>
           </div>
         </div>
 
-        <p className="eyebrow">Acceso</p>
-        <h1>Bienvenido de nuevo</h1>
-        <p className="auth-desc">Introduce tus credenciales para acceder a la plataforma.</p>
+        <p className="eyebrow">{t('auth.login.eyebrow')}</p>
+        <h1>{t('auth.login.title')}</h1>
+        <p className="auth-desc">{t('auth.login.description')}</p>
 
         <form onSubmit={handleSubmit} noValidate>
           <div className="field">
-            <label htmlFor="email">Correo electrónico</label>
+            <label htmlFor="email">{t('auth.login.email')}</label>
             <input
               id="email"
               type="email"
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="alice@ejemplo.com"
+              placeholder={t('auth.login.emailPlaceholder')}
               required
             />
           </div>
 
           <div className="field">
-            <label htmlFor="password">Contraseña</label>
+            <label htmlFor="password">{t('auth.login.password')}</label>
             <div className="input-wrap">
               <input
                 id="password"
@@ -63,14 +65,14 @@ export default function LoginPage() {
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Tu contraseña"
+                placeholder={t('auth.login.passwordPlaceholder')}
                 required
               />
               <button
                 type="button"
                 className="eye-btn"
                 onClick={() => setShowPwd((v) => !v)}
-                aria-label="Mostrar/ocultar contraseña"
+                aria-label={t('common.togglePassword')}
               >
                 {showPwd ? '🙈' : '👁'}
               </button>
@@ -84,13 +86,13 @@ export default function LoginPage() {
             className="btn-primary"
             disabled={login.isPending}
           >
-            {login.isPending ? <span className="btn-spinner" /> : 'Acceder →'}
+            {login.isPending ? <span className="btn-spinner" /> : t('auth.login.submit')}
           </button>
         </form>
 
         <p className="auth-footer">
-          ¿No tienes cuenta?{' '}
-          <Link to="/register">Crear cuenta</Link>
+          {t('auth.login.noAccount')}{' '}
+          <Link to="/register">{t('auth.login.createAccount')}</Link>
         </p>
       </div>
     </div>

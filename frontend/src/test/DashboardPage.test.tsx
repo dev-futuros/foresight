@@ -45,7 +45,7 @@ describe('DashboardPage', () => {
     renderWithProviders(<DashboardPage />);
 
     expect(screen.getByText(/aún no tienes informes/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /crear informe/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /nuevo informe/i })).toBeInTheDocument();
   });
 
   it('shows loading state', () => {

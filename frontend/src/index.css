@@ -1,15 +1,41 @@
-/* Global design system — ported from prototype */
+/* Global design system — ported 1:1 from demo (Futuros — Foresight Strategy app.html). */
 :root {
+  /* Backgrounds */
   --bg: #09090b;
   --bg-card: #111113;
   --bg-el: #1a1a1d;
+
+  /* Borders — values match the demo exactly */
   --border: rgba(255, 255, 255, 0.07);
   --border-h: rgba(255, 255, 255, 0.13);
   --border-a: rgba(212, 168, 83, 0.35);
+
+  /* Text */
   --text: #f0ece4;
   --muted: #8a8680;
+
+  /* Accent (gold) — values match the demo exactly */
   --accent: #d4a853;
   --accent-bg: rgba(212, 168, 83, 0.10);
+
+  /* Status colours */
+  --blue: #60a5fa;
+  --green: #4ade80;
+  --red: #f87171;
+  --purple: #c084fc;
+  --orange: #fb923c;
+
+  /* Legacy / pre-demo aliases — some non-wizard pages still reference these. */
+  --bg2: #0f0f11;
+  --bg3: var(--bg-card);
+  --bg4: var(--bg-el);
+  --text2: #c8c4bc;
+  --dim: #4b5563;
+  --gold: var(--accent);
+  --gold2: #b8863c;
+  --gold-bg: var(--accent-bg);
+  --gold-bg2: rgba(212, 168, 83, 0.18);
+  --border-g: var(--border-a);
 
   --font-sans: 'DM Sans', system-ui, sans-serif;
   --font-mono: 'DM Mono', ui-monospace, monospace;
@@ -30,17 +56,32 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-sans);
+  font-weight: 400;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  position: relative;
+}
+
+/* Subtle noise texture — ported from prototype */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='1' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.03 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
 }
 
 #root {
   display: flex;
   flex-direction: column;
+  position: relative;
+  z-index: 1;
 }
 
 a {
-  color: var(--accent);
+  color: var(--gold);
   text-decoration: none;
 }
 a:hover {
