@@ -26,7 +26,8 @@ class RateLimitFilterTest {
                 new SecurityProperties.RateLimit(
                         // Huge refill period so refills never happen mid-test — we want the
                         // bucket to deplete deterministically.
-                        new SecurityProperties.RateLimit.Bucket(capacity, capacity, Duration.ofHours(1))));
+                        new SecurityProperties.RateLimit.Bucket(capacity, capacity, Duration.ofHours(1)),
+                        new SecurityProperties.RateLimit.Bucket(30, 30, Duration.ofHours(1))));
         return new RateLimitFilter(props);
     }
 

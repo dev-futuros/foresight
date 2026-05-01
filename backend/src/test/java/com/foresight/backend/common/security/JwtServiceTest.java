@@ -34,7 +34,8 @@ class JwtServiceTest {
                 Duration.ofMinutes(30),
                 Duration.ofHours(24),
                 new SecurityProperties.RateLimit(
-                        new SecurityProperties.RateLimit.Bucket(10, 10, Duration.ofMinutes(1))));
+                        new SecurityProperties.RateLimit.Bucket(10, 10, Duration.ofMinutes(1)),
+                        new SecurityProperties.RateLimit.Bucket(30, 30, Duration.ofHours(1))));
     }
 
     @Test
@@ -86,7 +87,8 @@ class JwtServiceTest {
                 Duration.ofMinutes(30),
                 Duration.ofHours(24),
                 new SecurityProperties.RateLimit(
-                        new SecurityProperties.RateLimit.Bucket(10, 10, Duration.ofMinutes(1))));
+                        new SecurityProperties.RateLimit.Bucket(10, 10, Duration.ofMinutes(1)),
+                        new SecurityProperties.RateLimit.Bucket(30, 30, Duration.ofHours(1))));
         JwtService verifier = new JwtService(otherProps);
 
         assertThatThrownBy(() -> verifier.parse(token)).isInstanceOf(JwtException.class);

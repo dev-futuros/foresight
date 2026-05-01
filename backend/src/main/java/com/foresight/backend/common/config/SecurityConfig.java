@@ -20,6 +20,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import com.foresight.backend.common.security.AiRateLimitFilter;
 import com.foresight.backend.common.security.JwtAuthFilter;
 import com.foresight.backend.common.security.RateLimitFilter;
 
@@ -56,6 +57,7 @@ public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
     private final RateLimitFilter rateLimitFilter;
+    private final AiRateLimitFilter aiRateLimitFilter;
     private final SecurityProperties properties;
 
     /**
@@ -116,9 +118,12 @@ public class SecurityConfig {
                                 .authenticated();
                     }
                 })
-                // Rate limit FIRST so brute-force traffic never reaches JWT parsing / the DB.
+                // Auth-endpoint rate limit FIRST so brute-force traffic never reaches JWT parsing / the DB.
                 .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                // JWT auth populates the principal; the AI rate limiter consumes it.
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                // AI rate limit runs AFTER JWT auth so it can key by user id, not IP.
+                .addFilterAfter(aiRateLimitFilter, JwtAuthFilter.class);
 
         return http.build();
     }

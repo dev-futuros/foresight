@@ -18,7 +18,8 @@ class SecurityPropertiesTest {
                 Duration.ofMinutes(30),
                 Duration.ofHours(24),
                 new SecurityProperties.RateLimit(
-                        new SecurityProperties.RateLimit.Bucket(10, 5, Duration.ofMinutes(1))));
+                        new SecurityProperties.RateLimit.Bucket(10, 5, Duration.ofMinutes(1)),
+                        new SecurityProperties.RateLimit.Bucket(30, 30, Duration.ofHours(1))));
 
         assertThat(properties.authDisabled()).isTrue();
         assertThat(properties.jwt().secret()).isEqualTo("test-secret-at-least-32-chars-long!!");
@@ -30,6 +31,9 @@ class SecurityPropertiesTest {
         assertThat(properties.rateLimit().auth().capacity()).isEqualTo(10);
         assertThat(properties.rateLimit().auth().refillTokens()).isEqualTo(5);
         assertThat(properties.rateLimit().auth().refillPeriod()).isEqualTo(Duration.ofMinutes(1));
+        assertThat(properties.rateLimit().ai().capacity()).isEqualTo(30);
+        assertThat(properties.rateLimit().ai().refillTokens()).isEqualTo(30);
+        assertThat(properties.rateLimit().ai().refillPeriod()).isEqualTo(Duration.ofHours(1));
     }
 
     @Test
@@ -37,14 +41,19 @@ class SecurityPropertiesTest {
         SecurityProperties.Jwt jwt =
                 new SecurityProperties.Jwt("another-test-secret-at-least-32-chars", Duration.ofMinutes(45));
         SecurityProperties.Cors cors = new SecurityProperties.Cors(List.of("https://example.com"));
-        SecurityProperties.RateLimit.Bucket bucket =
+        SecurityProperties.RateLimit.Bucket authBucket =
                 new SecurityProperties.RateLimit.Bucket(100, 20, Duration.ofSeconds(30));
-        SecurityProperties.RateLimit rateLimit = new SecurityProperties.RateLimit(bucket);
+        SecurityProperties.RateLimit.Bucket aiBucket =
+                new SecurityProperties.RateLimit.Bucket(50, 5, Duration.ofMinutes(10));
+        SecurityProperties.RateLimit rateLimit = new SecurityProperties.RateLimit(authBucket, aiBucket);
 
         assertThat(jwt.secret()).contains("test-secret");
         assertThat(cors.allowedOrigins()).containsExactly("https://example.com");
         assertThat(rateLimit.auth().capacity()).isEqualTo(100);
         assertThat(rateLimit.auth().refillTokens()).isEqualTo(20);
         assertThat(rateLimit.auth().refillPeriod()).isEqualTo(Duration.ofSeconds(30));
+        assertThat(rateLimit.ai().capacity()).isEqualTo(50);
+        assertThat(rateLimit.ai().refillTokens()).isEqualTo(5);
+        assertThat(rateLimit.ai().refillPeriod()).isEqualTo(Duration.ofMinutes(10));
     }
 }
