@@ -79,7 +79,8 @@ public class AiService {
     public JsonNode globalSteep(GlobalSteepRequest request) {
         String prompt = "Language: %s\nSector: %s\nCurrent year: %d"
                 .formatted(lang(request.language()), request.sector(), java.time.Year.now().getValue());
-        return anthropicClient.sendMessageWithWebSearch(GLOBAL_STEEP_SYSTEM, prompt, 1500);
+        return AiResponseSanitizer.sanitize(
+                anthropicClient.sendMessageWithWebSearch(GLOBAL_STEEP_SYSTEM, prompt, 1500));
     }
 
     /**
@@ -91,7 +92,7 @@ public class AiService {
     public JsonNode suggestSteep(SteepSuggestRequest request) {
         String prompt = "Language: %s\nDimension: %s\nCompany profile:\n%s"
                 .formatted(lang(request.language()), request.dimension(), request.companyProfile());
-        return anthropicClient.sendMessage(STEEP_SYSTEM, prompt, 700);
+        return AiResponseSanitizer.sanitize(anthropicClient.sendMessage(STEEP_SYSTEM, prompt, 700));
     }
 
     /**
@@ -103,7 +104,7 @@ public class AiService {
     public JsonNode suggestHorizon(HorizonSuggestRequest request) {
         String prompt = "Language: %s\nHorizon: %s\nCompany profile:\n%s"
                 .formatted(lang(request.language()), request.horizon(), request.companyProfile());
-        return anthropicClient.sendMessage(HORIZON_SYSTEM, prompt, 800);
+        return AiResponseSanitizer.sanitize(anthropicClient.sendMessage(HORIZON_SYSTEM, prompt, 800));
     }
 
     /**
@@ -127,7 +128,7 @@ public class AiService {
                                 request.companyProfile().toString(),
                                 request.steep().toString(),
                                 request.horizon().toString());
-        return anthropicClient.sendMessage(ANALYZE_SYSTEM, prompt, 8000);
+        return AiResponseSanitizer.sanitize(anthropicClient.sendMessage(ANALYZE_SYSTEM, prompt, 8000));
     }
 
     /**
