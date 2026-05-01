@@ -82,6 +82,9 @@ const en = {
       consultantNamePlaceholder: 'E.g. Ana García',
       consultantCompany: 'Consultancy',
       consultantCompanyPlaceholder: 'E.g. Strategy Partners Ltd.',
+      titleLabel: 'Report title (optional) — leave blank to auto-generate one',
+      titleField: 'Custom title',
+      titlePlaceholder: '{{fallback}}',
       next: 'Continue — Global Context →',
     },
     global: {

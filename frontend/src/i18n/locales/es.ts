@@ -82,6 +82,9 @@ const es = {
       consultantNamePlaceholder: 'Ej: Ana García',
       consultantCompany: 'Empresa consultora',
       consultantCompanyPlaceholder: 'Ej: Strategy Partners S.L.',
+      titleLabel: 'Título del informe (opcional) — si se deja vacío se generará automáticamente',
+      titleField: 'Título personalizado',
+      titlePlaceholder: '{{fallback}}',
       next: 'Continuar — Contexto Global →',
     },
     global: {

@@ -1,6 +1,7 @@
 package com.foresight.backend.ai;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,11 +28,12 @@ import reactor.util.retry.Retry;
  *
  * <p>Retry strategy:
  * <ul>
- *   <li>Retries on IO errors and HTTP 5xx / 429.</li>
- *   <li>Does NOT retry 4xx (except 429): those are caller bugs or quota issues that a retry
- *       won't fix.</li>
- *   <li>Exponential backoff starting from {@code retry-backoff}, up to {@code max-retries}
- *       extra attempts.</li>
+ *   Retries on IO errors and HTTP 5xx (upstream blips that a retry can fix).</li>
+ *   Does NOT retry 4xx — including {@code 429 Too Many Requests}. Retrying 429 just
+ *       walks deeper into the same rate-limit pit on lower tiers; let the caller decide
+ *       when to ask the user to try again.</li>
+ *   <li>Honours the upstream {@code Retry-After} header when present; otherwise uses
+ *       exponential backoff from {@code retry-backoff}, up to {@code max-retries} attempts.</li>
  * </ul>
  */
 @Slf4j
@@ -46,6 +48,10 @@ public class AnthropicClient {
      * Server-side {@code web_search} tool spec. Anthropic resolves searches inside the
      * model loop and returns interleaved {@code web_search_tool_use} /
      * {@code web_search_tool_result} blocks alongside the final {@code text} blocks.
+     *
+     * Each search counts toward the workspace rate limits. {@code max_uses} is the
+     * trade-off knob: lower → fewer rate-limit hits on small tiers; higher → richer
+     * grounding for the final answer.
      */
     private static final List<Map<String, Object>> WEB_SEARCH_TOOLS = List.of(
             Map.of("type", "web_search_20250305", "name", "web_search", "max_uses", 5));
@@ -89,14 +95,7 @@ public class AnthropicClient {
                 .bodyValue(body)
                 .retrieve()
                 .bodyToMono(JsonNode.class)
-                .retryWhen(Retry.backoff(properties.maxRetries(), properties.retryBackoff())
-                        .filter(AnthropicClient::isRetriable)
-                        .doBeforeRetry(rs -> log.warn(
-                                "Retrying Anthropic call (attempt {} of {}): {}",
-                                rs.totalRetries() + 1,
-                                properties.maxRetries(),
-                                rs.failure().getMessage()))
-                        .onRetryExhaustedThrow((spec, rs) -> rs.failure()))
+                .retryWhen(retryPolicy())
                 .doOnCancel(() -> log.info("Anthropic call cancelled by downstream subscriber"))
                 .onErrorResume(WebClientResponseException.class, e -> {
                     log.error("Anthropic API error: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
@@ -109,23 +108,97 @@ public class AnthropicClient {
     }
 
     /**
+     * Custom retry policy.
+     *
+     * Anthropic returns {@code 429 Too Many Requests} when the workspace's
+     * rate-limit bucket is empty. Retrying immediately just makes things worse on
+     * lower tiers (the bucket needs real time to refill), so we surface 429 to the
+     * caller as soon as we see it — let the user retry when their UI is ready.
+     *
+     * For the failures we DO retry (5xx, IO errors), we honour the upstream's
+     * {@code Retry-After} header when present; otherwise we fall back to the
+     * configured exponential backoff. That keeps us aligned with Anthropic's own
+     * recommendation when the upstream knows how long it will take to recover.
+     */
+    private Retry retryPolicy() {
+        return Retry.from(signals -> signals.flatMap(rs -> {
+            Throwable failure = rs.failure();
+            if (!isRetriable(failure)) {
+                return Mono.error(failure);
+            }
+            if (rs.totalRetries() >= properties.maxRetries()) {
+                return Mono.error(failure);
+            }
+            Duration delay = retryDelay(failure, rs.totalRetries());
+            log.warn(
+                    "Retrying Anthropic call (attempt {} of {}, delay {}): {}",
+                    rs.totalRetries() + 1,
+                    properties.maxRetries(),
+                    delay,
+                    failure.getMessage());
+            return Mono.delay(delay);
+        }));
+    }
+
+    /**
+     * Computes the delay before the next retry. If the failure carries an upstream
+     * {@code Retry-After} hint, use it (capped to a sane upper bound); otherwise
+     * compute exponential backoff from the configured base.
+     */
+    private Duration retryDelay(Throwable failure, long retryIndex) {
+        Duration upstream = retryAfter(failure);
+        if (upstream != null) {
+            // Cap so a misconfigured upstream can't pin our request thread for hours.
+            return upstream.compareTo(Duration.ofMinutes(2)) > 0 ? Duration.ofMinutes(2) : upstream;
+        }
+        long base = properties.retryBackoff().toMillis();
+        long backoffMs = base << Math.min(retryIndex, 4);
+        return Duration.ofMillis(backoffMs);
+    }
+
+    /**
+     * Reads the {@code Retry-After} header (seconds) from a {@link WebClientResponseException}
+     * if present. Returns {@code null} when the header is missing or malformed.
+     */
+    private static Duration retryAfter(Throwable t) {
+        if (!(t instanceof WebClientResponseException wcre)) {
+            return null;
+        }
+        String header = wcre.getHeaders().getFirst("Retry-After");
+        if (header == null || header.isBlank()) {
+            return null;
+        }
+        try {
+            long seconds = Long.parseLong(header.trim());
+            return seconds > 0 ? Duration.ofSeconds(seconds) : null;
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    /**
      * Decides whether a failure is worth retrying.
      *
      * <p>Retriable:
      * <ul>
      *   <li>IO errors (connection reset, timeout, DNS hiccup…)</li>
      *   <li>HTTP 5xx (upstream blip)</li>
-     *   <li>HTTP 429 (rate limited — backoff gives the bucket time to refill)</li>
      * </ul>
-     * Everything else (4xx, auth errors) is a deterministic failure a retry can't fix.
+     *
+     * <p>NOT retriable:
+     * <ul>
+     *   <li>HTTP 429 — surfaced as-is. On low Anthropic tiers, retrying immediately just
+     *       walks deeper into the same rate-limit pit; the caller (frontend) is in a better
+     *       position to decide when to ask the user to try again.</li>
+     *   <li>Other 4xx — caller bug, won't fix itself.</li>
+     * </ul>
      */
     private static boolean isRetriable(Throwable t) {
         if (t instanceof IOException) {
             return true;
         }
         if (t instanceof WebClientResponseException wcre) {
-            int status = wcre.getStatusCode().value();
-            return status == 429 || status >= 500;
+            return wcre.getStatusCode().value() >= 500;
         }
         return false;
     }

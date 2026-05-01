@@ -19,6 +19,7 @@ const EMPTY_EMPRESA: EmpresaData = {
   strengths: '',
   consultantName: '',
   consultantCompany: '',
+  title: '',
 };
 const EMPTY_STEEP: SteepData = {
   social: '',
@@ -62,8 +63,10 @@ export default function NewReportPage() {
     : '';
 
   async function handleSubmit() {
+    const customTitle = empresa.title.trim();
+    const title = customTitle || `${empresa.name} — Foresight ${new Date().getFullYear()}`;
     const report = await createReport.mutateAsync({
-      title: `${empresa.name} — Foresight ${new Date().getFullYear()}`,
+      title,
       inputData: {
         companyProfile: empresa,
         globalSteep: globalData,
