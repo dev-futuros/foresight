@@ -10,9 +10,9 @@ services:
     ports:
       - "5432:5432"
     networks:
-      - services
+      - foresight
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d foresight_db"]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER} -d foresight_db" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -36,31 +36,31 @@ services:
       - "8080:8080"
       - "5005:5005"
     networks:
-      - services
+      - foresight
     depends_on:
       db:
         condition: service_healthy
-    restart : unless-stopped
+    restart: unless-stopped
 
   # SonarQube comes up automatically when COMPOSE_PROFILES=quality is set in the env file
   # (the case for .env.local). Default creds: admin / admin (changed on first login).
   sonarqube:
     image: sonarqube:community
-    profiles: ["quality"]
+    profiles: [ "quality" ]
     environment:
       SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
     ports:
       - "9000:9000"
     networks:
-      - services
+      - foresight
     volumes:
       - sonarqube_data:/opt/sonarqube/data
       - sonarqube_logs:/opt/sonarqube/logs
       - sonarqube_extensions:/opt/sonarqube/extensions
 
 networks:
-  services:
-    driver: bridge
+  foresight:
+    external: true
 
 volumes:
   postgres_data:

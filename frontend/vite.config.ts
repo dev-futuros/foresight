@@ -1,18 +1,12 @@
-import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   plugins: [react()],
   server: {
+    host: '0.0.0.0',
     proxy: {
-      '/api': {
-        target: 'http://localhost:8080',
-        changeOrigin: true,
-        // The /ai/analyze call can take 1-2 minutes for the full report. Default
-        // http-proxy timeouts cut it short and surface as a generic network error.
-        timeout: 600_000,
-        proxyTimeout: 600_000,
-      },
+      '/api': process.env.VITE_API_URL ?? 'http://localhost:8080',
     },
   },
   test: {
