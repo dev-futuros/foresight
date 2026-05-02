@@ -5,7 +5,6 @@ export type ReportStatus = 'DRAFT' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 
 export interface UserResponse {
   id: string;
-  email: string;
   name: string | null;
   role: UserRole;
   language: string;

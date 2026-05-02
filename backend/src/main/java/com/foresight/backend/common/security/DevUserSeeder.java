@@ -25,12 +25,6 @@ import lombok.extern.slf4j.Slf4j;
 @ConditionalOnProperty(prefix = "foresight.security", name = "auth-disabled", havingValue = "true")
 public class DevUserSeeder {
 
-    /**
-     * Synthetic Clerk id used by the seeded dev user. Not a real Clerk identifier, just a stable
-     * placeholder that satisfies the NOT NULL / UNIQUE constraint on {@code clerk_user_id}.
-     */
-    private static final String DEV_CLERK_USER_ID = "user_local_dev";
-
     @Bean
     public ApplicationRunner seedDevUser(UserRepository users) {
         return args -> {
@@ -39,15 +33,14 @@ public class DevUserSeeder {
                 return;
             }
             User user = User.builder()
-                    .clerkUserId(DEV_CLERK_USER_ID)
-                    .email(DevPrincipal.EMAIL)
+                    .clerkUserId(DevPrincipal.CLERK_USER_ID)
                     .name(DevPrincipal.NAME)
                     .role(UserRole.USER)
                     .language("es")
                     .build();
             user.setId(DevPrincipal.ID);
             users.save(user);
-            log.info("Seeded dev user id={} email={}", DevPrincipal.ID, DevPrincipal.EMAIL);
+            log.info("Seeded dev user id={} clerkId={}", DevPrincipal.ID, DevPrincipal.CLERK_USER_ID);
         };
     }
 }

@@ -30,7 +30,9 @@ class AiRateLimitFilterTest {
                 new SecurityProperties.Clerk(
                         "https://test.clerk.accounts.dev",
                         "https://test.clerk.accounts.dev/.well-known/jwks.json",
-                        "whsec_test"),
+                        "whsec_test",
+                        "",
+                        "https://api.clerk.com/v1"),
                 new SecurityProperties.Cors(List.of()),
                 // Huge refill so refills never happen mid-test.
                 new SecurityProperties.RateLimit(
@@ -39,7 +41,7 @@ class AiRateLimitFilterTest {
     }
 
     private static void authenticateAs(UUID userId) {
-        AuthenticatedUser principal = new AuthenticatedUser(userId, "u@example.com", "USER");
+        AuthenticatedUser principal = new AuthenticatedUser(userId, "user_clerk_test", "USER");
         // 3-arg ctor flips isAuthenticated() to true; the 2-arg ctor leaves it false and the
         // filter would treat the request as anonymous.
         SecurityContextHolder.getContext()

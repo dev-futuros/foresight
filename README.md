@@ -80,7 +80,7 @@ npm run dev
 
 The frontend proxies all `/api/*` calls to `http://localhost:8080` automatically — no CORS setup needed in development.
 
-> **First-time use:** open http://localhost:5173, click sign-in, and either use one of the social providers (Google / LinkedIn / Apple) you enabled in the Clerk Dashboard, or sign up with email + password if you have that strategy enabled. The first authenticated request lazy-creates the matching row in the `users` table; subsequent edits live in Clerk plus your local profile (`name`, `language`, `role`).
+> **First-time use:** open http://localhost:5173, click sign-in, and either use one of the social providers (Google / LinkedIn / Apple) you enabled in the Clerk Dashboard, or sign up with email + password if you have that strategy enabled. The first authenticated request lazy-creates the matching row in the `users` table — only `clerk_user_id`, `name`, `role`, and `language` are stored locally. Email, password, and MFA all stay in Clerk.
 
 ### How environments work
 
@@ -107,6 +107,7 @@ In `.env.local`, both are set to give you the comfiest dev experience by default
 | `CLERK_ISSUER` | `.env.local` (root) | Frontend API URL of your Clerk instance, no trailing slash. |
 | `CLERK_JWKS_URI` | `.env.local` (root) | `${CLERK_ISSUER}/.well-known/jwks.json`. Used by the backend to validate session JWTs. |
 | `CLERK_WEBHOOK_SIGNING_SECRET` | `.env.local` (root) | HMAC secret from Clerk Dashboard → Webhooks → endpoint → Signing Secret. |
+| `CLERK_SECRET_KEY` | `.env.local` (root) | Backend API secret (`sk_test_...` / `sk_live_...`). Lets the backend fetch a user's first/last name from Clerk on first sign-in so `name` is populated immediately. Optional but recommended — without it, `name` stays null until the webhook fires or the user edits their profile. |
 
 ### Running the backend with `mvnw` (hot reload / IDE debugger)
 
@@ -123,8 +124,8 @@ The backend uses [`spring-dotenv`](https://github.com/paulschwarz/spring-dotenv)
 ### What the `local` profile does
 
 - `foresight.security.auth-disabled=true` → every endpoint is `permitAll`.
-- `JwtAuthFilter` injects a synthetic dev user (`00000000-0000-0000-0000-000000000001`, `dev@foresight.local`) when no token is present, so `@CurrentUser` still works and you can hit endpoints from Swagger without going through Clerk.
-- `DevUserSeeder` ensures the matching row exists in the `users` table on startup with the synthetic Clerk id `user_local_dev`.
+- `JwtAuthFilter` injects a synthetic dev principal (id `00000000-0000-0000-0000-000000000001`, clerk id `user_local_dev`) when no token is present, so `@CurrentUser` still works and you can hit endpoints from Swagger without going through Clerk.
+- `DevUserSeeder` ensures the matching row exists in the `users` table on startup with that same synthetic Clerk id.
 - A loud `WARN` is logged at boot so you cannot miss it: `AUTHENTICATION IS DISABLED`.
 
 > ⚠️ The `local` profile must NEVER be activated in production. The toggle defaults to `false` in `application.properties` and is only flipped on by `application-local.properties`.
@@ -141,7 +142,9 @@ To wire it up in dev:
 2. In the Clerk Dashboard → Webhooks → Add Endpoint, point at `https://<tunnel>/api/webhooks/clerk` and subscribe to the `user.*` events.
 3. Copy the endpoint's Signing Secret into `CLERK_WEBHOOK_SIGNING_SECRET`.
 
-The lazy-sync in `JwtAuthFilter` covers the case where the webhook hasn't fired yet — a brand-new Clerk user can authenticate immediately and the local row is created on their first authenticated request. The webhook is the canonical channel for `user.deleted` and for keeping email/name in sync after profile edits in Clerk.
+The lazy-sync in `JwtAuthFilter` covers the case where the webhook hasn't fired yet — a brand-new Clerk user can authenticate immediately and the local row is created on their first authenticated request. The webhook is the canonical channel for `user.deleted` and for keeping `name` in sync after profile edits in Clerk.
+
+> **Where does `name` come from on first sign-in?** Clerk's default session JWT does not include the user's name. The backend therefore calls Clerk's Backend API (`GET /v1/users/{id}`) with `CLERK_SECRET_KEY` whenever it lazy-creates a local row, and fills `name` from the live profile (`first_name + last_name`). The same call backfills the name on a subsequent login if a previously-created user happens to have `name = null`. If `CLERK_SECRET_KEY` is blank the API call is skipped silently — auth still works, just with `name = null` until the webhook is wired or the user edits the profile.
 
 ---
 
@@ -152,7 +155,8 @@ The lazy-sync in `JwtAuthFilter` covers the case where the webhook hasn't fired 
 All core backend infrastructure is in place:
 
 - **Authentication via Clerk** — sessions and credentials owned by Clerk; the backend only validates Clerk's session JWTs and mirrors a minimal `users` row keyed by `clerk_user_id`
-- **User management**: profile endpoints (`GET /api/users/me`, `PATCH /api/users/me`, `DELETE /api/users/me`)
+- **User management**: profile endpoints (`GET /api/users/me`, `PATCH /api/users/me`, `DELETE /api/users/me`) — only the locally-owned fields (`name`, `language`, `role`); email/password/MFA changes go through Clerk's `<UserButton />`
+- **Webhooks**: `POST /api/webhooks/clerk` (Svix-signed) keeps the local `users` row in sync with Clerk on `user.created` / `user.updated` / `user.deleted`
 - **Reports CRUD**: create/list/get/update/delete with user-scoped ownership (`/api/reports/**`)
 - **AI proxy**: server-side calls to Anthropic Claude API (`/api/ai/suggest-steep`, `/api/ai/suggest-horizon`, `/api/ai/analyze`) — the API key never leaves the server
 - **Database**: PostgreSQL 16 with Flyway migrations; UUID-based entities with auditing (`created_at`, `updated_at`)
@@ -219,9 +223,12 @@ docker compose --profile quality up -d sonarqube   # starts SonarQube on :9000
 
 ### Database migrations
 
-Add new migrations under `backend/src/main/resources/db/migration/` following Flyway naming convention:
-- `V4__add_subscription_table.sql`
-- `V5__<description>.sql`
+Add new migrations under `backend/src/main/resources/db/migration/` following Flyway's naming convention — note the **double underscore** between version and description; a single underscore makes Flyway silently skip the file:
+
+- `V5__add_subscription_table.sql` ✅
+- `V5_add_subscription_table.sql` ❌ (silently ignored)
+
+Current migrations: `V1__init`, `V2__auth_tokens`, `V3__clerk_auth`, `V4__fix_user_constraints_for_clerk`. See [ARCHITECTURE.md](docs/ARCHITECTURE.md#database-migrations) for what each does.
 
 Never modify an already-applied migration — always add a new one.
 

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { UserButton } from '@clerk/react';
+import { UserButton, useUser } from '@clerk/react';
 import { useCurrentUser } from '../../hooks/useAuth';
 import { useUpdateProfile } from '../../hooks/useAccount';
 import { extractApiErrorMessage } from '../../lib/apiError';
@@ -15,6 +15,9 @@ const LANGUAGE_OPTIONS = [
 export default function AccountPage() {
   const { t, i18n } = useTranslation();
   const { data: user, isLoading } = useCurrentUser();
+  // Email lives in Clerk, not in our DB. Read it from Clerk's useUser() so the field stays
+  // in sync with whatever the user updated in their Clerk profile (via <UserButton />).
+  const { user: clerkUser } = useUser();
   const updateProfile = useUpdateProfile();
 
   const [name, setName] = useState('');
@@ -63,7 +66,7 @@ export default function AccountPage() {
               <label className="account-label">{t('account.profile.email')}</label>
               <input
                 className="account-input account-input--readonly"
-                value={user?.email ?? ''}
+                value={clerkUser?.primaryEmailAddress?.emailAddress ?? ''}
                 readOnly
                 aria-label={t('account.profile.email')}
               />

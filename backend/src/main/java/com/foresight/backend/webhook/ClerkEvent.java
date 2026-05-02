@@ -7,7 +7,6 @@ package com.foresight.backend.webhook;
  * @param type Clerk event type (e.g. {@code user.created}, {@code user.updated},
  *     {@code user.deleted}).
  * @param clerkUserId Clerk's stable user identifier from the event payload.
- * @param email primary email address Clerk has on file (may be {@code null} for delete events).
  * @param name optional display name composed from {@code first_name} / {@code last_name}.
  */
-public record ClerkEvent(String type, String clerkUserId, String email, String name) {}
+public record ClerkEvent(String type, String clerkUserId, String name) {}

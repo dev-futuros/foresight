@@ -17,12 +17,16 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.foresight.backend.common.exception.NotFoundException;
+import com.foresight.backend.common.security.ClerkBackendClient;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private ClerkBackendClient clerkBackendClient;
 
     @InjectMocks
     private UserService userService;
@@ -35,7 +39,6 @@ class UserServiceTest {
         userId = UUID.randomUUID();
         user = User.builder()
                 .clerkUserId("user_clerk_" + userId)
-                .email("user@example.com")
                 .name("Original Name")
                 .role(UserRole.USER)
                 .language("es")

@@ -23,7 +23,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record SecurityProperties(boolean authDisabled, Clerk clerk, Cors cors, RateLimit rateLimit) {
 
     /**
-     * Settings required to validate session JWTs issued by Clerk and to verify webhook deliveries.
+     * Settings required to validate session JWTs issued by Clerk, to verify webhook deliveries,
+     * and to call Clerk's Backend API for profile lookups.
      *
      * @param issuer the {@code iss} claim value Clerk puts in every session JWT (e.g.
      *     {@code https://your-app.clerk.accounts.dev} for dev or {@code https://clerk.example.com}
@@ -32,8 +33,17 @@ public record SecurityProperties(boolean authDisabled, Clerk clerk, Cors cors, R
      *     caches keys from here to verify token signatures.
      * @param webhookSigningSecret HMAC secret used to verify the Svix signature of incoming
      *     webhooks. Pulled from the Clerk Dashboard → Webhooks page after creating an endpoint.
+     * @param secretKey Clerk Backend API secret key ({@code sk_test_...} / {@code sk_live_...}).
+     *     Used server-side to fetch user profile fields when lazy-creating a local row. Blank if
+     *     the feature is disabled.
+     * @param apiBaseUrl base URL of the Clerk Backend API (defaults to {@code https://api.clerk.com/v1}).
      */
-    public record Clerk(String issuer, String jwksUri, String webhookSigningSecret) {}
+    public record Clerk(
+            String issuer,
+            String jwksUri,
+            String webhookSigningSecret,
+            String secretKey,
+            String apiBaseUrl) {}
 
     /**
      * @param allowedOrigins Comma-separated list of origins allowed by CORS (e.g. the frontend

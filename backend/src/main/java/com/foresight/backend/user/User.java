@@ -20,9 +20,10 @@ import lombok.Setter;
  * <p>Inherits {@code id} (UUID), {@code createdAt} and {@code updatedAt} from {@link BaseEntity}.
  *
  * <p>Authentication is delegated to Clerk: passwords, email verification, MFA, and session
- * management all live there. The local row only carries the profile fields the rest of the app
- * needs (email, name, role, language) plus a stable {@code clerkUserId} that links the local row
- * to the Clerk user — this is the column we look up by when validating an incoming session JWT.
+ * management all live there. Email is also Clerk's responsibility — the local row only mirrors
+ * the profile fields the app actually consumes (name, role, language) plus a stable
+ * {@code clerkUserId} that links the local row to the Clerk user. That id is what we look up
+ * when validating an incoming session JWT.
  */
 @Entity
 @Table(name = "users")
@@ -41,11 +42,7 @@ public class User extends BaseEntity {
     @Column(name = "clerk_user_id", nullable = false, unique = true)
     private String clerkUserId;
 
-    /** Primary email address mirrored from Clerk. */
-    @Column(nullable = false, unique = true)
-    private String email;
-
-    /** Optional display name. */
+    /** Optional display name, mirrored from Clerk. */
     private String name;
 
     /** Authorization role (currently {@code USER} or {@code ADMIN}). */

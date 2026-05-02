@@ -38,8 +38,8 @@ export default function DashboardPage() {
           <span className="nav-logo-text">Futuros</span>
         </div>
         <div className="nav-actions">
-          {user && (
-            <span className="nav-user">{user.name || user.email}</span>
+          {user?.name && (
+            <span className="nav-user">{user.name}</span>
           )}
           <Link to="/account" className="nav-logout">{t('nav.myAccount')}</Link>
           <button className="nav-logout" onClick={logout}>

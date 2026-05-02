@@ -21,8 +21,8 @@ This document describes the system architecture, design decisions, and conventio
 
 - **Frontend** authenticates against Clerk and talks to the backend with the session JWT Clerk hands it. It never calls Anthropic directly — that key stays server-side.
 - **Backend** is the single gateway: validates Clerk JWTs, runs business logic, persists data, proxies AI calls. It is stateless.
-- **Clerk** owns identities, credentials, sessions, MFA, social login, email delivery, and rate-limiting on auth endpoints. The backend never sees a password.
-- **PostgreSQL** stores a minimal `users` row (mirrored from Clerk via webhook + lazy sync), reports, and — eventually — billing data.
+- **Clerk** owns identities, credentials, sessions, MFA, social login, email delivery, and rate-limiting on auth endpoints. The backend never sees a password — and never even stores the user's email. The only mirrored identity field is the stable `clerk_user_id`.
+- **PostgreSQL** stores a minimal `users` row (linked to Clerk by `clerk_user_id`, kept in sync via webhook + lazy creation), reports, and — eventually — billing data.
 - **Anthropic Claude API** is only reachable via the backend.
 
 ## Backend
@@ -97,29 +97,49 @@ Every entity inherits `createdAt` and `updatedAt` via JPA's `@EntityListeners(Au
 2. Clerk issues a short-lived **session JWT** signed with its private key. The frontend retrieves it via `useAuth().getToken()` (wired through `<AuthBridge>`).
 3. Every API request goes out with `Authorization: Bearer <clerk-session-jwt>`.
 4. `JwtAuthFilter` extracts the token and validates it through a `JwtDecoder` (Nimbus) configured against Clerk's JWKS URI. Validators enforce signature + issuer + expiration.
-5. The filter pulls the `sub` claim (Clerk's stable user id) and looks up the local `users` row by `clerk_user_id`. If the row doesn't exist yet (race against the `user.created` webhook), it lazy-creates one from the JWT claims.
-6. The filter populates the `SecurityContext` with an `AuthenticatedUser(uuid, email, role)` principal — same shape as before, so `@CurrentUser`-annotated controller params keep working unchanged.
+5. The filter pulls the `sub` claim (Clerk's stable user id) and looks up the local `users` row by `clerk_user_id`. If the row doesn't exist yet (race against the `user.created` webhook), it lazy-creates one — `name` is sourced via `ClerkBackendClient` (see below), with the JWT claims (`name`, `first_name`) as fallback.
+6. The filter populates the `SecurityContext` with an `AuthenticatedUser(uuid, clerkUserId, role)` principal, so `@CurrentUser`-annotated controller params keep working unchanged.
 
 The backend never sees a password, never issues a token, and has no `accessTokenTtl` to manage. Token lifetime is governed entirely by Clerk's JWT template settings.
 
+#### How `name` is populated
+
+Clerk's default session JWT carries only identity claims (`sub`, `iss`, `iat`, `exp`, `nbf`, `azp`) — no `name`. To surface the user's display name without forcing every deployment to manually configure a JWT template, the backend has a tiny client (`ClerkBackendClient`) that calls Clerk's Backend API:
+
+- **On lazy-create**: `GET https://api.clerk.com/v1/users/{sub}` with `Authorization: Bearer ${CLERK_SECRET_KEY}` returns the live profile. We compose `name` from `first_name + last_name` and persist it.
+- **As a heal-on-read**: if `findOrCreateByClerkUserId` finds an existing row whose `name` is null/blank (e.g. created before the secret was wired in), the same call backfills it in place. The guard short-circuits as soon as `name` is set, so the heal only runs once per user.
+- **Fallback chain**: Backend API → JWT claims (`name`, `first_name`) → leave `null`. The user can always edit `name` from the account page later, and the `user.updated` webhook will keep the row in sync.
+
+`CLERK_SECRET_KEY` is optional. When blank, `ClerkBackendClient.fetchUser()` is a silent no-op returning `Optional.empty()`, and the chain falls through to JWT/null. Auth keeps working in environments that haven't wired the key yet.
+
+#### Concurrency on first sign-in
+
+`findOrCreateByClerkUserId` runs on **every** authenticated request, so the very first time a brand-new user lands on the dashboard several requests typically hit it in parallel (e.g. `/users/me` and `/reports`). Each thread sees "user not found" and would race to INSERT.
+
+Two layers handle this:
+
+1. **JVM-level lock per Clerk id** — `UserService` keeps a `ConcurrentMap<String, Object>` of locks keyed by `clerkUserId`. The first thread acquires it and INSERTs; subsequent threads wait briefly, then read the row that the first one just wrote. The map entry is removed after creation finishes so it cannot grow unbounded.
+2. **DB unique constraint as last-resort guard** — if a different JVM instance ever wins the race, the second INSERT fails with `DataIntegrityViolationException`. The catch falls back to a SELECT and returns the row written by the winner. The method is intentionally not `@Transactional` at the top level so a failed save does not poison the caller's transaction (which would otherwise be marked rollback-only and break the recovery query).
+
 #### User lifecycle (Clerk → backend)
 
-The `users` table mirrors Clerk's user store:
+The `users` table mirrors a tiny subset of Clerk's user store:
 
-- **Create / update**: the `user.created` and `user.updated` webhooks fire `UserService.upsertFromClerk(clerkId, email, name)`. As a safety net, `JwtAuthFilter.findOrCreateByClerkUserId` lazy-creates the row on first authenticated request — handles the brief window between sign-up and webhook delivery.
+- **Create / update**: the `user.created` and `user.updated` webhooks fire `UserService.upsertFromClerk(clerkId, name)`. As a safety net, `JwtAuthFilter.findOrCreateByClerkUserId` lazy-creates the row on first authenticated request — handles the brief window between sign-up and webhook delivery.
 - **Delete**: the `user.deleted` webhook fires `UserService.deleteByClerkUserId(clerkId)`, which cascades to all owned resources via the `reports.user_id` FK. `DELETE /api/users/me` is the user-initiated counterpart (and should also delete the Clerk side via Clerk's management API — TODO).
 
 The webhook receiver (`/api/webhooks/clerk`) verifies the Svix signature on every delivery; deliveries with a missing or invalid signature are rejected with 400 before any work is done.
 
-#### Local-only fields
+#### What lives where
 
-A handful of fields live only in our DB, not in Clerk:
-
-- `role` — `USER` / `ADMIN`. Authorization decisions stay in the backend.
-- `language` — UI preference (`es` / `en`).
-- Anything related to `reports` / future `subscriptions`.
-
-`name` and `email` are mirrored from Clerk and intentionally read-only from the backend's perspective; updates flow through Clerk and reach us via webhook.
+| Field | Source of truth | Notes |
+|---|---|---|
+| `email`, `password`, MFA, social identities, email verification | **Clerk** | Never stored locally. The frontend reads the email from `useUser().primaryEmailAddress` when it needs to display it (e.g. in the account page). |
+| `clerk_user_id` | **Clerk** (mirrored) | Stable identifier; what we look up by. |
+| `name` | **Clerk** (mirrored) | Filled from the JWT `name` claim on lazy-create, or by the `user.updated` webhook. Locally editable via `PATCH /api/users/me` for convenience, but Clerk is still authoritative — webhook overwrites are accepted. |
+| `role` | **Backend** | `USER` / `ADMIN`. Authorization decisions stay in the backend. |
+| `language` | **Backend** | UI preference (`es` / `en`), edited from the account page. |
+| Reports, future subscriptions | **Backend** | Owned entirely by us, FK'd to `users.id`. |
 
 #### Error handling
 
@@ -163,6 +183,7 @@ Current migrations:
 | `V1__init.sql` | Initial schema: `users`, `reports`. |
 | `V2__auth_tokens.sql` | Legacy: short-lived password-reset / email-verification tokens. (Dropped by V3.) |
 | `V3__clerk_auth.sql` | Adds `clerk_user_id` to `users`; drops `password`, `email_verified`, and the V2 token tables. |
+| `V4__fix_user_constraints_for_clerk.sql` | Drops the `email` column entirely (Clerk owns it); makes `clerk_user_id` `NOT NULL` and unique-indexed. |
 
 #### Rate limiting
 
@@ -249,6 +270,8 @@ frontend/src/
 **Tokens via async interceptor.** Clerk's `getToken()` is async (it may need to refresh). `lib/api.ts` exposes `setTokenGetter(...)` and runs the getter inside an async axios request interceptor; `<AuthBridge>` (mounted once inside `<ClerkProvider>`) registers Clerk's getter on mount and clears it on unmount. The rest of the codebase keeps using a single shared axios instance without each call having to plumb a token through manually.
 
 **`useCurrentUser` is gated.** The query is `enabled` only after Clerk reports `isLoaded && isSignedIn` — prevents the brief 401 flash that would otherwise happen between mount and the first time `getToken()` resolves, and avoids fetching for signed-out users.
+
+**Email read directly from Clerk.** The DB no longer stores email, so the account page reads it from `useUser().primaryEmailAddress.emailAddress`. The Clerk `<UserButton />` is the canonical entry point for changing email, password, MFA, and social connections.
 
 **Vite proxy.** In development, `/api/*` is proxied to `http://localhost:8080` to avoid CORS. In production, CORS is configured on the backend via `CORS_ALLOWED_ORIGINS`.
 

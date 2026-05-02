@@ -14,8 +14,11 @@ public final class DevPrincipal {
     /** Stable UUID so reports created in dev mode are always owned by the same user. */
     public static final UUID ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
 
-    /** Email used for the dev user in the database. */
-    public static final String EMAIL = "dev@foresight.local";
+    /**
+     * Synthetic Clerk id for the dev user — not a real Clerk identifier, just a stable
+     * placeholder that satisfies the NOT NULL / UNIQUE constraint on {@code clerk_user_id}.
+     */
+    public static final String CLERK_USER_ID = "user_local_dev";
 
     /** Display name. */
     public static final String NAME = "Dev User";

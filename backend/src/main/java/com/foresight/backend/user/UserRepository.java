@@ -18,10 +18,4 @@ public interface UserRepository extends JpaRepository<User, UUID> {
      * @return the matching user, or empty if none exists
      */
     Optional<User> findByClerkUserId(String clerkUserId);
-
-    /**
-     * @param email the email to look up (case-sensitive, as the column is stored verbatim)
-     * @return the matching user, or empty if none exists
-     */
-    Optional<User> findByEmail(String email);
 }

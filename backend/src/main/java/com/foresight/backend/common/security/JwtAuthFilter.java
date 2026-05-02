@@ -123,14 +123,15 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     private void authenticate(User user) {
         AuthenticatedUser principal = new AuthenticatedUser(
-                user.getId(), user.getEmail(), user.getRole().name());
+                user.getId(), user.getClerkUserId(), user.getRole().name());
         var authority = new SimpleGrantedAuthority("ROLE_" + user.getRole().name());
         var auth = new UsernamePasswordAuthenticationToken(principal, null, List.of(authority));
         SecurityContextHolder.getContext().setAuthentication(auth);
     }
 
     private void authenticateDev() {
-        AuthenticatedUser principal = new AuthenticatedUser(DevPrincipal.ID, DevPrincipal.EMAIL, DevPrincipal.ROLE);
+        AuthenticatedUser principal = new AuthenticatedUser(
+                DevPrincipal.ID, DevPrincipal.CLERK_USER_ID, DevPrincipal.ROLE);
         var authority = new SimpleGrantedAuthority("ROLE_" + DevPrincipal.ROLE);
         var auth = new UsernamePasswordAuthenticationToken(principal, null, List.of(authority));
         SecurityContextHolder.getContext().setAuthentication(auth);

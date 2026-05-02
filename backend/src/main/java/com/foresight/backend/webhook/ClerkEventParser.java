@@ -15,11 +15,6 @@ import com.foresight.backend.common.exception.BadRequestException;
  *   "object": "event",
  *   "data": {
  *     "id": "user_2abc...",
- *     "email_addresses": [
- *       { "id": "idn_...", "email_address": "user@example.com" },
- *       ...
- *     ],
- *     "primary_email_address_id": "idn_...",
  *     "first_name": "Roger",
  *     "last_name": "Henares",
  *     ...
@@ -51,21 +46,7 @@ class ClerkEventParser {
         if (clerkUserId == null) {
             throw new BadRequestException("Clerk webhook payload missing data.id");
         }
-        return new ClerkEvent(type, clerkUserId, primaryEmail(data), composedName(data));
-    }
-
-    private static String primaryEmail(JsonNode data) {
-        String primaryId = textOrNull(data, "primary_email_address_id");
-        JsonNode emails = data.get("email_addresses");
-        if (emails == null || !emails.isArray() || emails.isEmpty()) return null;
-        // Prefer the entry flagged as primary. Fall back to the first one if the primary id
-        // is missing — keeps a row creatable even with a non-standard payload shape.
-        for (JsonNode entry : emails) {
-            if (primaryId != null && primaryId.equals(textOrNull(entry, "id"))) {
-                return textOrNull(entry, "email_address");
-            }
-        }
-        return textOrNull(emails.get(0), "email_address");
+        return new ClerkEvent(type, clerkUserId, composedName(data));
     }
 
     private static String composedName(JsonNode data) {
