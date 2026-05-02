@@ -27,13 +27,13 @@ class AiRateLimitFilterTest {
     private static AiRateLimitFilter filter(long capacity) {
         SecurityProperties props = new SecurityProperties(
                 false,
-                new SecurityProperties.Jwt("test-secret-at-least-32-chars-long!!", Duration.ofHours(1)),
+                new SecurityProperties.Clerk(
+                        "https://test.clerk.accounts.dev",
+                        "https://test.clerk.accounts.dev/.well-known/jwks.json",
+                        "whsec_test"),
                 new SecurityProperties.Cors(List.of()),
-                Duration.ofMinutes(30),
-                Duration.ofHours(24),
+                // Huge refill so refills never happen mid-test.
                 new SecurityProperties.RateLimit(
-                        new SecurityProperties.RateLimit.Bucket(10, 10, Duration.ofMinutes(1)),
-                        // Huge refill so refills never happen mid-test.
                         new SecurityProperties.RateLimit.Bucket(capacity, capacity, Duration.ofHours(1))));
         return new AiRateLimitFilter(props);
     }

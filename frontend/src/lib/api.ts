@@ -1,22 +1,18 @@
 import axios from 'axios';
 
-const TOKEN_KEY = 'fs_token';
-const isDev = import.meta.env.DEV;
+/**
+ * Async getter for the current session's bearer token. Wired by `<AuthBridge>` (inside
+ * `<ClerkProvider>`) at app startup so the rest of the codebase can keep using a single
+ * pre-configured axios instance without each call having to plumb a token through manually.
+ *
+ * Stays `null` until Clerk has hydrated; in that window requests fire without an
+ * Authorization header — which is the right behavior for the brief moment between mount
+ * and the first time `getToken()` resolves.
+ */
+let tokenGetter: (() => Promise<string | null>) | null = null;
 
-let accessToken: string | null = isDev
-  ? localStorage.getItem(TOKEN_KEY)
-  : null;
-
-export function setToken(token: string | null) {
-  accessToken = token;
-  if (isDev) {
-    if (token) localStorage.setItem(TOKEN_KEY, token);
-    else localStorage.removeItem(TOKEN_KEY);
-  }
-}
-
-export function getToken() {
-  return accessToken;
+export function setTokenGetter(getter: (() => Promise<string | null>) | null) {
+  tokenGetter = getter;
 }
 
 const api = axios.create({
@@ -24,9 +20,12 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-api.interceptors.request.use((config) => {
-  if (accessToken) {
-    config.headers.Authorization = `Bearer ${accessToken}`;
+api.interceptors.request.use(async (config) => {
+  if (tokenGetter) {
+    const token = await tokenGetter();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
   return config;
 });
@@ -34,10 +33,9 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (error) => {
-    if (error.response?.status === 401 && !window.location.pathname.includes('/login')) {
-      setToken(null);
-      window.location.href = '/login';
-    }
+    // 401 means Clerk's session is no longer valid (e.g. expired and not refreshable, or
+    // the user was deleted). The Clerk SDK will surface that to the UI on its own; we just
+    // forward the error so React Query can mark the query as failed.
     return Promise.reject(error);
   }
 );

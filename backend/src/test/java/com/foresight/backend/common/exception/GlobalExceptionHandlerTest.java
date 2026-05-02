@@ -119,8 +119,7 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void aiExceptionMapsTo502WithUpstreamMessage() {
-        ResponseEntity<ApiError> response =
-                handler.handleAi(new AiException("AI provider error: 401"), request);
+        ResponseEntity<ApiError> response = handler.handleAi(new AiException("AI provider error: 401"), request);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
         assertThat(response.getBody().status()).isEqualTo(502);
         // Must propagate the upstream-failure detail so the frontend can act on it

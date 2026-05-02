@@ -19,9 +19,10 @@ import lombok.Setter;
  *
  * <p>Inherits {@code id} (UUID), {@code createdAt} and {@code updatedAt} from {@link BaseEntity}.
  *
- * <p>Passwords are stored as BCrypt hashes — never in plaintext. The {@code password} column
- * value is only ever written by {@link com.foresight.backend.auth.AuthService} and read by the
- * security layer to verify credentials; it is never returned by any DTO.
+ * <p>Authentication is delegated to Clerk: passwords, email verification, MFA, and session
+ * management all live there. The local row only carries the profile fields the rest of the app
+ * needs (email, name, role, language) plus a stable {@code clerkUserId} that links the local row
+ * to the Clerk user — this is the column we look up by when validating an incoming session JWT.
  */
 @Entity
 @Table(name = "users")
@@ -32,13 +33,17 @@ import lombok.Setter;
 @Builder
 public class User extends BaseEntity {
 
-    /** Unique email address used as the login identifier. */
+    /**
+     * Clerk's stable user identifier (e.g. {@code user_2abc...}). Populated either by the
+     * {@code user.created} webhook or, lazily, on the first authenticated API call from a
+     * brand-new Clerk user. Unique and non-null for any user that has authenticated at least once.
+     */
+    @Column(name = "clerk_user_id", nullable = false, unique = true)
+    private String clerkUserId;
+
+    /** Primary email address mirrored from Clerk. */
     @Column(nullable = false, unique = true)
     private String email;
-
-    /** BCrypt-hashed password. Never exposed via API. */
-    @Column(nullable = false)
-    private String password;
 
     /** Optional display name. */
     private String name;
@@ -51,8 +56,4 @@ public class User extends BaseEntity {
     /** Preferred UI language (e.g. {@code "es"}, {@code "en"}). */
     @Column(nullable = false)
     private String language;
-
-    /** Whether the user has verified their email address. Reserved for future email flow. */
-    @Column(name = "email_verified", nullable = false)
-    private boolean emailVerified;
 }

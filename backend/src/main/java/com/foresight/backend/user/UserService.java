@@ -2,6 +2,7 @@ package com.foresight.backend.user;
 
 import java.util.UUID;
 
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,16 +12,25 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Business logic for reading and updating user profiles.
+ * Business logic for reading and updating user profiles, plus the bridge between Clerk identities
+ * and local {@link User} rows.
  *
- * <p>Authentication and credential changes live in
- * {@link com.foresight.backend.auth.AuthService}; this service is intentionally focused on
- * profile data so responsibilities stay clear.
+ * <p>Authentication itself is delegated to Clerk. This service is responsible for:
+ *
+ * <ul>
+ *   <li>Loading and updating local profile fields.
+ *   <li>Lazy-creating a local row the first time a Clerk-authenticated user reaches the API
+ *       (covers the webhook race window).
+ *   <li>Reconciling the local row when the {@code user.created} / {@code user.updated} /
+ *       {@code user.deleted} webhooks fire.
+ * </ul>
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class UserService {
+
+    private static final String DEFAULT_LANGUAGE = "es";
 
     private final UserRepository userRepository;
 
@@ -36,10 +46,72 @@ public class UserService {
     }
 
     /**
+     * Returns the local {@link User} row for the given Clerk identity, creating it on the fly if
+     * the {@code user.created} webhook hasn't replicated it yet.
+     *
+     * <p>Called from {@link com.foresight.backend.common.security.JwtAuthFilter} on every
+     * authenticated request, so it must be cheap on the hot path: a single indexed lookup, and an
+     * insert only on the very first request after sign-up.
+     *
+     * @param clerkUserId stable Clerk identifier from the session JWT's {@code sub} claim
+     * @param jwt the validated session JWT — used to seed email / name on first creation
+     * @return the local user row
+     */
+    @Transactional
+    public User findOrCreateByClerkUserId(String clerkUserId, Jwt jwt) {
+        var existing = userRepository.findByClerkUserId(clerkUserId);
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+
+        String email = jwt.getClaimAsString("email");
+        String name = firstNonBlank(jwt.getClaimAsString("name"), jwt.getClaimAsString("first_name"));
+
+        try {
+            return userRepository.save(User.builder()
+                    .clerkUserId(clerkUserId)
+                    .email(email)
+                    .name(name)
+                    .role(UserRole.USER)
+                    .language(DEFAULT_LANGUAGE)
+                    .build());
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            return userRepository.findByClerkUserId(clerkUserId).orElseThrow(() -> e);
+        }
+    }
+
+    /**
+     * Idempotent upsert used by the Clerk webhook handler when a {@code user.created} or
+     * {@code user.updated} event arrives.
+     *
+     * @param clerkUserId Clerk's identifier for the user
+     * @param email primary email mirrored from Clerk (must not be null)
+     * @param name optional display name
+     * @return the persisted user row
+     */
+    @Transactional
+    public void upsertFromClerk(String clerkUserId, String email, String name) {
+        userRepository
+                .findByClerkUserId(clerkUserId)
+                .map(existing -> {
+                    existing.setEmail(email);
+                    if (name != null) existing.setName(name);
+                    return userRepository.save(existing);
+                })
+                .orElseGet(() -> userRepository.save(User.builder()
+                        .clerkUserId(clerkUserId)
+                        .email(email)
+                        .name(name)
+                        .role(UserRole.USER)
+                        .language(DEFAULT_LANGUAGE)
+                        .build()));
+    }
+
+    /**
      * Updates mutable profile fields. {@code null} arguments are ignored (partial update).
      *
-     * @param id       user to update
-     * @param name     new display name, or {@code null} to leave unchanged
+     * @param id user to update
+     * @param name new display name, or {@code null} to leave unchanged
      * @param language new preferred language, or {@code null} to leave unchanged
      * @return the updated (and persisted) user
      * @throws NotFoundException if no user exists with that id
@@ -55,14 +127,13 @@ public class UserService {
      * Permanently deletes the user and every resource they own.
      *
      * <p>Cascade policy — the {@code users} table is the root of the ownership graph, and every
-     * child table (reports, password_reset_tokens, email_verification_tokens) declares
-     * {@code ON DELETE CASCADE} on its {@code user_id} FK. A single {@code DELETE FROM users}
-     * is therefore enough to wipe the user's footprint. This implements GDPR's right to erasure
-     * in its strictest form: hard delete, no anonymization shadow.
+     * child table (reports) declares {@code ON DELETE CASCADE} on its {@code user_id} FK. A single
+     * {@code DELETE FROM users} is therefore enough to wipe the user's footprint. This implements
+     * GDPR's right to erasure in its strictest form: hard delete, no anonymization shadow.
      *
-     * <p>If business requirements later demand an anonymization step instead (e.g. keeping
-     * aggregate analytics intact), the cascade can be swapped for a soft-delete flag and a
-     * manual scrub job without changing the HTTP contract.
+     * <p>Triggered both by user-initiated deletion (via {@code DELETE /api/users/me}, which also
+     * deletes the Clerk side via the management API) and by the {@code user.deleted} webhook
+     * (when the user is deleted directly from the Clerk dashboard).
      *
      * @param id user to delete
      * @throws NotFoundException if no user exists with that id
@@ -72,5 +143,23 @@ public class UserService {
         User user = getById(id);
         userRepository.delete(user);
         log.info("Deleted user account id={} email={}", user.getId(), user.getEmail());
+    }
+
+    /**
+     * Webhook-driven counterpart to {@link #deleteAccount(UUID)}: deletes by Clerk id and is a
+     * no-op if the row no longer exists (Clerk may redeliver events).
+     */
+    @Transactional
+    public void deleteByClerkUserId(String clerkUserId) {
+        userRepository.findByClerkUserId(clerkUserId).ifPresent(user -> {
+            userRepository.delete(user);
+            log.info("Deleted user (via webhook) id={} clerkId={}", user.getId(), clerkUserId);
+        });
+    }
+
+    private static String firstNonBlank(String a, String b) {
+        if (a != null && !a.isBlank()) return a;
+        if (b != null && !b.isBlank()) return b;
+        return null;
     }
 }

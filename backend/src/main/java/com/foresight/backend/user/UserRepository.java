@@ -14,14 +14,14 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface UserRepository extends JpaRepository<User, UUID> {
 
     /**
+     * @param clerkUserId Clerk's stable user identifier (the {@code sub} claim of the session JWT)
+     * @return the matching user, or empty if none exists
+     */
+    Optional<User> findByClerkUserId(String clerkUserId);
+
+    /**
      * @param email the email to look up (case-sensitive, as the column is stored verbatim)
      * @return the matching user, or empty if none exists
      */
     Optional<User> findByEmail(String email);
-
-    /**
-     * @param email the email to check
-     * @return {@code true} if a user with that email already exists
-     */
-    boolean existsByEmail(String email);
 }

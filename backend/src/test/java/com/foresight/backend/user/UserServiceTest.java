@@ -34,12 +34,11 @@ class UserServiceTest {
     void setup() {
         userId = UUID.randomUUID();
         user = User.builder()
+                .clerkUserId("user_clerk_" + userId)
                 .email("user@example.com")
-                .password("hash")
                 .name("Original Name")
                 .role(UserRole.USER)
                 .language("es")
-                .emailVerified(false)
                 .build();
         user.setId(userId);
     }

@@ -53,8 +53,8 @@ public class AnthropicClient {
      * trade-off knob: lower → fewer rate-limit hits on small tiers; higher → richer
      * grounding for the final answer.
      */
-    private static final List<Map<String, Object>> WEB_SEARCH_TOOLS = List.of(
-            Map.of("type", "web_search_20250305", "name", "web_search", "max_uses", 5));
+    private static final List<Map<String, Object>> WEB_SEARCH_TOOLS =
+            List.of(Map.of("type", "web_search_20250305", "name", "web_search", "max_uses", 5));
 
     /**
      * Sends a single-turn request to Anthropic's {@code /v1/messages} endpoint.

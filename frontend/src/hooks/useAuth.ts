@@ -1,15 +1,20 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import api, { setToken } from '../lib/api';
-import type {
-  AuthResponse,
-  LoginRequest,
-  RegisterRequest,
-  UserResponse,
-} from '../types/api';
+import { useQuery } from '@tanstack/react-query';
+import { useAuth as useClerkAuth, useClerk } from '@clerk/react';
+import api from '../lib/api';
+import type { UserResponse } from '../types/api';
 
+/**
+ * Fetches the local user profile (`/api/users/me`).
+ *
+ * Disabled until Clerk has confirmed a signed-in session — that prevents the brief 401
+ * we'd otherwise hit between mount and the first time `getToken()` resolves, and avoids
+ * fetching for signed-out users altogether.
+ */
 export function useCurrentUser() {
+  const { isLoaded, isSignedIn } = useClerkAuth();
   return useQuery<UserResponse>({
     queryKey: ['me'],
+    enabled: isLoaded && isSignedIn === true,
     queryFn: async () => {
       const res = await api.get<UserResponse>('/users/me');
       return res.data;
@@ -18,59 +23,11 @@ export function useCurrentUser() {
   });
 }
 
-export function useLogin() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (body: LoginRequest) => {
-      const res = await api.post<AuthResponse>('/auth/login', body);
-      return res.data;
-    },
-    onSuccess: (data) => {
-      setToken(data.accessToken);
-      qc.setQueryData(['me'], data.user);
-    },
-  });
-}
-
-export function useRegister() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (body: RegisterRequest) => {
-      const res = await api.post<AuthResponse>('/auth/register', body);
-      return res.data;
-    },
-    onSuccess: (data) => {
-      setToken(data.accessToken);
-      qc.setQueryData(['me'], data.user);
-    },
-  });
-}
-
-export function useVerifyEmail() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (token: string) => {
-      await api.post('/auth/verify-email', { token });
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['me'] });
-    },
-  });
-}
-
-export function useResendVerificationEmail() {
-  return useMutation({
-    mutationFn: async () => {
-      await api.post('/auth/resend-verification-email');
-    },
-  });
-}
-
+/**
+ * Returns a function that signs the user out of Clerk and redirects to the sign-in page.
+ * Replaces the previous JWT-based logout that just dropped the token from localStorage.
+ */
 export function useLogout() {
-  const qc = useQueryClient();
-  return () => {
-    setToken(null);
-    qc.clear();
-    window.location.href = '/login';
-  };
+  const { signOut } = useClerk();
+  return () => signOut({ redirectUrl: '/sign-in' });
 }

@@ -86,7 +86,9 @@ class AiServiceTest {
                         org.mockito.ArgumentMatchers.eq(800)))
                 .thenReturn(Mono.just(expected));
 
-        aiService.suggestHorizon(new HorizonSuggestRequest("H2", "Acme Corp", null)).block();
+        aiService
+                .suggestHorizon(new HorizonSuggestRequest("H2", "Acme Corp", null))
+                .block();
 
         ArgumentCaptor<String> systemCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
@@ -106,7 +108,9 @@ class AiServiceTest {
                         org.mockito.ArgumentMatchers.eq(1500)))
                 .thenReturn(Mono.just(expected));
 
-        aiService.globalSteep(new GlobalSteepRequest("Movilidad eléctrica", "en", null)).block();
+        aiService
+                .globalSteep(new GlobalSteepRequest("Movilidad eléctrica", "en", null))
+                .block();
 
         ArgumentCaptor<String> systemCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
@@ -131,7 +135,9 @@ class AiServiceTest {
                         org.mockito.ArgumentMatchers.eq(1500)))
                 .thenReturn(Mono.just(expected));
 
-        aiService.globalSteep(new GlobalSteepRequest("Movilidad eléctrica", "es", "P")).block();
+        aiService
+                .globalSteep(new GlobalSteepRequest("Movilidad eléctrica", "es", "P"))
+                .block();
 
         ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
         verify(anthropicClient)
@@ -159,7 +165,9 @@ class AiServiceTest {
                         org.mockito.ArgumentMatchers.eq(16000)))
                 .thenReturn(Mono.just(expected));
 
-        aiService.analyze(new AnalyzeRequest(companyProfile, steep, horizon, "en")).block();
+        aiService
+                .analyze(new AnalyzeRequest(companyProfile, steep, horizon, "en"))
+                .block();
 
         ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
         verify(anthropicClient)

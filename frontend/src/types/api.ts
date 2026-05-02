@@ -9,13 +9,6 @@ export interface UserResponse {
   name: string | null;
   role: UserRole;
   language: string;
-  emailVerified: boolean;
-}
-
-export interface AuthResponse {
-  accessToken: string;
-  expiresIn: number;
-  user: UserResponse;
 }
 
 export interface ReportSummary {
@@ -54,18 +47,6 @@ export interface ApiError {
 }
 
 // Requests
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
-
-export interface RegisterRequest {
-  email: string;
-  password: string;
-  name?: string;
-  language?: string;
-}
-
 export interface CreateReportRequest {
   title: string;
   inputData: Record<string, unknown>;
@@ -80,9 +61,4 @@ export interface UpdateReportRequest {
 export interface UpdateUserRequest {
   name?: string;
   language?: 'es' | 'en';
-}
-
-export interface ChangePasswordRequest {
-  currentPassword: string;
-  newPassword: string;
 }

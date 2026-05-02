@@ -107,7 +107,10 @@ public class AiService {
      */
     public Mono<JsonNode> globalSteep(GlobalSteepRequest request) {
         String prompt = "Language: %s\nSector: %s\nCurrent year: %d"
-                .formatted(lang(request.language()), request.sector(), java.time.Year.now().getValue());
+                .formatted(
+                        lang(request.language()),
+                        request.sector(),
+                        java.time.Year.now().getValue());
         if (request.dimension() != null) {
             // Single-dimension regeneration. Pin the model to the exact JSON shape
             // expected by the frontend so we don't leak unwanted keys.
@@ -128,9 +131,7 @@ public class AiService {
     public Mono<JsonNode> suggestSteep(SteepSuggestRequest request) {
         String prompt = "Language: %s\nDimension: %s\nCompany profile:\n%s"
                 .formatted(lang(request.language()), request.dimension(), request.companyProfile());
-        return anthropicClient
-                .sendMessage(STEEP_SYSTEM, prompt, 700)
-                .map(AiResponseSanitizer::sanitize);
+        return anthropicClient.sendMessage(STEEP_SYSTEM, prompt, 700).map(AiResponseSanitizer::sanitize);
     }
 
     /**
@@ -142,9 +143,7 @@ public class AiService {
     public Mono<JsonNode> suggestHorizon(HorizonSuggestRequest request) {
         String prompt = "Language: %s\nHorizon: %s\nCompany profile:\n%s"
                 .formatted(lang(request.language()), request.horizon(), request.companyProfile());
-        return anthropicClient
-                .sendMessage(HORIZON_SYSTEM, prompt, 800)
-                .map(AiResponseSanitizer::sanitize);
+        return anthropicClient.sendMessage(HORIZON_SYSTEM, prompt, 800).map(AiResponseSanitizer::sanitize);
     }
 
     /**
@@ -170,9 +169,7 @@ public class AiService {
                                 request.companyProfile().toString(),
                                 request.steep().toString(),
                                 request.horizon().toString());
-        return anthropicClient
-                .sendMessage(ANALYZE_SYSTEM, prompt, 16000)
-                .map(AiResponseSanitizer::sanitize);
+        return anthropicClient.sendMessage(ANALYZE_SYSTEM, prompt, 16000).map(AiResponseSanitizer::sanitize);
     }
 
     /**
