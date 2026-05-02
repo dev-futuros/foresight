@@ -95,9 +95,9 @@ export default function StepGlobal({
         ENV: result.ENV ?? '',
         P: result.P ?? '',
       });
-      fetchedFor.current = sector;
     } catch (e) {
       setError(extractApiErrorMessage(e, t('wizard.global.errorDefault')));
+      fetchedFor.current = null;
     } finally {
       window.clearInterval(interval);
       setBulkLoading(false);
@@ -122,6 +122,11 @@ export default function StepGlobal({
 
   useEffect(() => {
     if (!hasAny && sector.trim() && fetchedFor.current !== sector) {
+      // Claim this sector synchronously BEFORE the async fetch starts. React 18 StrictMode
+      // double-mounts effects in dev, so the second pass would otherwise see the ref still
+      // null and fire a duplicate request (wasting an Anthropic call). On error we reset
+      // the ref so the next render can retry.
+      fetchedFor.current = sector;
       void fetchAll();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
