@@ -70,6 +70,15 @@
       <artifactId>spring-boot-starter-validation</artifactId>
     </dependency>
     <!--
+				Mail starter: provides JavaMailSender for outbound transactional email
+				(password reset, email verification). The actual SMTP provider (Gmail, SES,
+				SendGrid…) is configured at runtime via spring.mail.* properties.
+			-->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-mail</artifactId>
+    </dependency>
+    <!--
 				Actuator: exposes operational endpoints (health, info, metrics) under /actuator/*.
 				Only /actuator/health is publicly exposed; the rest are opt-in via management.endpoints.
 			-->

@@ -51,6 +51,21 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     private final SecurityProperties securityProperties;
 
     /**
+     * Re-run on async dispatches so the SecurityContext is restored on the new dispatch thread.
+     *
+     * <p>{@code SecurityContextHolder} is thread-local, and Spring MVC's async dispatch (used
+     * when a controller returns {@code Mono}/{@code DeferredResult}) hands the request to a new
+     * Tomcat thread. Without re-running this filter on the dispatch thread the context is empty,
+     * {@code AuthorizationFilter} sees an anonymous request and rejects it with {@code 403} —
+     * even though the original handler completed successfully. The filter is idempotent (only
+     * authenticates when no auth is present), so re-running it is safe.
+     */
+    @Override
+    protected boolean shouldNotFilterAsyncDispatch() {
+        return false;
+    }
+
+    /**
      * Per-request filter logic.
      *
      * @param request     the incoming HTTP request

@@ -38,6 +38,17 @@ const en = {
       signIn: 'Sign in',
       errorDefault: 'Could not create account.',
     },
+    verifyEmail: {
+      eyebrow: 'Verification',
+      title: 'Verify your email',
+      pending: 'Checking your verification link…',
+      success: 'All set! Your email has been verified.',
+      errorDefault: 'Could not verify your email.',
+      errorHelp: 'The link may have expired or already been used. Sign in and request a new verification email.',
+      missingToken: 'No verification token was provided.',
+      goDashboard: 'Go to dashboard →',
+      goLogin: 'Go to sign in →',
+    },
   },
   wizard: {
     back: '← Back',
@@ -286,6 +297,15 @@ const en = {
     roles: {
       USER: 'User',
       ADMIN: 'Administrator',
+    },
+    verify: {
+      statusVerified: 'Verified',
+      statusPending: 'Unverified',
+      bannerText: 'Your email is not verified yet. We sent you a link when you signed up — check your inbox (and spam folder). If it never arrived, you can request a new one.',
+      resendBtn: 'Resend email',
+      resending: 'Sending…',
+      resendSuccess: 'Email sent. Check your inbox.',
+      resendError: 'Could not send the email. Please try again.',
     },
   },
 } as const;

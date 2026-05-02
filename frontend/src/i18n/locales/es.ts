@@ -38,6 +38,17 @@ const es = {
       signIn: 'Iniciar sesión',
       errorDefault: 'Error al crear la cuenta.',
     },
+    verifyEmail: {
+      eyebrow: 'Verificación',
+      title: 'Verificar tu correo',
+      pending: 'Estamos comprobando tu enlace de verificación…',
+      success: '¡Listo! Tu correo ha sido verificado correctamente.',
+      errorDefault: 'No se pudo verificar tu correo.',
+      errorHelp: 'El enlace puede haber caducado o haberse usado ya. Inicia sesión y solicita un nuevo correo de verificación.',
+      missingToken: 'No hemos recibido ningún token de verificación.',
+      goDashboard: 'Ir al dashboard →',
+      goLogin: 'Ir a iniciar sesión →',
+    },
   },
   wizard: {
     back: '← Volver',
@@ -286,6 +297,15 @@ const es = {
     roles: {
       USER: 'Usuario',
       ADMIN: 'Administrador',
+    },
+    verify: {
+      statusVerified: 'Verificado',
+      statusPending: 'Sin verificar',
+      bannerText: 'Tu correo aún no está verificado. Te enviamos un enlace al registrarte — revisa tu bandeja (y la carpeta de spam). Si no llegó, puedes pedir uno nuevo.',
+      resendBtn: 'Reenviar correo',
+      resending: 'Enviando…',
+      resendSuccess: 'Correo enviado. Revisa tu bandeja.',
+      resendError: 'No se pudo enviar el correo. Inténtalo de nuevo.',
     },
   },
 } as const;

@@ -46,6 +46,26 @@ export function useRegister() {
   });
 }
 
+export function useVerifyEmail() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (token: string) => {
+      await api.post('/auth/verify-email', { token });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['me'] });
+    },
+  });
+}
+
+export function useResendVerificationEmail() {
+  return useMutation({
+    mutationFn: async () => {
+      await api.post('/auth/resend-verification-email');
+    },
+  });
+}
+
 export function useLogout() {
   const qc = useQueryClient();
   return () => {

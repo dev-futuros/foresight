@@ -29,6 +29,14 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000}
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-logging}
+      EMAIL_FROM: ${EMAIL_FROM:-no-reply@foresight.local}
+      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Foresight}
+      APP_FRONTEND_URL: ${APP_FRONTEND_URL:-http://localhost:5173}
+      MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       DEBUG_PORT: ${DEBUG_PORT:-5005}
       JAVA_TOOL_OPTIONS: >
         -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005

@@ -1,5 +1,6 @@
 package com.foresight.backend.common.email;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 import lombok.extern.slf4j.Slf4j;
@@ -7,16 +8,15 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Stub {@link EmailService} that logs the would-be email instead of sending it.
  *
- * <p>Intended for local development, tests, and early staging. The token appears in the
- * backend logs so a developer / QA can grab it and paste it into the next endpoint. It is
- * NOT safe for production — swap for a real provider before exposing the app to real users.
- *
- * <p>When a real implementation is wired up, it should replace this bean (e.g. by being
- * conditionally loaded under a {@code @ConditionalOnProperty}) so production deployments
- * never fall back to logging tokens to stdout.
+ * <p>Intended for local development, tests, and early staging. Active by default — when
+ * {@code foresight.email.provider} is unset or set to {@code logging}. The token appears in
+ * the backend logs so a developer / QA can grab it and paste it into the next endpoint. It
+ * is NOT safe for production: in real environments set {@code foresight.email.provider=smtp}
+ * to swap for {@link SmtpEmailService}.
  */
 @Slf4j
 @Service
+@ConditionalOnProperty(name = "foresight.email.provider", havingValue = "logging", matchIfMissing = true)
 public class LoggingEmailService implements EmailService {
 
     @Override

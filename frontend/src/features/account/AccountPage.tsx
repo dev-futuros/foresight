@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useCurrentUser } from '../../hooks/useAuth';
+import { useCurrentUser, useResendVerificationEmail } from '../../hooks/useAuth';
 import { useUpdateProfile, useChangePassword } from '../../hooks/useAccount';
 import { extractApiErrorMessage } from '../../lib/apiError';
 import './account.css';
@@ -16,6 +16,18 @@ export default function AccountPage() {
   const { data: user, isLoading } = useCurrentUser();
   const updateProfile = useUpdateProfile();
   const changePassword = useChangePassword();
+  const resendVerification = useResendVerificationEmail();
+  const [verifyMsg, setVerifyMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+
+  async function handleResendVerification() {
+    setVerifyMsg(null);
+    try {
+      await resendVerification.mutateAsync();
+      setVerifyMsg({ type: 'ok', text: t('account.verify.resendSuccess') });
+    } catch (err) {
+      setVerifyMsg({ type: 'err', text: extractApiErrorMessage(err, t('account.verify.resendError')) });
+    }
+  }
 
   const [name, setName] = useState('');
   const [language, setLanguage] = useState<'es' | 'en'>('es');
@@ -75,6 +87,28 @@ export default function AccountPage() {
       </nav>
 
       <div className="account-content">
+        {/* Banner cuando el correo no está verificado */}
+        {user && !user.emailVerified && (
+          <div className="account-verify-banner" role="status">
+            <p className="account-verify-banner-text">{t('account.verify.bannerText')}</p>
+            <div className="account-verify-banner-actions">
+              <button
+                type="button"
+                className="btn-verify-resend"
+                onClick={handleResendVerification}
+                disabled={resendVerification.isPending}
+              >
+                {resendVerification.isPending ? t('account.verify.resending') : t('account.verify.resendBtn')}
+              </button>
+              {verifyMsg && (
+                <p className={`account-verify-feedback account-verify-feedback--${verifyMsg.type}`}>
+                  {verifyMsg.text}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Perfil */}
         <section className="account-section">
           <h2 className="account-section-title">{t('account.profile.title')}</h2>
@@ -87,6 +121,15 @@ export default function AccountPage() {
                 readOnly
                 aria-label={t('account.profile.email')}
               />
+              {user && (
+                <div className="account-verify-row">
+                  <span
+                    className={`account-verify-pill account-verify-pill--${user.emailVerified ? 'ok' : 'pending'}`}
+                  >
+                    {user.emailVerified ? t('account.verify.statusVerified') : t('account.verify.statusPending')}
+                  </span>
+                </div>
+              )}
             </div>
             <div className="account-field">
               <label className="account-label">{t('account.profile.name')}</label>
