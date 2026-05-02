@@ -1,6 +1,6 @@
 # Foresight
 
-Strategic foresight platform powered by Claude AI. Helps organizations anticipate future scenarios through proven methodologies (STEEP analysis, Scenario Planning, Backcasting, Horizon Scanning) and generates comprehensive reports in PDF and PowerPoint.
+Strategic foresight platform. Helps organizations anticipate future scenarios through proven methodologies (STEEP analysis, Scenario Planning, Backcasting, Horizon Scanning) and generates comprehensive reports in PDF and PowerPoint.
 
 ## Repository structure
 
