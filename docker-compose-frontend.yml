@@ -9,6 +9,7 @@ services:
     environment:
       - NODE_ENV=development
       - VITE_API_URL=http://backend:8080
+      - VITE_ALLOWED_HOSTS=all
     networks:
       - foresight
     restart: unless-stopped
