@@ -2,7 +2,7 @@
 
 Complete reference for the Foresight backend REST API. Base URL: `http://localhost:8080`.
 
-All protected endpoints require `Authorization: Bearer <token>` header.
+All protected endpoints require `Authorization: Bearer <clerk-session-jwt>`. The token comes from Clerk — the backend does **not** issue tokens, register users, or run a sign-in/sign-up flow itself. Sign-in, sign-up, password reset, email verification, MFA, and social login are all handled by Clerk's hosted UI on the frontend (`<SignIn />` / `<SignUp />` / `<UserButton />`).
 
 ---
 
@@ -29,10 +29,9 @@ For validation errors (HTTP 400), `fieldErrors` is an array:
   "status": 400,
   "error": "Bad Request",
   "message": "Validation failed",
-  "path": "/api/auth/register",
+  "path": "/api/users/me",
   "fieldErrors": [
-    { "field": "email", "message": "must be a well-formed email address" },
-    { "field": "password", "message": "size must be between 8 and 72" }
+    { "field": "language", "message": "must be one of: es, en" }
   ]
 }
 ```
@@ -45,202 +44,39 @@ For validation errors (HTTP 400), `fieldErrors` is an array:
 | 201 | Created | Successful POST that creates a resource |
 | 204 | No Content | Successful action with no response body |
 | 400 | Bad Request | Validation failure or invalid domain state |
-| 401 | Unauthorized | Missing / invalid JWT or wrong credentials |
+| 401 | Unauthorized | Missing / invalid Clerk JWT |
 | 403 | Forbidden | Authenticated but not allowed |
 | 404 | Not Found | Resource doesn't exist (or doesn't belong to caller) |
-| 409 | Conflict | Duplicate resource (e.g. email already registered) |
-| 429 | Too Many Requests | Rate limit exceeded on auth endpoints |
+| 409 | Conflict | Duplicate resource |
+| 429 | Too Many Requests | Per-user AI rate limit exceeded |
 | 500 | Internal Server Error | Unexpected server failure |
+
+---
+
+## Authentication
+
+The backend has no `/api/auth/*` endpoints. Sign-in, sign-up, password reset, email verification, MFA, social providers, and account management UI are all hosted by Clerk:
+
+- The frontend mounts Clerk's `<SignIn />` / `<SignUp />` components and obtains a session JWT via `useAuth().getToken()`.
+- Every API request goes out with `Authorization: Bearer <clerk-session-jwt>`.
+- The backend's `JwtAuthFilter` validates the JWT against Clerk's JWKS, then resolves the local `users` row by `clerk_user_id` (lazy-creating it if the `user.created` webhook hasn't arrived yet).
+
+The backend never sees the user's password or email. Email is read directly from Clerk on the frontend (`useUser().primaryEmailAddress`).
+
+> **JWT template.** To populate `name` on lazy-create, configure a Clerk JWT template with a `name` claim (e.g. `"name": "{{user.first_name}} {{user.last_name}}"`) and pass `template: "<name>"` to `getToken()`.
 
 ---
 
 ## Rate limiting
 
-The following endpoints are rate-limited per client IP to prevent brute-force and spam:
-
-- `POST /api/auth/login`
-- `POST /api/auth/register`
-- `POST /api/auth/forgot-password`
-- `POST /api/auth/reset-password`
-- `POST /api/auth/verify-email`
+`/api/ai/**` is rate-limited per authenticated user (Bucket4j, in-memory): **100 calls / hour / user** by default. Tunable via `foresight.security.rate-limit.ai.*` properties.
 
 When exceeded → `HTTP 429`:
 ```json
 { "status": 429, "error": "Too Many Requests", "message": "Slow down and try again in a minute." }
 ```
 
----
-
-## Auth — `/api/auth`
-
-### POST /api/auth/register
-
-Creates a new user account and returns a JWT.
-
-**Auth required:** No
-
-**Request body:**
-```json
-{
-  "email": "alice@example.com",       // required, valid email, max 255
-  "password": "S3cret!LongEnough",    // required, 8–72 chars
-  "name": "Alice Analyst",            // optional, max 255
-  "language": "es"                    // optional, defaults to "es"
-}
-```
-
-**Response `201`:**
-```json
-{
-  "accessToken": "<jwt>",
-  "expiresIn": 86400,
-  "user": {
-    "id": "uuid",
-    "email": "alice@example.com",
-    "name": "Alice Analyst",
-    "role": "USER",
-    "language": "es",
-    "emailVerified": false
-  }
-}
-```
-
-**Errors:**
-| Status | When |
-|--------|------|
-| 400 | Validation failure (missing field, invalid email, password too short) |
-| 409 | Email already registered |
-
----
-
-### POST /api/auth/login
-
-Authenticates user and returns a JWT.
-
-**Auth required:** No
-
-**Request body:**
-```json
-{
-  "email": "alice@example.com",   // required
-  "password": "S3cret!LongEnough" // required
-}
-```
-
-**Response `200`:** Same shape as `/register`.
-
-**Errors:**
-| Status | When |
-|--------|------|
-| 400 | Validation failure |
-| 401 | Email not found or wrong password |
-
----
-
-### POST /api/auth/change-password
-
-Changes the authenticated user's password. Requires current password as proof.
-
-**Auth required:** Yes
-
-**Request body:**
-```json
-{
-  "currentPassword": "S3cret!LongEnough",   // required
-  "newPassword": "EvenL0nger!Secret"        // required, 8–72 chars
-}
-```
-
-**Response `204`:** No body.
-
-**Errors:**
-| Status | When |
-|--------|------|
-| 400 | Validation failure or current password incorrect |
-| 401 | Missing / invalid JWT |
-
----
-
-### POST /api/auth/forgot-password
-
-Initiates the password-reset flow. Sends a reset link to the email address if it exists.
-
-**Auth required:** No
-
-> Always returns `204` regardless of whether the email is registered (prevents account enumeration).
-
-**Request body:**
-```json
-{
-  "email": "alice@example.com"  // required, valid email
-}
-```
-
-**Response `204`:** No body.
-
----
-
-### POST /api/auth/reset-password
-
-Completes the password-reset flow using the token from the email.
-
-**Auth required:** No
-
-**Request body:**
-```json
-{
-  "token": "Q0RGS3Q3ZzU5...",          // required, opaque token from reset email
-  "newPassword": "EvenL0nger!Secret"   // required, 8–72 chars
-}
-```
-
-**Response `204`:** No body.
-
-**Errors:**
-| Status | When |
-|--------|------|
-| 400 | Token expired, already used, or not found |
-| 400 | Validation failure |
-
----
-
-### POST /api/auth/verify-email
-
-Redeems the email verification token sent after registration.
-
-**Auth required:** No
-
-**Request body:**
-```json
-{
-  "token": "Q0RGS3Q3ZzU5..."  // required, opaque token from verification email
-}
-```
-
-**Response `204`:** No body.
-
-**Errors:**
-| Status | When |
-|--------|------|
-| 400 | Token expired, already used, or not found |
-
----
-
-### POST /api/auth/resend-verification-email
-
-Sends a fresh verification email to the authenticated user.
-
-**Auth required:** Yes
-
-**Request body:** None.
-
-**Response `204`:** No body.
-
-**Errors:**
-| Status | When |
-|--------|------|
-| 400 | Email already verified |
-| 401 | Missing / invalid JWT |
+Auth-endpoint rate limiting (login, register, forgot-password, etc.) is handled by Clerk on the auth flows it owns. The backend does not duplicate it.
 
 ---
 
@@ -256,13 +92,13 @@ Returns the authenticated user's profile.
 ```json
 {
   "id": "00000000-0000-0000-0000-000000000001",
-  "email": "alice@example.com",
   "name": "Alice Analyst",
   "role": "USER",
-  "language": "es",
-  "emailVerified": true
+  "language": "es"
 }
 ```
+
+> Email is intentionally not in this response — it lives in Clerk. The frontend reads it from `useUser().primaryEmailAddress.emailAddress`.
 
 ---
 
@@ -504,6 +340,32 @@ Generates a full strategic foresight analysis from company profile, STEEP factor
 
 ---
 
+## Webhooks — `/api/webhooks`
+
+### POST /api/webhooks/clerk
+
+Receives `user.created`, `user.updated`, and `user.deleted` events from Clerk and reconciles the local `users` table.
+
+**Auth required:** No (authenticated via Svix HMAC signature instead).
+
+Every delivery is verified with the Svix signing secret (`CLERK_WEBHOOK_SIGNING_SECRET`). Deliveries with a missing or invalid signature are rejected with `400` before any side effect. Outside the 5-minute timestamp window also fails verification (replay protection).
+
+**Handled events:**
+| Event | Action |
+|---|---|
+| `user.created`, `user.updated` | Upsert local row by `clerk_user_id`; refresh `name` |
+| `user.deleted` | Delete local row (cascades to owned reports) |
+| anything else | Ignored, returns `204` |
+
+**Response `204`:** No body, on successful processing or ignored event type.
+
+**Errors:**
+| Status | When |
+|--------|------|
+| 400 | Missing or invalid Svix signature, or malformed payload (missing `type` / `data.id`) |
+
+---
+
 ## Health — `/api`
 
 ### GET /api/health
@@ -541,13 +403,13 @@ POST /api/reports  →  DRAFT
 ```json
 {
   "id": "uuid",
-  "email": "string",
   "name": "string | null",
   "role": "USER | ADMIN",
-  "language": "es | en",
-  "emailVerified": true
+  "language": "es | en"
 }
 ```
+
+Email, password, MFA, and email-verification status all live in Clerk, not in this response.
 
 ### ReportResponse
 ```json
@@ -573,11 +435,3 @@ POST /api/reports  →  DRAFT
 }
 ```
 
-### AuthResponse
-```json
-{
-  "accessToken": "string",
-  "expiresIn": 86400,
-  "user": { ...UserResponse }
-}
-```

@@ -9,7 +9,7 @@ const mockMutate = vi.fn();
 
 vi.mock('../hooks/useAuth', () => ({
   useCurrentUser: () => ({
-    data: { id: 'uuid-1', email: 'alice@example.com', name: 'Alice', role: 'USER', language: 'es', emailVerified: true },
+    data: { id: 'uuid-1', name: 'Alice', role: 'USER', language: 'es' },
     isLoading: false,
   }),
   useLogout: () => mockLogout,

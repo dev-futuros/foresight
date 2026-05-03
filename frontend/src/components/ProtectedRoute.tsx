@@ -1,13 +1,22 @@
 import { Navigate } from 'react-router-dom';
+import { useAuth } from '@clerk/react';
 import { useTranslation } from 'react-i18next';
-import { useCurrentUser } from '../hooks/useAuth';
 
+/**
+ * Route guard that defers to Clerk for the auth check.
+ *
+ * Three states:
+ *   - Clerk hasn't finished hydrating: render a loading screen so we don't flicker the
+ *     sign-in page on a hard reload while a valid session is being restored.
+ *   - Hydrated and signed-in: render the children.
+ *   - Hydrated and signed-out: redirect to /sign-in.
+ */
 export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
-  const { data: user, isLoading } = useCurrentUser();
+  const { isLoaded, isSignedIn } = useAuth();
 
-  if (isLoading) return <div className="loading-screen">{t('common.loading')}</div>;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!isLoaded) return <div className="loading-screen">{t('common.loading')}</div>;
+  if (!isSignedIn) return <Navigate to="/sign-in" replace />;
 
   return <>{children}</>;
 }

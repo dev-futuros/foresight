@@ -25,8 +25,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public record GlobalSteepRequest(
         @Schema(example = "Movilidad urbana eléctrica") @NotBlank @Size(max = 200) String sector,
         @Schema(example = "es", description = "Optional. 'en' or 'es' (default).") String language,
-        @Schema(
-                        example = "P",
-                        description = "Optional. One of S, T, E, ENV, P. If set, only that key is returned.")
+        @Schema(example = "P", description = "Optional. One of S, T, E, ENV, P. If set, only that key is returned.")
                 @Pattern(regexp = "S|T|E|ENV|P")
                 String dimension) {}

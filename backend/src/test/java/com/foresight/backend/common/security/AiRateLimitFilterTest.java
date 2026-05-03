@@ -27,19 +27,21 @@ class AiRateLimitFilterTest {
     private static AiRateLimitFilter filter(long capacity) {
         SecurityProperties props = new SecurityProperties(
                 false,
-                new SecurityProperties.Jwt("test-secret-at-least-32-chars-long!!", Duration.ofHours(1)),
+                new SecurityProperties.Clerk(
+                        "https://test.clerk.accounts.dev",
+                        "https://test.clerk.accounts.dev/.well-known/jwks.json",
+                        "whsec_test",
+                        "",
+                        "https://api.clerk.com/v1"),
                 new SecurityProperties.Cors(List.of()),
-                Duration.ofMinutes(30),
-                Duration.ofHours(24),
+                // Huge refill so refills never happen mid-test.
                 new SecurityProperties.RateLimit(
-                        new SecurityProperties.RateLimit.Bucket(10, 10, Duration.ofMinutes(1)),
-                        // Huge refill so refills never happen mid-test.
                         new SecurityProperties.RateLimit.Bucket(capacity, capacity, Duration.ofHours(1))));
         return new AiRateLimitFilter(props);
     }
 
     private static void authenticateAs(UUID userId) {
-        AuthenticatedUser principal = new AuthenticatedUser(userId, "u@example.com", "USER");
+        AuthenticatedUser principal = new AuthenticatedUser(userId, "user_clerk_test", "USER");
         // 3-arg ctor flips isAuthenticated() to true; the 2-arg ctor leaves it false and the
         // filter would treat the request as anonymous.
         SecurityContextHolder.getContext()
