@@ -65,6 +65,17 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-security</artifactId>
     </dependency>
+    <!--
+				OAuth2 resource server: brings in NimbusJwtDecoder and the JWK-set
+				machinery used to validate session JWTs issued by Clerk. We do NOT enable
+				the auto-configured oauth2ResourceServer filter chain — our custom
+				JwtAuthFilter still owns the authentication step (so it can look up the
+				local User row by clerk_user_id and produce an AuthenticatedUser).
+			-->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+    </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-validation</artifactId>
@@ -87,22 +98,15 @@
       <artifactId>bucket4j_jdk17-core</artifactId>
       <version>8.14.0</version>
     </dependency>
+    <!--
+				Svix: official client library used to verify the signature of webhook
+				deliveries from Clerk. Clerk's webhook infrastructure is built on Svix,
+				so this is the canonical way to validate incoming events.
+			-->
     <dependency>
-      <groupId>io.jsonwebtoken</groupId>
-      <artifactId>jjwt-api</artifactId>
-      <version>0.12.6</version>
-    </dependency>
-    <dependency>
-      <groupId>io.jsonwebtoken</groupId>
-      <artifactId>jjwt-impl</artifactId>
-      <version>0.12.6</version>
-      <scope>runtime</scope>
-    </dependency>
-    <dependency>
-      <groupId>io.jsonwebtoken</groupId>
-      <artifactId>jjwt-jackson</artifactId>
-      <version>0.12.6</version>
-      <scope>runtime</scope>
+      <groupId>com.svix</groupId>
+      <artifactId>svix</artifactId>
+      <version>1.45.0</version>
     </dependency>
 
     <dependency>
@@ -167,6 +171,11 @@
       <groupId>org.testcontainers</groupId>
       <artifactId>postgresql</artifactId>
       <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.anthropic</groupId>
+      <artifactId>anthropic-java</artifactId>
+      <version>2.27.0</version>
     </dependency>
   </dependencies>
 

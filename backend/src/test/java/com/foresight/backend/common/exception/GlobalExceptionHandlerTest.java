@@ -18,6 +18,8 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 
+import com.foresight.backend.ai.AiException;
+
 class GlobalExceptionHandlerTest {
 
     private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
@@ -113,6 +115,15 @@ class GlobalExceptionHandlerTest {
         ResponseEntity<ApiError> response = handler.handleBadRequest(new IllegalArgumentException("bad"), request);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody().message()).isEqualTo("bad");
+    }
+
+    @Test
+    void aiExceptionMapsTo502WithUpstreamMessage() {
+        ResponseEntity<ApiError> response = handler.handleAi(new AiException("AI provider error: 401"), request);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
+        assertThat(response.getBody().status()).isEqualTo(502);
+        // Must propagate the upstream-failure detail so the frontend can act on it
+        assertThat(response.getBody().message()).isEqualTo("AI provider error: 401");
     }
 
     @Test

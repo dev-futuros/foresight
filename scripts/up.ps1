@@ -27,7 +27,7 @@ if (-not (Test-Path $envFile)) {
 Push-Location $repoRoot
 try {
     Write-Host "Starting stack with $envFile" -ForegroundColor Cyan
-    docker compose --env-file $envFile up @ExtraArgs
+    docker compose -f docker-compose-backend.yml -f docker-compose-frontend.yml --env-file $envFile up @ExtraArgs
 }
 finally {
     Pop-Location

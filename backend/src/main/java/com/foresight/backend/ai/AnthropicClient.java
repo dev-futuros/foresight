@@ -1,6 +1,8 @@
 package com.foresight.backend.ai;
 
 import java.io.IOException;
+import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -12,23 +14,26 @@ import com.fasterxml.jackson.databind.JsonNode;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 
 /**
  * Thin transport wrapper around the Anthropic Messages API.
  *
- * <p>Keeps HTTP concerns (headers, timeouts, retries, error translation) out of
- * {@link AiService}. Uses {@link reactor.core.publisher.Mono#block(java.time.Duration)} — we
- * intentionally call it synchronously because the controller contract is synchronous and
- * the upstream request dominates latency anyway.
+ * <p>Returns a {@link Mono} so cancellation propagates end-to-end: when the inbound HTTP
+ * client disconnects, Spring cancels the response Mono, reactor-netty closes the upstream
+ * socket to Anthropic, and the model stops generating (token billing stops with it). The
+ * earlier {@code .block()} flow defeated this — calls would run to completion even after
+ * the user closed the tab.
  *
  * <p>Retry strategy:
  * <ul>
- *   <li>Retries on IO errors and HTTP 5xx / 429.</li>
- *   <li>Does NOT retry 4xx (except 429): those are caller bugs or quota issues that a retry
- *       won't fix.</li>
- *   <li>Exponential backoff starting from {@code retry-backoff}, up to {@code max-retries}
- *       extra attempts.</li>
+ *   Retries on IO errors and HTTP 5xx (upstream blips that a retry can fix).</li>
+ *   Does NOT retry 4xx — including {@code 429 Too Many Requests}. Retrying 429 just
+ *       walks deeper into the same rate-limit pit on lower tiers; let the caller decide
+ *       when to ask the user to try again.</li>
+ *   <li>Honours the upstream {@code Retry-After} header when present; otherwise uses
+ *       exponential backoff from {@code retry-backoff}, up to {@code max-retries} attempts.</li>
  * </ul>
  */
 @Slf4j
@@ -40,47 +45,134 @@ public class AnthropicClient {
     private final AnthropicProperties properties;
 
     /**
+     * Server-side {@code web_search} tool spec. Anthropic resolves searches inside the
+     * model loop and returns interleaved {@code web_search_tool_use} /
+     * {@code web_search_tool_result} blocks alongside the final {@code text} blocks.
+     *
+     * Each search counts toward the workspace rate limits. {@code max_uses} is the
+     * trade-off knob: lower → fewer rate-limit hits on small tiers; higher → richer
+     * grounding for the final answer.
+     */
+    private static final List<Map<String, Object>> WEB_SEARCH_TOOLS =
+            List.of(Map.of("type", "web_search_20250305", "name", "web_search", "max_uses", 5));
+
+    /**
      * Sends a single-turn request to Anthropic's {@code /v1/messages} endpoint.
      *
      * @param systemPrompt the system instruction (sets the model's role/format constraints)
      * @param userPrompt   the user's turn content
      * @param maxTokens    upper bound on response length; pick generously for long outputs
-     * @return the raw JSON response from Anthropic
-     * @throws AiException if Anthropic returns a non-retriable error or retries are exhausted
+     * @return a Mono that emits the raw JSON response from Anthropic
      */
-    public JsonNode sendMessage(String systemPrompt, String userPrompt, int maxTokens) {
-        Map<String, Object> body = Map.of(
-                "model",
-                properties.model(),
-                "max_tokens",
-                maxTokens,
-                "system",
-                systemPrompt,
-                "messages",
-                List.of(Map.of("role", "user", "content", userPrompt)));
+    public Mono<JsonNode> sendMessage(String systemPrompt, String userPrompt, int maxTokens) {
+        return doSend(systemPrompt, userPrompt, maxTokens, null);
+    }
 
+    /**
+     * Same as {@link #sendMessage} but enables Anthropic's server-side {@code web_search} tool
+     * so the model can ground its answer on live data. The response may contain interleaved
+     * {@code tool_use}/{@code tool_result} blocks — callers should filter content by
+     * {@code type == "text"} before parsing.
+     */
+    public Mono<JsonNode> sendMessageWithWebSearch(String systemPrompt, String userPrompt, int maxTokens) {
+        return doSend(systemPrompt, userPrompt, maxTokens, WEB_SEARCH_TOOLS);
+    }
+
+    private Mono<JsonNode> doSend(
+            String systemPrompt, String userPrompt, int maxTokens, List<Map<String, Object>> tools) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("model", properties.model());
+        body.put("max_tokens", maxTokens);
+        body.put("system", systemPrompt);
+        body.put("messages", List.of(Map.of("role", "user", "content", userPrompt)));
+        if (tools != null && !tools.isEmpty()) {
+            body.put("tools", tools);
+        }
+
+        return anthropicWebClient
+                .post()
+                .uri("/v1/messages")
+                .bodyValue(body)
+                .retrieve()
+                .bodyToMono(JsonNode.class)
+                .retryWhen(retryPolicy())
+                .doOnCancel(() -> log.info("Anthropic call cancelled by downstream subscriber"))
+                .onErrorResume(WebClientResponseException.class, e -> {
+                    log.error("Anthropic API error: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
+                    return Mono.error(new AiException("AI provider error: " + e.getStatusCode()));
+                })
+                .onErrorResume(t -> !(t instanceof AiException), t -> {
+                    log.error("Anthropic call failed: {}", t.getMessage(), t);
+                    return Mono.error(new AiException("AI provider unavailable"));
+                });
+    }
+
+    /**
+     * Custom retry policy.
+     *
+     * Anthropic returns {@code 429 Too Many Requests} when the workspace's
+     * rate-limit bucket is empty. Retrying immediately just makes things worse on
+     * lower tiers (the bucket needs real time to refill), so we surface 429 to the
+     * caller as soon as we see it — let the user retry when their UI is ready.
+     *
+     * For the failures we DO retry (5xx, IO errors), we honour the upstream's
+     * {@code Retry-After} header when present; otherwise we fall back to the
+     * configured exponential backoff. That keeps us aligned with Anthropic's own
+     * recommendation when the upstream knows how long it will take to recover.
+     */
+    private Retry retryPolicy() {
+        return Retry.from(signals -> signals.flatMap(rs -> {
+            Throwable failure = rs.failure();
+            if (!isRetriable(failure)) {
+                return Mono.error(failure);
+            }
+            if (rs.totalRetries() >= properties.maxRetries()) {
+                return Mono.error(failure);
+            }
+            Duration delay = retryDelay(failure, rs.totalRetries());
+            log.warn(
+                    "Retrying Anthropic call (attempt {} of {}, delay {}): {}",
+                    rs.totalRetries() + 1,
+                    properties.maxRetries(),
+                    delay,
+                    failure.getMessage());
+            return Mono.delay(delay);
+        }));
+    }
+
+    /**
+     * Computes the delay before the next retry. If the failure carries an upstream
+     * {@code Retry-After} hint, use it (capped to a sane upper bound); otherwise
+     * compute exponential backoff from the configured base.
+     */
+    private Duration retryDelay(Throwable failure, long retryIndex) {
+        Duration upstream = retryAfter(failure);
+        if (upstream != null) {
+            // Cap so a misconfigured upstream can't pin our request thread for hours.
+            return upstream.compareTo(Duration.ofMinutes(2)) > 0 ? Duration.ofMinutes(2) : upstream;
+        }
+        long base = properties.retryBackoff().toMillis();
+        long backoffMs = base << Math.min(retryIndex, 4);
+        return Duration.ofMillis(backoffMs);
+    }
+
+    /**
+     * Reads the {@code Retry-After} header (seconds) from a {@link WebClientResponseException}
+     * if present. Returns {@code null} when the header is missing or malformed.
+     */
+    private static Duration retryAfter(Throwable t) {
+        if (!(t instanceof WebClientResponseException wcre)) {
+            return null;
+        }
+        String header = wcre.getHeaders().getFirst("Retry-After");
+        if (header == null || header.isBlank()) {
+            return null;
+        }
         try {
-            return anthropicWebClient
-                    .post()
-                    .uri("/v1/messages")
-                    .bodyValue(body)
-                    .retrieve()
-                    .bodyToMono(JsonNode.class)
-                    .retryWhen(Retry.backoff(properties.maxRetries(), properties.retryBackoff())
-                            .filter(AnthropicClient::isRetriable)
-                            .doBeforeRetry(rs -> log.warn(
-                                    "Retrying Anthropic call (attempt {} of {}): {}",
-                                    rs.totalRetries() + 1,
-                                    properties.maxRetries(),
-                                    rs.failure().getMessage()))
-                            .onRetryExhaustedThrow((spec, rs) -> rs.failure()))
-                    .block(properties.readTimeout().plusSeconds(5));
-        } catch (WebClientResponseException e) {
-            log.error("Anthropic API error: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
-            throw new AiException("AI provider error: " + e.getStatusCode());
-        } catch (Exception e) {
-            log.error("Anthropic call failed: {}", e.getMessage(), e);
-            throw new AiException("AI provider unavailable");
+            long seconds = Long.parseLong(header.trim());
+            return seconds > 0 ? Duration.ofSeconds(seconds) : null;
+        } catch (NumberFormatException ignored) {
+            return null;
         }
     }
 
@@ -91,17 +183,22 @@ public class AnthropicClient {
      * <ul>
      *   <li>IO errors (connection reset, timeout, DNS hiccup…)</li>
      *   <li>HTTP 5xx (upstream blip)</li>
-     *   <li>HTTP 429 (rate limited — backoff gives the bucket time to refill)</li>
      * </ul>
-     * Everything else (4xx, auth errors) is a deterministic failure a retry can't fix.
+     *
+     * <p>NOT retriable:
+     * <ul>
+     *   <li>HTTP 429 — surfaced as-is. On low Anthropic tiers, retrying immediately just
+     *       walks deeper into the same rate-limit pit; the caller (frontend) is in a better
+     *       position to decide when to ask the user to try again.</li>
+     *   <li>Other 4xx — caller bug, won't fix itself.</li>
+     * </ul>
      */
     private static boolean isRetriable(Throwable t) {
         if (t instanceof IOException) {
             return true;
         }
         if (t instanceof WebClientResponseException wcre) {
-            int status = wcre.getStatusCode().value();
-            return status == 429 || status >= 500;
+            return wcre.getStatusCode().value() >= 500;
         }
         return false;
     }

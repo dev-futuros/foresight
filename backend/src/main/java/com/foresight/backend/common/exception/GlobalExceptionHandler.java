@@ -11,6 +11,9 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
+
+import com.foresight.backend.ai.AiException;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -107,6 +110,43 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({BadRequestException.class, IllegalArgumentException.class})
     public ResponseEntity<ApiError> handleBadRequest(Exception ex, HttpServletRequest req) {
         return ResponseEntity.badRequest().body(ApiError.of(400, "Bad Request", ex.getMessage(), req.getRequestURI()));
+    }
+
+    /**
+     * Maps {@link AiException} (upstream Claude failure) to HTTP 502 Bad Gateway.
+     *
+     * <p>The message thrown by {@code AnthropicClient} already encodes the upstream condition
+     * (e.g. {@code "AI provider error: 401"}, {@code "AI provider unavailable"}). We surface it
+     * to the client as the response message so the frontend can display something useful
+     * instead of a generic "unexpected error".
+     *
+     * @param ex  the AI provider exception
+     * @param req current HTTP request
+     * @return 502 response with the upstream-failure message
+     */
+    @ExceptionHandler(AiException.class)
+    public ResponseEntity<ApiError> handleAi(AiException ex, HttpServletRequest req) {
+        log.warn("AI provider failure at {}: {}", req.getRequestURI(), ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(ApiError.of(502, "Bad Gateway", ex.getMessage(), req.getRequestURI()));
+    }
+
+    /**
+     * Swallowed-quietly handler for the noise Spring MVC emits when a client disconnects
+     * mid-async-write. Our reactive AI endpoints return {@link reactor.core.publisher.Mono}
+     * so when the user closes the tab the response Mono is cancelled — that's the desired
+     * behaviour (token billing stops upstream) but Spring still tries to commit the
+     * response and trips an {@link AsyncRequestNotUsableException}. There is no client
+     * left to receive a body, so we just log at DEBUG and return {@code null}.
+     *
+     * @param ex  the cancellation-induced exception
+     * @param req current HTTP request
+     * @return {@code null} (no body to write — the connection is gone)
+     */
+    @ExceptionHandler(AsyncRequestNotUsableException.class)
+    public ResponseEntity<Void> handleClientDisconnected(AsyncRequestNotUsableException ex, HttpServletRequest req) {
+        log.debug("Client disconnected mid-response at {}: {}", req.getRequestURI(), ex.getMessage());
+        return null;
     }
 
     /**
