@@ -10,9 +10,18 @@ const es = {
     logout: 'Cerrar sesión',
   },
   auth: {
+    shell: {
+      brandTag: 'Foresight Strategy',
+      langAria: 'Idioma',
+      consent: 'Al acceder aceptas nuestra <a href="/privacy">Política de Privacidad y Términos</a>.',
+      footerLine: 'FUTUROS · FORESIGHT STRATEGY · HERRAMIENTA DE USO RESTRINGIDO · BETA',
+      copyright: '© 2026 Futuros',
+      privacyLink: 'Privacidad y Términos',
+      contact: 'hello@futuros.io',
+    },
     login: {
-      eyebrow: 'Acceso',
-      title: 'Bienvenido de nuevo',
+      eyebrow: 'Acceso privado',
+      title: 'Bienvenido a Futuros',
       description: 'Introduce tus credenciales para acceder a la plataforma.',
       email: 'Correo electrónico',
       emailPlaceholder: 'alice@ejemplo.com',
@@ -25,7 +34,7 @@ const es = {
     },
     register: {
       eyebrow: 'Nueva cuenta',
-      title: 'Crear tu cuenta',
+      title: 'Crea tu acceso',
       description: 'Empieza a construir tus análisis de foresight estratégico.',
       name: 'Nombre (opcional)',
       namePlaceholder: 'Alice Analyst',
