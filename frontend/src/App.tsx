@@ -3,11 +3,14 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { SignIn, SignUp } from '@clerk/react';
 import { queryClient } from './lib/queryClient';
 import AuthBridge from './components/AuthBridge';
+import IconSprite from './components/IconSprite';
 import ProtectedRoute from './components/ProtectedRoute';
 import DashboardPage from './features/dashboard/DashboardPage';
 import NewReportPage from './features/report/NewReportPage';
 import ReportPage from './features/report/ReportPage';
 import AccountPage from './features/account/AccountPage';
+import AuthLayout from './features/auth/AuthLayout';
+import { clerkAppearance } from './features/auth/clerkAppearance';
 import { useLanguageSync } from './hooks/useLanguageSync';
 import './features/auth/auth.css';
 
@@ -18,17 +21,29 @@ function AppRoutes() {
       <Route
         path="/sign-in/*"
         element={
-          <div className="auth-bg">
-            <SignIn routing="path" path="/sign-in" signUpUrl="/sign-up" forceRedirectUrl="/dashboard" />
-          </div>
+          <AuthLayout copyKey="auth.login">
+            <SignIn
+              routing="path"
+              path="/sign-in"
+              signUpUrl="/sign-up"
+              forceRedirectUrl="/dashboard"
+              appearance={clerkAppearance}
+            />
+          </AuthLayout>
         }
       />
       <Route
         path="/sign-up/*"
         element={
-          <div className="auth-bg">
-            <SignUp routing="path" path="/sign-up" signInUrl="/sign-in" forceRedirectUrl="/dashboard" />
-          </div>
+          <AuthLayout copyKey="auth.register">
+            <SignUp
+              routing="path"
+              path="/sign-up"
+              signInUrl="/sign-in"
+              forceRedirectUrl="/dashboard"
+              appearance={clerkAppearance}
+            />
+          </AuthLayout>
         }
       />
       <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
@@ -44,6 +59,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <IconSprite />
         <AuthBridge />
         <AppRoutes />
       </BrowserRouter>

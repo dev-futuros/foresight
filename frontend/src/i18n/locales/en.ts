@@ -10,9 +10,18 @@ const en = {
     logout: 'Log out',
   },
   auth: {
+    shell: {
+      brandTag: 'Foresight Strategy',
+      langAria: 'Language',
+      consent: 'By signing in you accept our <a href="/privacy">Privacy Policy and Terms</a>.',
+      footerLine: 'FUTUROS · FORESIGHT STRATEGY · RESTRICTED USE TOOL · BETA',
+      copyright: '© 2026 Futuros',
+      privacyLink: 'Privacy and Terms',
+      contact: 'hello@futuros.io',
+    },
     login: {
-      eyebrow: 'Sign in',
-      title: 'Welcome back',
+      eyebrow: 'Private access',
+      title: 'Welcome to Futuros',
       description: 'Enter your credentials to access the platform.',
       email: 'Email address',
       emailPlaceholder: 'alice@example.com',
@@ -25,7 +34,7 @@ const en = {
     },
     register: {
       eyebrow: 'New account',
-      title: 'Create your account',
+      title: 'Create your access',
       description: 'Start building your strategic foresight analyses.',
       name: 'Name (optional)',
       namePlaceholder: 'Alice Analyst',

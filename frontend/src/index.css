@@ -1,45 +1,91 @@
-/* Global design system — ported 1:1 from demo (Futuros — Foresight Strategy app.html). */
+/* ============================================================
+   FUTUROS — Foresight Strategy
+   Global tokens + base styles (Phase 1 — foundation)
+   Ported 1:1 from demo.futuros.io/src/prod/app.html
+   ============================================================ */
+
 :root {
-  /* Backgrounds */
-  --bg: #09090b;
-  --bg-card: #111113;
-  --bg-el: #1a1a1d;
+  /* ── surfaces ───────────────────────────────────────────── */
+  --bg:         #08080b;
+  --surface-1:  #0e0e12;
+  --surface-2:  #14141a;
+  --surface-3:  #1a1a22;
+  --surface-hi: #20202a;
 
-  /* Borders — values match the demo exactly */
-  --border: rgba(255, 255, 255, 0.07);
-  --border-h: rgba(255, 255, 255, 0.13);
-  --border-a: rgba(212, 168, 83, 0.35);
+  /* ── lines ──────────────────────────────────────────────── */
+  --line:        hsla(0, 0%, 100%, 0.06);
+  --line-strong: hsla(0, 0%, 100%, 0.11);
+  --line-accent: hsla(40, 60%, 56%, 0.30);
 
-  /* Text */
-  --text: #f0ece4;
-  --muted: #8a8680;
+  /* ── text ───────────────────────────────────────────────── */
+  --ink:       #f0ece4;
+  --ink-soft:  #b8b3aa;
+  --ink-mute:  #6e6a64;
+  --ink-faint: #3e3b37;
 
-  /* Accent (gold) — values match the demo exactly */
-  --accent: #d4a853;
-  --accent-bg: rgba(212, 168, 83, 0.10);
+  /* ── accent (use sparingly) ─────────────────────────────── */
+  --gold:      #d4a853;
+  --gold-soft: #c69839;
+  --gold-bg:   hsla(40, 60%, 56%, 0.08);
+  --gold-bg-2: hsla(40, 60%, 56%, 0.14);
 
-  /* Status colours */
-  --blue: #60a5fa;
-  --green: #4ade80;
-  --red: #f87171;
-  --purple: #c084fc;
-  --orange: #fb923c;
+  /* ── semantic palette (use only for meaning) ────────────── */
+  --green:     #6ee7b7;
+  --green-bg:  hsla(160, 64%, 67%, 0.10);
+  --blue:      #93bff8;
+  --blue-bg:   hsla(213, 88%, 78%, 0.10);
+  --red:       #fb8e8e;
+  --red-bg:    hsla(0, 80%, 70%, 0.07);
+  --purple:    #d6bdfb;
+  --purple-bg: hsla(266, 88%, 86%, 0.10);
+  --orange:    #fbb77b;
+  --orange-bg: hsla(28, 90%, 73%, 0.10);
 
-  /* Legacy / pre-demo aliases — some non-wizard pages still reference these. */
-  --bg2: #0f0f11;
-  --bg3: var(--bg-card);
-  --bg4: var(--bg-el);
-  --text2: #c8c4bc;
-  --dim: #4b5563;
-  --gold: var(--accent);
-  --gold2: #b8863c;
-  --gold-bg: var(--accent-bg);
-  --gold-bg2: rgba(212, 168, 83, 0.18);
-  --border-g: var(--border-a);
+  /* ── legacy aliases — pre-existing CSS files reference these ─ */
+  --bg-card:    var(--surface-1);
+  --bg-el:      var(--surface-3);
+  --bg2:        #0f0f11;
+  --bg3:        var(--surface-1);
+  --bg4:        var(--surface-3);
+  --border:     var(--line);
+  --border-h:   var(--line-strong);
+  --border-a:   var(--line-accent);
+  --border-g:   var(--line-accent);
+  --text:       var(--ink);
+  --text2:      var(--ink-soft);
+  --muted:      var(--ink-mute);
+  --dim:        var(--ink-faint);
+  --accent:     var(--gold);
+  --accent-bg:  var(--gold-bg);
+  --gold2:      var(--gold-soft);
+  --gold-bg2:   var(--gold-bg-2);
 
-  --font-sans: 'DM Sans', system-ui, sans-serif;
-  --font-mono: 'DM Mono', ui-monospace, monospace;
-  --font-serif: 'Playfair Display', Georgia, serif;
+  /* ── type ───────────────────────────────────────────────── */
+  --serif:     'Playfair Display', 'Times New Roman', serif;
+  --sans:      'DM Sans', system-ui, -apple-system, sans-serif;
+  --mono:      'DM Mono', 'JetBrains Mono', ui-monospace, monospace;
+  --font-serif: var(--serif);
+  --font-sans:  var(--sans);
+  --font-mono:  var(--mono);
+
+  /* ── radius ─────────────────────────────────────────────── */
+  --r-sm:   6px;
+  --r-md:   10px;
+  --r-lg:   14px;
+  --r-xl:   20px;
+  --r-pill: 999px;
+
+  /* ── shadows ────────────────────────────────────────────── */
+  --shadow-1: 0 1px 0 hsla(0, 0%, 100%, 0.04) inset;
+  --shadow-2: 0 1px 0 hsla(0, 0%, 100%, 0.04) inset, 0 12px 28px -12px rgba(0, 0, 0, 0.5);
+  --shadow-3: 0 1px 0 hsla(0, 0%, 100%, 0.05) inset, 0 24px 48px -16px rgba(0, 0, 0, 0.6);
+
+  /* ── motion ─────────────────────────────────────────────── */
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  /* ── layout ─────────────────────────────────────────────── */
+  --container:        1080px;
+  --container-narrow: 920px;
 }
 
 *, *::before, *::after {
@@ -48,44 +94,100 @@
   padding: 0;
 }
 
-html, body, #root {
-  height: 100%;
-}
+html { scroll-behavior: smooth; }
+html, body, #root { height: 100%; }
 
 body {
   background: var(--bg);
-  color: var(--text);
-  font-family: var(--font-sans);
-  font-weight: 400;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.6;
+  min-height: 100vh;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  position: relative;
+  text-rendering: optimizeLegibility;
 }
 
-/* Subtle noise texture — ported from prototype */
+/* page background atmosphere — very subtle, doesn't overpower */
 body::before {
   content: '';
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.4;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='1' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.03 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  background-image:
+    radial-gradient(circle at 85% 0%, hsla(40, 60%, 56%, 0.05) 0%, transparent 40%),
+    radial-gradient(circle at 0%  100%, hsla(40, 60%, 56%, 0.035) 0%, transparent 38%);
 }
 
 #root {
-  display: flex;
-  flex-direction: column;
   position: relative;
   z-index: 1;
+  display: flex;
+  flex-direction: column;
 }
 
-a {
-  color: var(--gold);
-  text-decoration: none;
+::selection { background: var(--gold-bg-2); color: var(--ink); }
+
+a { color: inherit; text-decoration: none; }
+a:hover { color: var(--gold); }
+img, svg { display: block; max-width: 100%; }
+button { font-family: inherit; }
+
+/* ============================================================
+   SCROLLBARS — custom styling for all scrollable areas
+   ============================================================ */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-hi) transparent;
 }
-a:hover {
-  text-decoration: underline;
+*::-webkit-scrollbar       { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: var(--surface-hi);
+  border: 2px solid var(--bg);
+  border-radius: 999px;
+  transition: background 200ms var(--ease);
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--ink-faint); }
+*::-webkit-scrollbar-corner      { background: transparent; }
+
+/* Textareas have their own background — match thumb to surface */
+textarea {
+  scrollbar-color: var(--ink-faint) transparent;
+}
+textarea::-webkit-scrollbar-thumb {
+  background: var(--ink-faint);
+  border: 2px solid var(--surface-3);
+  border-radius: 999px;
+}
+textarea::-webkit-scrollbar-thumb:hover { background: var(--ink-mute); }
+
+/* ============================================================
+   ICON SYSTEM (SVG sprite via <use href="#i-…">)
+   ============================================================ */
+.icon-sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+.ico {
+  width: 100%; height: 100%;
+  display: block;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ============================================================
+   UTILITY CLASSES
+   ============================================================ */
+.hidden { display: none !important; }
+.visually-hidden {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
 }
 
 .loading-screen {
@@ -93,8 +195,8 @@ a:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: var(--font-mono);
+  font-family: var(--mono);
   font-size: 0.75rem;
-  color: var(--muted);
+  color: var(--ink-mute);
   letter-spacing: 0.1em;
 }
