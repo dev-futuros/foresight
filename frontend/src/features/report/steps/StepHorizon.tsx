@@ -20,9 +20,13 @@ interface Props {
   isSubmitting: boolean;
 }
 
+/** Cap suggestions defensively — AI is asked for 3–5 but may return more. */
+const MAX_SUGGESTIONS = 5;
+
 type SuggestionsByKey = Partial<Record<HorizonKey, SuggestionItem[]>>;
 type LoadingByKey = Partial<Record<HorizonKey, boolean>>;
 type ErrorByKey = Partial<Record<HorizonKey, string>>;
+type UsedByKey = Partial<Record<HorizonKey, boolean>>;
 
 export default function StepHorizon({
   data,
@@ -37,18 +41,20 @@ export default function StepHorizon({
   const [suggestions, setSuggestions] = useState<SuggestionsByKey>({});
   const [loading, setLoading] = useState<LoadingByKey>({});
   const [errors, setErrors] = useState<ErrorByKey>({});
+  /** Mirror of StepSteep: one shot per horizon, no re-runs. */
+  const [used, setUsed] = useState<UsedByKey>({});
   const max = useMaximizable<HorizonKey>();
 
   const hasAny = HORIZON_KEYS.some((k) => data[k].trim());
   const canSuggest = companyProfile.trim().length > 0;
 
   async function requestSuggestions(horizon: HorizonKey) {
-    if (!canSuggest) return;
+    if (!canSuggest || used[horizon]) return;
     setLoading((prev) => ({ ...prev, [horizon]: true }));
     setErrors((prev) => ({ ...prev, [horizon]: undefined }));
     try {
       const items = await suggestHorizon({ horizon, companyProfile, language });
-      setSuggestions((prev) => ({ ...prev, [horizon]: items }));
+      setSuggestions((prev) => ({ ...prev, [horizon]: items.slice(0, MAX_SUGGESTIONS) }));
     } catch (e) {
       setErrors((prev) => ({
         ...prev,
@@ -56,6 +62,9 @@ export default function StepHorizon({
       }));
     } finally {
       setLoading((prev) => ({ ...prev, [horizon]: false }));
+      // One-shot: mark used regardless of outcome so the user can't spam the
+      // AI on errors. They can still type signals manually.
+      setUsed((prev) => ({ ...prev, [horizon]: true }));
     }
   }
 
@@ -80,6 +89,7 @@ export default function StepHorizon({
           const isMax = max.isMaximized(key);
           const bandSuggestions = suggestions[key] ?? [];
           const bandLoading = loading[key] ?? false;
+          const bandUsed = used[key] ?? false;
           const bandError = errors[key];
           return (
             <div key={key} className={`h-card ${k}${isMax ? ' maximized' : ''}`}>
@@ -95,10 +105,10 @@ export default function StepHorizon({
                 </div>
                 <div className="card-actions">
                   <button
-                    className="btn btn-ai"
+                    className={`btn btn-ai${bandUsed && !bandLoading ? ' used' : ''}`}
                     type="button"
                     onClick={() => requestSuggestions(key)}
-                    disabled={bandLoading || !canSuggest}
+                    disabled={bandLoading || bandUsed || !canSuggest}
                     title={
                       canSuggest
                         ? t('wizard.horizon.aiTooltip')

@@ -35,9 +35,14 @@ const DIM_META: Record<DimensionKey, { icon: string; modifier: string }> = {
   political:     { icon: 'i-p',   modifier: 'p'   },
 };
 
+/** Suggestions are capped at 5 per dimension — AI prompt asks for 3–5 but may
+ *  occasionally return more; cap defensively so the UI doesn't overflow. */
+const MAX_SUGGESTIONS = 5;
+
 type SuggestionsByDim = Partial<Record<DimensionKey, SuggestionItem[]>>;
 type LoadingByDim = Partial<Record<DimensionKey, boolean>>;
 type ErrorByDim = Partial<Record<DimensionKey, string>>;
+type UsedByDim = Partial<Record<DimensionKey, boolean>>;
 
 export default function StepSteep({
   data,
@@ -51,18 +56,21 @@ export default function StepSteep({
   const [suggestions, setSuggestions] = useState<SuggestionsByDim>({});
   const [loading, setLoading] = useState<LoadingByDim>({});
   const [errors, setErrors] = useState<ErrorByDim>({});
+  /** Once the AI has been queried for a dimension we don't allow re-runs —
+   *  keeps token cost predictable and matches the demo's behaviour. */
+  const [used, setUsed] = useState<UsedByDim>({});
   const max = useMaximizable<DimensionKey>();
 
   const hasAny = DIMENSION_KEYS.some((k) => data[k].trim());
   const canSuggest = companyProfile.trim().length > 0;
 
   async function requestSuggestions(dim: DimensionKey) {
-    if (!canSuggest) return;
+    if (!canSuggest || used[dim]) return;
     setLoading((prev) => ({ ...prev, [dim]: true }));
     setErrors((prev) => ({ ...prev, [dim]: undefined }));
     try {
       const items = await suggestSteep({ dimension: dim, companyProfile, language });
-      setSuggestions((prev) => ({ ...prev, [dim]: items }));
+      setSuggestions((prev) => ({ ...prev, [dim]: items.slice(0, MAX_SUGGESTIONS) }));
     } catch (e) {
       setErrors((prev) => ({
         ...prev,
@@ -70,6 +78,10 @@ export default function StepSteep({
       }));
     } finally {
       setLoading((prev) => ({ ...prev, [dim]: false }));
+      // Mark used regardless of outcome — strict one-shot behaviour. If the
+      // request errored, the user keeps the visible error and falls back to
+      // typing factors by hand.
+      setUsed((prev) => ({ ...prev, [dim]: true }));
     }
   }
 
@@ -94,6 +106,7 @@ export default function StepSteep({
           const isMax = max.isMaximized(key);
           const dimSuggestions = suggestions[key] ?? [];
           const dimLoading = loading[key] ?? false;
+          const dimUsed = used[key] ?? false;
           const dimError = errors[key];
           const meta = DIM_META[key];
           return (
@@ -117,10 +130,10 @@ export default function StepSteep({
                 </div>
                 <div className="card-actions">
                   <button
-                    className="btn btn-ai"
+                    className={`btn btn-ai${dimUsed && !dimLoading ? ' used' : ''}`}
                     type="button"
                     onClick={() => requestSuggestions(key)}
-                    disabled={dimLoading || !canSuggest}
+                    disabled={dimLoading || dimUsed || !canSuggest}
                     title={
                       canSuggest
                         ? t('wizard.steep.aiTooltip')
