@@ -17,26 +17,14 @@ interface Props {
   onBack: () => void;
 }
 
-const ICONS: Record<FieldKey, string> = {
-  S: '👥',
-  T: '⚡',
-  E: '💹',
-  ENV: '🌱',
-  P: '🏛️',
-};
-const ICON_BG: Record<FieldKey, string> = {
-  S: 'rgba(96,165,250,0.08)',
-  T: 'rgba(74,222,128,0.08)',
-  E: 'rgba(212,168,83,0.08)',
-  ENV: 'rgba(134,239,172,0.08)',
-  P: 'rgba(192,132,252,0.08)',
-};
-const DIM_COLOR: Record<FieldKey, string> = {
-  S: 'var(--blue)',
-  T: 'var(--green)',
-  E: 'var(--accent)',
-  ENV: '#86efac',
-  P: 'var(--purple)',
+/** Maps STEEP field keys to (a) the icon-sprite symbol id and (b) the
+ *  dim-icon / steep-dim class modifier, both defined in wizard.css. */
+const DIM_META: Record<FieldKey, { icon: string; modifier: string }> = {
+  S:   { icon: 'i-s',   modifier: 's'   },
+  T:   { icon: 'i-t',   modifier: 't'   },
+  E:   { icon: 'i-e',   modifier: 'e'   },
+  ENV: { icon: 'i-env', modifier: 'env' },
+  P:   { icon: 'i-p',   modifier: 'p'   },
 };
 
 const EMPTY_LOADING: Record<FieldKey, boolean> = {
@@ -141,37 +129,37 @@ export default function StepGlobal({
       <p className="page-desc">{t('wizard.global.description')}</p>
 
       {bulkLoading && (
-        <div className="global-loading">
-          <div className="spinner" />
-          <span className="global-loading-text">
-            {progressMsg || t('wizard.global.progress.0')}
-          </span>
+        <div className="loading-wrap">
+          <div className="spinner" aria-hidden />
+          <p className="loading-head">{progressMsg || t('wizard.global.progress.0')}</p>
         </div>
       )}
 
       {showContent && (
         <>
-          <div className="global-banner">
-            <span className="global-banner-icon">🌍</span>
-            <span className="global-banner-text">{t('wizard.global.banner')}</span>
+          <div className="callout">
+            <div className="callout-icon">
+              <svg className="ico" aria-hidden><use href="#i-globe" /></svg>
+            </div>
+            <span className="callout-text">{t('wizard.global.banner')}</span>
           </div>
 
           <div className="steep-grid">
             {FIELD_KEYS.map((key, i) => {
               const isFull = i === FIELD_KEYS.length - 1;
               const isLoading = cardLoading[key];
+              const meta = DIM_META[key];
               return (
                 <div key={key} className={`steep-card${isFull ? ' full' : ''}`}>
                   <div className="steep-head">
                     <div className="steep-info">
-                      <div className="steep-icon" style={{ background: ICON_BG[key] }}>
-                        {ICONS[key]}
+                      <div className={`dim-icon ${meta.modifier}`}>
+                        <svg className="ico" aria-hidden>
+                          <use href={`#${meta.icon}`} />
+                        </svg>
                       </div>
                       <div>
-                        <div
-                          className="steep-dim"
-                          style={{ color: DIM_COLOR[key], opacity: 0.8 }}
-                        >
+                        <div className={`steep-dim ${meta.modifier}`}>
                           {t(`wizard.global.dimensions.${key}`)}
                         </div>
                         <div className="steep-sub">{t(`wizard.global.subs.${key}`)}</div>
@@ -182,7 +170,6 @@ export default function StepGlobal({
                       type="button"
                       onClick={() => regenerateOne(key)}
                       disabled={!sector.trim() || isLoading}
-                      style={{ fontSize: '0.68rem' }}
                     >
                       {isLoading ? (
                         <span className="btn-spinner" aria-hidden />
@@ -194,7 +181,6 @@ export default function StepGlobal({
                   <textarea
                     value={data[key]}
                     onChange={(e) => onChange({ ...data, [key]: e.target.value })}
-                    style={{ minHeight: '72px', opacity: 0.9 }}
                     disabled={isLoading}
                   />
                 </div>

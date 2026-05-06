@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { UserButton, useUser } from '@clerk/react';
 import { useCurrentUser } from '../../hooks/useAuth';
@@ -15,8 +14,8 @@ const LANGUAGE_OPTIONS = [
 export default function AccountPage() {
   const { t, i18n } = useTranslation();
   const { data: user, isLoading } = useCurrentUser();
-  // Email lives in Clerk, not in our DB. Read it from Clerk's useUser() so the field stays
-  // in sync with whatever the user updated in their Clerk profile (via <UserButton />).
+  /* Email lives in Clerk, not in our DB. Read it from Clerk's useUser() so the field stays
+     in sync with whatever the user updated in their Clerk profile (via <UserButton />). */
   const { user: clerkUser } = useUser();
   const updateProfile = useUpdateProfile();
 
@@ -47,81 +46,92 @@ export default function AccountPage() {
 
   return (
     <div className="account-page">
-      <nav className="account-nav">
-        <div className="account-nav-left">
-          <Link to="/dashboard" className="btn-back-nav">{t('account.backToDashboard')}</Link>
-          <span className="account-nav-title">{t('account.title')}</span>
-        </div>
-        <div className="account-nav-right">
-          <UserButton />
-        </div>
-      </nav>
+      <main className="account-main">
+        <header className="account-header">
+          <p className="eyebrow">{t('account.eyebrow')}</p>
+          <h1 className="page-title">{t('account.title')}</h1>
+        </header>
 
-      <div className="account-content">
-        {/* Perfil — campos locales (nombre, idioma, rol). Email y contraseña se gestionan en el menú de Clerk (UserButton). */}
-        <section className="account-section">
-          <h2 className="account-section-title">{t('account.profile.title')}</h2>
-          <form className="account-form" onSubmit={handleProfileSubmit}>
-            <div className="account-field">
-              <label className="account-label">{t('account.profile.email')}</label>
+        {/* Session — Clerk-managed (email/password). The button opens Clerk's
+            account modal where users change email, set up 2FA, etc. */}
+        <section className="account-card card">
+          <div className="card-label">{t('account.sessionTitle')}</div>
+          <div className="account-session">
+            <p className="account-session-desc">{t('account.sessionDesc')}</p>
+            <div className="account-clerk-button">
+              <UserButton />
+            </div>
+          </div>
+        </section>
+
+        {/* Profile — local fields (name, role). Email is read-only (lives in Clerk). */}
+        <section className="account-card card">
+          <div className="card-label">{t('account.profile.title')}</div>
+          <form onSubmit={handleProfileSubmit}>
+            <div className="field">
+              <label htmlFor="acct-email">{t('account.profile.email')}</label>
               <input
-                className="account-input account-input--readonly"
+                id="acct-email"
+                className="account-input--readonly"
                 value={clerkUser?.primaryEmailAddress?.emailAddress ?? ''}
                 readOnly
-                aria-label={t('account.profile.email')}
               />
             </div>
-            <div className="account-field">
-              <label className="account-label">{t('account.profile.name')}</label>
+            <div className="field">
+              <label htmlFor="acct-name">{t('account.profile.name')}</label>
               <input
-                className="account-input"
+                id="acct-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder={t('account.profile.namePlaceholder')}
-                aria-label={t('account.profile.name')}
               />
             </div>
-            <div className="account-field">
-              <label className="account-label">{t('account.profile.role')}</label>
+            <div className="field">
+              <label htmlFor="acct-role">{t('account.profile.role')}</label>
               <input
-                className="account-input account-input--readonly"
+                id="acct-role"
+                className="account-input--readonly"
                 value={t(`account.roles.${user?.role ?? 'USER'}`)}
                 readOnly
-                aria-label={t('account.profile.role')}
               />
             </div>
             {profileMsg && (
               <p className={`account-msg account-msg--${profileMsg.type}`}>{profileMsg.text}</p>
             )}
-            <button type="submit" className="btn-account-save" disabled={updateProfile.isPending}>
-              {updateProfile.isPending ? t('account.profile.saving') : t('account.profile.save')}
-            </button>
+            <div className="account-actions">
+              <button type="submit" className="btn btn-primary" disabled={updateProfile.isPending}>
+                {updateProfile.isPending ? t('account.profile.saving') : t('account.profile.save')}
+              </button>
+            </div>
           </form>
         </section>
 
-        {/* Preferencias */}
-        <section className="account-section">
-          <h2 className="account-section-title">{t('account.preferences.title')}</h2>
-          <form className="account-form" onSubmit={handleProfileSubmit}>
-            <div className="account-field">
-              <label className="account-label">{t('account.preferences.language')}</label>
+        {/* Preferences — language. */}
+        <section className="account-card card">
+          <div className="card-label">{t('account.preferences.title')}</div>
+          <form onSubmit={handleProfileSubmit}>
+            <div className="field">
+              <label htmlFor="acct-lang">{t('account.preferences.language')}</label>
               <select
-                className="account-input account-select"
+                id="acct-lang"
                 value={language}
                 onChange={(e) => setLanguage(e.target.value as 'es' | 'en')}
-                aria-label={t('account.preferences.language')}
               >
                 {LANGUAGE_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
                 ))}
               </select>
             </div>
-            <button type="submit" className="btn-account-save" disabled={updateProfile.isPending}>
-              {updateProfile.isPending ? t('account.preferences.saving') : t('account.preferences.save')}
-            </button>
+            <div className="account-actions">
+              <button type="submit" className="btn btn-primary" disabled={updateProfile.isPending}>
+                {updateProfile.isPending ? t('account.preferences.saving') : t('account.preferences.save')}
+              </button>
+            </div>
           </form>
         </section>
-      </div>
+      </main>
     </div>
   );
 }

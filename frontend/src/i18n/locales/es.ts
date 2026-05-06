@@ -2,12 +2,29 @@ const es = {
   common: {
     loading: 'Cargando…',
     retry: 'Reintentar',
+    cancel: 'Cancelar',
+    confirm: 'Confirmar',
+    close: 'Cerrar',
     togglePassword: 'Mostrar/ocultar contraseña',
     brand: 'Foresight Strategy · Powered by Claude AI',
+  },
+  modals: {
+    deleteReport: {
+      title: '¿Eliminar este informe?',
+      description: 'Esta acción no se puede deshacer.',
+      confirm: 'Eliminar',
+    },
+    export: {
+      pdf: 'Generando PDF…',
+      ppt: 'Generando PowerPoint…',
+    },
   },
   nav: {
     myAccount: 'Mi cuenta',
     logout: 'Cerrar sesión',
+    dashboard: 'Dashboard',
+    brandTag: 'Foresight Strategy · Powered by AI',
+    footerTag: 'Foresight Strategy · Powered by AI',
   },
   auth: {
     shell: {
@@ -196,17 +213,29 @@ const es = {
     },
   },
   dashboard: {
-    title: 'Mis informes',
+    eyebrow: 'Panel de control',
+    title: 'Dashboard',
     reports_one: '{{count}} informe',
     reports_other: '{{count}} informes',
-    newReport: 'Nuevo informe',
+    newReport: '+ Nuevo informe',
+    savedLabel: 'Informes guardados',
     loading: 'Cargando informes…',
     errorLoading: 'Error al cargar los informes.',
     deleteLabel: 'Eliminar informe',
     deleteTitle: 'Eliminar',
-    emptyTitle: 'Aún no tienes informes',
+    emptyTitle: 'Aún no hay informes guardados',
     emptyDesc: 'Crea tu primer informe de foresight estratégico.',
     deleteConfirm: '¿Eliminar este informe? Esta acción no se puede deshacer.',
+    actions: {
+      view: 'Ver',
+      delete: 'Eliminar',
+    },
+    stat: {
+      reports: 'Informes generados',
+      completed: 'Completados',
+      inProgress: 'En progreso',
+      failed: 'Con error',
+    },
     status: {
       DRAFT: 'Borrador',
       PROCESSING: 'Procesando',
@@ -270,9 +299,12 @@ const es = {
     },
   },
   account: {
+    eyebrow: 'Cuenta',
     title: 'Mi cuenta',
     backToDashboard: '← Mis informes',
     loading: 'Cargando perfil…',
+    sessionTitle: 'Sesión',
+    sessionDesc: 'Gestiona tu correo y contraseña desde el menú de Clerk.',
     profile: {
       title: 'Perfil',
       email: 'Email',
@@ -316,6 +348,13 @@ const es = {
       resendSuccess: 'Correo enviado. Revisa tu bandeja.',
       resendError: 'No se pudo enviar el correo. Inténtalo de nuevo.',
     },
+  },
+  privacy: {
+    eyebrow: 'Documento legal',
+    title: 'Privacidad y Términos',
+    lede: 'Cómo tratamos tu información cuando usas Futuros.',
+    updated: 'Última actualización: 6 de mayo de 2026',
+    backLink: '← Volver',
   },
 } as const;
 

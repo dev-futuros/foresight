@@ -1,8 +1,9 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useCallback, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useCreateReport } from '../../hooks/useReports';
 import { useCurrentUser } from '../../hooks/useAuth';
+import { useSetStepper } from '../shell/StepperContext';
 import StepEmpresa, { type EmpresaData } from './steps/StepEmpresa';
 import StepGlobal, { type GlobalSteepData } from './steps/StepGlobal';
 import StepSteep, { type SteepData } from './steps/StepSteep';
@@ -37,6 +38,14 @@ export default function NewReportPage() {
   const createReport = useCreateReport();
   const { data: user } = useCurrentUser();
   const [step, setStep] = useState(1);
+  // Highest step the user has ever reached. Lets the stepper allow forward
+  // jumps to already-visited steps in addition to back-nav.
+  const [maxReached, setMaxReached] = useState(1);
+
+  const goToStep = useCallback((n: number) => {
+    setStep(n);
+    setMaxReached((prev) => Math.max(prev, n));
+  }, []);
 
   const language: 'es' | 'en' =
     user?.language === 'en' || i18n.language === 'en' ? 'en' : 'es';
@@ -49,14 +58,26 @@ export default function NewReportPage() {
   // Step bar mirrors the demo verbatim: 6 items including the post-submit "Análisis"
   // and "Resultados" tabs. The wizard itself only navigates through 1-4; 5-6 are
   // surfaced visually so the progression matches the prototype.
-  const steps = [
-    { n: 1, label: t('wizard.steps.empresa') },
-    { n: 2, label: t('wizard.steps.global') },
-    { n: 3, label: t('wizard.steps.steep') },
-    { n: 4, label: t('wizard.steps.horizon') },
-    { n: 5, label: t('wizard.steps.analysis') },
-    { n: 6, label: t('wizard.steps.results') },
-  ];
+  const steps = useMemo(
+    () => [
+      { n: 1, label: t('wizard.steps.empresa') },
+      { n: 2, label: t('wizard.steps.global') },
+      { n: 3, label: t('wizard.steps.steep') },
+      { n: 4, label: t('wizard.steps.horizon') },
+      { n: 5, label: t('wizard.steps.analysis') },
+      { n: 6, label: t('wizard.steps.results') },
+    ],
+    [t],
+  );
+
+  // Push step state up to the AppShell so the sticky stepper renders below the
+  // topbar. Memoised so useSetStepper's effect only re-fires when the user
+  // navigates a step or the locale changes (steps array re-built from t).
+  const stepperState = useMemo(
+    () => ({ steps, current: step, maxReached, onSelect: goToStep }),
+    [steps, step, maxReached, goToStep],
+  );
+  useSetStepper(stepperState);
 
   const companyProfile = empresa.name
     ? `${empresa.name} — ${empresa.sector}. ${empresa.challenge}. (${empresa.horizon}y)`
@@ -79,31 +100,9 @@ export default function NewReportPage() {
 
   return (
     <div className="wizard">
-      <header className="header">
-        <div className="header-left">
-          <Link to="/dashboard" className="logo-link">
-            <span className="logo">Futuros</span>
-            <span className="logo-sub">{t('common.brand')}</span>
-          </Link>
-        </div>
-        <nav className="step-bar" aria-label="wizard progress">
-          {steps.map((s) => (
-            <div
-              key={s.n}
-              className={`step-item${step === s.n ? ' active' : ''}${
-                step > s.n ? ' done' : ''
-              }`}
-            >
-              <div className="step-dot">{step > s.n ? '✓' : s.n}</div>
-              <span>{s.label}</span>
-            </div>
-          ))}
-        </nav>
-      </header>
-
       <main className="main">
         {step === 1 && (
-          <StepEmpresa data={empresa} onChange={setEmpresa} onNext={() => setStep(2)} />
+          <StepEmpresa data={empresa} onChange={setEmpresa} onNext={() => goToStep(2)} />
         )}
         {step === 2 && (
           <StepGlobal
@@ -111,8 +110,8 @@ export default function NewReportPage() {
             sector={empresa.sector}
             language={language}
             onChange={setGlobalData}
-            onNext={() => setStep(3)}
-            onBack={() => setStep(1)}
+            onNext={() => goToStep(3)}
+            onBack={() => goToStep(1)}
           />
         )}
         {step === 3 && (
@@ -121,8 +120,8 @@ export default function NewReportPage() {
             companyProfile={companyProfile}
             language={language}
             onChange={setSteep}
-            onNext={() => setStep(4)}
-            onBack={() => setStep(2)}
+            onNext={() => goToStep(4)}
+            onBack={() => goToStep(2)}
           />
         )}
         {step === 4 && (
@@ -132,7 +131,7 @@ export default function NewReportPage() {
             language={language}
             onChange={setHorizon}
             onSubmit={handleSubmit}
-            onBack={() => setStep(3)}
+            onBack={() => goToStep(3)}
             isSubmitting={createReport.isPending}
           />
         )}

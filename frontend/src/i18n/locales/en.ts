@@ -2,12 +2,29 @@ const en = {
   common: {
     loading: 'Loading…',
     retry: 'Retry',
+    cancel: 'Cancel',
+    confirm: 'Confirm',
+    close: 'Close',
     togglePassword: 'Show/hide password',
     brand: 'Foresight Strategy · Powered by Claude AI',
+  },
+  modals: {
+    deleteReport: {
+      title: 'Delete this report?',
+      description: 'This action cannot be undone.',
+      confirm: 'Delete',
+    },
+    export: {
+      pdf: 'Generating PDF…',
+      ppt: 'Generating PowerPoint…',
+    },
   },
   nav: {
     myAccount: 'My account',
     logout: 'Log out',
+    dashboard: 'Dashboard',
+    brandTag: 'Foresight Strategy · Powered by AI',
+    footerTag: 'Foresight Strategy · Powered by AI',
   },
   auth: {
     shell: {
@@ -196,17 +213,29 @@ const en = {
     },
   },
   dashboard: {
-    title: 'My reports',
+    eyebrow: 'Control panel',
+    title: 'Dashboard',
     reports_one: '{{count}} report',
     reports_other: '{{count}} reports',
-    newReport: 'New report',
+    newReport: '+ New report',
+    savedLabel: 'Saved reports',
     loading: 'Loading reports…',
     errorLoading: 'Could not load reports.',
     deleteLabel: 'Delete report',
     deleteTitle: 'Delete',
-    emptyTitle: 'No reports yet',
+    emptyTitle: 'No saved reports yet',
     emptyDesc: 'Create your first strategic foresight report.',
     deleteConfirm: 'Delete this report? This action cannot be undone.',
+    actions: {
+      view: 'View',
+      delete: 'Delete',
+    },
+    stat: {
+      reports: 'Reports generated',
+      completed: 'Completed',
+      inProgress: 'In progress',
+      failed: 'Failed',
+    },
     status: {
       DRAFT: 'Draft',
       PROCESSING: 'Processing',
@@ -270,9 +299,12 @@ const en = {
     },
   },
   account: {
+    eyebrow: 'Account',
     title: 'My account',
     backToDashboard: '← My reports',
     loading: 'Loading profile…',
+    sessionTitle: 'Session',
+    sessionDesc: 'Manage your email and password via the Clerk menu.',
     profile: {
       title: 'Profile',
       email: 'Email',
@@ -316,6 +348,13 @@ const en = {
       resendSuccess: 'Email sent. Check your inbox.',
       resendError: 'Could not send the email. Please try again.',
     },
+  },
+  privacy: {
+    eyebrow: 'Legal document',
+    title: 'Privacy and Terms',
+    lede: 'How we handle your information when you use Futuros.',
+    updated: 'Last updated: 6 May 2026',
+    backLink: '← Back',
   },
 } as const;
 

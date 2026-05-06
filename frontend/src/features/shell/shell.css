@@ -1,0 +1,301 @@
+/* ============================================================
+   APP SHELL — TopBar + Stepper + AppFooter
+   Ported from demo.futuros.io/src/prod/app.html (topbar, stepper,
+   app-footer, btn-ghost, app-busy blocks).
+   ============================================================ */
+
+.app-shell {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Flex grower around <Outlet />. Pushes AppFooter to the bottom on short
+   pages and grows with the page on tall ones.
+   - flex: 1 0 auto keeps flex-basis at the content's natural height (so the
+     item grows with content) AND lets it expand to fill remaining space.
+   - DO NOT add min-height: 0 here — that would let content overflow the
+     allocated flex space without expanding it, leaving the footer stuck. */
+.app-main {
+  flex: 1 0 auto;
+}
+
+/* ============================================================
+   APP-BUSY STATE — disables nav while a flow is running.
+   Pages can toggle `body.app-busy` (added in phase 5 wizard work).
+   ============================================================ */
+body.app-busy .topbar,
+body.app-busy .stepper {
+  pointer-events: none;
+}
+body.app-busy .topbar .btn-ghost,
+body.app-busy .topbar .brand,
+body.app-busy .stepper-item {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   TOP BAR
+   ============================================================ */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: hsla(240, 8%, 5%, 0.85);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(20px) saturate(140%);
+}
+.topbar-inner {
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.topbar .brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+  /* Override the global <a> rule so the brand never picks up :hover gold. */
+  text-decoration: none;
+}
+.topbar .brand:hover { color: inherit; }
+.topbar .brand-text { display: flex; flex-direction: column; line-height: 1.1; }
+.topbar .brand-name {
+  font-family: var(--serif);
+  font-size: 26px;
+  color: var(--gold);
+  letter-spacing: -0.005em;
+  line-height: 1.15;
+}
+.topbar .brand-tag {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-mute);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-top: 5px;
+}
+.topbar-spacer { flex: 1; }
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Ghost button — used in topbar actions. Same base as prototype's .btn-ghost. */
+.btn-ghost {
+  padding: 8px 14px;
+  font-family: var(--mono);
+  font-size: 12px;
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+  border-radius: var(--r-sm);
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 180ms var(--ease);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-ghost:hover {
+  border-color: var(--line-accent);
+  color: var(--gold);
+  background: transparent;
+}
+
+/* ============================================================
+   STEPPER — desktop list + mobile compact bar
+   ============================================================ */
+.stepper {
+  border-bottom: 1px solid var(--line);
+  background: hsla(240, 8%, 5%, 0.85);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(20px) saturate(140%);
+  position: sticky;
+  top: 78px;
+  z-index: 99;
+}
+.stepper-inner {
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.stepper-list {
+  display: flex;
+  align-items: stretch;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.stepper-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-mute);
+  letter-spacing: 0.04em;
+  position: relative;
+  flex: 0 0 auto;
+  transition: color 220ms;
+  user-select: none;
+}
+.stepper-item + .stepper-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 1px;
+  height: 14px;
+  background: var(--line);
+  transform: translateY(-50%);
+}
+.stepper-num {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  display: grid;
+  place-items: center;
+  font-size: 9px;
+  flex-shrink: 0;
+  transition: all 220ms;
+}
+.stepper-item.active { color: var(--gold); }
+.stepper-item.active .stepper-num {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #0a0a0a;
+  font-weight: 700;
+}
+.stepper-item.done {
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.stepper-item.done .stepper-num {
+  border-color: var(--ink-soft);
+  background: hsla(0, 0%, 100%, 0.025);
+}
+.stepper-item.done:hover {
+  color: var(--ink);
+}
+.stepper-item.done:hover .stepper-num {
+  border-color: var(--ink);
+  background: hsla(0, 0%, 100%, 0.06);
+}
+.stepper-item.done:focus-visible {
+  outline: 2px solid var(--gold-soft);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+
+/* Mobile compact — hidden by default, shown via media query */
+.stepper-mobile {
+  display: none;
+  padding: 12px 24px;
+  align-items: center;
+  gap: 12px;
+}
+.stepper-mobile-num {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--gold);
+  letter-spacing: 0.08em;
+  flex-shrink: 0;
+}
+.stepper-mobile-label {
+  font-family: var(--sans);
+  font-size: 13px;
+  color: var(--ink);
+  font-weight: 500;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stepper-bar {
+  flex: 0 0 64px;
+  height: 2px;
+  background: var(--line);
+  border-radius: 1px;
+  overflow: hidden;
+}
+.stepper-bar-fill {
+  height: 100%;
+  background: var(--gold);
+  transition: width 320ms var(--ease);
+}
+
+/* ============================================================
+   APP FOOTER — small in-app footer
+   ============================================================ */
+.app-footer {
+  padding: 28px 24px 36px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-mute);
+  letter-spacing: 0.06em;
+  border-top: 1px solid var(--line);
+  margin-top: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  line-height: 1.6;
+}
+.app-footer-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0;
+}
+.app-footer-row .sep {
+  margin: 0 12px;
+  color: var(--ink-faint);
+}
+.app-footer a {
+  color: var(--ink-mute);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(110, 106, 100, 0.3);
+  transition: color 200ms, border-color 200ms;
+  padding-bottom: 1px;
+}
+.app-footer a:hover {
+  color: var(--gold);
+  border-bottom-color: rgba(212, 168, 83, 0.5);
+}
+.app-footer-tag {
+  font-size: 9.5px;
+  color: var(--ink-mute);
+  opacity: 0.5;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 980px) {
+  .stepper-list { display: none; }
+  .stepper-mobile { display: flex; }
+}
+
+@media (max-width: 720px) {
+  .topbar-inner { padding: 12px 16px; }
+  .stepper-inner { padding: 0 16px; }
+  .topbar-actions { gap: 6px; }
+  .btn-ghost { padding: 7px 10px; font-size: 11px; }
+}

@@ -94,8 +94,12 @@
   padding: 0;
 }
 
-html { scroll-behavior: smooth; }
-html, body, #root { height: 100%; }
+html { scroll-behavior: smooth; height: 100%; }
+body { min-height: 100%; }
+/* #root must grow with content (not be pinned at 100% of body) — otherwise
+   the AppShell's footer can't be pushed down when a page's content exceeds
+   the viewport height. */
+#root { min-height: 100%; }
 
 body {
   background: var(--bg);
@@ -103,7 +107,6 @@ body {
   font-family: var(--sans);
   font-size: 14px;
   line-height: 1.6;
-  min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }

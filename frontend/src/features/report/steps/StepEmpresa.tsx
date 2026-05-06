@@ -123,22 +123,21 @@ export default function StepEmpresa({ data, onChange, onNext }: Props) {
           />
         </div>
 
-        <div className="field field-flush">
+        <div className="field">
           <label htmlFor="f-strengths">{t('wizard.empresa.strengths')}</label>
           <textarea
             id="f-strengths"
             placeholder={t('wizard.empresa.strengthsPlaceholder')}
             value={data.strengths}
             onChange={(e) => onChange({ ...data, strengths: e.target.value })}
-            style={{ minHeight: '60px' }}
           />
         </div>
       </div>
 
-      <div className="card" style={{ borderColor: 'var(--border-a)', marginTop: '0.75rem' }}>
+      <div className="card is-accent">
         <div className="card-label">{t('wizard.empresa.consultantLabel')}</div>
         <div className="g2">
-          <div className="field field-flush">
+          <div className="field">
             <label htmlFor="f-consultant-name">{t('wizard.empresa.consultantName')}</label>
             <input
               id="f-consultant-name"
@@ -148,7 +147,7 @@ export default function StepEmpresa({ data, onChange, onNext }: Props) {
               onChange={(e) => onChange({ ...data, consultantName: e.target.value })}
             />
           </div>
-          <div className="field field-flush">
+          <div className="field">
             <label htmlFor="f-consultant-company">{t('wizard.empresa.consultantCompany')}</label>
             <input
               id="f-consultant-company"
@@ -161,9 +160,9 @@ export default function StepEmpresa({ data, onChange, onNext }: Props) {
         </div>
       </div>
 
-      <div className="card" style={{ borderColor: 'var(--border-a)', marginTop: '0.75rem' }}>
+      <div className="card is-accent">
         <div className="card-label">{t('wizard.empresa.titleLabel')}</div>
-        <div className="field field-flush">
+        <div className="field">
           <label htmlFor="f-title">{t('wizard.empresa.titleField')}</label>
           <input
             id="f-title"

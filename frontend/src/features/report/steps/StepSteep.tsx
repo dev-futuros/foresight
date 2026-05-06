@@ -24,26 +24,14 @@ interface Props {
   onBack: () => void;
 }
 
-const ICONS: Record<DimensionKey, string> = {
-  social: '👥',
-  technological: '⚡',
-  economic: '💹',
-  environmental: '🌱',
-  political: '🏛️',
-};
-const ICON_BG: Record<DimensionKey, string> = {
-  social: 'rgba(96,165,250,0.1)',
-  technological: 'rgba(74,222,128,0.1)',
-  economic: 'rgba(212,168,83,0.1)',
-  environmental: 'rgba(134,239,172,0.1)',
-  political: 'rgba(192,132,252,0.1)',
-};
-const DIM_COLOR: Record<DimensionKey, string> = {
-  social: 'var(--blue)',
-  technological: 'var(--green)',
-  economic: 'var(--accent)',
-  environmental: '#86efac',
-  political: 'var(--purple)',
+/** Maps STEEP dimensions to (a) the icon-sprite symbol id and (b) the
+ *  dim-icon / steep-dim class modifier, both defined in wizard.css. */
+const DIM_META: Record<DimensionKey, { icon: string; modifier: string }> = {
+  social:        { icon: 'i-s',   modifier: 's'   },
+  technological: { icon: 'i-t',   modifier: 't'   },
+  economic:      { icon: 'i-e',   modifier: 'e'   },
+  environmental: { icon: 'i-env', modifier: 'env' },
+  political:     { icon: 'i-p',   modifier: 'p'   },
 };
 
 type SuggestionsByDim = Partial<Record<DimensionKey, SuggestionItem[]>>;
@@ -101,15 +89,18 @@ export default function StepSteep({
           const dimSuggestions = suggestions[key] ?? [];
           const dimLoading = loading[key] ?? false;
           const dimError = errors[key];
+          const meta = DIM_META[key];
           return (
             <div key={key} className={`steep-card${isFull ? ' full' : ''}`}>
               <div className="steep-head">
                 <div className="steep-info">
-                  <div className="steep-icon" style={{ background: ICON_BG[key] }}>
-                    {ICONS[key]}
+                  <div className={`dim-icon ${meta.modifier}`}>
+                    <svg className="ico" aria-hidden>
+                      <use href={`#${meta.icon}`} />
+                    </svg>
                   </div>
                   <div>
-                    <div className="steep-dim" style={{ color: DIM_COLOR[key] }}>
+                    <div className={`steep-dim ${meta.modifier}`}>
                       {t(`wizard.steep.dimensions.${key}`)}
                     </div>
                     <div className="steep-sub">{t(`wizard.steep.subs.${key}`)}</div>

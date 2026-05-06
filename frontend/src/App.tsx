@@ -9,8 +9,10 @@ import DashboardPage from './features/dashboard/DashboardPage';
 import NewReportPage from './features/report/NewReportPage';
 import ReportPage from './features/report/ReportPage';
 import AccountPage from './features/account/AccountPage';
+import PrivacyPage from './features/privacy/PrivacyPage';
 import AuthLayout from './features/auth/AuthLayout';
 import { clerkAppearance } from './features/auth/clerkAppearance';
+import AppShell from './features/shell/AppShell';
 import { useLanguageSync } from './hooks/useLanguageSync';
 import './features/auth/auth.css';
 
@@ -46,10 +48,13 @@ function AppRoutes() {
           </AuthLayout>
         }
       />
-      <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-      <Route path="/reports/new" element={<ProtectedRoute><NewReportPage /></ProtectedRoute>} />
-      <Route path="/reports/:id" element={<ProtectedRoute><ReportPage /></ProtectedRoute>} />
-      <Route path="/account" element={<ProtectedRoute><AccountPage /></ProtectedRoute>} />
+      <Route path="/privacy" element={<PrivacyPage />} />
+      <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/reports/new" element={<NewReportPage />} />
+        <Route path="/reports/:id" element={<ReportPage />} />
+        <Route path="/account" element={<AccountPage />} />
+      </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );

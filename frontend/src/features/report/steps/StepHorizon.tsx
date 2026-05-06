@@ -69,70 +69,71 @@ export default function StepHorizon({
       <h1 className="page-title">{t('wizard.horizon.title')}</h1>
       <p className="page-desc">{t('wizard.horizon.description')}</p>
 
-      {HORIZON_KEYS.map((key) => {
-        const k = key.toLowerCase();
-        const bandSuggestions = suggestions[key] ?? [];
-        const bandLoading = loading[key] ?? false;
-        const bandError = errors[key];
-        return (
-          <div key={key} className={`h-card h-card-${k}`}>
-            <div className="h-card-head">
-              <div className="h-card-head-left">
-                <div className={`h-icon h-icon-${k}`}>{key}</div>
-                <div>
-                  <div className={`h-label h-label-${k}`}>
-                    {t(`wizard.horizon.bands.${key}.label`)}
+      <div className="horizon-stack">
+        {HORIZON_KEYS.map((key) => {
+          const k = key.toLowerCase(); // 'h1' | 'h2' | 'h3' — both class modifier and dim-icon variant
+          const bandSuggestions = suggestions[key] ?? [];
+          const bandLoading = loading[key] ?? false;
+          const bandError = errors[key];
+          return (
+            <div key={key} className={`h-card ${k}`}>
+              <div className="h-card-head">
+                <div className="h-card-head-left">
+                  <div className={`dim-icon ${k}`}>{key}</div>
+                  <div>
+                    <div className={`h-label ${k}`}>
+                      {t(`wizard.horizon.bands.${key}.label`)}
+                    </div>
+                    <div className="h-sub">{t(`wizard.horizon.bands.${key}.desc`)}</div>
                   </div>
-                  <div className="h-sub">{t(`wizard.horizon.bands.${key}.desc`)}</div>
                 </div>
+                <button
+                  className="btn btn-ai"
+                  type="button"
+                  onClick={() => requestSuggestions(key)}
+                  disabled={bandLoading || !canSuggest}
+                  title={
+                    canSuggest
+                      ? t('wizard.horizon.aiTooltip')
+                      : t('wizard.horizon.aiTooltipDisabled')
+                  }
+                >
+                  {bandLoading ? <span className="btn-ai-spinner" /> : '✦'}{' '}
+                  {t('wizard.horizon.aiSuggest')}
+                </button>
               </div>
-              <button
-                className="btn btn-ai"
-                type="button"
-                onClick={() => requestSuggestions(key)}
-                disabled={bandLoading || !canSuggest}
-                title={
-                  canSuggest
-                    ? t('wizard.horizon.aiTooltip')
-                    : t('wizard.horizon.aiTooltipDisabled')
-                }
-              >
-                {bandLoading ? <span className="btn-ai-spinner" /> : '✦'}{' '}
-                {t('wizard.horizon.aiSuggest')}
-              </button>
+
+              <textarea
+                placeholder={t(`wizard.horizon.placeholders.${key}`)}
+                value={data[key]}
+                onChange={(e) => onChange({ ...data, [key]: e.target.value })}
+              />
+
+              {bandSuggestions.length > 0 && (
+                <div className="tags-wrap">
+                  {bandSuggestions.map((s, j) => (
+                    <button
+                      key={j}
+                      type="button"
+                      className="sug-tag"
+                      title={s.description}
+                      onClick={() => appendSuggestion(key, s)}
+                    >
+                      {s.title}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {bandError && (
+                <div className="err-box" style={{ marginTop: '0.6rem', marginBottom: 0 }}>
+                  {bandError}
+                </div>
+              )}
             </div>
-
-            <textarea
-              placeholder={t(`wizard.horizon.placeholders.${key}`)}
-              value={data[key]}
-              onChange={(e) => onChange({ ...data, [key]: e.target.value })}
-              style={{ minHeight: '80px' }}
-            />
-
-            {bandSuggestions.length > 0 && (
-              <div className="tags-wrap">
-                {bandSuggestions.map((s, j) => (
-                  <button
-                    key={j}
-                    type="button"
-                    className="sug-tag"
-                    title={s.description}
-                    onClick={() => appendSuggestion(key, s)}
-                  >
-                    {s.title}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {bandError && (
-              <div className="err-box" style={{ marginTop: '0.6rem', marginBottom: 0 }}>
-                {bandError}
-              </div>
-            )}
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
 
       <div className="btn-row">
         <button type="button" className="btn" onClick={onBack} disabled={isSubmitting}>
