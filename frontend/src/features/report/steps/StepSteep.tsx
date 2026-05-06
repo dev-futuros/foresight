@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { suggestSteep, type SuggestionItem } from '../../../lib/aiClient';
 import { extractApiErrorMessage } from '../../../lib/apiError';
+import { useMaximizable } from '../../../components/useMaximizable';
 
 const DIMENSION_KEYS = [
   'social',
@@ -50,6 +51,7 @@ export default function StepSteep({
   const [suggestions, setSuggestions] = useState<SuggestionsByDim>({});
   const [loading, setLoading] = useState<LoadingByDim>({});
   const [errors, setErrors] = useState<ErrorByDim>({});
+  const max = useMaximizable<DimensionKey>();
 
   const hasAny = DIMENSION_KEYS.some((k) => data[k].trim());
   const canSuggest = companyProfile.trim().length > 0;
@@ -79,6 +81,9 @@ export default function StepSteep({
 
   return (
     <div>
+      {max.activeKey && (
+        <div className="maximize-backdrop" onClick={max.minimize} aria-hidden />
+      )}
       <div className="eyebrow">{t('wizard.steep.eyebrow')}</div>
       <h1 className="page-title">{t('wizard.steep.title')}</h1>
       <p className="page-desc">{t('wizard.steep.description')}</p>
@@ -86,12 +91,16 @@ export default function StepSteep({
       <div className="steep-grid">
         {DIMENSION_KEYS.map((key, i) => {
           const isFull = i === DIMENSION_KEYS.length - 1; // Político: full-width
+          const isMax = max.isMaximized(key);
           const dimSuggestions = suggestions[key] ?? [];
           const dimLoading = loading[key] ?? false;
           const dimError = errors[key];
           const meta = DIM_META[key];
           return (
-            <div key={key} className={`steep-card${isFull ? ' full' : ''}`}>
+            <div
+              key={key}
+              className={`steep-card${isFull ? ' full' : ''}${isMax ? ' maximized' : ''}`}
+            >
               <div className="steep-head">
                 <div className="steep-info">
                   <div className={`dim-icon ${meta.modifier}`}>
@@ -106,20 +115,33 @@ export default function StepSteep({
                     <div className="steep-sub">{t(`wizard.steep.subs.${key}`)}</div>
                   </div>
                 </div>
-                <button
-                  className="btn btn-ai"
-                  type="button"
-                  onClick={() => requestSuggestions(key)}
-                  disabled={dimLoading || !canSuggest}
-                  title={
-                    canSuggest
-                      ? t('wizard.steep.aiTooltip')
-                      : t('wizard.steep.aiTooltipDisabled')
-                  }
-                >
-                  {dimLoading ? <span className="btn-ai-spinner" /> : '✦'}{' '}
-                  {t('wizard.steep.aiSuggest')}
-                </button>
+                <div className="card-actions">
+                  <button
+                    className="btn btn-ai"
+                    type="button"
+                    onClick={() => requestSuggestions(key)}
+                    disabled={dimLoading || !canSuggest}
+                    title={
+                      canSuggest
+                        ? t('wizard.steep.aiTooltip')
+                        : t('wizard.steep.aiTooltipDisabled')
+                    }
+                  >
+                    {dimLoading ? <span className="btn-ai-spinner" /> : '✦'}{' '}
+                    {t('wizard.steep.aiSuggest')}
+                  </button>
+                  <button
+                    type="button"
+                    className="maximize-btn"
+                    onClick={() => max.toggle(key)}
+                    aria-label={isMax ? t('wizard.minimize') : t('wizard.maximize')}
+                    title={isMax ? t('wizard.minimize') : t('wizard.maximize')}
+                  >
+                    <svg className="ico" aria-hidden>
+                      <use href={`#${isMax ? 'i-minimize' : 'i-maximize'}`} />
+                    </svg>
+                  </button>
+                </div>
               </div>
 
               <textarea

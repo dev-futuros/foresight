@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { globalSteep, type GlobalSteep } from '../../../lib/aiClient';
 import { extractApiErrorMessage } from '../../../lib/apiError';
+import { useMaximizable } from '../../../components/useMaximizable';
 
 const FIELD_KEYS = ['S', 'T', 'E', 'ENV', 'P'] as const;
 type FieldKey = (typeof FIELD_KEYS)[number];
@@ -44,6 +45,7 @@ export default function StepGlobal({
   const [progressMsg, setProgressMsg] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const fetchedFor = useRef<string | null>(null);
+  const max = useMaximizable<FieldKey>();
 
   const hasAny = FIELD_KEYS.some((k) => data[k].trim());
 
@@ -98,6 +100,9 @@ export default function StepGlobal({
 
   return (
     <div>
+      {max.activeKey && (
+        <div className="maximize-backdrop" onClick={max.minimize} aria-hidden />
+      )}
       <div className="eyebrow">{t('wizard.global.eyebrow')}</div>
       <h1 className="page-title">{t('wizard.global.title')}</h1>
       <p className="page-desc">{t('wizard.global.description')}</p>
@@ -121,9 +126,13 @@ export default function StepGlobal({
           <div className="steep-grid">
             {FIELD_KEYS.map((key, i) => {
               const isFull = i === FIELD_KEYS.length - 1;
+              const isMax = max.isMaximized(key);
               const meta = DIM_META[key];
               return (
-                <div key={key} className={`steep-card${isFull ? ' full' : ''}`}>
+                <div
+                  key={key}
+                  className={`steep-card${isFull ? ' full' : ''}${isMax ? ' maximized' : ''}`}
+                >
                   <div className="steep-head">
                     <div className="steep-info">
                       <div className={`dim-icon ${meta.modifier}`}>
@@ -137,6 +146,19 @@ export default function StepGlobal({
                         </div>
                         <div className="steep-sub">{t(`wizard.global.subs.${key}`)}</div>
                       </div>
+                    </div>
+                    <div className="card-actions">
+                      <button
+                        type="button"
+                        className="maximize-btn"
+                        onClick={() => max.toggle(key)}
+                        aria-label={isMax ? t('wizard.minimize') : t('wizard.maximize')}
+                        title={isMax ? t('wizard.minimize') : t('wizard.maximize')}
+                      >
+                        <svg className="ico" aria-hidden>
+                          <use href={`#${isMax ? 'i-minimize' : 'i-maximize'}`} />
+                        </svg>
+                      </button>
                     </div>
                   </div>
                   <textarea

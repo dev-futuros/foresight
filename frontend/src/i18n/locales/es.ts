@@ -96,6 +96,8 @@ const es = {
   },
   wizard: {
     back: '← Volver',
+    maximize: 'Maximizar para edición',
+    minimize: 'Cerrar pantalla completa',
     steps: {
       empresa: 'Empresa',
       global: 'Global',

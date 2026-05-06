@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { suggestHorizon, type SuggestionItem } from '../../../lib/aiClient';
 import { extractApiErrorMessage } from '../../../lib/apiError';
+import { useMaximizable } from '../../../components/useMaximizable';
 
 const HORIZON_KEYS = ['H1', 'H2', 'H3'] as const;
 
@@ -36,6 +37,7 @@ export default function StepHorizon({
   const [suggestions, setSuggestions] = useState<SuggestionsByKey>({});
   const [loading, setLoading] = useState<LoadingByKey>({});
   const [errors, setErrors] = useState<ErrorByKey>({});
+  const max = useMaximizable<HorizonKey>();
 
   const hasAny = HORIZON_KEYS.some((k) => data[k].trim());
   const canSuggest = companyProfile.trim().length > 0;
@@ -65,6 +67,9 @@ export default function StepHorizon({
 
   return (
     <div>
+      {max.activeKey && (
+        <div className="maximize-backdrop" onClick={max.minimize} aria-hidden />
+      )}
       <div className="eyebrow">{t('wizard.horizon.eyebrow')}</div>
       <h1 className="page-title">{t('wizard.horizon.title')}</h1>
       <p className="page-desc">{t('wizard.horizon.description')}</p>
@@ -72,11 +77,12 @@ export default function StepHorizon({
       <div className="horizon-stack">
         {HORIZON_KEYS.map((key) => {
           const k = key.toLowerCase(); // 'h1' | 'h2' | 'h3' — both class modifier and dim-icon variant
+          const isMax = max.isMaximized(key);
           const bandSuggestions = suggestions[key] ?? [];
           const bandLoading = loading[key] ?? false;
           const bandError = errors[key];
           return (
-            <div key={key} className={`h-card ${k}`}>
+            <div key={key} className={`h-card ${k}${isMax ? ' maximized' : ''}`}>
               <div className="h-card-head">
                 <div className="h-card-head-left">
                   <div className={`dim-icon ${k}`}>{key}</div>
@@ -87,20 +93,33 @@ export default function StepHorizon({
                     <div className="h-sub">{t(`wizard.horizon.bands.${key}.desc`)}</div>
                   </div>
                 </div>
-                <button
-                  className="btn btn-ai"
-                  type="button"
-                  onClick={() => requestSuggestions(key)}
-                  disabled={bandLoading || !canSuggest}
-                  title={
-                    canSuggest
-                      ? t('wizard.horizon.aiTooltip')
-                      : t('wizard.horizon.aiTooltipDisabled')
-                  }
-                >
-                  {bandLoading ? <span className="btn-ai-spinner" /> : '✦'}{' '}
-                  {t('wizard.horizon.aiSuggest')}
-                </button>
+                <div className="card-actions">
+                  <button
+                    className="btn btn-ai"
+                    type="button"
+                    onClick={() => requestSuggestions(key)}
+                    disabled={bandLoading || !canSuggest}
+                    title={
+                      canSuggest
+                        ? t('wizard.horizon.aiTooltip')
+                        : t('wizard.horizon.aiTooltipDisabled')
+                    }
+                  >
+                    {bandLoading ? <span className="btn-ai-spinner" /> : '✦'}{' '}
+                    {t('wizard.horizon.aiSuggest')}
+                  </button>
+                  <button
+                    type="button"
+                    className="maximize-btn"
+                    onClick={() => max.toggle(key)}
+                    aria-label={isMax ? t('wizard.minimize') : t('wizard.maximize')}
+                    title={isMax ? t('wizard.minimize') : t('wizard.maximize')}
+                  >
+                    <svg className="ico" aria-hidden>
+                      <use href={`#${isMax ? 'i-minimize' : 'i-maximize'}`} />
+                    </svg>
+                  </button>
+                </div>
               </div>
 
               <textarea
