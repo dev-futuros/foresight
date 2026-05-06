@@ -1,0 +1,38 @@
+{
+  "_meta": {
+    "name": "Restalia",
+    "language": "es",
+    "description": "Ejemplo de uso — cadena española de restauración rápida (Restalia: 100 Montaditos, La Sureña, The Good Burger). Cargado desde el diálogo de bienvenida cuando el usuario hace clic en 'Cargar ejemplo'."
+  },
+  "companyProfile": {
+    "name": "Restalia",
+    "sector": "Hostelería · Restauración rápida (QSR)",
+    "size": "grande",
+    "horizon": "5",
+    "market": "european",
+    "challenge": "¿Cómo evolucionar nuestro modelo de franquicia y oferta gastronómica frente a la transformación de hábitos de consumo (delivery, comida saludable, dark kitchens) y la presión de costes (energía, materias primas, mano de obra) en los próximos 5 años?",
+    "strengths": "Red de franquicias consolidada en España y mercados latinos. Marcas reconocibles con ticket medio bajo. Capacidad probada de adaptación de carta y formato. Operativa eficiente con plantillas reducidas.",
+    "consultantName": "Ana García",
+    "consultantCompany": "Strategy Partners",
+    "title": "Restalia — Foresight 2030"
+  },
+  "globalSteep": {
+    "S": "Envejecimiento poblacional en Europa y caída de natalidad. Auge de hogares unipersonales. Polarización del consumo (premium vs low-cost). Demanda creciente de bienestar, salud mental y trabajo flexible. Generación Z prioriza experiencias y autenticidad sobre posesión.",
+    "T": "IA generativa transforma marketing, atención al cliente y gestión de inventarios. Automatización en cocina (kiosks, robótica). Plataformas de delivery consolidan poder. Cloud kitchens y dark stores reducen barreras de entrada. Pagos sin contacto y crypto-rails ganan tracción.",
+    "E": "Tipos de interés altos encarecen la financiación de aperturas. Inflación persistente en alimentos y energía. Reshoring industrial reduce dependencia de China. Mercado laboral tensionado en hostelería. Consumo discrecional bajo presión en clases medias urbanas.",
+    "ENV": "Regulación ESG creciente (CSRD, taxonomía verde). Escasez de agua en sur de Europa afecta cadenas de suministro agrícolas. Plásticos de un solo uso prohibidos. Transición energética eleva costes de electricidad. Eventos climáticos extremos disrumpen logística.",
+    "P": "Tensiones geopolíticas (Ucrania, Oriente Medio, Taiwán) afectan precios de energía y commodities. Regulación europea de IA (AI Act) y datos (GDPR). Proteccionismo comercial. Polarización política en mercados clave. Cambios en políticas migratorias afectan disponibilidad de mano de obra."
+  },
+  "steep": {
+    "social": "Cambio en patrones de consumo: comidas más rápidas, individuales y a domicilio. Concienciación sobre nutrición y salud (vegetal, sin gluten, bajo en azúcar). Generación Z exige sostenibilidad demostrable y transparencia de origen. Familias con menos tiempo de cocina priorizan conveniencia. Resurgimiento del producto local y artesanal frente a marcas globales.",
+    "technological": "Apps de pedido por anticipado y kiosks de auto-servicio reducen tiempos de cola. IA generativa para personalización de menús y campañas dinámicas. Sistemas predictivos de inventario reducen merma. Robotización parcial en cocinas (parrillas, fritura). Integración con plataformas de delivery (Glovo, Uber Eats, Just Eat) sigue creciendo.",
+    "economic": "Subida sostenida del coste de materias primas (carne, aceites, harinas). Energía un 30-40% más cara que pre-2022. Mano de obra escasa y con expectativas salariales al alza. Tipos de interés encarecen la apertura de nuevos locales y el capital de franquiciados. Consumidor presionado por hipoteca y energía reduce salidas a comer.",
+    "environmental": "Regulación europea contra plásticos de un solo uso obliga a reformular packaging. Trazabilidad de cadena alimentaria (Farm to Fork) genera coste y ventaja. Riesgo de desabastecimiento por sequías recurrentes en España. Presión por reducir huella de carbono de la cadena de frío y el transporte. Demanda creciente de menús con menor impacto ambiental.",
+    "political": "Subidas de salario mínimo y reformas laborales encarecen las plantillas. Posible regulación de horarios y precios en delivery (estatuto del rider). Impuestos sobre alimentos ultraprocesados en discusión en varios países UE. Inestabilidad en mercados latinoamericanos donde Restalia opera. Endurecimiento de licencias de apertura en centros urbanos."
+  },
+  "horizon": {
+    "H1": "Adopción masiva de pedido por kiosk y app. Margen presionado por subida del SMI y de la energía. Crecimiento de delivery aunque a comisiones más altas. Primeros menús saludables y vegetarianos en cartas tradicionales. Clientes piden mayor transparencia de origen e ingredientes. Dificultad creciente para encontrar y retener personal de cocina y sala.",
+    "H2": "Cocinas centralizadas (cloud kitchens) sustituyen parte del modelo tradicional. IA generativa permite personalización masiva de menús y campañas a coste marginal. Aparición de cadenas 100% delivery sin sala. Marcas DTC en alimentación complican la captación. Posible regulación europea estricta del trabajo en delivery. Clientes esperan experiencias híbridas físicas-digitales.",
+    "H3": "Robotización profunda de cocinas reduce dependencia de mano de obra. Reconfiguración total de la cadena agroalimentaria por crisis climáticas. Carnes cultivadas y proteínas alternativas alcanzan paridad de precio. Cambio sistémico en hábitos: comida como servicio (subscripciones) sustituye al ticket único. Consolidación drástica del sector con pocos grandes players paneuropeos. Crisis energética prolongada redefine la rentabilidad por unidad."
+  }
+}

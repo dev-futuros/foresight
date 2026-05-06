@@ -9,6 +9,8 @@ type ModalProps = {
   ariaLabel?: string;
   /** Visual variant. `dialog` is a centered card; `fullscreen` is a fullscreen overlay (e.g. for export spinners). */
   variant?: 'dialog' | 'fullscreen';
+  /** Extra class(es) for the dialog body — lets consumers customise width / padding / accent border without forking the primitive. */
+  dialogClassName?: string;
   children: ReactNode;
 };
 
@@ -25,6 +27,7 @@ export default function Modal({
   onClose,
   ariaLabel,
   variant = 'dialog',
+  dialogClassName,
   children,
 }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -67,7 +70,7 @@ export default function Modal({
     >
       <div
         ref={dialogRef}
-        className={`modal-dialog${variant === 'fullscreen' ? ' modal-dialog--fullscreen' : ''}`}
+        className={`modal-dialog${variant === 'fullscreen' ? ' modal-dialog--fullscreen' : ''}${dialogClassName ? ` ${dialogClassName}` : ''}`}
         role="dialog"
         aria-modal="true"
         aria-label={ariaLabel}

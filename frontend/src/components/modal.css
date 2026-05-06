@@ -143,6 +143,160 @@
   box-shadow: 0 0 24px hsla(0, 80%, 70%, 0.18);
 }
 
+/* ============================================================
+   ONBOARDING DIALOG VARIANT
+   Wider card with gold-accent border + interior layout (brand
+   mark, tag pill, numbered step list, checkbox row).
+   Ported from demo `.ob-modal` block.
+   ============================================================ */
+.modal-dialog.modal-dialog--onboarding {
+  width: min(600px, calc(100vw - 32px));
+  max-height: 92vh;
+  background: var(--surface-1);
+  border: 1px solid var(--line-accent);
+  border-radius: var(--r-xl);
+  padding: 36px 38px 32px;
+}
+
+.onboarding-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.onboarding-brand-name {
+  font-family: var(--serif);
+  font-size: 16px;
+  color: var(--gold);
+  letter-spacing: -0.005em;
+  line-height: 1.15;
+}
+.onboarding-tag {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--gold);
+  background: var(--gold-bg);
+  border: 1px solid var(--line-accent);
+  border-radius: var(--r-pill);
+  padding: 4px 10px;
+  align-self: flex-start;
+  margin-top: 6px;
+  margin-bottom: 16px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+.onboarding-title {
+  font-family: var(--serif);
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin-bottom: 10px;
+}
+.onboarding-desc {
+  font-size: 14px;
+  color: var(--ink-soft);
+  line-height: 1.65;
+  margin-bottom: 22px;
+}
+
+.onboarding-steps {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.onboarding-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.55;
+}
+.onboarding-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--line-accent);
+  display: grid;
+  place-items: center;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--gold);
+  flex-shrink: 0;
+  margin-top: 1px;
+  background: var(--gold-bg);
+}
+.onboarding-step strong { color: var(--ink); font-weight: 500; }
+
+.onboarding-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.onboarding-checkbox {
+  margin-top: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-mute);
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  user-select: none;
+  transition: color 150ms;
+}
+.onboarding-checkbox:hover { color: var(--ink-soft); }
+
+/* Custom-styled checkbox — native default looks bright/jarring on the dark
+   theme. We hide the native control and draw a gold-accent box + inline
+   SVG checkmark on :checked so it matches the rest of the UI. */
+.onboarding-checkbox input[type='checkbox'] {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  background: var(--surface-3);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 150ms, background 150ms;
+  /* Position the checkmark glyph centered when :checked applies the bg-image. */
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 12px 12px;
+  margin: 0;
+  padding: 0;
+}
+.onboarding-checkbox input[type='checkbox']:hover {
+  border-color: var(--line-accent);
+}
+.onboarding-checkbox input[type='checkbox']:focus-visible {
+  outline: 2px solid var(--gold-soft);
+  outline-offset: 2px;
+}
+.onboarding-checkbox input[type='checkbox']:checked {
+  background-color: var(--gold);
+  border-color: var(--gold-soft);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%230a0a0a' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3 8.5 6.8 12 13 4.5'/%3E%3C/svg%3E");
+}
+
+@media (max-width: 600px) {
+  .modal-dialog.modal-dialog--onboarding { padding: 28px 22px 22px; }
+  .onboarding-title { font-size: 24px; }
+}
+
 /* ── Fullscreen overlay parts (PDF / export spinner) ───────── */
 .pdf-ov-spinner {
   width: 44px;

@@ -4,11 +4,32 @@ import { useTranslation } from 'react-i18next';
 import { useCreateReport } from '../../hooks/useReports';
 import { useCurrentUser } from '../../hooks/useAuth';
 import { useSetStepper } from '../shell/StepperContext';
+import OnboardingDialog from '../../components/OnboardingDialog';
+import '../../components/modal.css';
 import StepEmpresa, { type EmpresaData } from './steps/StepEmpresa';
 import StepGlobal, { type GlobalSteepData } from './steps/StepGlobal';
 import StepSteep, { type SteepData } from './steps/StepSteep';
 import StepHorizon, { type HorizonData } from './steps/StepHorizon';
 import './wizard.css';
+
+/** localStorage key — once set to '1', the onboarding modal won't auto-show
+ *  again on this device. */
+const ONBOARDING_KEY = 'fs_onboarding_dismissed';
+
+function readOnboardingDismissed(): boolean {
+  try {
+    return localStorage.getItem(ONBOARDING_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+function persistOnboardingDismissed() {
+  try {
+    localStorage.setItem(ONBOARDING_KEY, '1');
+  } catch {
+    /* private mode / quota — silently ignore */
+  }
+}
 
 const EMPTY_EMPRESA: EmpresaData = {
   name: '',
@@ -41,6 +62,41 @@ export default function NewReportPage() {
   // Highest step the user has ever reached. Lets the stepper allow forward
   // jumps to already-visited steps in addition to back-nav.
   const [maxReached, setMaxReached] = useState(1);
+  // First-run welcome dialog. Lazy-init from localStorage so we don't flash
+  // the dialog open on remount when the user has already dismissed it.
+  const [showOnboarding, setShowOnboarding] = useState(() => !readOnboardingDismissed());
+
+  const handleOnboardingClose = useCallback((dontShowAgain: boolean) => {
+    if (dontShowAgain) persistOnboardingDismissed();
+    setShowOnboarding(false);
+  }, []);
+
+  const handleLoadExample = useCallback(async (dontShowAgain: boolean) => {
+    if (dontShowAgain) persistOnboardingDismissed();
+    try {
+      const res = await fetch('/example-report.json', { cache: 'no-cache' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as {
+        companyProfile?: EmpresaData;
+        globalSteep?: GlobalSteepData;
+        steep?: SteepData;
+        horizon?: HorizonData;
+      };
+      if (data.companyProfile) setEmpresa({ ...EMPTY_EMPRESA, ...data.companyProfile });
+      if (data.globalSteep) setGlobalData({ ...EMPTY_GLOBAL_STEEP, ...data.globalSteep });
+      if (data.steep) setSteep({ ...EMPTY_STEEP, ...data.steep });
+      if (data.horizon) setHorizon({ ...EMPTY_HORIZON, ...data.horizon });
+      // Land on step 1 so the user can see the seeded company profile first.
+      setStep(1);
+      setMaxReached(1);
+    } catch (e) {
+      // Non-blocking: keep dialog dismissed and let user fill the form by hand.
+      // eslint-disable-next-line no-console
+      console.error('[onboarding] failed to load example-report.json', e);
+    } finally {
+      setShowOnboarding(false);
+    }
+  }, []);
 
   const goToStep = useCallback((n: number) => {
     setStep(n);
@@ -136,6 +192,12 @@ export default function NewReportPage() {
           />
         )}
       </main>
+
+      <OnboardingDialog
+        open={showOnboarding}
+        onClose={handleOnboardingClose}
+        onLoadExample={handleLoadExample}
+      />
     </div>
   );
 }

@@ -27,14 +27,6 @@ const DIM_META: Record<FieldKey, { icon: string; modifier: string }> = {
   P:   { icon: 'i-p',   modifier: 'p'   },
 };
 
-const EMPTY_LOADING: Record<FieldKey, boolean> = {
-  S: false,
-  T: false,
-  E: false,
-  ENV: false,
-  P: false,
-};
-
 export default function StepGlobal({
   data,
   sector,
@@ -44,18 +36,16 @@ export default function StepGlobal({
   onBack,
 }: Props) {
   const { t } = useTranslation();
-  // The initial fetch loads all 5 dimensions and is gated on `bulkLoading`
-  // (full-page spinner with cycling progress copy). Per-card regeneration uses
-  // `cardLoading[key]` so the user can tap "↺" on a single card without
-  // freezing the rest of the form.
+  // Initial fetch loads all 5 dimensions and is gated on `bulkLoading` (full-
+  // page spinner with cycling progress copy). Per-card regeneration was
+  // removed in favour of a single up-front compute when entering the step;
+  // the user can edit the textareas freely after that.
   const [bulkLoading, setBulkLoading] = useState(false);
-  const [cardLoading, setCardLoading] = useState<Record<FieldKey, boolean>>(EMPTY_LOADING);
   const [progressMsg, setProgressMsg] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const fetchedFor = useRef<string | null>(null);
 
   const hasAny = FIELD_KEYS.some((k) => data[k].trim());
-  const anyCardLoading = FIELD_KEYS.some((k) => cardLoading[k]);
 
   async function fetchAll() {
     if (!sector.trim()) return;
@@ -89,22 +79,6 @@ export default function StepGlobal({
     } finally {
       window.clearInterval(interval);
       setBulkLoading(false);
-    }
-  }
-
-  async function regenerateOne(dim: FieldKey) {
-    if (!sector.trim()) return;
-    setCardLoading((s) => ({ ...s, [dim]: true }));
-    setError(null);
-    try {
-      const result = await globalSteep({ sector, language, dimension: dim });
-      // Only merge the requested key — the backend may return just that one,
-      // but if it returned more we still ignore the extras.
-      onChange({ ...data, [dim]: result[dim] ?? '' });
-    } catch (e) {
-      setError(extractApiErrorMessage(e, t('wizard.global.errorDefault')));
-    } finally {
-      setCardLoading((s) => ({ ...s, [dim]: false }));
     }
   }
 
@@ -147,7 +121,6 @@ export default function StepGlobal({
           <div className="steep-grid">
             {FIELD_KEYS.map((key, i) => {
               const isFull = i === FIELD_KEYS.length - 1;
-              const isLoading = cardLoading[key];
               const meta = DIM_META[key];
               return (
                 <div key={key} className={`steep-card${isFull ? ' full' : ''}`}>
@@ -165,23 +138,10 @@ export default function StepGlobal({
                         <div className="steep-sub">{t(`wizard.global.subs.${key}`)}</div>
                       </div>
                     </div>
-                    <button
-                      className="btn-ghost"
-                      type="button"
-                      onClick={() => regenerateOne(key)}
-                      disabled={!sector.trim() || isLoading}
-                    >
-                      {isLoading ? (
-                        <span className="btn-spinner" aria-hidden />
-                      ) : (
-                        <>↺ {t('wizard.global.regenerate')}</>
-                      )}
-                    </button>
                   </div>
                   <textarea
                     value={data[key]}
                     onChange={(e) => onChange({ ...data, [key]: e.target.value })}
-                    disabled={isLoading}
                   />
                 </div>
               );
@@ -193,14 +153,14 @@ export default function StepGlobal({
       {error && <div className="err-box">{error}</div>}
 
       <div className="btn-row">
-        <button type="button" className="btn" onClick={onBack} disabled={bulkLoading || anyCardLoading}>
+        <button type="button" className="btn" onClick={onBack} disabled={bulkLoading}>
           {t('wizard.back')}
         </button>
         <button
           type="button"
           className="btn btn-primary"
           onClick={onNext}
-          disabled={bulkLoading || anyCardLoading}
+          disabled={bulkLoading}
         >
           {t('wizard.global.next')}
         </button>
