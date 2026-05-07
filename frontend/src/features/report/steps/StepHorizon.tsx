@@ -18,6 +18,9 @@ interface Props {
   onSubmit: () => void;
   onBack: () => void;
   isSubmitting: boolean;
+  /** Surfaced as a global error box above the action row when the parent's
+   *  generate-analysis pipeline (create → analyze → update) fails. */
+  error?: string | null;
 }
 
 /** Cap suggestions defensively — AI is asked for 3–5 but may return more. */
@@ -36,6 +39,7 @@ export default function StepHorizon({
   onSubmit,
   onBack,
   isSubmitting,
+  error,
 }: Props) {
   const { t } = useTranslation();
   const [suggestions, setSuggestions] = useState<SuggestionsByKey>({});
@@ -163,6 +167,8 @@ export default function StepHorizon({
           );
         })}
       </div>
+
+      {error && <div className="err-box">{error}</div>}
 
       <div className="btn-row">
         <button type="button" className="btn" onClick={onBack} disabled={isSubmitting}>

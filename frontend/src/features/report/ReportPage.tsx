@@ -1,10 +1,8 @@
-import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useCallback, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useReport, useUpdateReport } from '../../hooks/useReports';
-import { useCurrentUser } from '../../hooks/useAuth';
-import { analyze } from '../../lib/aiClient';
-import { extractApiErrorMessage } from '../../lib/apiError';
+import { useReport } from '../../hooks/useReports';
+import { useSetStepper } from '../shell/StepperContext';
 import { exportReportPdf } from '../../lib/exportPdf';
 import { exportReportPpt } from '../../lib/exportPpt';
 import LoadingOverlay from '../../components/LoadingOverlay';
@@ -12,12 +10,8 @@ import '../../components/modal.css';
 import type { ReportStatus } from '../../types/api';
 import './report.css';
 
-type Tab = 'inputs' | 'resultados';
-
 type InputData = {
   companyProfile?: { name?: string; sector?: string; horizon?: string; challenge?: string };
-  steep?: Record<string, string>;
-  horizon?: Record<string, string>;
 };
 
 type ResultData = {
@@ -31,14 +25,39 @@ type T = ReturnType<typeof useTranslation>['t'];
 
 export default function ReportPage() {
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { data: report, isLoading, isError, refetch } = useReport(id!);
-  const { data: user } = useCurrentUser();
-  const updateReport = useUpdateReport();
-  const [tab, setTab] = useState<Tab>('inputs');
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
   const [exporting, setExporting] = useState<'pdf' | 'ppt' | null>(null);
+
+  // Surface the wizard's 6-step indicator with step 6 ("Resultados") active.
+  // Steps 1–4 navigate back into the wizard in edit mode so the user can
+  // tweak inputs and regenerate. Step 5 is the analysis loading marker —
+  // marked clickable:false because there's no real page behind it.
+  const handleStepperSelect = useCallback(
+    (n: number) => {
+      if (n < 1 || n > 4) return;
+      navigate(`/reports/${id}/edit?step=${n}`);
+    },
+    [id, navigate],
+  );
+  const stepperState = useMemo(
+    () => ({
+      steps: [
+        { n: 1, label: t('wizard.steps.empresa') },
+        { n: 2, label: t('wizard.steps.global') },
+        { n: 3, label: t('wizard.steps.steep') },
+        { n: 4, label: t('wizard.steps.horizon') },
+        { n: 5, label: t('wizard.steps.analysis'), clickable: false },
+        { n: 6, label: t('wizard.steps.results') },
+      ],
+      current: 6,
+      maxReached: 6,
+      onSelect: handleStepperSelect,
+    }),
+    [t, handleStepperSelect],
+  );
+  useSetStepper(stepperState);
 
   function runExport(kind: 'pdf' | 'ppt') {
     if (!report) return;
@@ -79,44 +98,12 @@ export default function ReportPage() {
   }
 
   const input = report.inputData as InputData;
+  const result = report.resultData as ResultData | null;
 
   const formattedDate = new Date(report.createdAt).toLocaleDateString(
     i18n.language === 'en' ? 'en-GB' : 'es-ES',
     { day: '2-digit', month: 'short', year: 'numeric' },
   );
-
-  const language: 'es' | 'en' =
-    user?.language === 'en' || i18n.language === 'en' ? 'en' : 'es';
-
-  async function handleAnalyze() {
-    if (!report) return;
-    setIsAnalyzing(true);
-    setAnalyzeError(null);
-    try {
-      const inputs = report.inputData as {
-        companyProfile?: unknown;
-        steep?: unknown;
-        horizon?: unknown;
-      };
-      const result = await analyze({
-        companyProfile: inputs.companyProfile ?? {},
-        steep: inputs.steep ?? {},
-        horizon: inputs.horizon ?? {},
-        language,
-      });
-      await updateReport.mutateAsync({
-        id: report.id,
-        body: { resultData: result as unknown as Record<string, unknown> },
-      });
-      setTab('resultados');
-    } catch (e) {
-      setAnalyzeError(extractApiErrorMessage(e, t('report.results.errorDefault')));
-    } finally {
-      setIsAnalyzing(false);
-    }
-  }
-
-  const result = report.resultData as ResultData | null;
 
   return (
     <div className="report-page">
@@ -162,51 +149,17 @@ export default function ReportPage() {
           </div>
         </header>
 
-        <nav className="tab-row" aria-label="Report sections">
-          <button
-            type="button"
-            className={`tab-btn${tab === 'inputs' ? ' active' : ''}`}
-            onClick={() => setTab('inputs')}
-          >
-            {t('report.tabs.inputs')}
-          </button>
-          <button
-            type="button"
-            className={`tab-btn${tab === 'resultados' ? ' active' : ''}`}
-            onClick={() => setTab('resultados')}
-          >
-            {t('report.tabs.results')}
-          </button>
-        </nav>
-
-        {tab === 'inputs' && <InputsTab input={input} t={t} />}
-
-        {tab === 'resultados' && isAnalyzing && (
-          <div className="loading-wrap">
-            <div className="spinner" aria-hidden />
-            <p className="loading-head">{t('report.results.analyzing')}</p>
-          </div>
-        )}
-
-        {tab === 'resultados' && !isAnalyzing && !report.resultData && (
+        {result ? (
+          <Results result={result} t={t} />
+        ) : (
+          // Legacy fallback: reports created with the old wizard flow may
+          // still exist as DRAFT (no resultData). New flow always generates
+          // before navigating, so this branch is for old data only.
           <div className="pending-state">
             <div className="pending-icon">◈</div>
             <h2 className="pending-title">{t('report.results.pendingTitle')}</h2>
             <p className="pending-desc">{t('report.results.pendingDesc')}</p>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={handleAnalyze}
-              disabled={isAnalyzing}
-            >
-              {t('report.results.generateBtn')}
-            </button>
-            {analyzeError && <div className="err-box">{analyzeError}</div>}
           </div>
-        )}
-
-        {tab === 'resultados' && !isAnalyzing && result && (
-          <ResultsTab result={result} t={t} />
         )}
       </div>
 
@@ -219,72 +172,10 @@ export default function ReportPage() {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   Sub-components — kept inline to keep the feature self-contained.
-   Pull out to their own files in a later refactor if they grow.
+   Results renderer — inline since this is the only consumer.
    ───────────────────────────────────────────────────────────── */
 
-function InputsTab({ input, t }: { input: InputData; t: T }) {
-  const cp = input?.companyProfile;
-  const steep = input?.steep;
-  const horizon = input?.horizon;
-
-  return (
-    <div>
-      <div className="input-grid">
-        <div className="input-card">
-          <div className="input-card-label">{t('report.inputs.organization')}</div>
-          <div className="input-card-value">{cp?.name || '—'}</div>
-        </div>
-        <div className="input-card">
-          <div className="input-card-label">{t('report.inputs.sector')}</div>
-          <div className="input-card-value">{cp?.sector || '—'}</div>
-        </div>
-        <div className="input-card full">
-          <div className="input-card-label">{t('report.inputs.challenge')}</div>
-          <div className="input-card-value">{cp?.challenge || '—'}</div>
-        </div>
-      </div>
-
-      {steep && (
-        <>
-          <p className="section-label">{t('report.inputs.steep')}</p>
-          <div className="input-grid">
-            {Object.entries(steep).map(([key, value]) =>
-              value ? (
-                <div key={key} className="input-card">
-                  <div className="input-card-label">
-                    {t(`report.steepLabels.${key}`, { defaultValue: key })}
-                  </div>
-                  <div className="input-card-value">{value}</div>
-                </div>
-              ) : null,
-            )}
-          </div>
-        </>
-      )}
-
-      {horizon && (
-        <>
-          <p className="section-label">{t('report.inputs.horizon')}</p>
-          <div className="input-grid">
-            {Object.entries(horizon).map(([key, value]) =>
-              value ? (
-                <div key={key} className="input-card full">
-                  <div className="input-card-label">
-                    {t(`report.horizonLabels.${key}`, { defaultValue: key })}
-                  </div>
-                  <div className="input-card-value">{value}</div>
-                </div>
-              ) : null,
-            )}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-function ResultsTab({ result, t }: { result: ResultData; t: T }) {
+function Results({ result, t }: { result: ResultData; t: T }) {
   const hasContent =
     (result.scenarios && result.scenarios.length > 0) ||
     (result.keyUncertainties && result.keyUncertainties.length > 0) ||

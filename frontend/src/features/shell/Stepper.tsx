@@ -33,11 +33,17 @@ export default function Stepper({ state }: Props) {
         <ol className="stepper-list">
           {steps.map((s) => {
             const status = statusFor(s.n);
-            const clickable = status === 'done' && typeof onSelect === 'function';
+            // A step is interactive only if (a) the page wired up an onSelect,
+            // (b) the step is in the "done" lane, and (c) the step itself
+            // hasn't opted out via `clickable: false`.
+            const clickable =
+              s.clickable !== false &&
+              status === 'done' &&
+              typeof onSelect === 'function';
             return (
               <li
                 key={s.n}
-                className={`stepper-item ${status}`}
+                className={`stepper-item ${status}${clickable ? ' clickable' : ''}`}
                 onClick={clickable ? () => onSelect!(s.n) : undefined}
                 onKeyDown={
                   clickable

@@ -182,20 +182,21 @@ body.app-busy .stepper-item {
 }
 .stepper-item.done {
   color: var(--ink-soft);
-  cursor: pointer;
 }
 .stepper-item.done .stepper-num {
   border-color: var(--ink-soft);
   background: hsla(0, 0%, 100%, 0.025);
 }
-.stepper-item.done:hover {
-  color: var(--ink);
-}
-.stepper-item.done:hover .stepper-num {
+/* Hover + cursor + focus styling only on .done items that are actually
+   clickable (page passed an onSelect handler). Read-only "done" steps
+   stay visually completed but behave as static markers. */
+.stepper-item.done.clickable { cursor: pointer; }
+.stepper-item.done.clickable:hover { color: var(--ink); }
+.stepper-item.done.clickable:hover .stepper-num {
   border-color: var(--ink);
   background: hsla(0, 0%, 100%, 0.06);
 }
-.stepper-item.done:focus-visible {
+.stepper-item.done.clickable:focus-visible {
   outline: 2px solid var(--gold-soft);
   outline-offset: 2px;
   border-radius: var(--r-sm);

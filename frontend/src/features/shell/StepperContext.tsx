@@ -6,7 +6,14 @@ import type { ReactNode } from 'react';
  * their step state via useSetStepper(...); AppShell reads it and renders
  * the sticky <Stepper /> only when a slot is present.
  */
-export type StepperStep = { n: number; label: string };
+export type StepperStep = {
+  n: number;
+  label: string;
+  /** Set to false to keep this step visible in the bar but non-interactive
+   *  (no click handler, no hover/cursor cue). Useful for "marker-only"
+   *  steps like an analysis loading screen that aren't real pages. */
+  clickable?: boolean;
+};
 
 export type StepperState = {
   steps: StepperStep[];
