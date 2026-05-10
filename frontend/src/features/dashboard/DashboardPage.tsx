@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { useReports, useDeleteReport } from '../../hooks/useReports';
-import { useLoadExample } from '../../hooks/useLoadExample';
 import ConfirmDialog from '../../components/ConfirmDialog';
+import ExportMenu from '../../components/ExportMenu';
 import LoadingOverlay from '../../components/LoadingOverlay';
 import ShareModal from '../../components/ShareModal';
 import '../../components/modal.css';
@@ -23,7 +23,6 @@ export default function DashboardPage() {
   const { data, isLoading, isError, refetch } = useReports();
   const deleteReport = useDeleteReport();
   const queryClient = useQueryClient();
-  const { loadExample, isLoading: isLoadingExample } = useLoadExample();
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [shareTargetId, setShareTargetId] = useState<string | null>(null);
   // Tracks which card (if any) is currently fetching+exporting. We only
@@ -57,14 +56,12 @@ export default function DashboardPage() {
   /** Fetch the full report (with resultData) and run the export library.
    *  The card-level useReports query only carries summaries, so we have
    *  to fetch the heavy blob on demand. Goes through queryClient.fetchQuery
-   *  so the result is cached for any subsequent viewer/edit navigation. */
-  async function handleExport(
-    e: React.MouseEvent,
-    id: string,
-    kind: 'pdf' | 'ppt',
-  ) {
-    e.preventDefault();
-    e.stopPropagation();
+   *  so the result is cached for any subsequent viewer/edit navigation.
+   *
+   *  <p>Called from the ExportMenu's PDF/PPT picks. The menu itself does
+   *  event stopping (preventDefault + stopPropagation inside its item
+   *  handlers), so we don't need to receive the event here. */
+  async function handleExport(id: string, kind: 'pdf' | 'ppt') {
     if (exporting) return;
     setExporting({ id, kind });
     try {
@@ -97,7 +94,17 @@ export default function DashboardPage() {
   // Stats are computed from the loaded page (default size 20). The "total" stat
   // uses the server-reported totalElements, but completed/in-progress/failed
   // counts are first-page approximations until pagination is wired up.
-  const reports = data?.content ?? [];
+  //
+  // The example card is hoisted to the top of the grid regardless of its
+  // createdAt date — it's the user's "what does a finished report look
+  // like?" anchor and should sit above their own work. The rest of the
+  // list keeps the server-side createdAt-desc order.
+  const reports = useMemo(() => {
+    const all = data?.content ?? [];
+    const example = all.filter((r) => r.title === EXAMPLE_REPORT_TITLE);
+    const rest = all.filter((r) => r.title !== EXAMPLE_REPORT_TITLE);
+    return [...example, ...rest];
+  }, [data?.content]);
   const total = data?.totalElements ?? 0;
   const completed = reports.filter((r) => r.status === 'COMPLETED').length;
   const inProgress = reports.filter((r) => r.status === 'DRAFT' || r.status === 'PROCESSING').length;
@@ -114,22 +121,6 @@ export default function DashboardPage() {
             <h1 className="page-title">{t('dashboard.title')}</h1>
           </div>
           <div className="db-actions">
-            {/* "Cargar ejemplo" is always available so the user can land on
-                a finished report regardless of whether they ever clicked
-                the equivalent button in the onboarding dialog. If the
-                example already exists in their dashboard, the hook's
-                reuse-by-title check navigates to the existing copy instead
-                of creating a duplicate. */}
-            <button
-              type="button"
-              className="btn"
-              onClick={() => {
-                void loadExample();
-              }}
-              disabled={isLoadingExample}
-            >
-              {t('dashboard.loadExample')}
-            </button>
             <Link to="/reports/new" className="btn btn-primary">
               {t('dashboard.newReport')}
             </Link>
@@ -209,53 +200,52 @@ export default function DashboardPage() {
                     )}
                   </div>
                   <div className="db-r-date">{formatDate(report.createdAt)}</div>
-                  <div className="db-r-actions">
+                  {/* onMouseDown stop is belt-and-braces — child buttons each
+                      stopPropagation, but the ExportMenu's outside-click
+                      listener uses mousedown and we want clicks on action
+                      affordances to never bubble up as a card navigation. */}
+                  <div
+                    className="db-r-actions"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     {canExport && (
                       <>
+                        <ExportMenu
+                          busy={isBusyExporting}
+                          onPdf={() => void handleExport(report.id, 'pdf')}
+                          onPpt={() => void handleExport(report.id, 'ppt')}
+                        />
                         <button
                           className="db-r-btn"
                           type="button"
                           onClick={(e) => handleShare(e, report.id)}
-                          aria-label={t('dashboard.actions.share')}
+                          title={t('dashboard.actions.share')}
                         >
+                          <svg className="db-r-btn-ico" aria-hidden>
+                            <use href="#i-share" />
+                          </svg>
                           {t('dashboard.actions.share')}
-                        </button>
-                        <button
-                          className="db-r-btn"
-                          type="button"
-                          onClick={(e) => handleExport(e, report.id, 'pdf')}
-                          disabled={!!exporting}
-                          aria-label={t('dashboard.actions.pdf')}
-                        >
-                          {isBusyExporting && exporting?.kind === 'pdf'
-                            ? '…'
-                            : t('dashboard.actions.pdf')}
-                        </button>
-                        <button
-                          className="db-r-btn"
-                          type="button"
-                          onClick={(e) => handleExport(e, report.id, 'ppt')}
-                          disabled={!!exporting}
-                          aria-label={t('dashboard.actions.ppt')}
-                        >
-                          {isBusyExporting && exporting?.kind === 'ppt'
-                            ? '…'
-                            : t('dashboard.actions.ppt')}
                         </button>
                       </>
                     )}
-                    <span className="db-r-btn">
-                      {isDraft ? t('dashboard.actions.resume') : t('dashboard.actions.view')}
-                    </span>
-                    <button
-                      className="db-r-btn danger"
-                      type="button"
-                      onClick={(e) => handleDelete(e, report.id)}
-                      aria-label={t('dashboard.deleteLabel')}
-                      title={t('dashboard.deleteTitle')}
-                    >
-                      {t('dashboard.actions.delete')}
-                    </button>
+                    {/* Example card has no delete affordance — it's the
+                        built-in demo and deletion would only be confusing.
+                        The user can still wipe it manually via the API or
+                        the assistant if they really need to. */}
+                    {!isExample && (
+                      <button
+                        className="db-r-btn danger"
+                        type="button"
+                        onClick={(e) => handleDelete(e, report.id)}
+                        title={t('dashboard.deleteTitle')}
+                      >
+                        <svg className="db-r-btn-ico" aria-hidden>
+                          <use href="#i-trash" />
+                        </svg>
+                        {t('dashboard.actions.delete')}
+                      </button>
+                    )}
                   </div>
                 </Link>
               );
@@ -288,7 +278,6 @@ export default function DashboardPage() {
               : t('dashboard.exporting')
         }
       />
-      <LoadingOverlay open={isLoadingExample} text={t('modals.loadExample')} />
     </div>
   );
 }
