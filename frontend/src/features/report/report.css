@@ -18,14 +18,28 @@
 
 /* ── Page header ───────────────────────────────────────────── */
 .report-page .report-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
   margin-bottom: 28px;
 }
-.report-page .report-header-actions {
+.report-page .report-heading {
+  flex: 1;
+  min-width: 260px;
+}
+.report-page .report-actions {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 18px;
-  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+@media (max-width: 720px) {
+  .report-page .report-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
 }
 .report-page .report-eyebrow {
   font-family: var(--mono);
@@ -114,53 +128,10 @@
     0 0 24px hsla(40, 60%, 56%, 0.22);
 }
 
-.report-page .btn-export {
-  padding: 6px 14px;
-  font-family: var(--mono);
-  font-size: 11px;
-  background: transparent;
-  border: 1px solid var(--line);
-  color: var(--ink-soft);
-  border-radius: var(--r-sm);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: all 180ms var(--ease);
-}
-.report-page .btn-export:hover:not(:disabled) {
-  border-color: var(--line-accent);
-  color: var(--gold);
-}
-.report-page .btn-export:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-/* Share button — same shape as export, gold accent on hover. The disabled
-   state is wired to "no resultData yet" so users can't share an empty
-   pending report. */
-.report-page .btn-share {
-  padding: 6px 14px;
-  font-family: var(--mono);
-  font-size: 11px;
-  background: var(--gold-bg);
-  border: 1px solid var(--line-accent);
-  color: var(--gold);
-  border-radius: var(--r-sm);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: all 180ms var(--ease);
-}
-.report-page .btn-share:hover:not(:disabled) {
-  background: var(--gold-bg-strong, var(--gold-bg));
-  border-color: var(--gold-soft);
-  color: var(--gold);
-}
-.report-page .btn-share:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
+/* The old per-button .btn-share / .btn-export styles are gone — the
+   results header now uses the generic .btn (share trigger) and the
+   shared <ExportMenu> (PDF / PowerPoint dropdown) so the visual
+   treatment matches the demo's results-actions-top exactly. */
 
 /* ── Tabs ──────────────────────────────────────────────────── */
 .report-page .tab-row {

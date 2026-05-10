@@ -10,6 +10,10 @@ interface Props {
    *  which report this menu belongs to. */
   onPdf: () => void;
   onPpt: () => void;
+  /** Class on the trigger button. Defaults to {@code 'db-r-btn'} (the
+   *  dashboard card variant). Pass {@code 'btn'} to use the report page's
+   *  larger ghost-button look that matches the demo's results header. */
+  triggerClassName?: string;
 }
 
 /**
@@ -20,7 +24,12 @@ interface Props {
  * Escape, or after selecting an item. Lives inside {@code .db-r-actions}
  * (or any flex row) and positions the menu absolutely below the button.
  */
-export default function ExportMenu({ busy, onPdf, onPpt }: Props) {
+export default function ExportMenu({
+  busy,
+  onPdf,
+  onPpt,
+  triggerClassName = 'db-r-btn',
+}: Props) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -66,7 +75,7 @@ export default function ExportMenu({ busy, onPdf, onPpt }: Props) {
     <div className="export-dropdown" ref={ref}>
       <button
         type="button"
-        className="db-r-btn"
+        className={triggerClassName}
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();

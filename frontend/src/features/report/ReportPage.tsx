@@ -5,6 +5,7 @@ import { useReport } from '../../hooks/useReports';
 import { useSetStepper } from '../shell/StepperContext';
 import { exportReportPdf } from '../../lib/exportPdf';
 import { exportReportPpt } from '../../lib/exportPpt';
+import ExportMenu from '../../components/ExportMenu';
 import LoadingOverlay from '../../components/LoadingOverlay';
 import ShareModal from '../../components/ShareModal';
 import ReportContent, { type ResultData } from './ReportContent';
@@ -103,52 +104,45 @@ export default function ReportPage() {
     <div className="report-page">
       <div className="report-main">
         <header className="report-header">
-          <div className="report-header-actions">
-            <span className={`status-badge ${report.status}`}>
-              {t(`report.status.${report.status}` as `report.status.${ReportStatus}`)}
-            </span>
+          <div className="report-heading">
+            <p className="report-eyebrow">{t('report.eyebrow')}</p>
+            <h1 className="report-main-title">{report.title}</h1>
+            <div className="report-meta">
+              <span className={`status-badge ${report.status}`}>
+                {t(`report.status.${report.status}` as `report.status.${ReportStatus}`)}
+              </span>
+              <span className="report-meta-item">
+                {t('report.meta.created', { date: formattedDate })}
+              </span>
+              {input?.companyProfile?.horizon && (
+                <span className="report-meta-item">
+                  {t('report.meta.horizon', { value: input.companyProfile.horizon })}
+                </span>
+              )}
+              {input?.companyProfile?.sector && (
+                <span className="report-meta-item">· {input.companyProfile.sector}</span>
+              )}
+            </div>
+          </div>
+          <div className="report-actions">
             <button
               type="button"
-              className="btn-share"
+              className="btn"
               onClick={() => setShareOpen(true)}
               disabled={!report.resultData}
               title={t('share.triggerBtn')}
             >
+              <svg className="db-r-btn-ico" aria-hidden>
+                <use href="#i-share" />
+              </svg>
               {t('share.triggerBtn')}
             </button>
-            <button
-              type="button"
-              className="btn-export"
-              onClick={() => runExport('pdf')}
-              disabled={!report.resultData || exporting !== null}
-              title={t('report.export.pdfTitle')}
-            >
-              PDF
-            </button>
-            <button
-              type="button"
-              className="btn-export"
-              onClick={() => runExport('ppt')}
-              disabled={!report.resultData || exporting !== null}
-              title={t('report.export.pptTitle')}
-            >
-              PPT
-            </button>
-          </div>
-          <p className="report-eyebrow">{t('report.eyebrow')}</p>
-          <h1 className="report-main-title">{report.title}</h1>
-          <div className="report-meta">
-            <span className="report-meta-item">
-              {t('report.meta.created', { date: formattedDate })}
-            </span>
-            {input?.companyProfile?.horizon && (
-              <span className="report-meta-item">
-                {t('report.meta.horizon', { value: input.companyProfile.horizon })}
-              </span>
-            )}
-            {input?.companyProfile?.sector && (
-              <span className="report-meta-item">· {input.companyProfile.sector}</span>
-            )}
+            <ExportMenu
+              busy={exporting !== null}
+              onPdf={() => runExport('pdf')}
+              onPpt={() => runExport('ppt')}
+              triggerClassName="btn btn-primary"
+            />
           </div>
         </header>
 
