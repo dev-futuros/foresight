@@ -297,6 +297,61 @@
   .onboarding-title { font-size: 24px; }
 }
 
+/* ============================================================
+   SHARE MODAL VARIANT
+   Mints a public link, surfaces a readonly URL field with a Copy
+   button, and a small expiry note underneath. Ported from demo
+   `.share-modal` / `.share-card`.
+   ============================================================ */
+.modal-dialog.modal-dialog--share {
+  width: min(560px, calc(100vw - 32px));
+}
+.share-eyebrow {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--gold);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.share-stage {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-mute);
+  letter-spacing: 0.06em;
+  padding: 18px 0;
+  text-align: center;
+}
+.share-url-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  margin-bottom: 10px;
+}
+.share-url-row input {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface-3);
+  border: 1px solid var(--line-strong);
+  color: var(--ink);
+  border-radius: var(--r-md);
+  padding: 9px 12px;
+  font-family: var(--mono);
+  font-size: 12px;
+  outline: none;
+  transition: border-color 150ms;
+}
+.share-url-row input:focus {
+  border-color: var(--gold-soft);
+}
+.share-meta {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-mute);
+  letter-spacing: 0.06em;
+  margin-bottom: 18px;
+}
+
 /* ── Fullscreen overlay parts (PDF / export spinner) ───────── */
 .pdf-ov-spinner {
   width: 44px;

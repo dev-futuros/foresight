@@ -488,10 +488,14 @@
   border-bottom-color: rgba(212, 168, 83, 0.7);
 }
 
-/* Hide Clerk's "Secured by" footer branding row (its own dedicated subtree) */
+/* Hide Clerk's "Secured by" footer branding row (its own dedicated subtree).
+   The third selector matches any class starting with "cl-internal-" inside
+   the footer — written as an attribute selector so lightningcss accepts it
+   (the literal `.cl-internal-*` form is not a valid CSS selector and the
+   build minifier rejects it). */
 .cl-card .cl-internal-1rpdi70,
 .cl-card [data-localization-key='footerPageLink__help'],
-.cl-card .cl-footer .cl-internal-* {
+.cl-card .cl-footer [class*='cl-internal-'] {
   /* harmless if these classes change; the rules above handle the visible bits */
 }
 

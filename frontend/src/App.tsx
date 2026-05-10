@@ -11,6 +11,7 @@ import NewReportPage from './features/report/NewReportPage';
 import ReportPage from './features/report/ReportPage';
 import AccountPage from './features/account/AccountPage';
 import PrivacyPage from './features/privacy/PrivacyPage';
+import PublicSharePage from './features/publicShare/PublicSharePage';
 import AuthLayout from './features/auth/AuthLayout';
 import { clerkAppearance } from './features/auth/clerkAppearance';
 import { clerkLocalization } from './features/auth/clerkLocalization';
@@ -51,6 +52,7 @@ function AppRoutes() {
         }
       />
       <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/share/:token" element={<PublicSharePage />} />
       <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/reports/new" element={<NewReportPage />} />

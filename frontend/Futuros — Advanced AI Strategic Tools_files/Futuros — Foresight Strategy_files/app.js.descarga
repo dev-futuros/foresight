@@ -1,0 +1,470 @@
+// ── js/app.js ─────────────────────────────────────────────────────────────
+// Entry module. Wires the app together:
+//   1. Imports every public function/state piece from the modules.
+//   2. Re-exposes the names HTML needs as window.X so onclick="goTo(2)"
+//      and friends keep working without rewriting the markup.
+//   3. Loads credentials (initApiKey), initialises the onboarding modal,
+//      and bootstraps the maximize-cards behaviour after DOM is ready.
+//
+// When ESM <script type="module"> is loaded, it's deferred by default —
+// it runs after the classic <script src="i18n.js"> has executed and
+// after the DOM is parsed. So `t`, `setLang`, `LANG`, `getExampleData`,
+// and the `buildXxxPrompt` helpers from i18n.js are already on `window`.
+
+// ── Auth gate (was inline in the old <script>) ──
+if (!sessionStorage.getItem('fs_auth')) {
+  window.location.replace('index.html');
+}
+
+// ── Imports ───────────────────────────────────────────────────────────────
+import { initApiKey } from './core/config.js?v=114';
+import { state, getReports, saveReport, deleteReport } from './core/state.js?v=114';
+import { register, dispatch, list as listCommands, labelFor } from './core/commands.js?v=114';
+import {
+  inlineIconSVG,
+  toggleExportMenu,
+  closeExportMenu,
+  startStopwatch,
+  stopStopwatch,
+  resetStopwatch,
+  setBusy,
+  escapeChatHTML,
+  showFsToast
+} from './core/util.js?v=114';
+import {
+  goTo, openDashboard, closeDashboard, newReport, toggleNav,
+  setMaxReached, getMaxReached, setLastStep, getLastStep
+} from './core/nav.js?v=114';
+
+import { goToGlobal, generateGlobalSteep } from './flow/steep-global.js?v=114';
+import { aiSuggest, aiSuggestHorizon, addTag } from './flow/suggest.js?v=114';
+import { runAnalysis } from './flow/analysis.js?v=114';
+
+import {
+  setDbView, renderDashboard, loadReport,
+  dbExportPDF, dbExportPPT, dbClientFile,
+  renderClientSelector, renderClientView
+} from './ui/dashboard.js?v=114';
+import {
+  renderResults, renderSources, renderImpactMatrix,
+  showMatrixTip, hideMatrixTip,
+  selectBcPanel, switchTab, buildMatrixSVG
+} from './ui/results.js?v=114';
+import { initOnboarding, closeOnboarding } from './ui/onboarding.js?v=114';
+import { initMaximize } from './ui/maximize.js?v=114';
+import {
+  toggleChat, autosizeChatInput, toggleSuggestExpand,
+  sendChatPrompt, sendChat, resetChat, pushChatContextMarker
+} from './ui/chat.js?v=114';
+
+import { exportPDF, buildPDFHTML } from './exports/pdf.js?v=114';
+import { exportPPT } from './exports/ppt.js?v=114';
+import {
+  buildClientHTML, generateClientFile,
+  shareReport, closeShareModal, copyShareUrl, uploadShareReport
+} from './exports/client.js?v=114';
+
+// ── Expose to window — the HTML uses these via inline onclick attributes ──
+// Anything HTML touches (or that one module's HTML-string template
+// references via onclick) needs to be reachable as a global. Module-only
+// callers don't need to be here.
+Object.assign(window, {
+  // util / icons
+  inlineIconSVG, toggleExportMenu, closeExportMenu,
+  startStopwatch, stopStopwatch, resetStopwatch, setBusy,
+  escapeChatHTML, showFsToast,
+  // state / storage
+  getReports, saveReport, deleteReport,
+  // nav
+  goTo, openDashboard, closeDashboard, newReport, toggleNav,
+  // flows
+  goToGlobal, generateGlobalSteep, runAnalysis,
+  aiSuggest, aiSuggestHorizon, addTag,
+  // dashboard
+  setDbView, renderDashboard, loadReport,
+  dbExportPDF, dbExportPPT, dbClientFile,
+  renderClientSelector, renderClientView,
+  // results
+  renderResults, renderSources, renderImpactMatrix,
+  showMatrixTip, hideMatrixTip,
+  selectBcPanel, switchTab, buildMatrixSVG,
+  // onboarding
+  closeOnboarding,
+  // chat
+  toggleChat, autosizeChatInput, toggleSuggestExpand,
+  sendChatPrompt, sendChat, resetChat,
+  // exports
+  exportPDF, buildPDFHTML, exportPPT,
+  buildClientHTML, generateClientFile,
+  shareReport, closeShareModal, copyShareUrl, uploadShareReport
+});
+
+// reportData getter — i18n.js's setLang() reads window.reportData to decide
+// whether to re-render results on language switch. Original code used a
+// getter; we mirror that here. (state.reportData is the canonical store.)
+Object.defineProperty(window, 'reportData', {
+  get() { return state.reportData; },
+  configurable: true
+});
+
+// ── Command registrations ─────────────────────────────────────────────────
+// Every user-facing action is registered with the bus. Handlers stay in
+// their modules — we just add an entry pointing at the existing function.
+//
+// Both `description` and `label` are looked up at call-time via t() so
+// they follow the user's language. Templated labels (e.g. "Go to step 4")
+// use {placeholder} substitution: see _label() below.
+//
+// IMPORTANT: descriptions are surfaced both to the model (in the system
+// prompt) AND to the user (when they call listCommands). Keep them in
+// plain user-facing prose — no internal jargon, no command names.
+
+// Resolve a label key with optional {placeholder} substitutions.
+function _label(key, vars) {
+  let s = (typeof t === 'function') ? t(key) : key;
+  if (vars) {
+    for (const [k, v] of Object.entries(vars)) {
+      s = s.replace('{' + k + '}', v);
+    }
+  }
+  return s;
+}
+function _desc(key) {
+  return (typeof t === 'function') ? t(key) : key;
+}
+
+// ── Navigation ─────────
+register('goTo', (a) => {
+  // Step 5 is a transient loading screen for the analysis, not a real
+  // navigable step. The internal goTo() function silently no-ops when
+  // n===5 (see js/core/nav.js), which means an assistant-emitted
+  // goTo(5) appears to succeed but does nothing. Throw an explicit
+  // error so the bus marks the chip as failed and pushes a note to
+  // chat history — the model sees the error on its next turn and
+  // corrects course (the right command for "start the analysis" is
+  // runAnalysis, not goTo(5)).
+  if (a.step === 5) {
+    throw new Error('Step 5 is the analysis loader, not a navigable step. To start the analysis, emit the runAnalysis command instead (after confirming with the user that they want to spend the API credits).');
+  }
+  goTo(a.step);
+}, {
+  sources: ['ui', 'assistant'],
+  mode: 'auto',
+  args: { step: 'number(1-6)' },
+  description: () => _desc('cmd.goTo.desc'),
+  label: (a) => _label('cmd.goTo.label', { step: a.step })
+});
+
+register('openDashboard', () => openDashboard(), {
+  sources: ['ui', 'assistant'],
+  mode: 'auto',
+  description: () => _desc('cmd.openDashboard.desc'),
+  label: () => _label('cmd.openDashboard.label')
+});
+
+register('closeDashboard', () => closeDashboard(), {
+  sources: ['ui', 'assistant'],
+  mode: 'auto',
+  description: () => _desc('cmd.closeDashboard.desc'),
+  label: () => _label('cmd.closeDashboard.label')
+});
+
+register('setLang', (a) => {
+  if (typeof window.setLang === 'function') window.setLang(a.lang);
+}, {
+  sources: ['ui', 'assistant'],
+  mode: 'auto',
+  args: { lang: 'enum(es,en)' },
+  description: () => _desc('cmd.setLang.desc'),
+  label: (a) => _label('cmd.setLang.label', { lang: _label('cmd.setLang.lang.' + a.lang) })
+});
+
+// ── Chat ─────────
+register('toggleChat', () => toggleChat(), {
+  sources: ['ui', 'assistant'],
+  mode: 'auto',
+  description: () => _desc('cmd.toggleChat.desc'),
+  label: () => _label('cmd.toggleChat.label')
+});
+
+register('resetChat', () => resetChat(), {
+  sources: ['ui', 'assistant'],
+  mode: 'auto',
+  description: () => _desc('cmd.resetChat.desc'),
+  label: () => _label('cmd.resetChat.label')
+});
+
+// ── Form fields (the unified replacement for the old <suggest> chip) ─────────
+register('setField', (a) => {
+  const el = document.getElementById(a.id);
+  if (!el) throw new Error(`Field "${a.id}" not found`);
+  const text = String(a.value || '').trim();
+
+  // ── <select> path ──
+  // For dropdowns, plain `el.value = text` only works if `text` is one of
+  // the option's value attributes — otherwise the assignment silently
+  // does nothing and the dropdown stays at the previous selection. The
+  // assistant doesn't always know the exact internal value (e.g. it might
+  // emit "Medium" when the option's value is "mediana empresa"), so we
+  // try several match strategies before giving up. The throw on no-match
+  // surfaces an error to the bus, which renders a red ✗ pill and pushes
+  // a synthetic note to chat history — the assistant sees its mistake on
+  // the next turn and can correct itself.
+  if (el.tagName === 'SELECT') {
+    const options = Array.from(el.options);
+    const norm = (s) => String(s || '').trim().toLowerCase();
+    const want = norm(text);
+    let match = options.find(o => o.value === text)            // exact value
+             || options.find(o => norm(o.value) === want)      // case-insensitive value
+             || options.find(o => o.textContent.trim() === text)  // exact label
+             || options.find(o => norm(o.textContent) === want);  // case-insensitive label
+    if (!match) {
+      const valid = options.map(o => o.value).filter(Boolean).join(', ');
+      throw new Error(`Invalid value "${text}" for ${a.id}. Valid options: ${valid}`);
+    }
+    el.value = match.value;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    el.classList.remove('fs-suggest-flash');
+    void el.offsetWidth;
+    el.classList.add('fs-suggest-flash');
+    setTimeout(() => el.classList.remove('fs-suggest-flash'), 1500);
+    return;
+  }
+
+  // ── text input / textarea path (unchanged) ──
+  if (a.mode === 'replace') {
+    el.value = text;
+  } else {
+    const cur = (el.value || '').trim();
+    el.value = cur ? cur + '\n\n' + text : text;
+  }
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+  // Visual flash
+  el.classList.remove('fs-suggest-flash');
+  void el.offsetWidth;
+  el.classList.add('fs-suggest-flash');
+  setTimeout(() => el.classList.remove('fs-suggest-flash'), 1500);
+}, {
+  sources: ['assistant'],
+  mode: 'confirm',  // assistant proposes, user clicks chip OR "Apply all" to fire
+  args: {
+    id: 'enum(f-name,f-sector,f-size,f-horizon,f-market,f-challenge,f-strengths,gs-s,gs-t,gs-e,gs-env,gs-p,steep-s,steep-t,steep-e,steep-env,steep-p,hs-h1,hs-h2,hs-h3)',
+    mode: 'enum(add,replace)',
+    value: 'string'
+  },
+  description: () => _desc('cmd.setField.desc')
+  // No label fn — the setField confirm chip uses its own custom rendering
+  // (rich preview with expand toggle) inside chat.js.
+});
+
+// ── Reports (destructive — assistant should verbally confirm before emitting) ─
+//
+// newReport / loadReport / loadExample all switch the "current report
+// context". We reset the chat at the same time so the assistant doesn't
+// keep talking about the previous report's company, scenarios, etc. The
+// assistant should always be reasoning about the report currently in the
+// form, never about a stale one.
+
+register('newReport', () => newReport(), {
+  sources: ['ui', 'assistant'],
+  mode: 'auto',
+  description: () => _desc('cmd.newReport.desc'),
+  label: () => _label('cmd.newReport.label')
+});
+
+register('loadExample', () => {
+  // Mirrors the onboarding "load example" path without showing the modal.
+  if (typeof window.getExampleData !== 'function') return;
+  const e = window.getExampleData();
+  document.getElementById('f-name').value = e.name;
+  document.getElementById('f-sector').value = e.sector;
+  document.getElementById('f-size').value = e.size;
+  document.getElementById('f-horizon').value = e.horizon;
+  document.getElementById('f-market').value = e.market;
+  document.getElementById('f-challenge').value = e.challenge;
+  document.getElementById('f-strengths').value = e.strengths;
+  document.getElementById('gs-s').value = e.gsS;
+  document.getElementById('gs-t').value = e.gsT;
+  document.getElementById('gs-e').value = e.gsE;
+  document.getElementById('gs-env').value = e.gsEnv;
+  document.getElementById('gs-p').value = e.gsP;
+  state.globalSteepGenerated = true;
+  document.getElementById('steep-s').value = e.steepS;
+  document.getElementById('steep-t').value = e.steepT;
+  document.getElementById('steep-e').value = e.steepE;
+  document.getElementById('steep-env').value = e.steepEnv;
+  document.getElementById('steep-p').value = e.steepP;
+  document.getElementById('hs-h1').value = e.hsH1;
+  document.getElementById('hs-h2').value = e.hsH2;
+  document.getElementById('hs-h3').value = e.hsH3;
+  setMaxReached(4);
+  // Hide dashboard if open — same rationale as loadReport: the demo data
+  // is now loaded into the wizard, the user wants to see it not the dashboard.
+  document.getElementById('s-db').classList.add('hidden');
+  goTo(getLastStep() || 1);
+  pushChatContextMarker('example');
+}, {
+  sources: ['ui', 'assistant'],
+  mode: 'auto',
+  description: () => _desc('cmd.loadExample.desc'),
+  label: () => _label('cmd.loadExample.label')
+});
+
+register('loadReport', (a) => loadReport(a.id), {
+  sources: ['ui', 'assistant'],
+  mode: 'auto',
+  args: { id: 'string' },
+  description: () => _desc('cmd.loadReport.desc'),
+  label: () => _label('cmd.loadReport.label')
+});
+
+register('deleteReport', (a) => {
+  deleteReport(a.id);
+  renderDashboard();
+}, {
+  sources: ['ui', 'assistant'],
+  mode: 'auto',
+  args: { id: 'string' },
+  description: () => _desc('cmd.deleteReport.desc'),
+  label: () => _label('cmd.deleteReport.label')
+});
+
+// ── Analysis (expensive — assistant should verbally confirm before emitting) ─
+register('runAnalysis', () => runAnalysis(), {
+  sources: ['ui', 'assistant'],
+  mode: 'auto',
+  description: () => _desc('cmd.runAnalysis.desc'),
+  label: () => _label('cmd.runAnalysis.label')
+});
+
+register('generateGlobalSteep', () => generateGlobalSteep(), {
+  sources: ['ui', 'assistant'],
+  mode: 'auto',
+  description: () => _desc('cmd.generateGlobalSteep.desc'),
+  label: () => _label('cmd.generateGlobalSteep.label')
+});
+
+// AI Suggest commands intentionally NOT registered for the assistant —
+// having an LLM call another LLM to suggest tags is wasteful and recursive.
+// They remain UI-only and don't surface to the user.
+register('aiSuggest', (a) => aiSuggest(a.key, a.dimName, a.dimKeywords), {
+  sources: ['ui'],
+  mode: 'auto',
+  args: { key: 'string', dimName: 'string?', dimKeywords: 'string?' },
+  description: 'UI-only.'
+});
+
+register('aiSuggestHorizon', (a) => aiSuggestHorizon(a.key, a.horizonLabel, a.horizonDesc), {
+  sources: ['ui'],
+  mode: 'auto',
+  args: { key: 'string', horizonLabel: 'string?', horizonDesc: 'string?' },
+  description: 'UI-only.'
+});
+
+// ── Exports ─────────
+register('shareReport', (a) => shareReport(a && a.id), {
+  sources: ['ui', 'assistant'],
+  mode: 'auto',  // has its own modal flow as confirmation
+  args: { id: 'string?' },
+  description: () => _desc('cmd.shareReport.desc'),
+  label: () => _label('cmd.shareReport.label')
+});
+
+register('exportPDF', (a) => {
+  // Optional `id` lets the assistant export a SAVED report directly from
+  // the dashboard without the user having to load it first. dbExportPDF
+  // internally calls _loadReportIntoForm(id) before exporting, which
+  // populates the form state used by the PDF generator. The user stays
+  // on the dashboard view — to them, the report is exported "without
+  // loading." Without an id, exports the currently-displayed report.
+  if (a && a.id) return dbExportPDF(a.id);
+  return exportPDF();
+}, {
+  sources: ['ui', 'assistant'],
+  mode: 'auto',  // browser print dialog is the confirmation
+  args: { id: 'string?' },
+  description: () => _desc('cmd.exportPDF.desc'),
+  label: () => _label('cmd.exportPDF.label')
+});
+
+register('exportPPT', (a) => {
+  if (a && a.id) return dbExportPPT(a.id);
+  return exportPPT();
+}, {
+  sources: ['ui', 'assistant'],
+  mode: 'auto',
+  args: { id: 'string?' },
+  description: () => _desc('cmd.exportPPT.desc'),
+  label: () => _label('cmd.exportPPT.label')
+});
+
+// ── Self-introspection ─────────
+// Returns descriptions only — NO internal command names. The assistant
+// surfaces these to the user in prose; users should never see "goTo" or
+// "setField" in chat.
+register('listCommands', () => {
+  return listCommands({ source: 'assistant' }).map(c => ({
+    description: c.description,
+    requiresConfirmation: c.mode === 'confirm'
+  }));
+}, {
+  sources: ['ui', 'assistant'],
+  mode: 'auto',
+  description: () => _desc('cmd.listCommands.desc'),
+  label: () => _label('cmd.listCommands.label')
+});
+
+// Expose the bus on window for DevTools debugging and for the chat
+// renderer (which is loaded as a module but uses window for cross-module
+// access in a few places to avoid tight coupling).
+window.dispatch = dispatch;
+window.listCommands = listCommands;
+window.commandLabel = labelFor;
+
+// ── Fullscreen toggle ─────────────────────────────────────────────────────
+// Wraps the browser's Fullscreen API with the WebKit prefix fallback for
+// Safari. The body.is-fullscreen class lets CSS swap the button's icon
+// from "enter" to "exit" without JS having to manipulate the SVG directly.
+function toggleFullscreen() {
+  const doc = document;
+  const isFs = !!(doc.fullscreenElement || doc.webkitFullscreenElement);
+  if (!isFs) {
+    const root = doc.documentElement;
+    if (root.requestFullscreen) root.requestFullscreen();
+    else if (root.webkitRequestFullscreen) root.webkitRequestFullscreen();
+  } else {
+    if (doc.exitFullscreen) doc.exitFullscreen();
+    else if (doc.webkitExitFullscreen) doc.webkitExitFullscreen();
+  }
+}
+window.toggleFullscreen = toggleFullscreen;
+
+// Sync body class with the actual fullscreen state. Using fullscreenchange
+// (not the toggleFullscreen function itself) means we also pick up Esc-to-exit
+// and any other path out of fullscreen, keeping the button icon in sync.
+function _syncFullscreenClass() {
+  const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  document.body.classList.toggle('is-fullscreen', isFs);
+}
+document.addEventListener('fullscreenchange', _syncFullscreenClass);
+document.addEventListener('webkitfullscreenchange', _syncFullscreenClass);
+
+// ── Escape key closes share modal too (was bundled with closeExportMenu) ──
+document.addEventListener('keydown', function (ev) {
+  if (ev.key === 'Escape') {
+    closeExportMenu();
+    closeShareModal();
+  }
+});
+
+// ── Boot ──────────────────────────────────────────────────────────────────
+initApiKey();
+initOnboarding();
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initMaximize);
+} else {
+  initMaximize();
+}

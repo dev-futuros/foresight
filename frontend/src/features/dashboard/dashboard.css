@@ -174,8 +174,18 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   margin-bottom: 6px;
+  display: inline-block;
 }
-.db-r-status.DRAFT      { color: var(--ink-mute); }
+/* DRAFT carries a visible pill (border + background) instead of plain mute
+   text so a half-finished draft stands out at a glance against COMPLETED
+   peers in the dashboard list. */
+.db-r-status.DRAFT {
+  color: var(--gold);
+  background: var(--gold-bg);
+  border: 1px solid var(--line-accent);
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+}
 .db-r-status.PROCESSING { color: var(--orange); }
 .db-r-status.COMPLETED  { color: var(--green); }
 .db-r-status.FAILED     { color: var(--red); }

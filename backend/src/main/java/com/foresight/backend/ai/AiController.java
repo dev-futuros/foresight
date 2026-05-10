@@ -8,7 +8,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.foresight.backend.ai.dto.AnalyzeContextRequest;
 import com.foresight.backend.ai.dto.AnalyzeRequest;
+import com.foresight.backend.ai.dto.ChatRequest;
 import com.foresight.backend.ai.dto.GlobalSteepRequest;
 import com.foresight.backend.ai.dto.HorizonSuggestRequest;
 import com.foresight.backend.ai.dto.SteepSuggestRequest;
@@ -82,5 +84,52 @@ public class AiController {
     @PostMapping("/analyze")
     public Mono<JsonNode> analyze(@Valid @RequestBody AnalyzeRequest request) {
         return aiService.analyze(request);
+    }
+
+    /**
+     * Second pass — driving forces, critical-uncertainty axes, impact matrix placements
+     * and narrative logic per scenario. Anchored on the scenarios produced by /analyze.
+     *
+     * <p>Split from {@link #analyze} to keep each pass under {@code max_tokens}: an earlier
+     * iteration tried to emit all of these inside a single response and got truncated
+     * mid-JSON. See the comment on {@code ANALYZE_SYSTEM} in {@link AiService}.
+     */
+    @PostMapping("/analyze/scenario-planning")
+    public Mono<JsonNode> scenarioPlanning(@Valid @RequestBody AnalyzeContextRequest request) {
+        return aiService.scenarioPlanning(request);
+    }
+
+    /** Third pass — backcasting panels per scenario. */
+    @PostMapping("/analyze/backcasting")
+    public Mono<JsonNode> backcasting(@Valid @RequestBody AnalyzeContextRequest request) {
+        return aiService.backcasting(request);
+    }
+
+    /** Fourth pass — strategic priorities by horizon (H1/H2/H3). */
+    @PostMapping("/analyze/strategic-map")
+    public Mono<JsonNode> strategicMap(@Valid @RequestBody AnalyzeContextRequest request) {
+        return aiService.strategicMap(request);
+    }
+
+    /** Fifth pass — public web sources that ground the analysis (uses web_search). */
+    @PostMapping("/analyze/sources")
+    public Mono<JsonNode> sources(@Valid @RequestBody AnalyzeContextRequest request) {
+        return aiService.sources(request);
+    }
+
+    /**
+     * Chat assistant endpoint. Stateless: the caller sends the full conversation
+     * history every turn and the backend forwards it to Anthropic with the foresight
+     * system prompt + the assistant tool catalogue ({@link AssistantTools}). The raw
+     * Anthropic response is returned verbatim so the frontend can iterate
+     * {@code content} blocks looking for {@code text} and {@code tool_use}.
+     *
+     * <p>Tool execution happens on the frontend (the tools act on the wizard / app
+     * state). After running each tool, the frontend appends the {@code tool_result}
+     * blocks to its history and re-calls this endpoint to get the next assistant turn.
+     */
+    @PostMapping("/chat")
+    public Mono<JsonNode> chat(@Valid @RequestBody ChatRequest request) {
+        return aiService.chat(request);
     }
 }

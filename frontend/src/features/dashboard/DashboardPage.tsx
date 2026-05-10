@@ -104,31 +104,36 @@ export default function DashboardPage() {
 
         {!isLoading && !isError && hasReports && (
           <div className="db-reports-grid">
-            {reports.map((report) => (
-              <Link
-                key={report.id}
-                to={`/reports/${report.id}`}
-                className="db-report-card"
-              >
-                <div className={`db-r-status ${report.status}`}>
-                  {t(`dashboard.status.${report.status}` as `dashboard.status.${ReportStatus}`)}
-                </div>
-                <div className="db-r-name">{report.title}</div>
-                <div className="db-r-date">{formatDate(report.createdAt)}</div>
-                <div className="db-r-actions">
-                  <span className="db-r-btn">{t('dashboard.actions.view')}</span>
-                  <button
-                    className="db-r-btn danger"
-                    type="button"
-                    onClick={(e) => handleDelete(e, report.id)}
-                    aria-label={t('dashboard.deleteLabel')}
-                    title={t('dashboard.deleteTitle')}
-                  >
-                    {t('dashboard.actions.delete')}
-                  </button>
-                </div>
-              </Link>
-            ))}
+            {reports.map((report) => {
+              const isDraft = report.status === 'DRAFT';
+              // Drafts open the wizard in edit mode so the user lands back
+              // on the step they left off. Completed reports go straight to
+              // the viewer.
+              const target = isDraft ? `/reports/${report.id}/edit` : `/reports/${report.id}`;
+              return (
+                <Link key={report.id} to={target} className="db-report-card">
+                  <div className={`db-r-status ${report.status}`}>
+                    {t(`dashboard.status.${report.status}` as `dashboard.status.${ReportStatus}`)}
+                  </div>
+                  <div className="db-r-name">{report.title}</div>
+                  <div className="db-r-date">{formatDate(report.createdAt)}</div>
+                  <div className="db-r-actions">
+                    <span className="db-r-btn">
+                      {isDraft ? t('dashboard.actions.resume') : t('dashboard.actions.view')}
+                    </span>
+                    <button
+                      className="db-r-btn danger"
+                      type="button"
+                      onClick={(e) => handleDelete(e, report.id)}
+                      aria-label={t('dashboard.deleteLabel')}
+                      title={t('dashboard.deleteTitle')}
+                    >
+                      {t('dashboard.actions.delete')}
+                    </button>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         )}
       </main>

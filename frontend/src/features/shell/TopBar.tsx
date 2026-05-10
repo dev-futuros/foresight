@@ -12,6 +12,7 @@ export default function TopBar() {
   const logout = useLogout();
 
   const onDashboard = location.pathname === '/dashboard';
+  const onAccount = location.pathname === '/account';
 
   return (
     <header className="topbar">
@@ -29,9 +30,11 @@ export default function TopBar() {
               {t('nav.dashboard')}
             </Link>
           )}
-          <Link to="/account" className="btn-ghost">
-            {t('nav.myAccount')}
-          </Link>
+          {!onAccount && (
+            <Link to="/account" className="btn-ghost">
+              {t('nav.myAccount')}
+            </Link>
+          )}
           <button type="button" className="btn-ghost" onClick={logout}>
             {t('nav.logout')}
           </button>
