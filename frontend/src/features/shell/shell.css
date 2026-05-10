@@ -112,6 +112,80 @@ body.app-busy .stepper-item {
   color: var(--gold);
   background: transparent;
 }
+/* Icon-only variant — used by the hamburger trigger. Slightly squared
+   footprint so the icon sits centred without flanking text padding. */
+.btn-ghost.btn-ghost--icon {
+  padding: 8px 10px;
+  gap: 0;
+}
+.btn-ghost-ico {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+}
+
+/* ── Topbar hamburger dropdown ─────────────────────────────── */
+.topbar-menu {
+  position: relative;
+  display: inline-block;
+}
+.topbar-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 200px;
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  padding: 6px;
+  box-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.6),
+    0 1px 0 hsla(0, 0%, 100%, 0.04) inset;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 200;
+  animation: topbar-menu-rise 140ms var(--ease);
+}
+@keyframes topbar-menu-rise {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.topbar-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  border-radius: var(--r-sm);
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  transition: background 140ms var(--ease), color 140ms var(--ease);
+}
+.topbar-menu-item:hover {
+  background: var(--surface-3);
+  color: var(--gold);
+}
+.topbar-menu-ico {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+}
 
 /* ============================================================
    STEPPER — desktop list + mobile compact bar

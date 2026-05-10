@@ -84,6 +84,7 @@ const en = {
   nav: {
     myAccount: 'My account',
     logout: 'Log out',
+    menu: 'Open menu',
     dashboard: 'Dashboard',
     brandTag: 'Foresight Strategy · Powered by AI',
     footerTag: 'Foresight Strategy · Powered by AI',

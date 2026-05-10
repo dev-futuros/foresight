@@ -84,6 +84,7 @@ const es = {
   nav: {
     myAccount: 'Mi cuenta',
     logout: 'Cerrar sesión',
+    menu: 'Abrir menú',
     dashboard: 'Dashboard',
     brandTag: 'Foresight Strategy · Powered by AI',
     footerTag: 'Foresight Strategy · Powered by AI',

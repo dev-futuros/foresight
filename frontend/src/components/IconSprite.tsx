@@ -121,6 +121,34 @@ export default function IconSprite() {
         <line x1="14" y1="10" x2="21" y2="3" />
         <line x1="3" y1="21" x2="10" y2="14" />
       </symbol>
+
+      {/* grid (2x2) — dashboard */}
+      <symbol id="i-grid" viewBox="0 0 24 24">
+        <rect x="3" y="3" width="7" height="7" />
+        <rect x="14" y="3" width="7" height="7" />
+        <rect x="14" y="14" width="7" height="7" />
+        <rect x="3" y="14" width="7" height="7" />
+      </symbol>
+
+      {/* hamburger — three horizontal lines */}
+      <symbol id="i-menu" viewBox="0 0 24 24">
+        <line x1="3" y1="6" x2="21" y2="6" />
+        <line x1="3" y1="12" x2="21" y2="12" />
+        <line x1="3" y1="18" x2="21" y2="18" />
+      </symbol>
+
+      {/* user — head + shoulders silhouette */}
+      <symbol id="i-user" viewBox="0 0 24 24">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+        <circle cx="12" cy="7" r="4" />
+      </symbol>
+
+      {/* sign-out — arrow exiting a box */}
+      <symbol id="i-signout" viewBox="0 0 24 24">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+        <polyline points="16 17 21 12 16 7" />
+        <line x1="21" y1="12" x2="9" y2="12" />
+      </symbol>
     </svg>
   );
 }
