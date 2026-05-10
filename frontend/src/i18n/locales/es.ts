@@ -18,6 +18,7 @@ const es = {
       pdf: 'Generando PDF…',
       ppt: 'Generando PowerPoint…',
     },
+    loadExample: 'Creando informe de ejemplo…',
   },
   chat: {
     title: 'Asistente',

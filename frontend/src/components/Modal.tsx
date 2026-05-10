@@ -15,6 +15,39 @@ type ModalProps = {
 };
 
 /**
+ * Refcount of currently-open Modals. Each open instance increments on mount
+ * and decrements on cleanup. The body's overflow is locked while the count
+ * is positive and restored when it drops to 0.
+ *
+ * <p>The naive "capture prev / restore prev" pattern fails when modals
+ * stack: a second modal opening while the first is already open captures
+ * {@code prevOverflow="hidden"}, and on close restores {@code "hidden"} —
+ * leaving the body scroll locked even after both modals are gone. This
+ * showed up when the example-loader flow had the OnboardingDialog and the
+ * LoadingOverlay both open simultaneously; the user got stranded with an
+ * unscrollable page after navigation. The refcount makes the lock idempotent
+ * regardless of cleanup ordering between sibling modals.
+ */
+let openModalCount = 0;
+let originalBodyOverflow: string | null = null;
+
+function acquireBodyLock() {
+  if (openModalCount === 0) {
+    originalBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+  }
+  openModalCount += 1;
+}
+
+function releaseBodyLock() {
+  openModalCount = Math.max(0, openModalCount - 1);
+  if (openModalCount === 0) {
+    document.body.style.overflow = originalBodyOverflow ?? '';
+    originalBodyOverflow = null;
+  }
+}
+
+/**
  * Generic modal primitive — overlay backdrop + dialog body, ported from
  * the prototype's `.share-modal`. Uses a portal so it escapes any
  * `position: relative` ancestors and any `overflow: hidden` clipping.
@@ -32,18 +65,19 @@ export default function Modal({
 }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
 
-  // ESC to close + body scroll lock while open.
+  // ESC to close + body scroll lock while open. Body lock is refcounted at
+  // module scope (see acquireBodyLock/releaseBodyLock) so stacked modals
+  // don't leave the body in overflow:hidden after both close.
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose();
     }
     document.addEventListener('keydown', onKey);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    acquireBodyLock();
     return () => {
       document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = prevOverflow;
+      releaseBodyLock();
     };
   }, [open, onClose]);
 

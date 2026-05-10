@@ -2,7 +2,7 @@
   "_meta": {
     "name": "Restalia",
     "language": "es",
-    "description": "Ejemplo de uso — cadena española de restauración rápida (Restalia: 100 Montaditos, La Sureña, The Good Burger). Cargado desde el diálogo de bienvenida cuando el usuario hace clic en 'Cargar ejemplo'."
+    "description": "Ejemplo de uso — cadena española de restauración rápida (Restalia: 100 Montaditos, La Sureña, The Good Burger). Cargado desde el diálogo de bienvenida cuando el usuario hace clic en 'Cargar ejemplo'. resultData es una versión hecha a mano para mostrar la forma de un informe — no procede del pipeline real y debe reemplazarse en cuanto se genere un análisis auténtico para estos inputs."
   },
   "companyProfile": {
     "name": "Restalia",
@@ -34,5 +34,287 @@
     "H1": "Adopción masiva de pedido por kiosk y app. Margen presionado por subida del SMI y de la energía. Crecimiento de delivery aunque a comisiones más altas. Primeros menús saludables y vegetarianos en cartas tradicionales. Clientes piden mayor transparencia de origen e ingredientes. Dificultad creciente para encontrar y retener personal de cocina y sala.",
     "H2": "Cocinas centralizadas (cloud kitchens) sustituyen parte del modelo tradicional. IA generativa permite personalización masiva de menús y campañas a coste marginal. Aparición de cadenas 100% delivery sin sala. Marcas DTC en alimentación complican la captación. Posible regulación europea estricta del trabajo en delivery. Clientes esperan experiencias híbridas físicas-digitales.",
     "H3": "Robotización profunda de cocinas reduce dependencia de mano de obra. Reconfiguración total de la cadena agroalimentaria por crisis climáticas. Carnes cultivadas y proteínas alternativas alcanzan paridad de precio. Cambio sistémico en hábitos: comida como servicio (subscripciones) sustituye al ticket único. Consolidación drástica del sector con pocos grandes players paneuropeos. Crisis energética prolongada redefine la rentabilidad por unidad."
+  },
+  "resultData": {
+    "scenarios": [
+      {
+        "type": "Probable",
+        "title": "Franquicia híbrida bajo presión de márgenes",
+        "description": "El sector evoluciona de forma incremental: la regulación nutricional avanza con etiquetado obligatorio pero sin impuestos disruptivos, y la automatización entra de forma selectiva en las cadenas líderes. Restalia mantiene su red de 800+ locales hibridando cocinas semi-automatizadas, reformulación parcial de carta y un programa de fidelización digital unificado entre las tres marcas. Los márgenes se estabilizan tras absorber subidas de SMI y materias primas mediante eficiencias tecnológicas y renegociación de contratos de franquicia."
+      },
+      {
+        "type": "Plausible",
+        "title": "Reinvención tecno-saludable de la marca",
+        "description": "La presión Gen Z y la regulación nutricional convergen antes de lo esperado. Restalia diversifica: 100 Montaditos como espacio experiencial, TGB como referente español en proteínas alternativas asequibles, una red paralela de ghost kitchens y una cuarta marca digital-native con menús personalizados por IA. La franquicia se bifurca en formato premium experiencial y formato ligero para dark kitchens. La compañía pasa de operador de marcas a plataforma multi-formato."
+      },
+      {
+        "type": "Posible",
+        "title": "Disrupción sistémica del modelo franquicia",
+        "description": "La UE aprueba regulación tipo tabaco sobre ultraprocesados (etiquetado disuasorio, impuestos específicos, restricciones publicitarias) en paralelo a la entrada de cadenas robotizadas de capital tecnológico. Restalia pivota a un modelo dual: 200 locales operan como cocinas autónomas low-cost bajo nueva enseña y las marcas históricas se reposicionan como 'comida real, transparente y asequible' bajo sello clean-label. Los franquiciados que no pueden afrontar la transición se reabsorben o reconvierten."
+      }
+    ],
+    "keyUncertainties": [
+      "Velocidad y alcance de la regulación nutricional sobre ultraprocesados en la UE: el rango va desde reformulación gestionable hasta caída estructural de demanda en categorías centrales del portfolio.",
+      "Curva de adopción de automatización rentable en cocinas: si las cocinas semi-automatizadas alcanzan payback inferior a 3 años, decide si Restalia debe liderar la inversión o esperar a que la tecnología madure.",
+      "Comportamiento del consumidor Gen Z tras la inflación: si la preferencia plant-based y la food anxiety se consolidan como tendencia estructural o ceden ante la presión del poder adquisitivo.",
+      "Reconfiguración del canal delivery: consolidación de plataformas con comisiones al alza vs. desintermediación vía apps propias con IA, en un contexto de regulación laboral creciente para riders."
+    ],
+    "weakSignals": [
+      "Sindicación de franquiciados en grandes cadenas — Asociaciones reclaman renegociación de cánones ante márgenes comprimidos por SMI e inflación. Señal incipiente de tensión en el contrato franquiciador-franquiciado.",
+      "Agentes de IA conversacional para pedidos — Cadenas internacionales pilotan agentes de voz IA en drive-thru con tasas de conversión superiores al humano, anticipando redefinición del rol del personal de sala.",
+      "Contratos plurianuales de cobertura de materias primas — Operadores líderes firman acuerdos con productores agrícolas para blindarse de la volatilidad climática y arancelaria.",
+      "Mandatos municipales de packaging reutilizable — París y Berlín imponen sistemas de retorno obligatorio en restauración, anticipando la SUP Directive reforzada."
+    ],
+    "wildcards": [
+      "Crisis sanitaria por ultraprocesados — Un metaestudio de alto impacto vincula categorías específicas a mortalidad y desencadena respuesta regulatoria tipo tabaco: advertencias gráficas obligatorias, prohibición de publicidad, restricciones de venta a menores.",
+      "Shock climático en cadena mediterránea — Sequía multianual severa más olas de calor colapsan la producción de aceite de oliva, cereales y proteína porcina ibérica, duplicando precios estructuralmente.",
+      "Cadena de restaurantes 100% autónomos viralizada — Un entrante con capital tecnológico (fondo asiático o big tech) lanza una cadena completamente automatizada con precios 30% inferiores y escala 200 locales en 24 meses."
+    ],
+    "scenarioPlanning": {
+      "forces": [
+        {
+          "title": "Presión regulatoria nutricional y fiscal sobre ultraprocesados",
+          "description": "La convergencia entre presión por salud pública y necesidad fiscal en gobiernos europeos podría derivar en impuestos específicos, etiquetado restrictivo o restricciones publicitarias. Afecta directamente al núcleo de propuesta de 100 Montaditos y TGB.",
+          "impact": "high",
+          "uncertainty": "high"
+        },
+        {
+          "title": "Automatización e IA aplicada a operaciones de restauración",
+          "description": "Cocinas semi-automatizadas, IA conversacional en pedidos y apps de fidelización inteligentes redefinen la estructura de costes y la barrera de entrada. Para una red de 800+ locales franquiciados, define quién captura el valor de la eficiencia.",
+          "impact": "high",
+          "uncertainty": "medium"
+        },
+        {
+          "title": "Compresión estructural de márgenes",
+          "description": "Inflación persistente en materias primas, tipos elevados del BCE, fragmentación de cadenas de suministro y subidas del SMI comprimen simultáneamente costes de producto y laborales. Tensiona el modelo de ticket bajo característico del grupo.",
+          "impact": "high",
+          "uncertainty": "low"
+        },
+        {
+          "title": "Cambio generacional en hábitos de consumo",
+          "description": "Demanda Gen Z de experiencias auténticas y sostenibles, auge plant-based, nuevos códigos de socialización digital-first. Cuestiona la propuesta clásica de las tres marcas y abre espacio para reformulación de carta, formatos y narrativa.",
+          "impact": "medium",
+          "uncertainty": "medium"
+        }
+      ],
+      "axes": [
+        {
+          "name": "Intensidad regulatoria nutricional",
+          "negative": "Regulación blanda (autorregulación sectorial, incentivos voluntarios)",
+          "positive": "Regulación dura (impuestos específicos, etiquetado restrictivo, límites publicitarios)"
+        },
+        {
+          "name": "Velocidad de adopción tecnológica en franquicia",
+          "negative": "Adopción lenta (resistencia del franquiciado, fragmentación tecnológica)",
+          "positive": "Adopción acelerada (cocinas automatizadas, IA omnicanal, dato unificado)"
+        }
+      ],
+      "impactMatrix": [
+        { "force": "Presión regulatoria nutricional y fiscal sobre ultraprocesados", "x": 0.75, "y": 0.45 },
+        { "force": "Automatización e IA aplicada a operaciones de restauración", "x": 0.4, "y": 0.8 },
+        { "force": "Compresión estructural de márgenes", "x": 0.3, "y": 0.5 },
+        { "force": "Cambio generacional en hábitos de consumo", "x": 0.65, "y": 0.6 }
+      ],
+      "narrativeLogics": [
+        {
+          "scenarioType": "Probable",
+          "logic": "Combinación de regulación gradual y adopción tecnológica continua: la presión nutricional avanza con etiquetado y restricciones publicitarias suaves, mientras las cadenas líderes despliegan automatización selectiva. Restalia reformula cartas, integra IA en pedidos y fidelización, y rediseña la unit economics del franquiciado. El ganador es quien combine credibilidad nutricional renovada con eficiencia digital."
+        },
+        {
+          "scenarioType": "Plausible",
+          "logic": "Regulación moderada y adopción tecnológica acelerada por presión competitiva: la fragmentación política europea frena la regulación dura, pero la competencia tecnológica obliga a Restalia a diversificar formatos. El sector se polariza entre low-cost tradicional, premium experiencial y digital-native. Restalia capitaliza su capilaridad y escala para liderar el segmento experiencial accesible."
+        },
+        {
+          "scenarioType": "Posible",
+          "logic": "Regulación dura y adopción tecnológica extrema sincronizadas: impuestos tipo tabaco sobre ultraprocesados, restaurantes semi-autónomos, proteínas alternativas mainstream y dominio de plataformas de delivery con IA. El local físico tradicional pierde centralidad frente a ghost kitchens y formatos híbridos. El modelo de franquicia debe reinventarse como red de nodos de producción-distribución."
+        }
+      ]
+    },
+    "backcasting": {
+      "panels": [
+        {
+          "scenarioType": "Probable",
+          "vision": "Estado en 2031: Restalia opera 900+ locales con cocinas semi-automatizadas en sus enseñas líderes, ha reformulado el 60% de su carta para cumplir con la regulación nutricional europea y mantiene su posicionamiento de precio asequible. La fidelización digital con IA representa el 40% de los tickets y el delivery omnicanal está plenamente integrado. Los márgenes se han estabilizado tras absorber subidas de SMI y costes de materias primas mediante eficiencias tecnológicas.",
+          "milestones": [
+            {
+              "timeframe": "2028",
+              "title": "Pilotos tecnológicos y rediseño contractual",
+              "description": "Lanzamiento de pilotos de cocina semi-automatizada en 30 locales propios. Renegociación de contratos de franquicia para repartir inversión tecnológica y absorber subidas de SMI. Primeras pruebas de menús plant-based en TGB.",
+              "actions": [
+                "Pilotar cocinas semi-automatizadas en locales insignia",
+                "Actualizar contratos de franquicia con cláusulas de inversión tech compartida",
+                "Probar menús plant-based en TGB"
+              ]
+            },
+            {
+              "timeframe": "2029",
+              "title": "Escalado tecnológico y reformulación de carta",
+              "description": "La automatización parcial se extiende a 300 locales. Se completa la reformulación nutricional del 40% de las referencias y se firma alianza con proveedor de proteínas alternativas. La app con IA conversacional gestiona pedidos, recomendaciones y fidelización integrada.",
+              "actions": [
+                "Escalar automatización a 300 locales",
+                "Reformular menús clave anticipando regulación nutricional UE",
+                "Integrar IA conversacional en app y kioscos"
+              ]
+            },
+            {
+              "timeframe": "2031",
+              "title": "Red modernizada y carta reformulada",
+              "description": "Modelo híbrido consolidado: 70% de la red con cocinas semi-automatizadas, carta reformulada para etiquetado nutricional reforzado, app de fidelización con IA como canal principal. 100 Montaditos mantiene su ADN de precio, TGB lidera en proteínas alternativas mainstream.",
+              "actions": [
+                "Cerrar despliegue al 70% de la red",
+                "Lanzar línea reformulada baja en ultraprocesados bajo sello propio"
+              ]
+            }
+          ],
+          "now": "Hoy: enfrentamos presión de márgenes por inflación en materias primas, subidas de SMI y dependencia de plataformas de delivery. La brecha crítica es modernizar operaciones (cocinas, datos, fidelización) sin romper la propuesta de precio asequible que define al grupo."
+        },
+        {
+          "scenarioType": "Plausible",
+          "vision": "Estado en 2031: Restalia ha evolucionado a un grupo de restauración multi-formato que combina locales físicos rediseñados como espacios experienciales, una red de 80 ghost kitchens en ciudades clave y marcas digital-native incubadas internamente. La franquicia se ha bifurcado: tradicional premium experiencial y ligera para dark kitchens. Las proteínas alternativas representan el 30% de las ventas de TGB.",
+          "milestones": [
+            {
+              "timeframe": "2028",
+              "title": "Dual track estratégico",
+              "description": "Adquisición o inversión en operadora de ghost kitchens para acelerar aprendizaje. Creación de unidad interna de incubación de marcas digital-native. Acuerdo con productor de proteínas alternativas.",
+              "actions": [
+                "Adquirir o invertir en operador de ghost kitchens",
+                "Crear unidad de incubación de marcas digital-native",
+                "Firmar contrato marco de proteínas alternativas"
+              ]
+            },
+            {
+              "timeframe": "2029",
+              "title": "Lanzamiento de marca digital-native y red de ghost kitchens",
+              "description": "Despliegue de 40 ghost kitchens en zonas urbanas densas con modelo de franquicia ligera. Lanzamiento de una marca digital-native dirigida a Gen Z con carta plant-based-first. 100 Montaditos rediseña 100 locales como espacios experienciales.",
+              "actions": [
+                "Abrir 40 ghost kitchens con franquicia ligera",
+                "Lanzar marca digital-native plant-based",
+                "Rediseñar locales insignia como espacios sociales"
+              ]
+            },
+            {
+              "timeframe": "2031",
+              "title": "Grupo multi-formato con franquicia bifurcada",
+              "description": "Tres formatos coexistentes: locales experienciales (100 Montaditos como espacio Gen Z, La Sureña destino gastronómico andaluz), 80 ghost kitchens, y una marca 100% digital-native. La presión regulatoria sobre ultraprocesados es ventaja competitiva por anticipación.",
+              "actions": [
+                "Consolidar marca digital-native como cuarto pilar",
+                "Posicionar TGB como referente español en proteínas alternativas asequibles"
+              ]
+            }
+          ],
+          "now": "Hoy: dependemos de un modelo de franquicia físico homogéneo en un entorno donde el delivery, las ghost kitchens y el cambio generacional fragmentan los canales. La brecha crítica es pasar de operador de marcas físicas a plataforma multi-formato sin canibalizar la red existente."
+        },
+        {
+          "scenarioType": "Posible",
+          "vision": "Estado en 2031: La UE ha aprobado regulación tipo tabaco sobre ultraprocesados con etiquetado disuasorio e impuestos específicos. Restalia ha reconvertido radicalmente el grupo: 200 locales operan como cocinas autónomas low-cost bajo nueva enseña, las marcas históricas se reposicionan como 'comida real' bajo sello clean-label propio, y la compañía ha desarrollado capacidades propias de robótica culinaria mediante alianza tecnológica.",
+          "milestones": [
+            {
+              "timeframe": "2028",
+              "title": "Alerta temprana: borradores regulatorios y entrada tech-native",
+              "description": "Se publican borradores europeos sobre etiquetado disuasorio e impuestos a ultraprocesados. Entran en España las primeras cadenas con cocinas robotizadas. Se activa comité de crisis estratégica y stress-test del modelo de franquicia.",
+              "actions": [
+                "Activar comité de crisis estratégica",
+                "Stress-test del modelo ante escenarios regulatorios extremos",
+                "Iniciar reformulación acelerada"
+              ]
+            },
+            {
+              "timeframe": "2029",
+              "title": "Punto de inflexión: alianza y reformulación radical",
+              "description": "Firma de alianza estratégica con proveedor de robótica culinaria, piloto de 20 restaurantes autónomos. Reformulación radical del 80% de la carta eliminando ultraprocesados. Plan de reconversión negociada con franquiciados.",
+              "actions": [
+                "Firmar alianza tecnológica para restaurantes autónomos",
+                "Eliminar ultraprocesados del 80% de la carta",
+                "Activar fondo de reconversión de franquicias"
+              ]
+            },
+            {
+              "timeframe": "2031",
+              "title": "Reconversión radical y nuevo posicionamiento",
+              "description": "Modelo dual consolidado: 200 restaurantes autónomos bajo enseña tech compitiendo en precio con operadores tech-native, y red premium reposicionada como 'comida real, transparente y asequible' bajo sello clean-label. Restalia sobrevive como uno de los pocos grupos tradicionales españoles relevantes.",
+              "actions": [
+                "Operar 200 restaurantes autónomos bajo nueva enseña",
+                "Certificar carta clean-label en marcas históricas"
+              ]
+            }
+          ],
+          "now": "Hoy: tenemos exposición elevada a categorías que podrían ser objeto de regulación dura (ultraprocesados, fritos, alcohol asequible) y un modelo de franquicia con capacidad financiera heterogénea poco preparado para una disrupción tecnológica radical. La brecha crítica es construir capacidades de reconversión rápida antes de que el shock regulatorio y la entrada tech-native erosionen el modelo actual."
+        }
+      ]
+    },
+    "strategicMap": {
+      "h1": [
+        {
+          "title": "Blindaje de márgenes ante inflación y SMI",
+          "description": "Renegociar contratos marco con proveedores clave aprovechando el volumen agregado de las 800+ unidades de las tres marcas. Implementar ingeniería de menús con análisis de rentabilidad por plato y rediseño de la oferta para proteger ticket medio."
+        },
+        {
+          "title": "Estrategia omnicanal de delivery y fidelización digital",
+          "description": "Renegociar comisiones con plataformas agregadoras y potenciar canal propio (web/app) con incentivos para reducir dependencia de marketplaces. Lanzar programa de fidelización unificado entre las tres marcas con CRM compartido."
+        },
+        {
+          "title": "Modelo operativo estándar con polivalencia entre marcas",
+          "description": "Desplegar dotaciones de personal optimizadas y polivalencia entre marcas para absorber la subida del SMI sin erosionar experiencia. Cross-training de personal con rotación entre 100 Montaditos, TGB y La Sureña."
+        }
+      ],
+      "h2": [
+        {
+          "title": "Reformulación nutricional y reposicionamiento",
+          "description": "Reformular recetas estrella reduciendo sodio, azúcares añadidos y grasas saturadas anticipándose a Nutri-Score obligatorio o impuestos a ultraprocesados. Incorporar líneas plant-based en TGB y 100 Montaditos para captar Gen Z."
+        },
+        {
+          "title": "Automatización selectiva y nuevo contrato de franquicia",
+          "description": "Pilotar cocinas semi-automatizadas (freidoras inteligentes, dispensadores, KDS con IA) en 20-30 locales para validar reducción de costes laborales. Actualizar el contrato de franquicia con cláusulas de inversión tecnológica compartida."
+        },
+        {
+          "title": "Sello interno de transparencia nutricional",
+          "description": "Crear un sello de transparencia nutricional y trazabilidad visible en carta digital y packaging para diferenciar frente a competencia y anticipar exigencias regulatorias."
+        }
+      ],
+      "h3": [
+        {
+          "title": "Franquicia híbrida data-driven asset-light tech-heavy",
+          "description": "Evolucionar hacia un modelo donde Restalia aporta plataforma tecnológica, IA de gestión y datos, y el franquiciado opera con menor carga laboral. Desarrollar formatos modulares (flagship experiencial, dark kitchen, kiosko automatizado, córner en retail)."
+        },
+        {
+          "title": "Exploración de food-tech disruptiva y nuevas categorías",
+          "description": "Crear fondo de corporate venturing o partnerships con startups de proteínas alternativas, fermentación de precisión e impresión 3D de alimentos. Pilotar un concepto de restaurante altamente automatizado bajo una cuarta sub-marca."
+        }
+      ]
+    },
+    "sources": {
+      "sources": [
+        {
+          "title": "Eurostat — Restaurants and mobile food service activities (NACE 56.10)",
+          "url": "https://ec.europa.eu/eurostat/web/products-eurostat-news/-/ddn-20240715-1",
+          "description": "Estadísticas de la UE sobre actividad, empleo y márgenes en el sector de restauración, base para benchmarking europeo."
+        },
+        {
+          "title": "EU AI Act — Reglamento (UE) 2024/1689 sobre inteligencia artificial",
+          "url": "https://eur-lex.europa.eu/eli/reg/2024/1689/oj",
+          "description": "Marco regulatorio europeo aplicable a sistemas de IA en cocinas automatizadas, atención al cliente y procesamiento de datos de consumidores."
+        },
+        {
+          "title": "Hostelería de España — Anuario 2024",
+          "url": "https://www.hosteleriadeespana.com/publicaciones/anuario",
+          "description": "Informe anual de la patronal con datos macro del sector en España: ventas, empleo, márgenes y tendencias estructurales."
+        },
+        {
+          "title": "European Food Safety Authority (EFSA) — Front-of-pack labelling scientific opinion",
+          "url": "https://www.efsa.europa.eu/en/topics/topic/food-information-consumers",
+          "description": "Dictamen científico sobre etiquetado nutricional frontal, referencia para anticipar el alcance de la futura regulación europea."
+        },
+        {
+          "title": "WHO Europe — Ultra-processed foods, diet quality and human health",
+          "url": "https://www.who.int/europe/news-room/fact-sheets/item/healthy-diet",
+          "description": "Documentación de la OMS sobre el impacto de ultraprocesados en salud pública, base de la presión regulatoria emergente en países UE."
+        },
+        {
+          "title": "Asociación Española de Franquiciadores (AEF) — Informe La Franquicia en España",
+          "url": "https://www.franquiciadores.com/informe-franquicia",
+          "description": "Informe anual con datos del sector franquicia en España: número de redes, locales, empleo y evolución."
+        }
+      ]
+    }
   }
 }

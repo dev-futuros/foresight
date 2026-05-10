@@ -18,6 +18,7 @@ const en = {
       pdf: 'Generating PDF…',
       ppt: 'Generating PowerPoint…',
     },
+    loadExample: 'Creating example report…',
   },
   chat: {
     title: 'Assistant',

@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCreateReport, useReport, useUpdateReport } from '../../hooks/useReports';
+import type { Page, ReportSummary } from '../../types/api';
+import LoadingOverlay from '../../components/LoadingOverlay';
 import { useCurrentUser } from '../../hooks/useAuth';
 import { useSetStepper } from '../shell/StepperContext';
 import {
@@ -67,11 +70,19 @@ const EMPTY_STEEP: SteepData = {
 const EMPTY_HORIZON: HorizonData = { H1: '', H2: '', H3: '' };
 const EMPTY_GLOBAL_STEEP: GlobalSteepData = { S: '', T: '', E: '', ENV: '', P: '' };
 
+/** Title used to identify the auto-created example report. handleLoadExample
+ *  scans the user's reports for this exact match before creating a new one,
+ *  so repeated clicks of "Load example" navigate to the existing copy
+ *  instead of producing duplicates. The constant matches the title in
+ *  {@code public/example-report.json}; keep them in sync. */
+const EXAMPLE_REPORT_TITLE = 'Restalia — Foresight 2030';
+
 export default function NewReportPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const createReport = useCreateReport();
   const updateReport = useUpdateReport();
+  const queryClient = useQueryClient();
   const { data: user } = useCurrentUser();
 
   // Mode detection. The /reports/:id/edit route renders this same component
@@ -126,38 +137,98 @@ export default function NewReportPage() {
   const [showOnboarding, setShowOnboarding] = useState(
     () => !editMode && !readOnboardingDismissed(),
   );
+  // Blocks the UI during the create→patch→navigate sequence of loading the
+  // example. The operation is normally <2s but it spans two HTTP round-trips
+  // (POST inputData, PATCH resultData) plus the report-viewer fetch — the
+  // overlay tells the user something's happening rather than making the
+  // onboarding dialog appear "stuck".
+  const [isLoadingExample, setIsLoadingExample] = useState(false);
 
   const handleOnboardingClose = useCallback((dontShowAgain: boolean) => {
     if (dontShowAgain) persistOnboardingDismissed();
     setShowOnboarding(false);
   }, []);
 
-  const handleLoadExample = useCallback(async (dontShowAgain: boolean) => {
-    if (dontShowAgain) persistOnboardingDismissed();
-    try {
-      const res = await fetch('/example-report.json', { cache: 'no-cache' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = (await res.json()) as {
-        companyProfile?: EmpresaData;
-        globalSteep?: GlobalSteepData;
-        steep?: SteepData;
-        horizon?: HorizonData;
-      };
-      if (data.companyProfile) setEmpresa({ ...EMPTY_EMPRESA, ...data.companyProfile });
-      if (data.globalSteep) setGlobalData({ ...EMPTY_GLOBAL_STEEP, ...data.globalSteep });
-      if (data.steep) setSteep({ ...EMPTY_STEEP, ...data.steep });
-      if (data.horizon) setHorizon({ ...EMPTY_HORIZON, ...data.horizon });
-      // Land on step 1 so the user can see the seeded company profile first.
-      setStep(1);
-      setMaxReached(1);
-    } catch (e) {
-      // Non-blocking: keep dialog dismissed and let user fill the form by hand.
-      // eslint-disable-next-line no-console
-      console.error('[onboarding] failed to load example-report.json', e);
-    } finally {
-      setShowOnboarding(false);
-    }
-  }, []);
+  const handleLoadExample = useCallback(
+    async (dontShowAgain: boolean) => {
+      if (dontShowAgain) persistOnboardingDismissed();
+      try {
+        const res = await fetch('/example-report.json', { cache: 'no-cache' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = (await res.json()) as {
+          companyProfile?: EmpresaData;
+          globalSteep?: GlobalSteepData;
+          steep?: SteepData;
+          horizon?: HorizonData;
+          resultData?: Record<string, unknown>;
+        };
+
+        // Always populate local wizard state so the form is pre-filled in
+        // case the user navigates back into the wizard from the report
+        // viewer (via the stepper). This is the original behavior and the
+        // fallback when the JSON ships without a precomputed resultData.
+        if (data.companyProfile) setEmpresa({ ...EMPTY_EMPRESA, ...data.companyProfile });
+        if (data.globalSteep) setGlobalData({ ...EMPTY_GLOBAL_STEEP, ...data.globalSteep });
+        if (data.steep) setSteep({ ...EMPTY_STEEP, ...data.steep });
+        if (data.horizon) setHorizon({ ...EMPTY_HORIZON, ...data.horizon });
+
+        // No precomputed analysis → keep the legacy behavior: land on
+        // step 1 so the user explores the seeded inputs and runs their
+        // own analysis when ready.
+        if (!data.resultData) {
+          setStep(1);
+          setMaxReached(1);
+          return;
+        }
+
+        // Has precomputed analysis → POST inputData + PATCH resultData so
+        // the user lands on a real report viewer with a fully rendered
+        // analysis, not on step 1 of an empty wizard. Reuse-by-title
+        // avoids spawning a fresh duplicate every time the user clicks
+        // "Load example" on this device — the dashboard would otherwise
+        // grow a new example row on each click.
+        setIsLoadingExample(true);
+        const cachedReports = queryClient.getQueryData<Page<ReportSummary>>([
+          'reports',
+          0,
+          20,
+        ]);
+        const existing = cachedReports?.content.find(
+          (r) => r.title === EXAMPLE_REPORT_TITLE,
+        );
+        if (existing) {
+          navigate(`/reports/${existing.id}`);
+          return;
+        }
+
+        const title = data.companyProfile?.title || EXAMPLE_REPORT_TITLE;
+        const inputData = {
+          companyProfile: data.companyProfile ?? null,
+          globalSteep: data.globalSteep ?? null,
+          steep: data.steep ?? null,
+          horizon: data.horizon ?? null,
+        };
+        const created = await createReport.mutateAsync({ title, inputData });
+        await updateReport.mutateAsync({
+          id: created.id,
+          body: { resultData: data.resultData },
+        });
+        navigate(`/reports/${created.id}`);
+      } catch (e) {
+        // Non-blocking: log and let the user start fresh. The local state
+        // setters above may have already populated the wizard, which is
+        // the best partial recovery we can offer.
+        // eslint-disable-next-line no-console
+        console.error('[onboarding] failed to load example', e);
+        setStep(1);
+        setMaxReached(1);
+      } finally {
+        setIsLoadingExample(false);
+        setShowOnboarding(false);
+      }
+    },
+    [createReport, updateReport, navigate, queryClient],
+  );
 
   // Snapshot refs of the four wizard slices. Used by persistDraft so it
   // always sees the latest values without having to depend on them in its
@@ -632,8 +703,11 @@ export default function NewReportPage() {
     {
       name: 'loadExample',
       mode: 'auto',
-      handler: () => {
-        void handleLoadExample(true);
+      handler: async () => {
+        // Await the full POST+PATCH+navigate sequence so the assistant's
+        // next turn only fires once the report viewer is actually on
+        // screen, not while the network calls are still in flight.
+        await handleLoadExample(true);
         return 'Loaded the Restalia example.';
       },
     },
@@ -720,6 +794,7 @@ export default function NewReportPage() {
         onClose={handleOnboardingClose}
         onLoadExample={handleLoadExample}
       />
+      <LoadingOverlay open={isLoadingExample} text={t('modals.loadExample')} />
     </div>
   );
 }
