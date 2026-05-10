@@ -203,9 +203,7 @@ const en = {
         2: 'Filtering signals relevant for {{sector}}…',
       },
       progressItems: {
-        search: 'Web search · current data',
-        macro: 'Macro and geopolitical synthesis',
-        sector: 'Sector filtering',
+        scan: 'Web search · gathering current data',
       },
       errorDefault: 'Could not generate the global context automatically. You can fill it manually or continue without it.',
       next: 'Continue — Sector STEEP →',

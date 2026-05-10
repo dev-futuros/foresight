@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { globalSteep, type GlobalSteep } from '../../../lib/aiClient';
+import {
+  globalSteepDim,
+  globalSteepScan,
+  type GlobalSteep,
+  type GlobalSteepDimension,
+} from '../../../lib/aiClient';
 import { extractApiErrorMessage } from '../../../lib/apiError';
 import { useMaximizable } from '../../../components/useMaximizable';
 import LoadingPanel, {
@@ -33,6 +38,10 @@ const DIM_META: Record<FieldKey, { icon: string; modifier: string }> = {
   P:   { icon: 'i-p',   modifier: 'p'   },
 };
 
+/** Keys for the 6 progress rows shown in the loader: a single upstream
+ *  scan, then one per STEEP dimension. */
+type ProgressKey = 'scan' | FieldKey;
+
 export default function StepGlobal({
   data,
   sector,
@@ -47,55 +56,90 @@ export default function StepGlobal({
   // removed in favour of a single up-front compute when entering the step;
   // the user can edit the textareas freely after that.
   const [bulkLoading, setBulkLoading] = useState(false);
-  const [progressStatus, setProgressStatus] = useState<
-    Record<'search' | 'macro' | 'sector', ProgressItemStatus>
-  >({ search: 'pending', macro: 'pending', sector: 'pending' });
+  const [progress, setProgress] = useState<Record<ProgressKey, ProgressItemStatus>>({
+    scan: 'pending',
+    S: 'pending',
+    T: 'pending',
+    E: 'pending',
+    ENV: 'pending',
+    P: 'pending',
+  });
   const [error, setError] = useState<string | null>(null);
   const fetchedFor = useRef<string | null>(null);
   const max = useMaximizable<FieldKey>();
 
   const hasAny = FIELD_KEYS.some((k) => data[k].trim());
 
+  /**
+   * Two-phase fetch:
+   *   1. Single web-search scan → JSON of raw dated bullets for all 5 dims.
+   *   2. Five parallel reformulations (one per dim), each fed the matching
+   *      snippet from the scan. Each dim's textarea fills in as its call
+   *      resolves; an individual failure doesn't take down the others
+   *      (Promise.allSettled), so a partial result is better than nothing.
+   */
   async function fetchAll() {
     if (!sector.trim()) return;
     setBulkLoading(true);
     setError(null);
-    // Simulated timeline: each item lights up sequentially while the single
-    // /api/ai/global-steep call is in flight. The backend doesn't expose
-    // per-stage events, so the cadence is heuristic — picked to roughly
-    // match the typical 15-30s response window.
-    setProgressStatus({ search: 'running', macro: 'pending', sector: 'pending' });
-    const t1 = window.setTimeout(() => {
-      setProgressStatus((prev) =>
-        prev.search === 'running'
-          ? { ...prev, search: 'done', macro: 'running' }
-          : prev,
-      );
-    }, 6000);
-    const t2 = window.setTimeout(() => {
-      setProgressStatus((prev) =>
-        prev.macro === 'running'
-          ? { ...prev, macro: 'done', sector: 'running' }
-          : prev,
-      );
-    }, 14000);
-
+    setProgress({
+      scan: 'running',
+      S: 'pending',
+      T: 'pending',
+      E: 'pending',
+      ENV: 'pending',
+      P: 'pending',
+    });
     try {
-      const result = await globalSteep({ sector, language });
-      onChange({
-        S: result.S ?? '',
-        T: result.T ?? '',
-        E: result.E ?? '',
-        ENV: result.ENV ?? '',
-        P: result.P ?? '',
-      });
-      setProgressStatus({ search: 'done', macro: 'done', sector: 'done' });
+      // ── Phase 1 — scan ──
+      const scan = await globalSteepScan({ sector, language });
+      setProgress((p) => ({
+        ...p,
+        scan: 'done',
+        S: 'running',
+        T: 'running',
+        E: 'running',
+        ENV: 'running',
+        P: 'running',
+      }));
+
+      // ── Phase 2 — 5 parallel dim reformulations ──
+      // Accumulate results into a local mirror so we can issue ONE final
+      // onChange with the whole batch (avoids 5 intermediate parent re-
+      // renders that would clobber each other's autosave). Each dim still
+      // flips its progress row independently as it resolves.
+      const merged: GlobalSteepData = { S: '', T: '', E: '', ENV: '', P: '' };
+      await Promise.allSettled(
+        FIELD_KEYS.map(async (key) => {
+          try {
+            const text = await globalSteepDim({
+              sector,
+              language,
+              dimension: key as GlobalSteepDimension,
+              snippet: scan[key] ?? '',
+            });
+            merged[key] = text;
+            setProgress((p) => ({ ...p, [key]: 'done' }));
+          } catch (e) {
+            setProgress((p) => ({ ...p, [key]: 'error' }));
+            throw e;
+          }
+        }),
+      );
+      onChange(merged);
     } catch (e) {
       setError(extractApiErrorMessage(e, t('wizard.global.errorDefault')));
       fetchedFor.current = null;
+      // Mark whichever rows are still pending as errored so the user
+      // sees they didn't complete (vs being left as the running spinner).
+      setProgress((p) => {
+        const next = { ...p };
+        (Object.keys(next) as ProgressKey[]).forEach((k) => {
+          if (next[k] === 'running' || next[k] === 'pending') next[k] = 'error';
+        });
+        return next;
+      });
     } finally {
-      window.clearTimeout(t1);
-      window.clearTimeout(t2);
       setBulkLoading(false);
     }
   }
@@ -125,12 +169,9 @@ export default function StepGlobal({
   }
 
   // Register the assistant `generateGlobalSteep` command from inside this
-  // component so the handler can actually re-run the fetch. The previous
-  // registration in NewReportPage only cleared the textareas — it relied on
-  // the auto-fetch effect re-firing, which only depends on `sector` and so
-  // never re-fired. Doing it here lets us reset `fetchedFor` and call
-  // fetchAll directly. useCommands re-resolves the closure on every render
-  // so we don't need a ref to pin regenerateAll.
+  // component so the handler can actually re-run the fetch. useCommands
+  // re-resolves the closure on every render so we don't need a ref to
+  // pin regenerateAll.
   useCommands(() => [
     {
       name: 'generateGlobalSteep',
@@ -145,36 +186,43 @@ export default function StepGlobal({
 
   const showContent = !bulkLoading;
 
+  // Loader checklist — 1 scan row + 5 dim rows. Labels live in i18n so
+  // they translate with the rest of the wizard.
+  const loadingItems: ProgressItem[] = [
+    {
+      key: 'scan',
+      label: t('wizard.global.progressItems.scan'),
+      status: progress.scan,
+    },
+    ...FIELD_KEYS.map((key): ProgressItem => ({
+      key,
+      label: t(`wizard.global.dimensions.${key}`),
+      status: progress[key],
+    })),
+  ];
+
   return (
     <div>
       {max.activeKey && (
         <div className="maximize-backdrop" onClick={max.minimize} aria-hidden />
       )}
-      <div className="eyebrow">{t('wizard.global.eyebrow')}</div>
-      <h1 className="page-title">{t('wizard.global.title')}</h1>
-      <p className="page-desc">{t('wizard.global.description')}</p>
+
+      {/* Header + grid are mutually exclusive with the loader. Wrapping
+          both in showContent keeps the loader truly full-screen-of-step
+          rather than competing with the step title for vertical space. */}
+      {showContent && (
+        <>
+          <div className="eyebrow">{t('wizard.global.eyebrow')}</div>
+          <h1 className="page-title">{t('wizard.global.title')}</h1>
+          <p className="page-desc">{t('wizard.global.description')}</p>
+        </>
+      )}
 
       {bulkLoading && (
         <LoadingPanel
           title={t('wizard.global.loadingText')}
           running={bulkLoading}
-          items={[
-            {
-              key: 'search',
-              label: t('wizard.global.progressItems.search'),
-              status: progressStatus.search,
-            },
-            {
-              key: 'macro',
-              label: t('wizard.global.progressItems.macro'),
-              status: progressStatus.macro,
-            },
-            {
-              key: 'sector',
-              label: t('wizard.global.progressItems.sector'),
-              status: progressStatus.sector,
-            },
-          ] satisfies ProgressItem[]}
+          items={loadingItems}
         />
       )}
 
@@ -252,19 +300,21 @@ export default function StepGlobal({
 
       {error && <div className="err-box">{error}</div>}
 
-      <div className="btn-row">
-        <button type="button" className="btn" onClick={onBack} disabled={bulkLoading}>
-          {t('wizard.back')}
-        </button>
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={onNext}
-          disabled={bulkLoading}
-        >
-          {t('wizard.global.next')}
-        </button>
-      </div>
+      {showContent && (
+        <div className="btn-row">
+          <button type="button" className="btn" onClick={onBack} disabled={bulkLoading}>
+            {t('wizard.back')}
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={onNext}
+            disabled={bulkLoading}
+          >
+            {t('wizard.global.next')}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

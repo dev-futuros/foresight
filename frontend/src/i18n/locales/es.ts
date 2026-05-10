@@ -203,9 +203,7 @@ const es = {
         2: 'Filtrando señales relevantes para {{sector}}…',
       },
       progressItems: {
-        search: 'Búsqueda web · datos actuales',
-        macro: 'Síntesis macroeconómica y geopolítica',
-        sector: 'Filtrado por sector',
+        scan: 'Búsqueda web · recopilando datos actuales',
       },
       errorDefault: 'No se pudo generar el contexto global automáticamente. Puedes introducirlo manualmente o continuar sin él.',
       next: 'Continuar — STEEP Sectorial →',

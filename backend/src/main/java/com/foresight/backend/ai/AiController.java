@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.foresight.backend.ai.dto.AnalyzeContextRequest;
 import com.foresight.backend.ai.dto.AnalyzeRequest;
 import com.foresight.backend.ai.dto.ChatRequest;
+import com.foresight.backend.ai.dto.GlobalSteepDimRequest;
 import com.foresight.backend.ai.dto.GlobalSteepRequest;
 import com.foresight.backend.ai.dto.HorizonSuggestRequest;
 import com.foresight.backend.ai.dto.SteepSuggestRequest;
@@ -50,6 +51,35 @@ public class AiController {
     @PostMapping("/global-steep")
     public Mono<JsonNode> globalSteep(@Valid @RequestBody GlobalSteepRequest request) {
         return aiService.globalSteep(request);
+    }
+
+    /**
+     * Phase 1 of the split Global STEEP flow — a single web-search call
+     * that returns raw dated bullets for all five STEEP dimensions in one
+     * JSON. Pairs with {@link #globalSteepDim} for the per-dimension
+     * reformulation phase.
+     *
+     * @param request validated payload (sector, language)
+     * @return raw JSON shaped like {@code {"S":"...","T":"...","E":"...","ENV":"...","P":"..."}}
+     */
+    @PostMapping("/global-steep-scan")
+    public Mono<JsonNode> globalSteepScan(@Valid @RequestBody GlobalSteepRequest request) {
+        return aiService.globalSteepScan(request);
+    }
+
+    /**
+     * Phase 2 of the split Global STEEP flow — reformulates one
+     * dimension's raw bullets (from the upstream scan) into 2-3
+     * sentences of prose. No web search. Frontend fans out five of these
+     * in parallel after the scan completes.
+     *
+     * @param request validated payload (sector, language, dimension, snippet)
+     * @return raw Claude response; the {@code text} block contains the
+     *         plain-prose reformulation
+     */
+    @PostMapping("/global-steep-dim")
+    public Mono<JsonNode> globalSteepDim(@Valid @RequestBody GlobalSteepDimRequest request) {
+        return aiService.globalSteepDim(request);
     }
 
     /**

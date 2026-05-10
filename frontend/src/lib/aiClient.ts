@@ -102,6 +102,40 @@ export async function globalSteep(args: {
   return parseJson<Partial<GlobalSteep>>(data);
 }
 
+/**
+ * Phase 1 of the split Global STEEP flow. Runs ONE web-search call on
+ * the backend and returns raw dated bullets for all five dimensions in
+ * a single JSON. Pair with {@link globalSteepDim} for the per-dimension
+ * reformulation phase (5 parallel calls, no further search).
+ */
+export async function globalSteepScan(args: {
+  sector: string;
+  language: 'es' | 'en';
+}): Promise<Partial<GlobalSteep>> {
+  const { data } = await api.post<AnthropicResponse>('ai/global-steep-scan', args);
+  return parseJson<Partial<GlobalSteep>>(data);
+}
+
+/**
+ * Phase 2 of the split Global STEEP flow. Takes one dimension's raw
+ * bullets (from {@link globalSteepScan}) and returns 2-3 sentences of
+ * polished prose. No web search, so the call is fast and cheap — the
+ * client runs five of these in parallel.
+ *
+ * <p>Defensively strips quote characters left over from prompts that
+ * accidentally wrap their output (the backend tries hard to avoid this,
+ * but the safety net keeps the textareas clean either way).
+ */
+export async function globalSteepDim(args: {
+  sector: string;
+  language: 'es' | 'en';
+  dimension: GlobalSteepDimension;
+  snippet: string;
+}): Promise<string> {
+  const { data } = await api.post<AnthropicResponse>('ai/global-steep-dim', args);
+  return extractText(data).replace(/^["']+|["']+$/g, '').trim();
+}
+
 export interface Scenario {
   type: string;
   title: string;

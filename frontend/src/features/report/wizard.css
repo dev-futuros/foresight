@@ -695,20 +695,41 @@ body.has-maximized {
   color: var(--ink);
 }
 .wizard .progress-item.done {
-  color: var(--ink);
-}
-.wizard .progress-mark {
-  width: 16px;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-mute);
-}
-.wizard .progress-item.running .progress-mark {
   color: var(--gold);
-  animation: wizard-spin 1.4s linear infinite;
 }
-.wizard .progress-item.done .progress-mark {
-  color: var(--gold);
+.wizard .progress-item.error {
+  color: var(--red);
+}
+
+/* Circular progress indicator — matches the demo 1:1:
+ *   pending → empty muted ring
+ *   running → gold ring with one quadrant transparent, spinning
+ *   done    → filled gold disc
+ *   error   → filled red disc
+ * Replaces the earlier glyph (✓ ◐ ·) variant. */
+.wizard .prog-icon {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--ink-mute);
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: transparent;
+  box-sizing: border-box;
+  transition: border-color 200ms var(--ease), background 200ms var(--ease);
+}
+.wizard .progress-item.running .prog-icon {
+  border-color: var(--gold);
+  border-top-color: transparent;
+  animation: wizard-spin 0.9s linear infinite;
+}
+.wizard .progress-item.done .prog-icon {
+  border-color: var(--gold);
+  background: var(--gold);
+}
+.wizard .progress-item.error .prog-icon {
+  border-color: var(--red);
+  background: var(--red);
 }
 .wizard .prog-label {
   flex: 1;

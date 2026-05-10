@@ -1,6 +1,6 @@
 import { useStopwatch } from '../hooks/useStopwatch';
 
-export type ProgressItemStatus = 'pending' | 'running' | 'done';
+export type ProgressItemStatus = 'pending' | 'running' | 'done' | 'error';
 
 export interface ProgressItem {
   key: string;
@@ -24,10 +24,10 @@ interface Props {
 /**
  * Loading screen used by long AI-driven flows (Global STEEP, full analysis).
  *
- * Replaces the old spinner-only loading with the demo's stopwatch + checklist
- * pattern: each `item` represents a sub-section of the overall job and toggles
- * between pending / running / done as the work progresses. The MM:SS clock
- * ticks for as long as `running` is true.
+ * Mirrors the staging demo's stopwatch + checklist pattern 1:1: each item
+ * row carries a circular indicator (filled when done, spinning ring when
+ * running, dotted outline when pending, red when errored) plus a label.
+ * The MM:SS clock ticks for as long as {@code running} is true.
  */
 export default function LoadingPanel({ title, running, items = [] }: Props) {
   const elapsed = useStopwatch(running);
@@ -39,9 +39,10 @@ export default function LoadingPanel({ title, running, items = [] }: Props) {
         <div className="progress-list">
           {items.map((it) => (
             <div key={it.key} className={`progress-item ${it.status}`}>
-              <span className="progress-mark" aria-hidden>
-                {it.status === 'done' ? '✓' : it.status === 'running' ? '◐' : '·'}
-              </span>
+              {/* prog-icon is a circular indicator: empty ring (pending),
+                  spinning gold ring (running), filled gold circle (done),
+                  filled red circle (error). Pure CSS — no glyph. */}
+              <span className="prog-icon" aria-hidden />
               <span className="prog-label">{it.label}</span>
               {typeof it.tokens === 'number' && (
                 <span className="prog-tokens">{it.tokens.toLocaleString()} tok</span>

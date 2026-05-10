@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.foresight.backend.ai.dto.AnalyzeContextRequest;
 import com.foresight.backend.ai.dto.AnalyzeRequest;
 import com.foresight.backend.ai.dto.ChatRequest;
+import com.foresight.backend.ai.dto.GlobalSteepDimRequest;
 import com.foresight.backend.ai.dto.GlobalSteepRequest;
 import com.foresight.backend.ai.dto.HorizonSuggestRequest;
 import com.foresight.backend.ai.dto.SteepSuggestRequest;
@@ -40,6 +41,57 @@ public class AiService {
             {"S":"...","T":"...","E":"...","ENV":"...","P":"..."}
             S = social, T = technological, E = economic, ENV = environmental, P = political.
             Respond in the requested language.
+            """;
+
+    /**
+     * Phase-1 system prompt for the split Global STEEP flow. Runs ONE
+     * web-search-enabled call and returns raw dated bullets for all five
+     * dimensions in a single JSON. Subsequent phase-2 calls reformulate
+     * each dimension's bullets into prose without further searching, so
+     * we only pay for one expensive search per Global STEEP generation
+     * regardless of how the user interacts with it after.
+     */
+    private static final String GLOBAL_STEEP_SCAN_SYSTEM =
+            """
+            You are a strategic foresight researcher. Use the web_search tool to gather concrete,
+            current facts about the global environment (geopolitical events, commodity prices,
+            regulation, technology, climate, social trends) RELEVANT TO THE REQUESTED SECTOR.
+
+            Prioritise facts from the last 12 months. Each item should be a single dated bullet
+            ("2025-Q3: ...", "Oct 2025: ...", "this year: ..."). NO prose, NO interpretation,
+            NO scenario writing — just the raw observable facts. Downstream calls will turn
+            these bullets into prose.
+
+            Respond ONLY with a JSON object — no preamble, no backticks — exactly:
+            {"S":"...","T":"...","E":"...","ENV":"...","P":"..."}
+            where each value is a newline-separated list of 4-6 dated bullets for that dimension.
+            S = social, T = technological, E = economic, ENV = environmental, P = political.
+            Respond in the requested language.
+            """;
+
+    /**
+     * Phase-2 system prompt for the split Global STEEP flow. Takes the
+     * raw bullets produced by the upstream scan for ONE dimension and
+     * reformulates them into 2-3 sentences of clean prose for the user's
+     * STEEP textarea. No web search — strictly a rewrite over the
+     * provided snippet, so the call is fast and cheap.
+     *
+     * <p>The expected response is a plain string (no JSON wrapper, no
+     * quotation marks). The frontend's {@code globalSteepDim} client
+     * strips any leftover quoting/whitespace defensively.
+     */
+    private static final String GLOBAL_STEEP_DIM_SYSTEM =
+            """
+            You are a strategic foresight writer. Reformulate the provided raw bullets for ONE
+            STEEP dimension into 2-3 sentences of polished prose suitable for a foresight
+            briefing.
+
+            Keep the writing concrete, factual, and sector-relevant. Preserve specific names,
+            dates, percentages and figures from the bullets. Do NOT add new claims that aren't
+            in the bullets. Do NOT speculate about the future — describe the present situation.
+
+            Respond ONLY with the prose text. No JSON, no quotation marks around it, no markdown,
+            no preamble. Just the 2-3 sentences. Respond in the requested language.
             """;
 
     /** System prompt for STEEP factor suggestions. Forces JSON-only output. */
@@ -529,6 +581,53 @@ public class AiService {
         }
         return anthropicClient
                 .sendMessageWithWebSearch(GLOBAL_STEEP_SYSTEM, prompt, 1500)
+                .map(AiResponseSanitizer::sanitize);
+    }
+
+    /**
+     * Phase 1 of the split Global STEEP flow. ONE web-search call returns
+     * raw dated bullets for all five STEEP dimensions in a single JSON.
+     * Frontend then fans out 5 parallel {@link #globalSteepDim} calls to
+     * reformulate each dimension's bullets into prose, with no further
+     * search needed.
+     *
+     * @param request validated request (sector, language)
+     * @return Claude's raw JSON reply, expected shape
+     *         {@code {"S":"...","T":"...","E":"...","ENV":"...","P":"..."}}
+     */
+    public Mono<JsonNode> globalSteepScan(GlobalSteepRequest request) {
+        String prompt = "%s\n\nSector: %s\nCurrent year: %d"
+                .formatted(
+                        langInstruction(request.language()),
+                        request.sector(),
+                        java.time.Year.now().getValue());
+        return anthropicClient
+                .sendMessageWithWebSearch(GLOBAL_STEEP_SCAN_SYSTEM, prompt, 2000)
+                .map(AiResponseSanitizer::sanitize);
+    }
+
+    /**
+     * Phase 2 of the split Global STEEP flow. Reformulates one
+     * dimension's raw bullets (produced upstream by {@link #globalSteepScan})
+     * into 2-3 sentences of prose. No web search — strictly a rewrite,
+     * so the call is fast and cheap. Frontend runs five of these in
+     * parallel after the scan completes.
+     *
+     * @param request validated request (sector, language, dimension, snippet)
+     * @return raw Claude response; frontend extracts the {@code text}
+     *         block as plain prose and strips any leftover quoting
+     */
+    public Mono<JsonNode> globalSteepDim(GlobalSteepDimRequest request) {
+        String snippet = request.snippet() == null ? "" : request.snippet();
+        String prompt = "%s\n\nDimension: %s\nSector: %s\nCurrent year: %d\n\nRaw bullets to reformulate:\n%s"
+                .formatted(
+                        langInstruction(request.language()),
+                        request.dimension(),
+                        request.sector(),
+                        java.time.Year.now().getValue(),
+                        snippet.isBlank() ? "(none — write a brief, plausible 2-3 sentence summary for this dimension and sector)" : snippet);
+        return anthropicClient
+                .sendMessage(GLOBAL_STEEP_DIM_SYSTEM, prompt, 600)
                 .map(AiResponseSanitizer::sanitize);
     }
 
