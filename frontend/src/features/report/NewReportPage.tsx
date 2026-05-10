@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useCreateReport, useReport, useUpdateReport } from '../../hooks/useReports';
 import { useLoadExample } from '../../hooks/useLoadExample';
 import LoadingOverlay from '../../components/LoadingOverlay';
+import Modal from '../../components/Modal';
 import { useCurrentUser } from '../../hooks/useAuth';
 import { useSetStepper } from '../shell/StepperContext';
 import {
@@ -695,39 +696,7 @@ export default function NewReportPage() {
   return (
     <div className="wizard">
       <main className="main">
-        {isGenerating ? (
-          <LoadingPanel
-            title={t('report.results.analyzing')}
-            running={isGenerating}
-            items={[
-              {
-                key: 'summary',
-                label: t('report.results.progressItems.summary'),
-                status: analysisProgress.summary,
-              },
-              {
-                key: 'scenarios',
-                label: t('report.results.progressItems.scenarios'),
-                status: analysisProgress.scenarios,
-              },
-              {
-                key: 'planning',
-                label: t('report.results.progressItems.scenarioPlanning'),
-                status: analysisProgress.planning,
-              },
-              {
-                key: 'strategicMap',
-                label: t('report.results.progressItems.strategicMap'),
-                status: analysisProgress.strategicMap,
-              },
-              {
-                key: 'backcasting',
-                label: t('report.results.progressItems.backcasting'),
-                status: analysisProgress.backcasting,
-              },
-            ] satisfies ProgressItem[]}
-          />
-        ) : (
+        {!isGenerating && (
           <>
             {step === 1 && (
               <StepEmpresa data={empresa} onChange={setEmpresa} onNext={() => goToStep(2)} />
@@ -774,6 +743,49 @@ export default function NewReportPage() {
         onLoadExample={handleLoadExample}
       />
       <LoadingOverlay open={isLoadingExample} text={t('modals.loadExample')} />
+
+      {/* Analysis loader — full-screen Modal overlay so nothing else on
+          the page (topbar, stepper, footer, chat) is interactive while
+          the 5 parallel calls are in flight. The Modal portals to body
+          and locks scroll via the shared refcount in Modal.tsx. */}
+      <Modal
+        open={isGenerating}
+        onClose={() => undefined}
+        variant="fullscreen"
+        ariaLabel={t('report.results.analyzing')}
+      >
+        <LoadingPanel
+          title={t('report.results.analyzing')}
+          running={isGenerating}
+          items={[
+            {
+              key: 'summary',
+              label: t('report.results.progressItems.summary'),
+              status: analysisProgress.summary,
+            },
+            {
+              key: 'scenarios',
+              label: t('report.results.progressItems.scenarios'),
+              status: analysisProgress.scenarios,
+            },
+            {
+              key: 'planning',
+              label: t('report.results.progressItems.scenarioPlanning'),
+              status: analysisProgress.planning,
+            },
+            {
+              key: 'strategicMap',
+              label: t('report.results.progressItems.strategicMap'),
+              status: analysisProgress.strategicMap,
+            },
+            {
+              key: 'backcasting',
+              label: t('report.results.progressItems.backcasting'),
+              status: analysisProgress.backcasting,
+            },
+          ] satisfies ProgressItem[]}
+        />
+      </Modal>
     </div>
   );
 }

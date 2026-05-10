@@ -145,7 +145,7 @@ const es = {
     steps: {
       empresa: 'Empresa',
       global: 'Global',
-      steep: 'STEEP',
+      steep: 'Sectorial',
       horizon: 'Horizon Scan',
       analysis: 'Análisis',
       results: 'Resultados',

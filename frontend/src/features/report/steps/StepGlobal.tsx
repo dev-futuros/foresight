@@ -12,6 +12,7 @@ import LoadingPanel, {
   type ProgressItem,
   type ProgressItemStatus,
 } from '../../../components/LoadingPanel';
+import Modal from '../../../components/Modal';
 import { useCommands } from '../../../lib/useCommands';
 
 const FIELD_KEYS = ['S', 'T', 'E', 'ENV', 'P'] as const;
@@ -218,13 +219,22 @@ export default function StepGlobal({
         </>
       )}
 
-      {bulkLoading && (
+      {/* Full-screen Modal overlay so the loader covers topbar, stepper,
+          footer and chat — nothing else is interactive while the scan +
+          5 parallel dim calls are in flight. The Modal portals to body
+          and locks body scroll via the shared refcount in Modal.tsx. */}
+      <Modal
+        open={bulkLoading}
+        onClose={() => undefined}
+        variant="fullscreen"
+        ariaLabel={t('wizard.global.loadingText')}
+      >
         <LoadingPanel
           title={t('wizard.global.loadingText')}
           running={bulkLoading}
           items={loadingItems}
         />
-      )}
+      </Modal>
 
       {showContent && (
         <>
