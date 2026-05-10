@@ -336,17 +336,18 @@ export default function NewReportPage() {
     }
   }, [editMode, editingReport.data, searchParams]);
 
-  // Step bar mirrors the demo verbatim: 6 items including the post-submit "Análisis"
-  // and "Resultados" tabs. The wizard itself only navigates through 1-4. Step 5
-  // (the analysis loading screen) is never a real page → clickable:false. Step 6
-  // routes to the generated report — only meaningful in edit mode.
+  // Step bar shows 5 navigable items — Analysis (step 5 internally) is the
+  // transient loader the user lands on while generating, never a real
+  // destination, so it's omitted from the stepper. Step 6 = Results lives
+  // at the end and displays as position 5 via the Stepper's index-based
+  // numbering. `n` values stay 1-6 so routing / goTo / edit-mode logic
+  // doesn't need to renumber.
   const steps = useMemo(
     () => [
       { n: 1, label: t('wizard.steps.empresa') },
       { n: 2, label: t('wizard.steps.global') },
       { n: 3, label: t('wizard.steps.steep') },
       { n: 4, label: t('wizard.steps.horizon') },
-      { n: 5, label: t('wizard.steps.analysis'), clickable: false },
       { n: 6, label: t('wizard.steps.results') },
     ],
     [t],

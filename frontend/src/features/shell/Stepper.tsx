@@ -15,8 +15,15 @@ type Props = {
 export default function Stepper({ state }: Props) {
   const { steps, current, maxReached, onSelect } = state;
   const total = steps.length;
-  const activeStep = steps.find((s) => s.n === current) ?? steps[0];
-  const progressPct = total > 0 ? (current / total) * 100 : 0;
+  // Display numbers derive from array position, not `s.n` — that lets a page
+  // skip a step internally (e.g. the wizard's transient "Analysis" loader,
+  // which is step 5 in code but is omitted from the stepper array) without
+  // leaving a numeric gap in the visible bar. `s.n` is preserved as the
+  // routing identity for `current`, `maxReached` and `onSelect`.
+  const activeIndex = steps.findIndex((s) => s.n === current);
+  const activeStep = activeIndex >= 0 ? steps[activeIndex] : steps[0];
+  const displayCurrent = activeIndex >= 0 ? activeIndex + 1 : 1;
+  const progressPct = total > 0 ? (displayCurrent / total) * 100 : 0;
   // Default to back-only navigation when the page hasn't supplied maxReached.
   const reached = maxReached ?? current;
 
@@ -31,7 +38,7 @@ export default function Stepper({ state }: Props) {
       <div className="stepper-inner">
         {/* Desktop list */}
         <ol className="stepper-list">
-          {steps.map((s) => {
+          {steps.map((s, idx) => {
             const status = statusFor(s.n);
             // A step is interactive only if (a) the page wired up an onSelect,
             // (b) the step is in the "done" lane, and (c) the step itself
@@ -59,7 +66,7 @@ export default function Stepper({ state }: Props) {
                 role={clickable ? 'button' : undefined}
                 aria-current={status === 'active' ? 'step' : undefined}
               >
-                <span className="stepper-num">{s.n}</span>
+                <span className="stepper-num">{idx + 1}</span>
                 <span>{s.label}</span>
               </li>
             );
@@ -69,7 +76,7 @@ export default function Stepper({ state }: Props) {
         {/* Mobile compact */}
         <div className="stepper-mobile">
           <span className="stepper-mobile-num">
-            {String(current).padStart(2, '0')} / {String(total).padStart(2, '0')}
+            {String(displayCurrent).padStart(2, '0')} / {String(total).padStart(2, '0')}
           </span>
           <span className="stepper-mobile-label">{activeStep.label}</span>
           <div className="stepper-bar">

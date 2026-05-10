@@ -36,6 +36,9 @@ export default function ReportPage() {
     },
     [id, navigate],
   );
+  // Same step list as NewReportPage — the transient "Analysis" loader (n=5)
+  // is omitted from the stepper. n values stay 1-6 so the routing handlers
+  // in handleStepperSelect can keep their 1-4 / 6 checks unchanged.
   const stepperState = useMemo(
     () => ({
       steps: [
@@ -43,7 +46,6 @@ export default function ReportPage() {
         { n: 2, label: t('wizard.steps.global') },
         { n: 3, label: t('wizard.steps.steep') },
         { n: 4, label: t('wizard.steps.horizon') },
-        { n: 5, label: t('wizard.steps.analysis'), clickable: false },
         { n: 6, label: t('wizard.steps.results') },
       ],
       current: 6,
