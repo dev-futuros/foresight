@@ -60,7 +60,11 @@ function AppRoutes() {
         <Route path="/reports/:id" element={<ReportPage />} />
         <Route path="/account" element={<AccountPage />} />
       </Route>
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      {/* Unknown / bare paths land on the new-report wizard so a freshly
+          loaded app shows the onboarding dialog instead of the dashboard.
+          ProtectedRoute will intercept and bounce to /sign-in for guests;
+          authenticated users see /reports/new with the welcome modal. */}
+      <Route path="*" element={<Navigate to="/reports/new" replace />} />
     </Routes>
   );
 }

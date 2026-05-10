@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useQueryClient } from '@tanstack/react-query';
 import { useCreateReport, useReport, useUpdateReport } from '../../hooks/useReports';
-import type { Page, ReportSummary } from '../../types/api';
+import { useLoadExample } from '../../hooks/useLoadExample';
 import LoadingOverlay from '../../components/LoadingOverlay';
 import { useCurrentUser } from '../../hooks/useAuth';
 import { useSetStepper } from '../shell/StepperContext';
@@ -30,8 +29,14 @@ import StepHorizon, { type HorizonData } from './steps/StepHorizon';
 import './wizard.css';
 
 /** localStorage key — once set to '1', the onboarding modal won't auto-show
- *  again on this device. */
+ *  again on this device. Wins over the per-session flag below: a user who
+ *  has explicitly checked "don't show again" never sees it again. */
 const ONBOARDING_KEY = 'fs_onboarding_dismissed';
+/** sessionStorage key — set to '1' after the dialog has been auto-shown
+ *  once in this browser session. Stops the dialog from re-appearing every
+ *  time the user clicks "New report" or revisits {@code /reports/new}; the
+ *  "first entry" semantics are scoped to the session, not the device. */
+const ONBOARDING_SESSION_KEY = 'fs_onboarding_seen_this_session';
 
 function readOnboardingDismissed(): boolean {
   try {
@@ -43,6 +48,20 @@ function readOnboardingDismissed(): boolean {
 function persistOnboardingDismissed() {
   try {
     localStorage.setItem(ONBOARDING_KEY, '1');
+  } catch {
+    /* private mode / quota — silently ignore */
+  }
+}
+function readOnboardingSeenThisSession(): boolean {
+  try {
+    return sessionStorage.getItem(ONBOARDING_SESSION_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+function markOnboardingSeenThisSession() {
+  try {
+    sessionStorage.setItem(ONBOARDING_SESSION_KEY, '1');
   } catch {
     /* private mode / quota — silently ignore */
   }
@@ -70,19 +89,12 @@ const EMPTY_STEEP: SteepData = {
 const EMPTY_HORIZON: HorizonData = { H1: '', H2: '', H3: '' };
 const EMPTY_GLOBAL_STEEP: GlobalSteepData = { S: '', T: '', E: '', ENV: '', P: '' };
 
-/** Title used to identify the auto-created example report. handleLoadExample
- *  scans the user's reports for this exact match before creating a new one,
- *  so repeated clicks of "Load example" navigate to the existing copy
- *  instead of producing duplicates. The constant matches the title in
- *  {@code public/example-report.json}; keep them in sync. */
-const EXAMPLE_REPORT_TITLE = 'Restalia — Foresight 2030';
-
 export default function NewReportPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const createReport = useCreateReport();
   const updateReport = useUpdateReport();
-  const queryClient = useQueryClient();
+  const { loadExample, isLoading: isLoadingExample } = useLoadExample();
   const { data: user } = useCurrentUser();
 
   // Mode detection. The /reports/:id/edit route renders this same component
@@ -131,103 +143,52 @@ export default function NewReportPage() {
   // every step is already "reached" since the report was previously fully
   // submitted, so default to 4 (the last input step).
   const [maxReached, setMaxReached] = useState(editMode ? 4 : initialStep);
-  // First-run welcome dialog. Lazy-init from localStorage so we don't flash
-  // the dialog open on remount when the user has already dismissed it.
-  // Skip in edit mode — the user has clearly used the wizard before.
+  // First-run welcome dialog. Lazy-init from storage so we don't flash the
+  // dialog open on remount when the user has already dismissed it. Two
+  // gates: (1) device-level dismissal via the "don't show again" checkbox
+  // (localStorage), (2) session-level "already seen" flag (sessionStorage)
+  // so revisiting /reports/new in the same session doesn't re-trigger it.
+  // The session flag is set in an effect below the first time the dialog
+  // appears, so subsequent navigations within the session are silent. Skip
+  // in edit mode — the user has clearly used the wizard before.
   const [showOnboarding, setShowOnboarding] = useState(
-    () => !editMode && !readOnboardingDismissed(),
+    () =>
+      !editMode &&
+      !readOnboardingDismissed() &&
+      !readOnboardingSeenThisSession(),
   );
-  // Blocks the UI during the create→patch→navigate sequence of loading the
-  // example. The operation is normally <2s but it spans two HTTP round-trips
-  // (POST inputData, PATCH resultData) plus the report-viewer fetch — the
-  // overlay tells the user something's happening rather than making the
-  // onboarding dialog appear "stuck".
-  const [isLoadingExample, setIsLoadingExample] = useState(false);
-
+  // Persist the session flag the first time we actually decided to show
+  // the dialog this mount. Doing it in an effect (not in the useState
+  // initializer) keeps StrictMode's double-invoke harmless — the initializer
+  // can run twice, but the effect only runs once per real mount.
+  useEffect(() => {
+    if (showOnboarding) markOnboardingSeenThisSession();
+    // Empty deps: we only need to record the very first showing. Later
+    // setShowOnboarding(false) doesn't need to revisit this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const handleOnboardingClose = useCallback((dontShowAgain: boolean) => {
     if (dontShowAgain) persistOnboardingDismissed();
     setShowOnboarding(false);
   }, []);
 
+  // Thin wrapper around useLoadExample: persist the "don't show again"
+  // preference (if checked), close the dialog, and delegate the actual
+  // POST+PATCH+navigate dance to the shared hook. Errors are swallowed at
+  // the hook level (logged); we always close the dialog so the user
+  // isn't stuck staring at it.
   const handleLoadExample = useCallback(
     async (dontShowAgain: boolean) => {
       if (dontShowAgain) persistOnboardingDismissed();
       try {
-        const res = await fetch('/example-report.json', { cache: 'no-cache' });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = (await res.json()) as {
-          companyProfile?: EmpresaData;
-          globalSteep?: GlobalSteepData;
-          steep?: SteepData;
-          horizon?: HorizonData;
-          resultData?: Record<string, unknown>;
-        };
-
-        // Always populate local wizard state so the form is pre-filled in
-        // case the user navigates back into the wizard from the report
-        // viewer (via the stepper). This is the original behavior and the
-        // fallback when the JSON ships without a precomputed resultData.
-        if (data.companyProfile) setEmpresa({ ...EMPTY_EMPRESA, ...data.companyProfile });
-        if (data.globalSteep) setGlobalData({ ...EMPTY_GLOBAL_STEEP, ...data.globalSteep });
-        if (data.steep) setSteep({ ...EMPTY_STEEP, ...data.steep });
-        if (data.horizon) setHorizon({ ...EMPTY_HORIZON, ...data.horizon });
-
-        // No precomputed analysis → keep the legacy behavior: land on
-        // step 1 so the user explores the seeded inputs and runs their
-        // own analysis when ready.
-        if (!data.resultData) {
-          setStep(1);
-          setMaxReached(1);
-          return;
-        }
-
-        // Has precomputed analysis → POST inputData + PATCH resultData so
-        // the user lands on a real report viewer with a fully rendered
-        // analysis, not on step 1 of an empty wizard. Reuse-by-title
-        // avoids spawning a fresh duplicate every time the user clicks
-        // "Load example" on this device — the dashboard would otherwise
-        // grow a new example row on each click.
-        setIsLoadingExample(true);
-        const cachedReports = queryClient.getQueryData<Page<ReportSummary>>([
-          'reports',
-          0,
-          20,
-        ]);
-        const existing = cachedReports?.content.find(
-          (r) => r.title === EXAMPLE_REPORT_TITLE,
-        );
-        if (existing) {
-          navigate(`/reports/${existing.id}`);
-          return;
-        }
-
-        const title = data.companyProfile?.title || EXAMPLE_REPORT_TITLE;
-        const inputData = {
-          companyProfile: data.companyProfile ?? null,
-          globalSteep: data.globalSteep ?? null,
-          steep: data.steep ?? null,
-          horizon: data.horizon ?? null,
-        };
-        const created = await createReport.mutateAsync({ title, inputData });
-        await updateReport.mutateAsync({
-          id: created.id,
-          body: { resultData: data.resultData },
-        });
-        navigate(`/reports/${created.id}`);
-      } catch (e) {
-        // Non-blocking: log and let the user start fresh. The local state
-        // setters above may have already populated the wizard, which is
-        // the best partial recovery we can offer.
-        // eslint-disable-next-line no-console
-        console.error('[onboarding] failed to load example', e);
-        setStep(1);
-        setMaxReached(1);
+        await loadExample();
+      } catch {
+        /* already logged inside the hook */
       } finally {
-        setIsLoadingExample(false);
         setShowOnboarding(false);
       }
     },
-    [createReport, updateReport, navigate, queryClient],
+    [loadExample],
   );
 
   // Snapshot refs of the four wizard slices. Used by persistDraft so it
