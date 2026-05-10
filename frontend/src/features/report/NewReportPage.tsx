@@ -17,9 +17,8 @@ import LoadingPanel, {
   type ProgressItem,
   type ProgressItemStatus,
 } from '../../components/LoadingPanel';
-import { register, unregister } from '../../lib/commandBus';
+import { useCommands } from '../../lib/useCommands';
 import { useSetAssistantContext } from '../chat/AssistantContextProvider';
-import { buildShellGoToCommand } from '../chat/AssistantCommands';
 import '../../components/modal.css';
 import StepEmpresa, { type EmpresaData } from './steps/StepEmpresa';
 import StepGlobal, { type GlobalSteepData } from './steps/StepGlobal';
@@ -474,37 +473,35 @@ export default function NewReportPage() {
     return () => setAssistantContext(undefined);
   }, [setAssistantContext, step, maxReached, empresa, globalData, steep, horizon, isGenerating]);
 
-  // Refs shadow handleSubmit / handleLoadExample / goToStep / navigate so the
-  // registered commands always call the freshest closure without forcing the
-  // command-bus useEffect to re-run on every change. The whole point of the
-  // bus registration is to happen ONCE per mount; deps that change between
-  // renders cause cleanup → re-register cycles, and a dispatched goTo that
-  // lands during the brief window after cleanup ran the shell-version
-  // restore would silently fall through to navigate(?step=N) — which can't
-  // change the visible step while the wizard is already mounted.
-  const handleSubmitRef = useRef(handleSubmit);
-  handleSubmitRef.current = handleSubmit;
-  const handleLoadExampleRef = useRef(handleLoadExample);
-  handleLoadExampleRef.current = handleLoadExample;
-  const goToStepRef = useRef(goToStep);
-  goToStepRef.current = goToStep;
-  const navigateRef = useRef(navigate);
-  navigateRef.current = navigate;
-
-  useEffect(() => {
-    register<{ id: string; value: string; mode: 'add' | 'replace' }, string>({
+  // Wizard-scoped commands. useCommands snapshots the previous registration
+  // for each name on mount and restores it on unmount, so overriding `goTo`
+  // here automatically re-installs the shell-level navigation-only version
+  // when the user navigates away.
+  useCommands(() => [
+    {
       name: 'setField',
       mode: 'confirm',
-      label: ({ id }) => `Aplicar a ${id}`,
-      preview: ({ value }) => value,
-      handler: ({ id, value, mode }) => {
+      label: (args) => {
+        const { id } = args as { id: string };
+        return `Aplicar a ${id}`;
+      },
+      preview: (args) => {
+        const { value } = args as { value: string };
+        return value;
+      },
+      handler: (args) => {
+        const { id, value, mode } = args as {
+          id: string;
+          value: string;
+          mode: 'add' | 'replace';
+        };
         const apply = (cur: string) =>
           mode === 'replace' ? value : cur ? `${cur}\n\n${value}` : value;
         switch (id) {
           case 'f-name':
-            setEmpresa((p) => ({ ...p, name: mode === 'replace' ? value : value })); break;
+            setEmpresa((p) => ({ ...p, name: value })); break;
           case 'f-sector':
-            setEmpresa((p) => ({ ...p, sector: mode === 'replace' ? value : value })); break;
+            setEmpresa((p) => ({ ...p, sector: value })); break;
           case 'f-size':
             setEmpresa((p) => ({ ...p, size: value })); break;
           case 'f-horizon':
@@ -550,17 +547,17 @@ export default function NewReportPage() {
         }
         return `Applied to ${id}.`;
       },
-    });
+    },
 
-    register<Record<string, never>, string>({
+    {
       name: 'runAnalysis',
       mode: 'confirm',
       label: () => 'Lanzar análisis de foresight',
       handler: async () => {
-        await handleSubmitRef.current();
+        await handleSubmit();
         return 'Analysis launched.';
       },
-    });
+    },
 
     // generateGlobalSteep is registered from StepGlobal itself — that's the
     // only place that has access to the imperative fetchAll() and to the
@@ -572,55 +569,75 @@ export default function NewReportPage() {
     // when it's already mounted (initialStep is read once on mount and the
     // local `step` state never resyncs with the query string). Calling
     // goToStep directly is the only way to actually change the visible step.
-    register<{ step: number }, string>({
+    {
       name: 'goTo',
       mode: 'auto',
-      handler: ({ step }) => {
-        if (step === 5) {
+      handler: (args) => {
+        const { step: target } = args as { step: number };
+        if (target === 5) {
           throw new Error(
             "Step 5 is the analysis loader, not a navigable step. To start the analysis emit runAnalysis instead.",
           );
         }
-        if (step === 6) {
+        if (target === 6) {
           // Step 6 lives outside the wizard. If the report is already saved
           // and analysed, jump to its viewer; otherwise the request is a
           // no-op (the user has to generate first).
-          if (reportIdRef.current) {
-            navigateRef.current(`/reports/${reportIdRef.current}`);
+          const id = reportIdRef.current;
+          if (id) {
+            navigate(`/reports/${id}`);
             return `Opened the generated report.`;
           }
           throw new Error(
             'No analysed report yet. The user has to run the analysis (step 4 → Generate) before the results page exists.',
           );
         }
-        if (step >= 1 && step <= 4) {
-          goToStepRef.current(step);
-          return `Moved to step ${step}.`;
+        if (target >= 1 && target <= 4) {
+          goToStep(target);
+          return `Moved to step ${target}.`;
         }
-        throw new Error(`Step ${step} is out of range (1-6).`);
+        throw new Error(`Step ${target} is out of range (1-6).`);
       },
-    });
+    },
 
-    register<Record<string, never>, string>({
+    // Convenience wrappers around goTo: bump or rewind by one wizard page.
+    // Clamp to [1, 4] so the assistant can't fall off either end and so
+    // step 5 (the loader) stays unreachable through nav.
+    {
+      name: 'wizardNext',
+      mode: 'auto',
+      handler: () => {
+        if (step >= 4) {
+          throw new Error(
+            'Already at the last input step. To start the analysis emit runAnalysis.',
+          );
+        }
+        goToStep(step + 1);
+        return `Moved to step ${step + 1}.`;
+      },
+    },
+
+    {
+      name: 'wizardBack',
+      mode: 'auto',
+      handler: () => {
+        if (step <= 1) {
+          throw new Error('Already at the first wizard step.');
+        }
+        goToStep(step - 1);
+        return `Moved to step ${step - 1}.`;
+      },
+    },
+
+    {
       name: 'loadExample',
       mode: 'auto',
       handler: () => {
-        void handleLoadExampleRef.current(true);
+        void handleLoadExample(true);
         return 'Loaded the Restalia example.';
       },
-    });
-
-    return () => {
-      ['setField', 'runAnalysis', 'loadExample'].forEach(unregister);
-      // Don't just unregister 'goTo' — that would leave the assistant
-      // without a working command on the dashboard / account pages until
-      // they re-mount the shell. Restore the navigation-only shell version.
-      register(buildShellGoToCommand(navigateRef.current));
-    };
-    // Empty deps on purpose: the bus must be wired once per mount. Handlers
-    // close over refs that are kept current by the assignments above.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    },
+  ]);
 
   return (
     <div className="wizard">

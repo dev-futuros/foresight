@@ -1,16 +1,16 @@
-import { useEffect, useRef } from 'react';
 import { useNavigate, type NavigateFunction } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { register, unregister, type CommandSpec } from '../../lib/commandBus';
+import { useQueryClient } from '@tanstack/react-query';
+import { type CommandSpec } from '../../lib/commandBus';
+import { useCommands } from '../../lib/useCommands';
 import { useDeleteReport } from '../../hooks/useReports';
+import { useLogout } from '../../hooks/useAuth';
 import api from '../../lib/api';
 
 /**
  * Default navigation-only `goTo` handler. NewReportPage overrides this with a
  * version that calls goToStep imperatively while the wizard is mounted; on
- * unmount it re-registers this version so the assistant keeps a working
- * `goTo` for users on other routes.
+ * unmount {@link useCommands} restores this version automatically.
  */
 export function buildShellGoToCommand(
   navigate: NavigateFunction,
@@ -37,102 +37,104 @@ export function buildShellGoToCommand(
 }
 
 /**
- * Mounts the always-available assistant commands: navigation, language
- * switching, generic report management, share/export passthrough.
+ * Mounts the always-available assistant commands. These cover navigation,
+ * language, generic report management (load/edit/delete), share/export
+ * passthrough, refresh, and logout.
  *
- * Lives inside {@link AppShell} so it has access to the router and the
- * shared QueryClient. Wizard-specific commands ({@code setField},
- * {@code runAnalysis}, {@code generateGlobalSteep}, {@code loadExample})
- * register from {@code NewReportPage} where the underlying state lives.
+ * Lives inside {@link AppShell} so it has access to the router, the shared
+ * QueryClient and Clerk's signOut. Page-scoped commands live where their
+ * state lives — wizard input mutations in {@code NewReportPage}, the global
+ * STEEP regen in {@code StepGlobal}, etc. — and rely on
+ * {@link useCommands}'s automatic restore-on-unmount to put these shell
+ * defaults back when the user navigates away.
  */
 export default function AssistantCommands() {
   const navigate = useNavigate();
   const { i18n } = useTranslation();
   const qc = useQueryClient();
   const deleteReport = useDeleteReport();
+  const logout = useLogout();
 
-  // Mirror everything we close over into refs. The bus must be wired exactly
-  // once per mount; otherwise this effect's cleanup wipes commands that
-  // page-scoped components (NewReportPage's wizard `goTo`) registered on top
-  // of ours, and the body re-installs the shell version — which is the bug
-  // we just chased: the URL changed via navigate(?step=N) but the wizard's
-  // local step state never updated. `deleteReport` from useDeleteReport()
-  // and other react-query mutations have unstable identity per render, so
-  // depending on them directly forces this effect to re-run; refs fix that.
-  const navigateRef = useRef(navigate);
-  navigateRef.current = navigate;
-  const i18nRef = useRef(i18n);
-  i18nRef.current = i18n;
-  const qcRef = useRef<QueryClient>(qc);
-  qcRef.current = qc;
-  const deleteReportAsyncRef = useRef(deleteReport.mutateAsync);
-  deleteReportAsyncRef.current = deleteReport.mutateAsync;
+  useCommands(() => [
+    buildShellGoToCommand(navigate),
 
-  useEffect(() => {
-    // Navigation — every step except 5 (transient analysis loader). Routes
-    // to the wizard with ?step=N when the user isn't already there.
-    register(buildShellGoToCommand(navigateRef.current));
-
-    register<Record<string, never>, string>({
+    {
       name: 'openDashboard',
       mode: 'auto',
       handler: () => {
-        navigateRef.current('/dashboard');
+        navigate('/dashboard');
         return 'Dashboard opened.';
       },
-    });
+    },
 
-    register<Record<string, never>, string>({
+    {
       name: 'closeDashboard',
       mode: 'auto',
       handler: () => {
-        navigateRef.current('/reports/new');
+        navigate('/reports/new');
         return 'Returned to the wizard.';
       },
-    });
+    },
 
-    register<Record<string, never>, string>({
+    {
       name: 'newReport',
       mode: 'auto',
       handler: () => {
-        navigateRef.current('/reports/new');
+        navigate('/reports/new');
         return 'Started a new blank report.';
       },
-    });
+    },
 
-    register<{ lang: 'es' | 'en' }, string>({
+    {
       name: 'setLang',
       mode: 'auto',
-      handler: async ({ lang }) => {
-        await i18nRef.current.changeLanguage(lang);
+      handler: async (args) => {
+        const { lang } = args as { lang: 'es' | 'en' };
+        await i18n.changeLanguage(lang);
         return `Language changed to ${lang}.`;
       },
-    });
+    },
 
-    register<{ id: string }, string>({
+    {
       name: 'loadReport',
       mode: 'auto',
-      handler: ({ id }) => {
-        navigateRef.current(`/reports/${id}`);
+      handler: (args) => {
+        const { id } = args as { id: string };
+        navigate(`/reports/${id}`);
         return `Loaded report ${id}.`;
       },
-    });
+    },
 
-    register<{ id: string }, string>({
+    // Open a report (typically a draft) in wizard edit mode. `loadReport`
+    // always lands on the read-only viewer; this lands on the wizard so the
+    // user can tweak inputs and regenerate.
+    {
+      name: 'editReport',
+      mode: 'auto',
+      handler: (args) => {
+        const { id } = args as { id: string };
+        navigate(`/reports/${id}/edit`);
+        return `Opened report ${id} for editing.`;
+      },
+    },
+
+    {
       name: 'deleteReport',
       mode: 'confirm',
       label: () => 'Borrar informe',
-      handler: async ({ id }) => {
-        await deleteReportAsyncRef.current(id);
+      handler: async (args) => {
+        const { id } = args as { id: string };
+        await deleteReport.mutateAsync(id);
         return `Report ${id} deleted.`;
       },
-    });
+    },
 
-    register<{ id?: string }, string>({
+    {
       name: 'shareReport',
       mode: 'confirm',
       label: () => 'Compartir informe',
-      handler: async ({ id }) => {
+      handler: async (args) => {
+        const { id } = args as { id?: string };
         // The actual share modal is wired to the report-page button; the
         // assistant flow simply mints a share token by hitting the same
         // backend endpoint and reports the URL back to the model.
@@ -145,56 +147,67 @@ export default function AssistantCommands() {
           `/reports/${id}/share`,
         );
         // Invalidate any cached lists so dashboards refresh next time.
-        void qcRef.current.invalidateQueries({ queryKey: ['reports'] });
+        void qc.invalidateQueries({ queryKey: ['reports'] });
         return `Share link: ${res.data.shareUrl} (expires ${res.data.expiresAt}).`;
       },
-    });
+    },
 
-    register<{ id?: string }, string>({
+    // Phase 2 will replace the navigate-to-report passthrough with a
+    // page-scoped override that actually fires the export. For now this is
+    // the same fallback the previous registration used.
+    {
       name: 'exportPDF',
       mode: 'confirm',
       label: () => 'Exportar PDF',
-      handler: async ({ id }) => {
+      handler: (args) => {
+        const { id } = args as { id?: string };
         if (!id) {
           throw new Error('Open a report first; export needs a target report id.');
         }
-        navigateRef.current(`/reports/${id}?export=pdf`);
+        navigate(`/reports/${id}?export=pdf`);
         return 'Opened the report; the user can now click PDF.';
       },
-    });
+    },
 
-    register<{ id?: string }, string>({
+    {
       name: 'exportPPT',
       mode: 'confirm',
       label: () => 'Exportar PowerPoint',
-      handler: async ({ id }) => {
+      handler: (args) => {
+        const { id } = args as { id?: string };
         if (!id) {
           throw new Error('Open a report first; export needs a target report id.');
         }
-        navigateRef.current(`/reports/${id}?export=ppt`);
+        navigate(`/reports/${id}?export=ppt`);
         return 'Opened the report; the user can now click PPT.';
       },
-    });
+    },
 
-    return () => {
-      [
-        'goTo',
-        'openDashboard',
-        'closeDashboard',
-        'newReport',
-        'setLang',
-        'loadReport',
-        'deleteReport',
-        'shareReport',
-        'exportPDF',
-        'exportPPT',
-      ].forEach(unregister);
-    };
-    // Empty deps: the bus must be wired exactly once. Handlers close over
-    // refs that are kept fresh by the assignments above, so we don't lose
-    // up-to-date values by skipping deps.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    // Force the dashboard / report queries to refetch. Useful when the user
+    // suspects the cache is stale ("did my new report show up?") or after an
+    // out-of-band mutation we don't have a hook for.
+    {
+      name: 'refreshReports',
+      mode: 'auto',
+      handler: async () => {
+        await qc.invalidateQueries({ queryKey: ['reports'] });
+        return 'Refreshed the reports list.';
+      },
+    },
+
+    // End the Clerk session and bounce to /sign-in. Confirm-mode because it
+    // unambiguously destroys the current working session — the assistant
+    // shouldn't be able to log a user out as a side-effect of a misread.
+    {
+      name: 'logout',
+      mode: 'confirm',
+      label: () => 'Cerrar sesión',
+      handler: () => {
+        logout();
+        return 'Signing out…';
+      },
+    },
+  ]);
 
   return null;
 }

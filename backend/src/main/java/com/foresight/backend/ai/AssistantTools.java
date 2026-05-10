@@ -81,6 +81,19 @@ public final class AssistantTools {
                                     "id", Map.of("type", "string", "description", "UUID del informe a cargar")),
                             "required", List.of("id"))),
             tool(
+                    "editReport",
+                    "Abre un informe (típicamente un borrador) en modo edición del wizard, para retocar"
+                            + " los inputs. Usa loadReport para abrir el visor de un informe ya completo.",
+                    Map.of(
+                            "type", "object",
+                            "properties", Map.of(
+                                    "id", Map.of("type", "string", "description", "UUID del informe a editar")),
+                            "required", List.of("id"))),
+            tool(
+                    "refreshReports",
+                    "Refresca la lista de informes (invalida la caché). Útil tras cambios fuera de banda.",
+                    Map.of("type", "object", "properties", Map.of())),
+            tool(
                     "deleteReport",
                     "Borra un informe guardado por su id. Acción destructiva e irreversible —"
                             + " confirma verbalmente con el usuario antes de emitir esta tool.",
@@ -132,6 +145,15 @@ public final class AssistantTools {
                             + " confirma siempre con el usuario antes de emitir.",
                     Map.of("type", "object", "properties", Map.of())),
             tool(
+                    "wizardNext",
+                    "Avanza al siguiente paso del wizard (1→2, 2→3, 3→4). En el paso 4 lanza un error;"
+                            + " usa runAnalysis si el usuario quiere generar el informe.",
+                    Map.of("type", "object", "properties", Map.of())),
+            tool(
+                    "wizardBack",
+                    "Retrocede un paso en el wizard (4→3, 3→2, 2→1). En el paso 1 lanza un error.",
+                    Map.of("type", "object", "properties", Map.of())),
+            tool(
                     "shareReport",
                     "Abre el modal para compartir el informe (genera enlace público con TTL 7 días).",
                     Map.of(
@@ -154,7 +176,12 @@ public final class AssistantTools {
                             "type", "object",
                             "properties", Map.of(
                                     "id", Map.of("type", "string", "description", "UUID opcional del informe")),
-                            "required", List.of())));
+                            "required", List.of())),
+            tool(
+                    "logout",
+                    "Cierra la sesión del usuario y le redirige al login. Acción destructiva — confirma"
+                            + " verbalmente con el usuario antes de emitir.",
+                    Map.of("type", "object", "properties", Map.of())));
 
     /** Builds a single tool entry in Anthropic's expected shape. */
     private static Map<String, Object> tool(String name, String description, Map<String, Object> inputSchema) {

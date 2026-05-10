@@ -7,7 +7,7 @@ import LoadingPanel, {
   type ProgressItem,
   type ProgressItemStatus,
 } from '../../../components/LoadingPanel';
-import { register, unregister } from '../../../lib/commandBus';
+import { useCommands } from '../../../lib/useCommands';
 
 const FIELD_KEYS = ['S', 'T', 'E', 'ENV', 'P'] as const;
 type FieldKey = (typeof FIELD_KEYS)[number];
@@ -124,29 +124,24 @@ export default function StepGlobal({
     await fetchAll();
   }
 
-  // Refs let the registered command always invoke the latest closure of
-  // regenerateAll without forcing the useEffect to re-register on every render.
-  const regenerateAllRef = useRef(regenerateAll);
-  regenerateAllRef.current = regenerateAll;
-
   // Register the assistant `generateGlobalSteep` command from inside this
   // component so the handler can actually re-run the fetch. The previous
   // registration in NewReportPage only cleared the textareas — it relied on
   // the auto-fetch effect re-firing, which only depends on `sector` and so
   // never re-fired. Doing it here lets us reset `fetchedFor` and call
-  // fetchAll directly.
-  useEffect(() => {
-    register<Record<string, never>, string>({
+  // fetchAll directly. useCommands re-resolves the closure on every render
+  // so we don't need a ref to pin regenerateAll.
+  useCommands(() => [
+    {
       name: 'generateGlobalSteep',
       mode: 'confirm',
       label: () => 'Generar STEEP mundial',
       handler: async () => {
-        await regenerateAllRef.current();
+        await regenerateAll();
         return 'Global STEEP regenerated.';
       },
-    });
-    return () => unregister('generateGlobalSteep');
-  }, []);
+    },
+  ]);
 
   const showContent = !bulkLoading;
 
