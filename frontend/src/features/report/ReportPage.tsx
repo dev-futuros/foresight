@@ -6,6 +6,8 @@ import { useSetStepper } from '../shell/StepperContext';
 import { exportReportPdf } from '../../lib/exportPdf';
 import { exportReportPpt } from '../../lib/exportPpt';
 import LoadingOverlay from '../../components/LoadingOverlay';
+import ShareModal from '../../components/ShareModal';
+import ReportContent, { type ResultData } from './ReportContent';
 import '../../components/modal.css';
 import type { ReportStatus } from '../../types/api';
 import './report.css';
@@ -14,21 +16,13 @@ type InputData = {
   companyProfile?: { name?: string; sector?: string; horizon?: string; challenge?: string };
 };
 
-type ResultData = {
-  scenarios?: { type: string; title: string; description: string }[];
-  weakSignals?: string[];
-  wildcards?: string[];
-  keyUncertainties?: string[];
-};
-
-type T = ReturnType<typeof useTranslation>['t'];
-
 export default function ReportPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { data: report, isLoading, isError, refetch } = useReport(id!);
   const [exporting, setExporting] = useState<'pdf' | 'ppt' | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
 
   // Surface the wizard's 6-step indicator with step 6 ("Resultados") active.
   // Steps 1–4 navigate back into the wizard in edit mode so the user can
@@ -115,6 +109,15 @@ export default function ReportPage() {
             </span>
             <button
               type="button"
+              className="btn-share"
+              onClick={() => setShareOpen(true)}
+              disabled={!report.resultData}
+              title={t('share.triggerBtn')}
+            >
+              {t('share.triggerBtn')}
+            </button>
+            <button
+              type="button"
               className="btn-export"
               onClick={() => runExport('pdf')}
               disabled={!report.resultData || exporting !== null}
@@ -150,7 +153,7 @@ export default function ReportPage() {
         </header>
 
         {result ? (
-          <Results result={result} t={t} />
+          <ReportContent result={result} />
         ) : (
           // Legacy fallback: reports created with the old wizard flow may
           // still exist as DRAFT (no resultData). New flow always generates
@@ -167,83 +170,11 @@ export default function ReportPage() {
         open={exporting !== null}
         text={exporting === 'pdf' ? t('modals.export.pdf') : t('modals.export.ppt')}
       />
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────────
-   Results renderer — inline since this is the only consumer.
-   ───────────────────────────────────────────────────────────── */
-
-function Results({ result, t }: { result: ResultData; t: T }) {
-  const hasContent =
-    (result.scenarios && result.scenarios.length > 0) ||
-    (result.keyUncertainties && result.keyUncertainties.length > 0) ||
-    (result.weakSignals && result.weakSignals.length > 0) ||
-    (result.wildcards && result.wildcards.length > 0);
-
-  if (!hasContent) return null;
-
-  return (
-    <div>
-      {result.scenarios && result.scenarios.length > 0 && (
-        <>
-          <p className="section-label">{t('report.results.scenarios')}</p>
-          <div className="scenarios-grid">
-            {result.scenarios.map((s) => (
-              <article key={s.type} className="scen-card">
-                <div className="scen-stripe" aria-hidden />
-                <div className="scen-type-badge">{s.type}</div>
-                <h3 className="scen-name">{s.title}</h3>
-                <p className="scen-desc">{s.description}</p>
-              </article>
-            ))}
-          </div>
-        </>
-      )}
-
-      {result.keyUncertainties && result.keyUncertainties.length > 0 && (
-        <>
-          <p className="section-label">{t('report.results.uncertainties')}</p>
-          <div className="uncertainty-grid">
-            {result.keyUncertainties.map((u, i) => (
-              <div key={i} className="unc-card">
-                <p className="unc-text">{u}</p>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-
-      {((result.weakSignals?.length ?? 0) > 0 || (result.wildcards?.length ?? 0) > 0) && (
-        <>
-          <p className="section-label">
-            {t('report.results.weakSignals')} · {t('report.results.wildcards')}
-          </p>
-          <div className="signals-grid">
-            {result.weakSignals && result.weakSignals.length > 0 && (
-              <div className={`signals-card${result.wildcards?.length ? '' : ' full'}`}>
-                <div className="signals-card-head">{t('report.results.weakSignals')}</div>
-                <ul className="signals-list">
-                  {result.weakSignals.map((s, i) => (
-                    <li key={i} className="signals-item">{s}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {result.wildcards && result.wildcards.length > 0 && (
-              <div className={`signals-card${result.weakSignals?.length ? '' : ' full'}`}>
-                <div className="signals-card-head">{t('report.results.wildcards')}</div>
-                <ul className="signals-list">
-                  {result.wildcards.map((w, i) => (
-                    <li key={i} className="signals-item">{w}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        </>
-      )}
+      <ShareModal
+        open={shareOpen}
+        reportId={id!}
+        onClose={() => setShareOpen(false)}
+      />
     </div>
   );
 }

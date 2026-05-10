@@ -3,6 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { globalSteep, type GlobalSteep } from '../../../lib/aiClient';
 import { extractApiErrorMessage } from '../../../lib/apiError';
 import { useMaximizable } from '../../../components/useMaximizable';
+import LoadingPanel, {
+  type ProgressItem,
+  type ProgressItemStatus,
+} from '../../../components/LoadingPanel';
+import { register, unregister } from '../../../lib/commandBus';
 
 const FIELD_KEYS = ['S', 'T', 'E', 'ENV', 'P'] as const;
 type FieldKey = (typeof FIELD_KEYS)[number];
@@ -42,7 +47,9 @@ export default function StepGlobal({
   // removed in favour of a single up-front compute when entering the step;
   // the user can edit the textareas freely after that.
   const [bulkLoading, setBulkLoading] = useState(false);
-  const [progressMsg, setProgressMsg] = useState<string>('');
+  const [progressStatus, setProgressStatus] = useState<
+    Record<'search' | 'macro' | 'sector', ProgressItemStatus>
+  >({ search: 'pending', macro: 'pending', sector: 'pending' });
   const [error, setError] = useState<string | null>(null);
   const fetchedFor = useRef<string | null>(null);
   const max = useMaximizable<FieldKey>();
@@ -53,18 +60,25 @@ export default function StepGlobal({
     if (!sector.trim()) return;
     setBulkLoading(true);
     setError(null);
-    setProgressMsg(t('wizard.global.progress.0'));
-
-    const messages = [
-      t('wizard.global.progress.0'),
-      t('wizard.global.progress.1'),
-      t('wizard.global.progress.2', { sector }),
-    ];
-    let i = 0;
-    const interval = window.setInterval(() => {
-      i = (i + 1) % messages.length;
-      setProgressMsg(messages[i]);
-    }, 2000);
+    // Simulated timeline: each item lights up sequentially while the single
+    // /api/ai/global-steep call is in flight. The backend doesn't expose
+    // per-stage events, so the cadence is heuristic — picked to roughly
+    // match the typical 15-30s response window.
+    setProgressStatus({ search: 'running', macro: 'pending', sector: 'pending' });
+    const t1 = window.setTimeout(() => {
+      setProgressStatus((prev) =>
+        prev.search === 'running'
+          ? { ...prev, search: 'done', macro: 'running' }
+          : prev,
+      );
+    }, 6000);
+    const t2 = window.setTimeout(() => {
+      setProgressStatus((prev) =>
+        prev.macro === 'running'
+          ? { ...prev, macro: 'done', sector: 'running' }
+          : prev,
+      );
+    }, 14000);
 
     try {
       const result = await globalSteep({ sector, language });
@@ -75,11 +89,13 @@ export default function StepGlobal({
         ENV: result.ENV ?? '',
         P: result.P ?? '',
       });
+      setProgressStatus({ search: 'done', macro: 'done', sector: 'done' });
     } catch (e) {
       setError(extractApiErrorMessage(e, t('wizard.global.errorDefault')));
       fetchedFor.current = null;
     } finally {
-      window.clearInterval(interval);
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
       setBulkLoading(false);
     }
   }
@@ -96,6 +112,42 @@ export default function StepGlobal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sector]);
 
+  /** Wipes the textareas, resets the fetched-for guard, and forces a fresh
+   *  fetch. Shared by the in-page "Regenerate" button and the assistant
+   *  `generateGlobalSteep` command — both need the exact same behaviour so
+   *  keeping the logic in one place avoids drift. */
+  async function regenerateAll() {
+    // Clear through the parent so the autosave picks up the empty state too.
+    onChange({ S: '', T: '', E: '', ENV: '', P: '' });
+    // Force the next fetch to fire even though `sector` hasn't changed.
+    fetchedFor.current = null;
+    await fetchAll();
+  }
+
+  // Refs let the registered command always invoke the latest closure of
+  // regenerateAll without forcing the useEffect to re-register on every render.
+  const regenerateAllRef = useRef(regenerateAll);
+  regenerateAllRef.current = regenerateAll;
+
+  // Register the assistant `generateGlobalSteep` command from inside this
+  // component so the handler can actually re-run the fetch. The previous
+  // registration in NewReportPage only cleared the textareas — it relied on
+  // the auto-fetch effect re-firing, which only depends on `sector` and so
+  // never re-fired. Doing it here lets us reset `fetchedFor` and call
+  // fetchAll directly.
+  useEffect(() => {
+    register<Record<string, never>, string>({
+      name: 'generateGlobalSteep',
+      mode: 'confirm',
+      label: () => 'Generar STEEP mundial',
+      handler: async () => {
+        await regenerateAllRef.current();
+        return 'Global STEEP regenerated.';
+      },
+    });
+    return () => unregister('generateGlobalSteep');
+  }, []);
+
   const showContent = !bulkLoading;
 
   return (
@@ -108,10 +160,27 @@ export default function StepGlobal({
       <p className="page-desc">{t('wizard.global.description')}</p>
 
       {bulkLoading && (
-        <div className="loading-wrap">
-          <div className="spinner" aria-hidden />
-          <p className="loading-head">{progressMsg || t('wizard.global.progress.0')}</p>
-        </div>
+        <LoadingPanel
+          title={t('wizard.global.loadingText')}
+          running={bulkLoading}
+          items={[
+            {
+              key: 'search',
+              label: t('wizard.global.progressItems.search'),
+              status: progressStatus.search,
+            },
+            {
+              key: 'macro',
+              label: t('wizard.global.progressItems.macro'),
+              status: progressStatus.macro,
+            },
+            {
+              key: 'sector',
+              label: t('wizard.global.progressItems.sector'),
+              status: progressStatus.sector,
+            },
+          ] satisfies ProgressItem[]}
+        />
       )}
 
       {showContent && (
@@ -121,6 +190,20 @@ export default function StepGlobal({
               <svg className="ico" aria-hidden><use href="#i-globe" /></svg>
             </div>
             <span className="callout-text">{t('wizard.global.banner')}</span>
+            <button
+              type="button"
+              className="btn btn-ai callout-action"
+              onClick={() => void regenerateAll()}
+              disabled={bulkLoading || !sector.trim()}
+              title={
+                sector.trim()
+                  ? t('wizard.global.regenerateTitle')
+                  : t('wizard.global.regenerateDisabledTitle')
+              }
+            >
+              {bulkLoading ? <span className="btn-ai-spinner" /> : '✦'}{' '}
+              {t('wizard.global.regenerate')}
+            </button>
           </div>
 
           <div className="steep-grid">

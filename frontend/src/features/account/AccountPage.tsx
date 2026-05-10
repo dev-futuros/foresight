@@ -22,6 +22,10 @@ export default function AccountPage() {
   const [name, setName] = useState('');
   const [language, setLanguage] = useState<'es' | 'en'>('es');
   const [profileMsg, setProfileMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [preferencesMsg, setPreferencesMsg] = useState<{
+    type: 'ok' | 'err';
+    text: string;
+  } | null>(null);
 
   const [syncedUserId, setSyncedUserId] = useState<string | undefined>(undefined);
   if (user && user.id !== syncedUserId) {
@@ -34,11 +38,38 @@ export default function AccountPage() {
     e.preventDefault();
     setProfileMsg(null);
     try {
-      await updateProfile.mutateAsync({ name: name.trim() || undefined, language });
-      i18n.changeLanguage(language);
+      // Profile form only owns the name. Language is owned by the
+      // Preferences form below — sending both from here would let an
+      // unsaved language change leak in, surprising the user.
+      await updateProfile.mutateAsync({ name: name.trim() || undefined });
       setProfileMsg({ type: 'ok', text: t('account.profile.successMsg') });
     } catch (err) {
       setProfileMsg({ type: 'err', text: extractApiErrorMessage(err, t('account.profile.errorMsg')) });
+    }
+  }
+
+  async function handlePreferencesSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setPreferencesMsg(null);
+    try {
+      await updateProfile.mutateAsync({ language });
+      await i18n.changeLanguage(language);
+      // The hook's `t` is still bound to the previous render's language at
+      // this point (the re-render hasn't fired yet). Use i18n.t with an
+      // explicit `lng` so the success message renders in the language the
+      // user just picked, not the one they came from.
+      setPreferencesMsg({
+        type: 'ok',
+        text: i18n.t('account.preferences.successMsg', { lng: language }),
+      });
+    } catch (err) {
+      setPreferencesMsg({
+        type: 'err',
+        text: extractApiErrorMessage(
+          err,
+          i18n.t('account.preferences.errorMsg', { lng: language }),
+        ),
+      });
     }
   }
 
@@ -109,7 +140,7 @@ export default function AccountPage() {
         {/* Preferences — language. */}
         <section className="account-card card">
           <div className="card-label">{t('account.preferences.title')}</div>
-          <form onSubmit={handleProfileSubmit}>
+          <form onSubmit={handlePreferencesSubmit}>
             <div className="field">
               <label htmlFor="acct-lang">{t('account.preferences.language')}</label>
               <select
@@ -124,6 +155,11 @@ export default function AccountPage() {
                 ))}
               </select>
             </div>
+            {preferencesMsg && (
+              <p className={`account-msg account-msg--${preferencesMsg.type}`}>
+                {preferencesMsg.text}
+              </p>
+            )}
             <div className="account-actions">
               <button type="submit" className="btn btn-primary" disabled={updateProfile.isPending}>
                 {updateProfile.isPending ? t('account.preferences.saving') : t('account.preferences.save')}

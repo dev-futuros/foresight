@@ -78,13 +78,47 @@ public class AnthropicClient {
         return doSend(systemPrompt, userPrompt, maxTokens, WEB_SEARCH_TOOLS);
     }
 
+    /**
+     * Multi-turn variant for the chat assistant. Accepts a pre-built messages list
+     * (oldest-first) and an arbitrary tools catalogue, so callers can hand the model
+     * a conversation in flight along with any custom tools they want it to be able
+     * to invoke.
+     *
+     * <p>The response shape is identical to {@link #sendMessage}; callers iterate
+     * the {@code content} blocks looking for {@code text} and {@code tool_use}.
+     *
+     * @param systemPrompt sets the assistant's role + tool-use rules
+     * @param messages     oldest-first turn list, each entry already in Anthropic's wire shape
+     * @param tools        custom tool catalogue declared to the model
+     * @param maxTokens    upper bound on response length
+     */
+    public Mono<JsonNode> sendConversation(
+            String systemPrompt,
+            List<? extends Object> messages,
+            List<Map<String, Object>> tools,
+            int maxTokens) {
+        return doSendRaw(systemPrompt, messages, maxTokens, tools);
+    }
+
     private Mono<JsonNode> doSend(
             String systemPrompt, String userPrompt, int maxTokens, List<Map<String, Object>> tools) {
+        return doSendRaw(
+                systemPrompt,
+                List.of(Map.of("role", "user", "content", userPrompt)),
+                maxTokens,
+                tools);
+    }
+
+    private Mono<JsonNode> doSendRaw(
+            String systemPrompt,
+            List<? extends Object> messages,
+            int maxTokens,
+            List<Map<String, Object>> tools) {
         Map<String, Object> body = new HashMap<>();
         body.put("model", properties.model());
         body.put("max_tokens", maxTokens);
         body.put("system", systemPrompt);
-        body.put("messages", List.of(Map.of("role", "user", "content", userPrompt)));
+        body.put("messages", messages);
         if (tools != null && !tools.isEmpty()) {
             body.put("tools", tools);
         }

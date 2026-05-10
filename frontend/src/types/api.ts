@@ -45,6 +45,21 @@ export interface ApiError {
   fieldErrors: { field: string; message: string }[] | null;
 }
 
+// Share
+export interface CreateShareResponse {
+  token: string;
+  shareUrl: string;
+  expiresAt: string;
+}
+
+export interface PublicShareResponse {
+  title: string;
+  inputData: Record<string, unknown>;
+  resultData: Record<string, unknown> | null;
+  createdAt: string;
+  expiresAt: string;
+}
+
 // Requests
 export interface CreateReportRequest {
   title: string;

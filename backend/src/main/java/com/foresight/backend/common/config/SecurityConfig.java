@@ -35,6 +35,8 @@ import lombok.extern.slf4j.Slf4j;
  *
  * <ul>
  *   <li>{@code POST /api/webhooks/clerk} — protected by Svix signature, not by JWT.
+ *   <li>{@code GET /api/public/**} — anonymous-readable share snapshots (token-gated at the
+ *       service layer; see {@link com.foresight.backend.share.PublicShareController}).
  *   <li>{@code /api/health}, {@code /actuator/health[/**]} — liveness probes.
  *   <li>Swagger UI / OpenAPI docs.
  * </ul>
@@ -78,6 +80,8 @@ public class SecurityConfig {
                         auth.anyRequest().permitAll();
                     } else {
                         auth.requestMatchers(HttpMethod.POST, "/api/webhooks/clerk")
+                                .permitAll()
+                                .requestMatchers(HttpMethod.GET, "/api/public/**")
                                 .permitAll()
                                 .requestMatchers(
                                         "/api/health",
