@@ -13,10 +13,10 @@ export interface PendingConfirm {
 }
 
 interface ChatContextSnapshot {
-  /** Arbitrary snapshot of the wizard / report state. Stitched verbatim into
-   *  the system prompt by the backend so the assistant can answer questions
-   *  about "this report" without the user spelling it out. */
-  context?: unknown;
+  /** Pre-formatted USER STATE block, built by {@link buildAssistantSnapshot}.
+   *  Stitched verbatim into the backend system prompt so the assistant
+   *  answers grounded on what the user is currently looking at. */
+  context?: string;
   language: 'es' | 'en';
 }
 
@@ -42,7 +42,7 @@ export function useChat() {
   // Latest context+lang stays in a ref so the resume-after-confirm path
   // doesn't capture a stale closure. The send/resume entry points keep it
   // current.
-  const ctxRef = useRef<ChatContextSnapshot>({ language: 'es' });
+  const ctxRef = useRef<ChatContextSnapshot>({ language: 'es', context: undefined });
 
   // Buffer for the in-flight assistant turn's tool_result blocks. Filled
   // incrementally by auto-tools (synchronous) and by resolveConfirm (when

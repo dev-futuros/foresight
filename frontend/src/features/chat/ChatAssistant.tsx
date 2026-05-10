@@ -1,9 +1,43 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useQuery } from '@tanstack/react-query';
 import { useChat, type PendingConfirm } from '../../hooks/useChat';
 import { useAssistantContext } from './AssistantContextProvider';
 import type { ChatContentBlock, ChatMessage } from '../../lib/aiClient';
+import {
+  buildAssistantSnapshot,
+  type AssistantSnapshotInput,
+} from '../../lib/buildAssistantSnapshot';
+import api from '../../lib/api';
+import type { EmpresaData } from '../report/steps/StepEmpresa';
+import type { GlobalSteepData } from '../report/steps/StepGlobal';
+import type { SteepData } from '../report/steps/StepSteep';
+import type { HorizonData } from '../report/steps/StepHorizon';
+import type { Page, ReportSummary } from '../../types/api';
 import './chat.css';
+
+/** Same shape NewReportPage publishes via setAssistantContext. Other pages
+ *  (dashboard, account, report viewer) don't publish today; their fields
+ *  default to empty so the snapshot still emits the full field listing
+ *  with {@code (empty)} markers. */
+interface PublishedWizardContext {
+  currentStep?: number;
+  empresa?: EmpresaData;
+  globalSteep?: GlobalSteepData;
+  steep?: SteepData;
+  horizon?: HorizonData;
+}
+
+const EMPTY_EMPRESA: EmpresaData = {
+  name: '', sector: '', size: '', horizon: '', market: '',
+  challenge: '', strengths: '', consultantName: '', consultantCompany: '', title: '',
+};
+const EMPTY_GLOBAL_STEEP: GlobalSteepData = { S: '', T: '', E: '', ENV: '', P: '' };
+const EMPTY_STEEP: SteepData = {
+  social: '', technological: '', economic: '', environmental: '', political: '',
+};
+const EMPTY_HORIZON: HorizonData = { H1: '', H2: '', H3: '' };
 
 /**
  * Floating chat assistant. Renders an edge button on the right side of the
@@ -18,8 +52,9 @@ import './chat.css';
  */
 export default function ChatAssistant() {
   const { t, i18n } = useTranslation();
-  const ctx = useAssistantContext();
+  const ctx = useAssistantContext() as PublishedWizardContext | undefined;
   const language: 'es' | 'en' = i18n.language?.startsWith('en') ? 'en' : 'es';
+  const location = useLocation();
 
   const {
     messages,
@@ -35,6 +70,53 @@ export default function ChatAssistant() {
   const [draft, setDraft] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const msgsRef = useRef<HTMLDivElement>(null);
+
+  // Saved-reports list — surfaced in the snapshot so the assistant can call
+  // loadReport / editReport / shareReport / exportPDF / exportPPT with an
+  // explicit id without making the user load the report first. Gated on
+  // `open` because the snapshot is only consumed when the user actually
+  // sends a message; firing the request on every shell mount would be
+  // wasteful for users who never open the chat. Shares the same query key
+  // as useReports(0, 20) so the dashboard's existing fetch dedupes for free.
+  const { data: reportsPage } = useQuery<Page<ReportSummary>>({
+    queryKey: ['reports', 0, 20],
+    queryFn: async () => {
+      const res = await api.get<Page<ReportSummary>>('/reports', {
+        params: { page: 0, size: 20, sort: 'createdAt,desc' },
+      });
+      return res.data;
+    },
+    enabled: open,
+  });
+
+  // Build the formatted USER STATE block. This is the string the backend
+  // stitches into the system prompt verbatim. Recompute on every render —
+  // it's pure string work over already-derived state, cheap enough that
+  // memoization noise (unstable nested-object deps) isn't worth the win.
+  const snapshotInput: AssistantSnapshotInput = {
+    language,
+    currentStep: ctx?.currentStep ?? 1,
+    dashboardOpen: location.pathname === '/dashboard',
+    empresa: ctx?.empresa ?? EMPTY_EMPRESA,
+    globalSteep: ctx?.globalSteep ?? EMPTY_GLOBAL_STEEP,
+    steep: ctx?.steep ?? EMPTY_STEEP,
+    horizon: ctx?.horizon ?? EMPTY_HORIZON,
+    reports: reportsPage?.content,
+  };
+  const snapshot = useMemo(
+    () => buildAssistantSnapshot(snapshotInput),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      language,
+      snapshotInput.currentStep,
+      snapshotInput.dashboardOpen,
+      snapshotInput.empresa,
+      snapshotInput.globalSteep,
+      snapshotInput.steep,
+      snapshotInput.horizon,
+      reportsPage,
+    ],
+  );
 
   // Auto-scroll to the latest message every time the conversation grows or
   // the assistant finishes thinking. Using `scrollHeight` directly (vs
@@ -61,7 +143,7 @@ export default function ChatAssistant() {
 
   function onSubmit() {
     if (!draft.trim() || pending) return;
-    send(draft, { context: ctx, language });
+    send(draft, { context: snapshot, language });
     setDraft('');
     if (inputRef.current) {
       inputRef.current.style.height = 'auto';

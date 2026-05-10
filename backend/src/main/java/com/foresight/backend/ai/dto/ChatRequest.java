@@ -22,13 +22,14 @@ import io.swagger.v3.oas.annotations.media.Schema;
  * {@code tool_result} blocks, depending on what role emitted it. We pass the
  * shape through verbatim rather than re-typing every variant.
  *
- * <p>{@code context} is an optional snapshot of the current report state
- * (form values, active step, current report id) that the system prompt
- * stitches into the context window so the assistant can answer questions
- * about "this report" without the user having to spell it out.
+ * <p>{@code context} is an optional pre-formatted USER STATE block built by
+ * the frontend's {@code buildAssistantSnapshot} helper. The backend stitches
+ * it verbatim into the system prompt under {@code === USER STATE ===}, so
+ * the assistant always reasons about what the user is currently looking at
+ * (form values, current step, dashboard state, saved-reports list).
  *
  * @param messages full conversation history, ordered oldest-first
- * @param context  optional snapshot of current wizard / report state
+ * @param context  optional pre-formatted snapshot of current wizard / report state
  * @param language target language for the assistant's prose ({@code "es"} or {@code "en"})
  */
 public record ChatRequest(
@@ -37,7 +38,7 @@ public record ChatRequest(
                 + " content blocks.")
                 @NotNull
                 List<JsonNode> messages,
-        @Schema(description = "Optional snapshot of the current wizard/report state, stitched into the"
+        @Schema(description = "Optional pre-formatted USER STATE block, stitched verbatim into the"
                 + " system prompt so the assistant answers grounded on what the user is looking at.")
-                JsonNode context,
+                String context,
         @Schema(example = "es") String language) {}

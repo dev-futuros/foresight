@@ -268,7 +268,9 @@ export interface ChatResponse {
 
 export async function chat(args: {
   messages: ChatMessage[];
-  context?: unknown;
+  /** Pre-formatted USER STATE block (see {@link buildAssistantSnapshot}).
+   *  The backend stitches it verbatim into the system prompt. */
+  context?: string;
   language: 'es' | 'en';
 }): Promise<ChatResponse> {
   const { data } = await api.post<ChatResponse>('ai/chat', args);
