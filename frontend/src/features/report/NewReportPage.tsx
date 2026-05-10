@@ -7,11 +7,11 @@ import LoadingOverlay from '../../components/LoadingOverlay';
 import { useCurrentUser } from '../../hooks/useAuth';
 import { useSetStepper } from '../shell/StepperContext';
 import {
-  analyze,
   analyzeBackcasting,
   analyzeScenarioPlanning,
-  analyzeSources,
+  analyzeScenarios,
   analyzeStrategicMap,
+  analyzeSummary,
 } from '../../lib/aiClient';
 import { extractApiErrorMessage } from '../../lib/apiError';
 import OnboardingDialog from '../../components/OnboardingDialog';
@@ -126,17 +126,20 @@ export default function NewReportPage() {
   // report is fully built (we navigate away) or the pipeline errors.
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
-  // Per-section status for the analysis loader checklist. The single
-  // /api/ai/analyze call covers all five — once F3 splits the backend into
-  // per-section calls, each will toggle its own item independently.
+  // Per-section status for the analysis loader checklist. Five rows, one
+  // per parallel call — matches the demo's layout exactly. The order here
+  // is the visual order in the loader.
   const [analysisProgress, setAnalysisProgress] = useState<
-    Record<'scenarios' | 'planning' | 'backcasting' | 'strategicMap' | 'sources', ProgressItemStatus>
+    Record<
+      'summary' | 'scenarios' | 'planning' | 'strategicMap' | 'backcasting',
+      ProgressItemStatus
+    >
   >({
+    summary: 'pending',
     scenarios: 'pending',
     planning: 'pending',
-    backcasting: 'pending',
     strategicMap: 'pending',
-    sources: 'pending',
+    backcasting: 'pending',
   });
   // Highest step the user has ever reached. Lets the stepper allow forward
   // jumps to already-visited steps in addition to back-nav. In edit mode
@@ -386,19 +389,22 @@ export default function NewReportPage() {
   async function handleSubmit() {
     setGenerateError(null);
     setIsGenerating(true);
+    // All 5 rows start running at the same time — the calls fire in
+    // parallel below, so there's no honest "still pending" state to show.
     setAnalysisProgress({
+      summary: 'running',
       scenarios: 'running',
-      planning: 'pending',
-      backcasting: 'pending',
-      strategicMap: 'pending',
-      sources: 'pending',
+      planning: 'running',
+      strategicMap: 'running',
+      backcasting: 'running',
     });
     try {
-      // 1. Make sure the latest inputs are persisted before we kick off the
-      //    expensive analysis. In the common path the draft has already been
-      //    saved on every step transition, so this is essentially a no-op
-      //    PATCH that also creates the row on the unlikely path where the
-      //    user typed nothing in steps 1-3 and only filled step 4.
+      // 1. Make sure the latest inputs are persisted before we kick off
+      //    the expensive analysis. In the common path the draft has
+      //    already been saved on every step transition, so this is
+      //    essentially a no-op PATCH that also creates the row on the
+      //    unlikely path where the user typed nothing in steps 1-3 and
+      //    only filled step 4.
       await persistDraft(4);
       const reportId = reportIdRef.current;
       if (!reportId) {
@@ -413,66 +419,78 @@ export default function NewReportPage() {
         setReportId(created.id);
       }
       const targetReportId = reportIdRef.current!;
-      // 2. Base analysis — produces the 3P scenarios that anchor every
-      //    downstream call. Failing here is fatal: without scenarios there's
-      //    nothing for scenario-planning / backcasting / strategic-map to
-      //    hang off of.
-      const base = await analyze({
-        companyProfile: empresa,
-        steep,
-        horizon,
-        language,
-      });
-      setAnalysisProgress((p) => ({
-        ...p,
-        scenarios: 'done',
-        planning: 'running',
-        backcasting: 'running',
-        strategicMap: 'running',
-        sources: 'running',
-      }));
-      // Save the base result immediately so even if a downstream call fails
-      // the user lands on a non-empty report.
-      await updateReport.mutateAsync({
-        id: targetReportId,
-        body: { resultData: base as unknown as Record<string, unknown> },
-      });
-      // 3. Four downstream calls in parallel. Each marks its own item done
-      //    on resolve so the loading checklist updates in real time. We use
-      //    allSettled so a partial failure (e.g. sources timing out) doesn't
-      //    drop the rest — the report still gets the sections that came back.
-      const ctx = {
-        companyProfile: empresa,
-        steep,
-        horizon,
-        language,
-        scenarios: base.scenarios ?? [],
-      };
-      const [planning, backcasting, strategicMap, sources] = await Promise.allSettled([
-        analyzeScenarioPlanning(ctx).then((r) => {
-          setAnalysisProgress((p) => ({ ...p, planning: 'done' }));
-          return r;
-        }),
-        analyzeBackcasting(ctx).then((r) => {
-          setAnalysisProgress((p) => ({ ...p, backcasting: 'done' }));
-          return r;
-        }),
-        analyzeStrategicMap(ctx).then((r) => {
-          setAnalysisProgress((p) => ({ ...p, strategicMap: 'done' }));
-          return r;
-        }),
-        analyzeSources({ companyProfile: empresa, steep, horizon, language }).then((r) => {
-          setAnalysisProgress((p) => ({ ...p, sources: 'done' }));
-          return r;
-        }),
-      ]);
-      // 4. Final patch with whatever sections succeeded. Failed ones stay
-      //    undefined and the renderer skips them.
-      const fullResult: Record<string, unknown> = { ...base };
+      const args = { companyProfile: empresa, steep, horizon, language };
+
+      // 2. ALL FIVE analysis calls in parallel. Each marks its own row
+      //    done/error as it resolves so the loader animates in real
+      //    time. Promise.allSettled means a partial failure (e.g. one
+      //    section times out) still produces a report containing the
+      //    sections that came back. The 3P scenarios call (analyzeScenarios)
+      //    no longer gates the others — each section anchors on
+      //    Probable/Plausible/Possible types directly.
+      const [summary, scenarios, planning, strategicMap, backcasting] =
+        await Promise.allSettled([
+          analyzeSummary(args)
+            .then((r) => {
+              setAnalysisProgress((p) => ({ ...p, summary: 'done' }));
+              return r;
+            })
+            .catch((err) => {
+              setAnalysisProgress((p) => ({ ...p, summary: 'error' }));
+              throw err;
+            }),
+          analyzeScenarios(args)
+            .then((r) => {
+              setAnalysisProgress((p) => ({ ...p, scenarios: 'done' }));
+              return r;
+            })
+            .catch((err) => {
+              setAnalysisProgress((p) => ({ ...p, scenarios: 'error' }));
+              throw err;
+            }),
+          analyzeScenarioPlanning(args)
+            .then((r) => {
+              setAnalysisProgress((p) => ({ ...p, planning: 'done' }));
+              return r;
+            })
+            .catch((err) => {
+              setAnalysisProgress((p) => ({ ...p, planning: 'error' }));
+              throw err;
+            }),
+          analyzeStrategicMap(args)
+            .then((r) => {
+              setAnalysisProgress((p) => ({ ...p, strategicMap: 'done' }));
+              return r;
+            })
+            .catch((err) => {
+              setAnalysisProgress((p) => ({ ...p, strategicMap: 'error' }));
+              throw err;
+            }),
+          analyzeBackcasting(args)
+            .then((r) => {
+              setAnalysisProgress((p) => ({ ...p, backcasting: 'done' }));
+              return r;
+            })
+            .catch((err) => {
+              setAnalysisProgress((p) => ({ ...p, backcasting: 'error' }));
+              throw err;
+            }),
+        ]);
+
+      // 3. Merge the successful sections into a single resultData blob.
+      //    Anything that errored is silently skipped — the renderer's
+      //    tabs handle a missing section with an empty-state.
+      const fullResult: Record<string, unknown> = {};
+      if (summary.status === 'fulfilled') {
+        Object.assign(fullResult, summary.value);
+      }
+      if (scenarios.status === 'fulfilled' && scenarios.value.scenarios) {
+        fullResult.scenarios = scenarios.value.scenarios;
+      }
       if (planning.status === 'fulfilled') fullResult.scenarioPlanning = planning.value;
-      if (backcasting.status === 'fulfilled') fullResult.backcasting = backcasting.value;
       if (strategicMap.status === 'fulfilled') fullResult.strategicMap = strategicMap.value;
-      if (sources.status === 'fulfilled') fullResult.sources = sources.value;
+      if (backcasting.status === 'fulfilled') fullResult.backcasting = backcasting.value;
+
       await updateReport.mutateAsync({
         id: targetReportId,
         body: { resultData: fullResult },
@@ -683,6 +701,11 @@ export default function NewReportPage() {
             running={isGenerating}
             items={[
               {
+                key: 'summary',
+                label: t('report.results.progressItems.summary'),
+                status: analysisProgress.summary,
+              },
+              {
                 key: 'scenarios',
                 label: t('report.results.progressItems.scenarios'),
                 status: analysisProgress.scenarios,
@@ -693,19 +716,14 @@ export default function NewReportPage() {
                 status: analysisProgress.planning,
               },
               {
-                key: 'backcasting',
-                label: t('report.results.progressItems.backcasting'),
-                status: analysisProgress.backcasting,
-              },
-              {
                 key: 'strategicMap',
                 label: t('report.results.progressItems.strategicMap'),
                 status: analysisProgress.strategicMap,
               },
               {
-                key: 'sources',
-                label: t('report.results.progressItems.sources'),
-                status: analysisProgress.sources,
+                key: 'backcasting',
+                label: t('report.results.progressItems.backcasting'),
+                status: analysisProgress.backcasting,
               },
             ] satisfies ProgressItem[]}
           />

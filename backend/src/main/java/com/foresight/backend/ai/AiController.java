@@ -117,6 +117,26 @@ public class AiController {
     }
 
     /**
+     * Phase A of the parallel-5 analysis flow — summary block
+     * (keyUncertainties, weakSignals, wildcards). Runs concurrently
+     * with {@link #analyzeScenarios} and the three section endpoints.
+     */
+    @PostMapping("/analyze/summary")
+    public Mono<JsonNode> analyzeSummary(@Valid @RequestBody AnalyzeRequest request) {
+        return aiService.analyzeSummary(request);
+    }
+
+    /**
+     * Phase B of the parallel-5 analysis flow — the three 3P scenarios
+     * only. Runs concurrently with {@link #analyzeSummary} and the three
+     * section endpoints.
+     */
+    @PostMapping("/analyze/scenarios")
+    public Mono<JsonNode> analyzeScenarios(@Valid @RequestBody AnalyzeRequest request) {
+        return aiService.analyzeScenarios(request);
+    }
+
+    /**
      * Second pass — driving forces, critical-uncertainty axes, impact matrix placements
      * and narrative logic per scenario. Anchored on the scenarios produced by /analyze.
      *

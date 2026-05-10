@@ -230,30 +230,55 @@ interface AnalyzeArgs {
   language: 'es' | 'en';
 }
 
-interface AnalyzeContextArgs extends AnalyzeArgs {
-  /** Already-produced 3P scenarios from the base /analyze call. Anchors the
-   *  downstream call so the model doesn't reinvent them inconsistently. */
-  scenarios: Scenario[];
-}
-
 export async function analyze(args: AnalyzeArgs): Promise<AnalyzeReport> {
   const { data } = await api.post<AnthropicResponse>('ai/analyze', args);
   return parseJson<AnalyzeReport>(data);
 }
 
+/** Shape returned by {@link analyzeSummary} — the partA half of the parallel
+ *  analysis (uncertainties, signals, wildcards). The 3P scenarios are
+ *  produced by {@link analyzeScenarios} as a sibling call. */
+export interface AnalyzeSummary {
+  keyUncertainties?: string[];
+  weakSignals?: string[];
+  wildcards?: string[];
+}
+
+/** Phase-A of the parallel-5 analysis flow — uncertainties, signals,
+ *  wildcards. Runs concurrently with {@link analyzeScenarios} and the
+ *  three section calls. */
+export async function analyzeSummary(args: AnalyzeArgs): Promise<AnalyzeSummary> {
+  const { data } = await api.post<AnthropicResponse>('ai/analyze/summary', args);
+  return parseJson<AnalyzeSummary>(data);
+}
+
+/** Phase-B of the parallel-5 analysis flow — just the three 3P scenarios. */
+export async function analyzeScenarios(
+  args: AnalyzeArgs,
+): Promise<{ scenarios?: Scenario[] }> {
+  const { data } = await api.post<AnthropicResponse>('ai/analyze/scenarios', args);
+  return parseJson<{ scenarios?: Scenario[] }>(data);
+}
+
+/* The three "section" calls below take only AnalyzeArgs — the upstream
+ * scenarios input was removed when the analysis flow was reshaped into
+ * 5 fully-parallel calls. Each section anchors on Probable/Plausible/
+ * Possible types directly, so no coordination is needed at request time;
+ * cross-section consistency comes from the universal 3P framing. */
+
 export async function analyzeScenarioPlanning(
-  args: AnalyzeContextArgs,
+  args: AnalyzeArgs,
 ): Promise<ScenarioPlanning> {
   const { data } = await api.post<AnthropicResponse>('ai/analyze/scenario-planning', args);
   return parseJson<ScenarioPlanning>(data);
 }
 
-export async function analyzeBackcasting(args: AnalyzeContextArgs): Promise<Backcasting> {
+export async function analyzeBackcasting(args: AnalyzeArgs): Promise<Backcasting> {
   const { data } = await api.post<AnthropicResponse>('ai/analyze/backcasting', args);
   return parseJson<Backcasting>(data);
 }
 
-export async function analyzeStrategicMap(args: AnalyzeContextArgs): Promise<StrategicMap> {
+export async function analyzeStrategicMap(args: AnalyzeArgs): Promise<StrategicMap> {
   const { data } = await api.post<AnthropicResponse>('ai/analyze/strategic-map', args);
   return parseJson<StrategicMap>(data);
 }

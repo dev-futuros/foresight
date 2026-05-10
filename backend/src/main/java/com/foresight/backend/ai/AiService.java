@@ -151,6 +151,67 @@ public class AiService {
             """;
 
     /**
+     * Phase-A system prompt for the parallel-5 analysis flow. Produces the
+     * "summary, uncertainties, signals" payload — everything in the base
+     * analyze pass EXCEPT the 3P scenarios, which {@link #ANALYZE_SCENARIOS_SYSTEM}
+     * generates in parallel. Splitting was necessary so the 5 analysis
+     * sections can fire concurrently without a chained dependency on
+     * scenarios coming back first.
+     */
+    private static final String ANALYZE_SUMMARY_SYSTEM =
+            """
+            You are a strategic foresight expert. Given a company profile, STEEP factors, and
+            horizon signals, surface the cross-cutting uncertainties, weak signals and wildcards
+            that should anchor the rest of the analysis.
+
+            Respond ONLY with a single JSON object that matches EXACTLY this shape — no
+            additional fields, no markdown, no preamble:
+
+            {
+              "keyUncertainties": ["...", "...", "..."],
+              "weakSignals":      ["...", "...", "..."],
+              "wildcards":        ["...", "..."]
+            }
+
+            Constraints:
+            - 3-5 items per array, each a single sentence.
+            - keyUncertainties: things whose resolution would significantly change the next 5-10 years.
+            - weakSignals: faint but tangible early indicators of structural change.
+            - wildcards: low-probability, high-impact events worth contingency planning for.
+            - No extra top-level keys, no prose outside JSON.
+            - Respond in the requested language.
+            """;
+
+    /**
+     * Phase-B system prompt for the parallel-5 analysis flow. Produces ONLY
+     * the 3P scenarios. Runs concurrently with {@link #ANALYZE_SUMMARY_SYSTEM}
+     * and the three section prompts (scenario planning, backcasting,
+     * strategic map) which all anchor on Probable/Plausible/Possible types.
+     */
+    private static final String ANALYZE_SCENARIOS_SYSTEM =
+            """
+            You are a strategic foresight expert. Given a company profile, STEEP factors, and
+            horizon signals, produce the three 3P scenarios.
+
+            Respond ONLY with a single JSON object matching EXACTLY:
+
+            {
+              "scenarios": [
+                {"type": "Probable",  "title": "...", "description": "..."},
+                {"type": "Plausible", "title": "...", "description": "..."},
+                {"type": "Possible",  "title": "...", "description": "..."}
+              ]
+            }
+
+            Constraints:
+            - Exactly 3 scenarios, in this order: Probable, Plausible, Possible.
+            - Each scenario description: 2-4 sentences. No nested objects, no bullet points.
+            - Probable = trend-continuation baseline. Plausible = a meaningful deviation. Possible = transformative outlier.
+            - No extra top-level keys, no prose outside JSON, no markdown.
+            - Respond in the requested language.
+            """;
+
+    /**
      * System prompt for the scenario-planning pass: driving forces, critical-uncertainty
      * axes, an impact-matrix placement for each force, and the narrative logic per scenario.
      *
@@ -162,8 +223,10 @@ public class AiService {
             """
             You are a strategic foresight expert in the GBN scenario-planning method.
 
-            Given the inputs (company profile, STEEP, horizon signals, and the three scenarios
-            already chosen), respond ONLY with a single JSON object matching EXACTLY:
+            Given the inputs (company profile, STEEP, horizon signals), respond ONLY with a
+            single JSON object matching EXACTLY. Anchor the narrative logics on the standard
+            Probable / Plausible / Possible scenario types — they are universal and don't
+            require the actual scenario titles to be passed in:
 
             {
               "forces": [
@@ -202,7 +265,10 @@ public class AiService {
             """
             You are a strategic foresight expert specialised in backcasting.
 
-            Given the inputs and the three scenarios, produce a backcasting panel for each scenario.
+            Given the inputs (company profile, STEEP, horizon signals), produce one backcasting
+            panel per scenario type. Anchor on the standard Probable / Plausible / Possible
+            classification — each panel describes the future-state vision for THAT type and works
+            backwards to today, with no need to receive the actual scenario titles upstream.
 
             Respond ONLY with a single JSON object matching EXACTLY:
 
@@ -234,7 +300,9 @@ public class AiService {
             """
             You are a strategic foresight expert.
 
-            Synthesise strategic priorities by horizon based on the inputs and the three scenarios.
+            Synthesise strategic priorities by horizon based on the inputs (company profile,
+            STEEP, horizon signals). Priorities are anchored on the H1/H2/H3 timeframes —
+            independent of which 3P scenarios materialise, so no scenario titles are needed.
 
             Respond ONLY with a single JSON object matching EXACTLY:
 
@@ -680,6 +748,52 @@ public class AiService {
                                 request.steep().toString(),
                                 request.horizon().toString());
         return anthropicClient.sendMessage(ANALYZE_SYSTEM, prompt, 16000).map(AiResponseSanitizer::sanitize);
+    }
+
+    /**
+     * Phase-A of the parallel-5 analysis flow. Produces the summary block
+     * (keyUncertainties, weakSignals, wildcards) without scenarios — that
+     * sibling call goes to {@link #analyzeScenarios}, and both run
+     * concurrently with the three section calls.
+     *
+     * @param request validated payload (companyProfile, steep, horizon, language)
+     * @return raw JSON shaped like
+     *         {@code {"keyUncertainties":[...],"weakSignals":[...],"wildcards":[...]}}
+     */
+    public Mono<JsonNode> analyzeSummary(AnalyzeRequest request) {
+        return anthropicClient
+                .sendMessage(ANALYZE_SUMMARY_SYSTEM, analyzePrompt(request), 4000)
+                .map(AiResponseSanitizer::sanitize);
+    }
+
+    /**
+     * Phase-B of the parallel-5 analysis flow. Produces ONLY the 3P
+     * scenarios. Sibling call to {@link #analyzeSummary}; both run
+     * concurrently with the section calls.
+     *
+     * @param request validated payload
+     * @return raw JSON shaped like {@code {"scenarios":[…]}}
+     */
+    public Mono<JsonNode> analyzeScenarios(AnalyzeRequest request) {
+        return anthropicClient
+                .sendMessage(ANALYZE_SCENARIOS_SYSTEM, analyzePrompt(request), 4000)
+                .map(AiResponseSanitizer::sanitize);
+    }
+
+    /** Shared user-turn prompt for the two analyze siblings. */
+    private String analyzePrompt(AnalyzeRequest request) {
+        return """
+                %s
+
+                Company profile: %s
+                STEEP analysis: %s
+                Horizon signals: %s
+                """
+                .formatted(
+                        langInstruction(request.language()),
+                        request.companyProfile().toString(),
+                        request.steep().toString(),
+                        request.horizon().toString());
     }
 
     /**
