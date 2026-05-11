@@ -24,8 +24,29 @@ export interface ReportResponse {
   status: ReportStatus;
   inputData: Record<string, unknown>;
   resultData: Record<string, unknown> | null;
+  /**
+   * Language the wizard used to generate this report. Translations to
+   * other languages are produced on demand from the share / export
+   * dialogs — see {@link availableLanguages}.
+   */
+  primaryLanguage: 'es' | 'en';
+  /**
+   * Languages this report is available in. Always contains
+   * {@link primaryLanguage}; additional entries appear after a
+   * translation has been materialised. Used by share/export dialogs
+   * to label whether picking a language will be instant ("already
+   * available") or trigger a translation call.
+   */
+  availableLanguages: string[];
   createdAt: string;
   updatedAt: string;
+}
+
+/** Payload returned by the `POST /api/reports/{id}/translate` endpoint. */
+export interface TranslatedReport {
+  inputData: Record<string, unknown>;
+  resultData: Record<string, unknown> | null;
+  generatedAt?: string;
 }
 
 export interface Page<T> {
@@ -64,6 +85,8 @@ export interface PublicShareResponse {
 export interface CreateReportRequest {
   title: string;
   inputData: Record<string, unknown>;
+  /** ISO-639-1 code identifying the wizard's language. Defaults to 'es' server-side. */
+  primaryLanguage?: 'es' | 'en';
 }
 
 export interface UpdateReportRequest {

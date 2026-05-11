@@ -2635,7 +2635,33 @@ function addFootersAndHeads(doc: jsPDF, reportTitle: string, tocPageNum: number)
 
 /* ── Entry point ──────────────────────────────────────────────────── */
 
-export async function exportReportPdf(report: ReportResponse) {
+/**
+ * Render a foresight report into a downloadable PDF.
+ *
+ * @param report   the report payload (inputData + resultData + meta)
+ * @param language optional explicit language override. When supplied,
+ *                 i18n is temporarily switched to that language for the
+ *                 duration of the render so the cover, section labels
+ *                 and other chrome strings come out in the same language
+ *                 as the report content. Defaults to whatever i18n is
+ *                 currently set to (i.e. the user's UI language).
+ */
+export async function exportReportPdf(
+  report: ReportResponse,
+  language?: 'es' | 'en',
+) {
+  const originalLang = i18n.language;
+  const needSwitch =
+    !!language && language.slice(0, 2) !== originalLang.slice(0, 2);
+  if (needSwitch) await i18n.changeLanguage(language);
+  try {
+    await renderReport(report);
+  } finally {
+    if (needSwitch) await i18n.changeLanguage(originalLang);
+  }
+}
+
+async function renderReport(report: ReportResponse) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   await ensureFonts(doc);
 

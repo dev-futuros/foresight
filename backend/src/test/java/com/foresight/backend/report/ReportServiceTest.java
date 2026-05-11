@@ -22,9 +22,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.foresight.backend.ai.AiService;
 import com.foresight.backend.common.exception.NotFoundException;
 import com.foresight.backend.report.dto.CreateReportRequest;
 import com.foresight.backend.report.dto.UpdateReportRequest;
@@ -36,6 +38,12 @@ class ReportServiceTest {
 
     @Mock
     private ReportRepository reportRepository;
+
+    @Mock
+    private AiService aiService;
+
+    @Mock
+    private TransactionTemplate transactionTemplate;
 
     @InjectMocks
     private ReportService reportService;
@@ -67,7 +75,7 @@ class ReportServiceTest {
             return r;
         });
 
-        Report created = reportService.create(userId, new CreateReportRequest("Title", inputData));
+        Report created = reportService.create(userId, new CreateReportRequest("Title", inputData, null));
 
         ArgumentCaptor<Report> captor = ArgumentCaptor.forClass(Report.class);
         verify(reportRepository).save(captor.capture());

@@ -355,6 +355,49 @@
 .export-item.compact .export-item-name { font-size: 12.5px; }
 .export-item.compact .export-item-meta { font-size: 9.5px; }
 
+/* Language toggle inside the export dropdown — ES / EN segmented
+   buttons sit below the format options so the user picks output
+   language before clicking the format. */
+.export-lang-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px 8px 10px;
+  border-top: 1px solid var(--line);
+  margin-top: 2px;
+}
+.export-lang-label {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--ink-mute);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.export-lang-toggle {
+  display: inline-flex;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+.export-lang-btn {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 3px 9px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  color: var(--ink-mute);
+  cursor: pointer;
+  transition: background 150ms, color 150ms;
+}
+.export-lang-btn:hover { color: var(--ink); }
+.export-lang-btn.active {
+  background: var(--gold-bg);
+  color: var(--gold);
+}
+
 /* Example badge — small accent pill next to the report title on the
    auto-created Restalia example report. Helps the user tell their own
    work apart from the demo without us hiding the example from the grid. */

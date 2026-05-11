@@ -5,13 +5,27 @@ import type { CreateShareResponse, PublicShareResponse } from '../types/api';
 
 /**
  * Mints a fresh public share link for a report the caller owns.
- * The backend snapshots the report at this moment — subsequent edits or deletes
- * leave existing share links untouched.
+ * The backend snapshots the report at this moment — subsequent edits or
+ * deletes leave existing share links untouched.
+ *
+ * <p>When {@code language} is provided and differs from the report's
+ * primary language, the backend materialises (or reuses a cached) translation
+ * before snapshotting, so the share recipient sees the report in the
+ * requested language. First call for a non-primary language can take
+ * 10-30s while translation runs.
  */
 export function useCreateShare() {
-  return useMutation({
-    mutationFn: async (reportId: string) => {
-      const res = await api.post<CreateShareResponse>(`/reports/${reportId}/share`);
+  return useMutation<
+    CreateShareResponse,
+    Error,
+    { reportId: string; language?: 'es' | 'en' }
+  >({
+    mutationFn: async ({ reportId, language }) => {
+      const res = await api.post<CreateShareResponse>(
+        `/reports/${reportId}/share`,
+        null,
+        language ? { params: { language } } : undefined,
+      );
       return res.data;
     },
   });

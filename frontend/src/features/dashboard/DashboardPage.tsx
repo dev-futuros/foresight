@@ -215,6 +215,7 @@ export default function DashboardPage() {
                           busy={isBusyExporting}
                           onPdf={() => void handleExport(report.id, 'pdf')}
                           onPpt={() => void handleExport(report.id, 'ppt')}
+                          hideLanguagePicker
                         />
                         <button
                           className="db-r-btn"
