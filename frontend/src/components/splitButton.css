@@ -1,0 +1,167 @@
+/* ============================================================
+   SPLIT-BUTTON — primary action + dropdown chevron rendered as
+   a SINGLE visual control. The wrapping `.split-btn.split-btn--has-menu`
+   element carries the gold background / border / shadow; the two
+   inner buttons are stripped of their own chrome so they read as
+   two halves of the same surface, separated by one thin divider.
+
+   Without this wrapper trick, .btn-primary's per-button border +
+   inset/glow shadows fight each other across the seam and the
+   control reads as two separate buttons sitting next to each other.
+   ============================================================ */
+
+.split-btn {
+  display: inline-flex;
+  position: relative;
+}
+
+/* ── No-menu fallback ───────────────────────────────────────────
+   When the SplitButton is used without alternatives the inner
+   primary button keeps its standalone .btn-primary look — no
+   visual change from a regular button. */
+
+/* ── Merged look (chevron present) ─────────────────────────────
+   The container becomes the visual button. Inner <button>s get
+   transparent surfaces so the container's gold shows through,
+   and they no longer fight each other for shadow / border space. */
+.split-btn.split-btn--has-menu {
+  background: var(--gold);
+  border: 1px solid var(--gold-soft);
+  border-radius: var(--r-md);
+  box-shadow: 0 1px 0 hsla(0, 0%, 100%, 0.18) inset;
+  color: #0a0a0a;
+  transition: opacity 180ms var(--ease);
+  /* No overflow:hidden — would clip the dropdown menu that's
+     absolutely positioned below the wrapper. The inner buttons'
+     own rounded outer corners (border-{top,bottom}-{left,right}-radius
+     set explicitly below) keep each half's hover background
+     respecting the pill's outline. */
+}
+.split-btn.split-btn--has-menu:focus-within {
+  outline: 2px solid hsla(40, 60%, 56%, 0.45);
+  outline-offset: 2px;
+}
+
+/* Strip .btn / .btn-primary chrome from both inner buttons so the
+   wrapper's surface is what the user actually sees. We keep the .btn
+   typography, padding, font rules etc. — only the chrome goes. */
+.split-btn.split-btn--has-menu .split-btn-primary,
+.split-btn.split-btn--has-menu .split-btn-toggle {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+  color: inherit;
+  /* Override .btn's transition so each half doesn't independently
+     animate its (now-transparent) background on hover. */
+  transition: background 140ms var(--ease);
+  /* Strip the outline focus ring on each half — :focus-within on the
+     container handles the outline for the whole control. */
+  outline: none;
+}
+
+/* Round only the OUTER corners of each inner button so the wrapper's
+   border-radius isn't cut off by a square-cornered child sitting on
+   top of its background. */
+.split-btn.split-btn--has-menu .split-btn-primary {
+  border-top-left-radius: var(--r-md);
+  border-bottom-left-radius: var(--r-md);
+  padding-right: 18px;
+}
+.split-btn.split-btn--has-menu .split-btn-toggle {
+  border-top-right-radius: var(--r-md);
+  border-bottom-right-radius: var(--r-md);
+  padding-left: 11px;
+  padding-right: 11px;
+  /* Thin divider between halves. */
+  border-left: 1px solid hsla(0, 0%, 0%, 0.22);
+}
+
+/* Hover / active states are PER HALF — never on the wrapper — so
+   highlighting one side doesn't leak into the other across the
+   divider. Each half flips to the gold-soft "lifted" colour that
+   the standalone .btn-primary uses on hover; the unhovered half
+   stays at the wrapper's gold base, making the active half stand
+   out cleanly against its neighbour.
+   :not(:disabled) gates so a disabled half doesn't react to the
+   pointer skimming over it. */
+.split-btn.split-btn--has-menu .split-btn-primary:not(:disabled):hover,
+.split-btn.split-btn--has-menu .split-btn-toggle:not(:disabled):hover {
+  background: var(--gold-soft);
+}
+.split-btn.split-btn--has-menu .split-btn-primary:not(:disabled):active,
+.split-btn.split-btn--has-menu .split-btn-toggle:not(:disabled):active {
+  background: var(--gold-soft);
+  filter: brightness(0.93);
+}
+
+/* Disabled state — dim the wrapper when the primary is disabled
+   (the form-validity check disables the whole control via the parent
+   passing disabled={true}). With the wrapper no longer responding to
+   :hover, there's no extra override needed — :not(:disabled) on the
+   per-half hover already prevents disabled halves from reacting. */
+.split-btn.split-btn--has-menu:has(.split-btn-primary:disabled) {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+.split-btn.split-btn--has-menu .split-btn-primary:disabled,
+.split-btn.split-btn--has-menu .split-btn-toggle:disabled {
+  cursor: not-allowed;
+}
+
+.split-btn-chevron {
+  width: 12px;
+  height: 12px;
+  display: block;
+}
+
+/* ── Popover menu ─────────────────────────────────────────────── */
+.split-btn-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 220px;
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  padding: 6px;
+  box-shadow: 0 12px 28px -10px rgba(0, 0, 0, 0.55);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: split-btn-menu-in 140ms var(--ease);
+}
+@keyframes split-btn-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.split-btn-menu-item {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 13px;
+  text-align: left;
+  padding: 8px 12px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: background 140ms var(--ease), color 140ms var(--ease);
+  white-space: nowrap;
+}
+.split-btn-menu-item:hover {
+  background: var(--surface-3);
+  color: var(--gold);
+}
+.split-btn-menu-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

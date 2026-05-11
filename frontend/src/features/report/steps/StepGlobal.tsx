@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
+import type { MutableRefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   globalSteepDim,
@@ -35,6 +36,16 @@ interface Props {
    * research citations.
    */
   onCitations?: (citations: SourceItem[]) => void;
+  /**
+   * Sector for which the auto-fetch has already been attempted in this
+   * wizard session. Owned by the parent (NewReportPage) so it survives
+   * StepGlobal's mount/unmount cycle when the user navigates between
+   * steps. Without this lift, a user who landed on step 2, generated,
+   * then navigated to step 3 and back would get an unwanted re-trigger
+   * if the fields happened to be empty (e.g. cleared by the assistant
+   * or a failed prior attempt).
+   */
+  fetchedForRef: MutableRefObject<string | null>;
   onNext: () => void;
   onBack: () => void;
 }
@@ -59,6 +70,7 @@ export default function StepGlobal({
   language,
   onChange,
   onCitations,
+  fetchedForRef,
   onNext,
   onBack,
 }: Props) {
@@ -89,7 +101,10 @@ export default function StepGlobal({
     S: 0, T: 0, E: 0, ENV: 0, P: 0,
   });
   const [error, setError] = useState<string | null>(null);
-  const fetchedFor = useRef<string | null>(null);
+  // `fetchedFor` is now owned by the parent (passed in as
+  // {@link Props#fetchedForRef}). Aliasing keeps the existing in-file
+  // references compact.
+  const fetchedFor = fetchedForRef;
   const max = useMaximizable<FieldKey>();
 
   const hasAny = FIELD_KEYS.some((k) => data[k].trim());
@@ -181,7 +196,12 @@ export default function StepGlobal({
       onChange(merged);
     } catch (e) {
       setError(extractApiErrorMessage(e, t('wizard.global.errorDefault')));
-      fetchedFor.current = null;
+      // Deliberately NOT resetting fetchedFor.current — once auto-fetch
+      // has been attempted for a sector (success or failure), we don't
+      // want a re-mount of step 2 (e.g. navigating away and back) to
+      // re-trigger the call. User can retry via the assistant's
+      // generateGlobalSteep command, which calls regenerateAll() and
+      // resets the ref explicitly.
       // Mark whichever rows are still pending as errored so the user
       // sees they didn't complete (vs being left as the running spinner).
       setProgress((p) => {

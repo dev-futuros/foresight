@@ -222,7 +222,9 @@ const en = {
       titleLabel: 'Report title (optional) — leave blank to auto-generate one',
       titleField: 'Custom title',
       titlePlaceholder: '{{fallback}}',
-      next: 'Continue — Global Context →',
+      next: '✦ Generate — Global STEEP →',
+      nextContinue: 'Continue — Global STEEP →',
+      nextMenuAria: 'More Global STEEP options',
     },
     global: {
       eyebrow: 'Step 02 — Global environment',
@@ -314,7 +316,9 @@ const en = {
         H2: { label: 'Emerging future', desc: '2–5 years · Weak signals that could become dominant trends' },
         H3: { label: 'Possible future', desc: '5+ years · Speculative ideas, wildcards and deep systemic change' },
       },
-      submit: '✦ Generate foresight analysis →',
+      submit: '✦ Generate report →',
+      submitContinue: 'Continue — Report →',
+      submitMenuAria: 'More analysis options',
     },
   },
   dashboard: {

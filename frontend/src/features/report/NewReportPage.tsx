@@ -231,6 +231,15 @@ export default function NewReportPage() {
   const steepRef = useRef<SteepData>(EMPTY_STEEP);
   const horizonRef = useRef<HorizonData>(EMPTY_HORIZON);
   const reportIdRef = useRef<string | null>(editingId ?? null);
+  // Tracks the sector for which the Step 2 auto-fetch has already been
+  // attempted in this wizard session. Lifted here (out of StepGlobal)
+  // so it survives StepGlobal's mount/unmount cycle when the user
+  // navigates between steps — without this, going back to step 2 with
+  // empty fields would unwantedly re-trigger the expensive generation.
+  // Resets at component scope only — a fresh /new visit starts clean.
+  // In edit mode we pre-claim the sector so opening an existing report
+  // never auto-regenerates either.
+  const globalSteepFetchedForRef = useRef<string | null>(null);
 
   /** Builds the inputData snapshot we PATCH/POST. Includes `currentStep` so
    *  reopening the draft resumes on the same page. */
@@ -359,6 +368,21 @@ export default function NewReportPage() {
     if (inputs.globalSteep) setGlobalData({ ...EMPTY_GLOBAL_STEEP, ...inputs.globalSteep });
     if (inputs.steep) setSteep({ ...EMPTY_STEEP, ...inputs.steep });
     if (inputs.horizon) setHorizon({ ...EMPTY_HORIZON, ...inputs.horizon });
+    // Pre-claim the global-steep auto-fetch ref when the loaded report
+    // already has STEEP values for its sector. Without this, a user who
+    // edits an existing report and clears the Global STEEP fields would
+    // see them auto-regenerate on the next step-2 visit — the wizard's
+    // policy is one auto-attempt per sector per session, regardless of
+    // how that session got there.
+    const loadedSector = inputs.companyProfile?.sector?.trim();
+    const hasLoadedGlobalSteep =
+        inputs.globalSteep &&
+        (['S', 'T', 'E', 'ENV', 'P'] as const).some(
+            (k) => (inputs.globalSteep![k] ?? '').trim().length > 0,
+        );
+    if (loadedSector && hasLoadedGlobalSteep) {
+      globalSteepFetchedForRef.current = loadedSector;
+    }
     // Resume on the step the user left off on, unless an explicit ?step=N in
     // the URL overrides it (initialStep already captured that). The URL
     // wins so back-nav from the report viewer's stepper still lands on the
@@ -829,7 +853,33 @@ export default function NewReportPage() {
         {!isGenerating && (
           <>
             {step === 1 && (
-              <StepEmpresa data={empresa} onChange={setEmpresa} onNext={() => goToStep(2)} />
+              <StepEmpresa
+                data={empresa}
+                onChange={setEmpresa}
+                hasGlobalSteep={(['S', 'T', 'E', 'ENV', 'P'] as const).some(
+                  (k) => globalData[k].trim().length > 0,
+                )}
+                onContinue={() => {
+                  // Continue without regenerating. Pre-claim the auto-
+                  // fetch ref so step 2 doesn't surprise-trigger a scan
+                  // if the user happens to be jumping into empty fields
+                  // — picking Continue is an explicit "I'll handle this
+                  // manually" gesture.
+                  const sector = empresa.sector.trim();
+                  if (sector) globalSteepFetchedForRef.current = sector;
+                  goToStep(2);
+                }}
+                onGenerate={() => {
+                  // Wipe both the displayed values and the auto-fetch
+                  // claim so step 2's effect re-fires on entry. The
+                  // step-2 loader will run the scan again with the
+                  // current sector.
+                  setGlobalData(EMPTY_GLOBAL_STEEP);
+                  globalSteepFetchedForRef.current = null;
+                  setGlobalSteepCitations([]);
+                  goToStep(2);
+                }}
+              />
             )}
             {step === 2 && (
               <StepGlobal
@@ -838,6 +888,7 @@ export default function NewReportPage() {
                 language={language}
                 onChange={setGlobalData}
                 onCitations={setGlobalSteepCitations}
+                fetchedForRef={globalSteepFetchedForRef}
                 onNext={() => goToStep(3)}
                 onBack={() => goToStep(1)}
               />
@@ -862,6 +913,21 @@ export default function NewReportPage() {
                 onBack={() => goToStep(3)}
                 isSubmitting={isGenerating}
                 error={generateError}
+                // Only edit-mode reports can have a pre-existing analysis;
+                // a fresh wizard run starts with empty resultData. Drive
+                // the SplitButton's primary action off whether the loaded
+                // report carries any of the section payloads.
+                hasReport={
+                  editMode &&
+                  !!editingReport.data?.resultData &&
+                  Object.keys(
+                    (editingReport.data.resultData as Record<string, unknown>) ?? {},
+                  ).length > 0
+                }
+                onContinueToReport={() => {
+                  const id = reportIdRef.current;
+                  if (id) navigate(`/reports/${id}`);
+                }}
               />
             )}
           </>

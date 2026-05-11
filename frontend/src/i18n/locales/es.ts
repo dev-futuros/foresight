@@ -222,7 +222,9 @@ const es = {
       titleLabel: 'Título del informe (opcional) — si se deja vacío se generará automáticamente',
       titleField: 'Título personalizado',
       titlePlaceholder: '{{fallback}}',
-      next: 'Continuar — Contexto Global →',
+      next: '✦ Generar — STEEP Global →',
+      nextContinue: 'Continuar — STEEP Global →',
+      nextMenuAria: 'Más opciones de STEEP Global',
     },
     global: {
       eyebrow: 'Paso 02 — Entorno global',
@@ -314,7 +316,9 @@ const es = {
         H2: { label: 'Futuro emergente', desc: '2–5 años · Señales débiles que podrían convertirse en tendencias dominantes' },
         H3: { label: 'Futuro posible', desc: '5+ años · Ideas especulativas, wildcards y cambios sistémicos de fondo' },
       },
-      submit: '✦ Generar análisis de foresight →',
+      submit: '✦ Generar informe →',
+      submitContinue: 'Continuar — Informe →',
+      submitMenuAria: 'Más opciones de análisis',
     },
   },
   dashboard: {

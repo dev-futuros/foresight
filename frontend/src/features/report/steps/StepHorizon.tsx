@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { suggestHorizon, type SuggestionItem } from '../../../lib/aiClient';
 import { extractApiErrorMessage } from '../../../lib/apiError';
 import { useMaximizable } from '../../../components/useMaximizable';
+import SplitButton from '../../../components/SplitButton';
+import '../../../components/splitButton.css';
 
 const HORIZON_KEYS = ['H1', 'H2', 'H3'] as const;
 
@@ -21,6 +23,19 @@ interface Props {
   /** Surfaced as a global error box above the action row when the parent's
    *  generate-analysis pipeline (create → analyze → update) fails. */
   error?: string | null;
+  /**
+   * True when the wizard's report already has analysis output. Swaps
+   * the primary action from "Generate" to "Continue" (which jumps
+   * straight to the report viewer via {@link Props#onContinueToReport})
+   * and exposes "Regenerate" in the dropdown.
+   */
+  hasReport?: boolean;
+  /**
+   * Navigates the user to the existing report viewer for this draft.
+   * Invoked only when the user picks "Continue" on a draft that's
+   * already been analysed.
+   */
+  onContinueToReport?: () => void;
 }
 
 /** Cap suggestions defensively — AI is asked for 3–5 but may return more. */
@@ -40,6 +55,8 @@ export default function StepHorizon({
   onBack,
   isSubmitting,
   error,
+  hasReport,
+  onContinueToReport,
 }: Props) {
   const { t } = useTranslation();
   const [suggestions, setSuggestions] = useState<SuggestionsByKey>({});
@@ -178,14 +195,36 @@ export default function StepHorizon({
         <button type="button" className="btn" onClick={onBack} disabled={isSubmitting}>
           {t('wizard.back')}
         </button>
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={onSubmit}
-          disabled={!hasAny || isSubmitting}
-        >
-          {isSubmitting ? <span className="btn-spinner" /> : t('wizard.horizon.submit')}
-        </button>
+        {/* Both options are always passed in. Primary defaults to
+            Continue when a report already exists, Generate otherwise.
+            When there's no report yet, Continue stays in the dropdown
+            but is disabled — the user sees it's an option for once the
+            report is built rather than getting a magic-appearing menu. */}
+        {(() => {
+          const continueOption = {
+            key: 'continue' as const,
+            label: t('wizard.horizon.submitContinue'),
+            onClick: onContinueToReport,
+            disabled: !hasReport,
+          };
+          const generateOption = {
+            key: 'generate' as const,
+            label: isSubmitting ? (
+              <span className="btn-spinner" />
+            ) : (
+              t('wizard.horizon.submit')
+            ),
+            onClick: onSubmit,
+          };
+          return (
+            <SplitButton
+              disabled={!hasAny || isSubmitting}
+              menuAriaLabel={t('wizard.horizon.submitMenuAria')}
+              primary={hasReport ? continueOption : generateOption}
+              options={[hasReport ? generateOption : continueOption]}
+            />
+          );
+        })()}
       </div>
     </div>
   );
