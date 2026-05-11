@@ -57,7 +57,7 @@ export default function TopBar() {
   return (
     <header className="topbar">
       <div className="topbar-inner">
-        <Link to="/dashboard" className="brand" title={t('nav.dashboard')}>
+        <Link to="/reports/new" className="brand" title={t('nav.brandTitle')}>
           <div className="brand-text">
             <span className="brand-name">Futuros</span>
             <span className="brand-tag">{t('nav.brandTag')}</span>
