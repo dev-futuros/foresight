@@ -152,170 +152,199 @@ public class AiService {
 
     /**
      * Phase-A system prompt for the parallel-5 analysis flow. Produces the
-     * "summary, uncertainties, signals" payload — everything in the base
-     * analyze pass EXCEPT the 3P scenarios, which {@link #ANALYZE_SCENARIOS_SYSTEM}
-     * generates in parallel. Splitting was necessary so the 5 analysis
-     * sections can fire concurrently without a chained dependency on
-     * scenarios coming back first.
+     * strategic landscape reading: executive summary, the most critical
+     * uncertainties, weak signals across STEEP dimensions, and disruptive
+     * wildcards.
+     *
+     * <p>Ported from the demo's section-A prompt (see
+     * {@code demo.futuros.io/src/staging/i18n.js#buildAnalysisPromptA}). The
+     * demo has been tuned to produce rich object arrays (with name,
+     * dimension, etc.) and an executive summary that anchors the rest of
+     * the tabs — the React app's existing flat-string shape is a strict
+     * subset and is replaced here.
      */
     private static final String ANALYZE_SUMMARY_SYSTEM =
             """
-            You are a strategic foresight expert. Given a company profile, STEEP factors, and
-            horizon signals, surface the cross-cutting uncertainties, weak signals and wildcards
-            that should anchor the rest of the analysis.
+            You are an expert strategic foresight consultant with mastery of STEEP, Horizon
+            Scanning, Scenario Planning (Shell/GBN method) and Backcasting. Follow a funnel
+            approach: global environment → sector → company.
 
-            Respond ONLY with a single JSON object that matches EXACTLY this shape — no
-            additional fields, no markdown, no preamble:
+            TASK — Generate the strategic landscape reading: executive summary, the most
+            critical uncertainties, weak signals across STEEP dimensions, and disruptive
+            wildcards. Wildcards must derive from H3 signals and disruptive global factors.
 
-            {
-              "keyUncertainties": ["...", "...", "..."],
-              "weakSignals":      ["...", "...", "..."],
-              "wildcards":        ["...", "..."]
-            }
+            WRITING STYLE — for any prose field (executiveSummary, descriptions): write in
+            clear, scannable prose. When a field has multiple distinct ideas, separate them
+            with a double newline (\\n\\n) so they render as visually distinct paragraphs.
+            Avoid wall-of-text single blocks. Keep each paragraph to 2-3 sentences max.
+
+            Return ONLY a valid JSON object, no backticks, no markdown:
+
+            {"executiveSummary":"2 short paragraphs separated by \\n\\n. First paragraph: the strategic landscape (3-4 sentences connecting global environment with sector and company). Second paragraph: the central tension or critical opportunity (2 sentences).","keyUncertainties":[{"name":"Uncertainty 1","description":"Why it is critical, connecting global macro with sector"},{"name":"Uncertainty 2","description":"Description"}],"weakSignals":[{"title":"Signal 1","dimension":"Social","description":"Description"},{"title":"Signal 2","dimension":"Technological","description":"Description"},{"title":"Signal 3","dimension":"Economic","description":"Description"},{"title":"Signal 4","dimension":"Environmental","description":"Description"}],"wildcards":[{"title":"Wildcard 1","description":"Low probability high impact event, connected to global macro factors"},{"title":"Wildcard 2","description":"Description"},{"title":"Wildcard 3","description":"Description"}]}
 
             Constraints:
-            - 3-5 items per array, each a single sentence.
-            - keyUncertainties: things whose resolution would significantly change the next 5-10 years.
-            - weakSignals: faint but tangible early indicators of structural change.
-            - wildcards: low-probability, high-impact events worth contingency planning for.
+            - 2-4 keyUncertainties, 4-5 weakSignals (one per STEEP dimension when possible), 2-3 wildcards.
+            - 'dimension' on weakSignals MUST be the localized STEEP dimension name. Spanish:
+              "Social", "Tecnológico", "Económico", "Medioambiental", "Político". English:
+              "Social", "Technological", "Economic", "Environmental", "Political".
+            - Respond in the requested language.
+            """;
+
+    /**
+     * Phase-B system prompt for the parallel-5 analysis flow — the 3P
+     * scenarios with full narrative cards (probability, opportunities,
+     * threats, success factors, first move).
+     *
+     * <p>Ported from the demo's section-B prompt
+     * ({@code buildAnalysisPromptB}). The earlier flat {@code {type, title,
+     * description}} shape is replaced with the demo's rich card shape so
+     * the Results view can render the full scenario layout.
+     */
+    private static final String ANALYZE_SCENARIOS_SYSTEM =
+            """
+            You are an expert strategic foresight consultant. Apply the 3P framework (Probable
+            / Plausible / Possible) anchored in STEEP and Horizon Scanning. Follow a funnel
+            approach: global environment → sector → company.
+
+            TASK — Generate the 3P scenarios. H1 signals reinforce the Probable, H2 the
+            Plausible, H3 the Possible. Probabilities are NOT fixed ranges — derive them from
+            real context analysis. The three must sum exactly 100% expressed as exact
+            percentage (e.g.: "72%", "21%", "7%"). For each scenario provide 3 success factors
+            and the first concrete move to activate it.
+
+            WRITING STYLE — for the description field of each scenario: write 3-4 sentences.
+            If you cover two distinct facets (e.g. the scenario itself AND its implications,
+            or the macro state AND the sector dynamic), separate them with a double newline
+            (\\n\\n) so they render as two short paragraphs. Single-paragraph descriptions are
+            fine when there is only one core idea.
+
+            Return ONLY a valid JSON object, no backticks, no markdown:
+
+            {"scenarios":[{"type":"Probable","name":"Evocative name","probability":"XX%","description":"Narrative — single paragraph or two short paragraphs separated by \\n\\n","opportunities":["Op1","Op2","Op3"],"threats":["Th1","Th2"],"successFactors":["Factor 1","Factor 2","Factor 3"],"firstMove":"Concrete immediate action to activate this scenario"},{"type":"Plausible","name":"Name","probability":"XX%","description":"Narrative","opportunities":["Op1","Op2","Op3"],"threats":["Th1","Th2"],"successFactors":["Factor 1","Factor 2","Factor 3"],"firstMove":"Concrete first move"},{"type":"Possible","name":"Disruptive name","probability":"XX%","description":"Narrative","opportunities":["Op1","Op2"],"threats":["Th1","Th2","Th3"],"successFactors":["Factor 1","Factor 2","Factor 3"],"firstMove":"Concrete first move"}]}
+
+            Constraints:
+            - Exactly 3 scenarios, in this order: Probable, Plausible, Possible.
+            - 'type' MUST be the English token "Probable" / "Plausible" / "Possible" when
+              responding in English, and "Probable" / "Plausible" / "Posible" when responding
+              in Spanish (note: Spanish drops the second 's' in "Posible"). These tokens are
+              joined across analysis sections so they must match exactly.
+            - probability percentages must sum to exactly 100%.
+            - opportunities: 2-3 entries. threats: 2-3 entries. successFactors: exactly 3.
+            - firstMove: single concrete sentence.
             - No extra top-level keys, no prose outside JSON.
             - Respond in the requested language.
             """;
 
     /**
-     * Phase-B system prompt for the parallel-5 analysis flow. Produces ONLY
-     * the 3P scenarios. Runs concurrently with {@link #ANALYZE_SUMMARY_SYSTEM}
-     * and the three section prompts (scenario planning, backcasting,
-     * strategic map) which all anchor on Probable/Plausible/Possible types.
-     */
-    private static final String ANALYZE_SCENARIOS_SYSTEM =
-            """
-            You are a strategic foresight expert. Given a company profile, STEEP factors, and
-            horizon signals, produce the three 3P scenarios.
-
-            Respond ONLY with a single JSON object matching EXACTLY:
-
-            {
-              "scenarios": [
-                {"type": "Probable",  "title": "...", "description": "..."},
-                {"type": "Plausible", "title": "...", "description": "..."},
-                {"type": "Possible",  "title": "...", "description": "..."}
-              ]
-            }
-
-            Constraints:
-            - Exactly 3 scenarios, in this order: Probable, Plausible, Possible.
-            - Each scenario description: 2-4 sentences. No nested objects, no bullet points.
-            - Probable = trend-continuation baseline. Plausible = a meaningful deviation. Possible = transformative outlier.
-            - No extra top-level keys, no prose outside JSON, no markdown.
-            - Respond in the requested language.
-            """;
-
-    /**
-     * System prompt for the scenario-planning pass: driving forces, critical-uncertainty
-     * axes, an impact-matrix placement for each force, and the narrative logic per scenario.
+     * Section-C system prompt — scenario planning structure: an intro, 4
+     * ranked driving forces with impact scores, 2 critical-uncertainty axes
+     * with named poles + rationale, and the narrative logic of each 3P
+     * scenario.
      *
-     * <p>This is the second leg of the split-analysis flow. Sized so that all three sub-payloads
-     * fit comfortably below {@code max_tokens} on its own — splitting was specifically to avoid
-     * the historical truncation issue documented on {@link #ANALYZE_SYSTEM}.
+     * <p>Ported from the demo's section-C prompt
+     * ({@code buildAnalysisPromptC}). Note the wrapper: the demo nests the
+     * whole payload under a top-level {@code "scenarioPlanning"} key, and we
+     * keep that wrapper so the Results view can address it identically.
      */
     private static final String SCENARIO_PLANNING_SYSTEM =
             """
-            You are a strategic foresight expert in the GBN scenario-planning method.
+            You are an expert strategic foresight consultant in the GBN scenario-planning
+            method. Follow a funnel approach: global environment → sector → company.
 
-            Given the inputs (company profile, STEEP, horizon signals), respond ONLY with a
-            single JSON object matching EXACTLY. Anchor the narrative logics on the standard
-            Probable / Plausible / Possible scenario types — they are universal and don't
-            require the actual scenario titles to be passed in:
+            TASK — Generate the scenario planning structure. Identify the 4 most influential
+            driving forces connecting global macro with the sector. Define 2 critical
+            uncertainty axes that structure the futures space. Explain the narrative logic of
+            each of the three scenarios (Probable, Plausible, Possible) — give them the same
+            evocative naming style you would use as if you were also writing the scenarios.
 
-            {
-              "forces": [
-                {"title": "...", "description": "...", "impact": "low|medium|high", "uncertainty": "low|medium|high"}
-              ],
-              "axes": [
-                {"name": "...", "negative": "...", "positive": "..."},
-                {"name": "...", "negative": "...", "positive": "..."}
-              ],
-              "impactMatrix": [
-                {"force": "force title here", "x": -1.0, "y": -1.0}
-              ],
-              "narrativeLogics": [
-                {"scenarioType": "Probable",  "logic": "..."},
-                {"scenarioType": "Plausible", "logic": "..."},
-                {"scenarioType": "Possible",  "logic": "..."}
-              ]
-            }
+            Return ONLY a valid JSON object, no backticks, no markdown:
+
+            {"scenarioPlanning":{"intro":"2 sentences on the axes structuring the futures space","drivingForces":[{"rank":1,"title":"Force 1","description":"Description connecting global macro with sector","impactScore":90},{"rank":2,"title":"Force 2","description":"Description","impactScore":78},{"rank":3,"title":"Force 3","description":"Description","impactScore":65},{"rank":4,"title":"Force 4","description":"Description","impactScore":54}],"axes":[{"label":"Axis 1 name","poleHigh":"Positive pole","poleLow":"Negative pole","rationale":"Justification"},{"label":"Axis 2 name","poleHigh":"Positive pole","poleLow":"Negative pole","rationale":"Justification"}],"scenarioLogics":[{"name":"Probable scenario name","logic":"Position on axes and internal coherence"},{"name":"Plausible scenario name","logic":"Narrative logic"},{"name":"Possible scenario name","logic":"Narrative logic"}]}}
 
             Constraints:
-            - 5-8 driving forces, each 1 sentence in description.
-            - Exactly 2 axes (the two highest-impact, highest-uncertainty drivers).
-            - axes[0] becomes the X axis, axes[1] the Y axis. negative = left/bottom end, positive = right/top.
-            - impactMatrix MUST contain exactly one entry per force, with x in [-1.0, 1.0] and y in [-1.0, 1.0],
-              where x is "alignment with axes[0].positive" and y is "alignment with axes[1].positive".
-            - narrativeLogics: exactly 3 entries in the order Probable / Plausible / Possible. logic is 2-3 sentences.
-            - No extra top-level keys, no prose outside JSON, no markdown.
+            - drivingForces: exactly 4 entries, ranks 1-4, impactScore strictly descending in [0,100].
+            - axes: exactly 2 entries. axes[0] = X axis, axes[1] = Y axis.
+            - scenarioLogics: exactly 3 entries in the order Probable / Plausible / Possible. Use
+              "Posible" (Spanish) for the third when responding in Spanish.
             - Respond in the requested language.
             """;
 
     /**
-     * System prompt for backcasting. One panel per scenario: vision (the desired future state),
-     * a sequence of milestones from now to the horizon, and the immediate next move.
+     * Section-E system prompt — backcasting trajectories.
+     *
+     * <p>Ported from the demo's section-E prompt
+     * ({@code buildAnalysisPromptE}). The shape changes from {@code
+     * {panels:[...]}} to a flat {@code {backcasting:[...]}}, and each entry
+     * gets {@code scenarioName} (concise placeholder, patched in from
+     * section B's scenarios on the client), {@code visionStatement} and
+     * {@code startingPoint} fields. Milestones use {@code year} (calendar
+     * year as a string) instead of {@code timeframe}; the specific years
+     * are injected via the user-turn prompt and computed from the
+     * company's horizon.
      */
     private static final String BACKCASTING_SYSTEM =
             """
-            You are a strategic foresight expert specialised in backcasting.
+            You are an expert strategic foresight consultant specialised in backcasting.
+            Follow a funnel approach: global environment → sector → company.
 
-            Given the inputs (company profile, STEEP, horizon signals), produce one backcasting
-            panel per scenario type. Anchor on the standard Probable / Plausible / Possible
-            classification — each panel describes the future-state vision for THAT type and works
-            backwards to today, with no need to receive the actual scenario titles upstream.
+            TASK — Generate backcasting trajectories for the three 3P scenarios (Probable,
+            Plausible, Possible). For each, start from the final state at the horizon year and
+            trace milestones backwards. The user prompt specifies three exact calendar years
+            to use for the milestones (earliest first → intermediate → final state). The
+            startingPoint describes today's situation and the critical gap to be closed. Use
+            scenarioName values as concise placeholders — they will be replaced by the actual
+            scenario names from the 3P set.
 
-            Respond ONLY with a single JSON object matching EXACTLY:
+            Return ONLY a valid JSON object, no backticks, no markdown:
 
-            {
-              "panels": [
-                {
-                  "scenarioType": "Probable",
-                  "vision": "...",
-                  "milestones": [
-                    {"timeframe": "0-12 months", "title": "...", "description": "...", "actions": ["...", "..."]}
-                  ],
-                  "now": "..."
-                }
-              ]
-            }
+            {"backcasting":[{"scenarioType":"Probable","scenarioName":"Probable scenario","visionStatement":"State at horizon year: concrete description","milestones":[{"year":"<final year>","title":"Final state","description":"Description","actions":["Action 1","Action 2"]},{"year":"<mid year>","title":"Intermediate milestone","description":"Description","actions":["Action 1","Action 2","Action 3"]},{"year":"<early year>","title":"First bets","description":"Description","actions":["Action 1","Action 2"]}],"startingPoint":"Current situation and critical gap"},{"scenarioType":"Plausible","scenarioName":"Plausible scenario","visionStatement":"State at horizon year","milestones":[{"year":"<final year>","title":"Final state","description":"Desc","actions":["A1","A2"]},{"year":"<mid year>","title":"Intermediate milestone","description":"Desc","actions":["A1","A2","A3"]},{"year":"<early year>","title":"Early signal","description":"Desc","actions":["A1","A2"]}],"startingPoint":"Current situation"},{"scenarioType":"Possible","scenarioName":"Possible scenario","visionStatement":"State at horizon year","milestones":[{"year":"<final year>","title":"Final state","description":"Desc","actions":["A1","A2"]},{"year":"<mid year>","title":"Inflection point","description":"Desc","actions":["A1","A2","A3"]},{"year":"<early year>","title":"Warning signal","description":"Desc","actions":["A1","A2"]}],"startingPoint":"Current situation"}]}
 
             Constraints:
-            - Exactly 3 panels, in the order Probable / Plausible / Possible.
-            - Each panel: 3-5 milestones, ordered earliest first.
-            - vision: 1-2 sentences describing the desired future state at the horizon.
-            - now: 1 sentence on the single most urgent move to make this scenario reachable.
-            - Each milestone: 2-4 actions, short verb phrases.
-            - No extra top-level keys, no prose outside JSON, no markdown.
+            - Exactly 3 entries, in this order: Probable, Plausible, Possible (use "Posible"
+              in Spanish for the third type).
+            - Each entry: exactly 3 milestones, chronologically ordered (the milestones array
+              starts with the FINAL state at the horizon year, then the intermediate, then
+              the earliest — i.e. the backcasting walk back from the future).
+            - The 'year' field uses the exact calendar-year strings provided in the user prompt.
+            - Each milestone: 2-3 actions, short verb phrases.
             - Respond in the requested language.
             """;
 
-    /** System prompt for the H1/H2/H3 strategic-priorities map. */
+    /**
+     * Section-D system prompt — 6 strategic priorities (2 per H1/H2/H3
+     * horizon), each with an impact rating and 2-3 concrete actions.
+     *
+     * <p>Ported from the demo's section-D prompt
+     * ({@code buildAnalysisPromptD}). The shape changes from a nested
+     * {@code {h1,h2,h3}} of {@code {title, description}} cards to a flat
+     * {@code strategicPriorities} array carrying explicit {@code horizon},
+     * {@code timeframe}, {@code title}, {@code impact} and {@code actions}
+     * fields. The user-turn prompt supplies the exact timeframe strings
+     * (computed from the company's horizon).
+     */
     private static final String STRATEGIC_MAP_SYSTEM =
             """
-            You are a strategic foresight expert.
+            You are an expert strategic foresight consultant. Follow a funnel approach:
+            global environment → sector → company.
 
-            Synthesise strategic priorities by horizon based on the inputs (company profile,
-            STEEP, horizon signals). Priorities are anchored on the H1/H2/H3 timeframes —
-            independent of which 3P scenarios materialise, so no scenario titles are needed.
+            TASK — Generate 6 strategic priorities, 2 per horizon (H1 short-term, H2
+            mid-term, H3 long-term). Each priority must have a clear title, an impact rating
+            (high / medium / low), and 2-3 concrete actions. The first priority of each
+            horizon should be high impact; the second can be medium or, in H3, low
+            (exploratory).
 
-            Respond ONLY with a single JSON object matching EXACTLY:
+            Return ONLY a valid JSON object, no backticks, no markdown:
 
-            {
-              "h1": [{"title": "...", "description": "..."}],
-              "h2": [{"title": "...", "description": "..."}],
-              "h3": [{"title": "...", "description": "..."}]
-            }
+            {"strategicPriorities":[{"horizon":"H1","timeframe":"0-18 months","title":"Main H1 priority","impact":"high","actions":["A1","A2","A3"]},{"horizon":"H1","timeframe":"0-18 months","title":"Secondary H1 priority","impact":"medium","actions":["A1","A2"]},{"horizon":"H2","timeframe":"<H2 timeframe>","title":"Main H2 priority","impact":"high","actions":["A1","A2","A3"]},{"horizon":"H2","timeframe":"<H2 timeframe>","title":"Secondary H2 priority","impact":"medium","actions":["A1","A2"]},{"horizon":"H3","timeframe":"<H3 timeframe>","title":"Main H3 priority","impact":"high","actions":["A1","A2","A3"]},{"horizon":"H3","timeframe":"<H3 timeframe>","title":"Exploratory H3 priority","impact":"low","actions":["A1","A2"]}]}
 
             Constraints:
-            - 3-4 priorities per horizon. Each description 1-2 sentences.
-            - H1 = present-extended (0-2 years). H2 = emerging (2-5 years). H3 = transformative (5+ years).
-            - No extra keys, no prose outside JSON, no markdown.
+            - Exactly 6 entries, 2 per horizon, in order H1, H1, H2, H2, H3, H3.
+            - 'horizon' MUST be "H1" / "H2" / "H3" exactly.
+            - 'impact' MUST be "high" / "medium" / "low" exactly (English tokens regardless of output language).
+            - 'timeframe' MUST use the localized strings supplied in the user-turn prompt
+              (they are computed from the company's strategic horizon and use the response
+              language's units, e.g. "meses" / "años" or "months" / "years").
+            - actions: 2-3 short verb phrases per priority.
             - Respond in the requested language.
             """;
 
@@ -751,32 +780,24 @@ public class AiService {
     }
 
     /**
-     * Phase-A of the parallel-5 analysis flow. Produces the summary block
-     * (keyUncertainties, weakSignals, wildcards) without scenarios — that
-     * sibling call goes to {@link #analyzeScenarios}, and both run
-     * concurrently with the three section calls.
-     *
-     * @param request validated payload (companyProfile, steep, horizon, language)
-     * @return raw JSON shaped like
-     *         {@code {"keyUncertainties":[...],"weakSignals":[...],"wildcards":[...]}}
+     * Phase-A of the parallel-5 analysis flow — executive summary,
+     * uncertainties, weak signals and wildcards. Web search is enabled to
+     * match the demo's grounded-on-current-events behaviour.
      */
     public Mono<JsonNode> analyzeSummary(AnalyzeRequest request) {
         return anthropicClient
-                .sendMessage(ANALYZE_SUMMARY_SYSTEM, analyzePrompt(request), 4000)
+                .sendMessageWithWebSearch(ANALYZE_SUMMARY_SYSTEM, analyzePrompt(request), 8000)
                 .map(AiResponseSanitizer::sanitize);
     }
 
     /**
-     * Phase-B of the parallel-5 analysis flow. Produces ONLY the 3P
-     * scenarios. Sibling call to {@link #analyzeSummary}; both run
-     * concurrently with the section calls.
-     *
-     * @param request validated payload
-     * @return raw JSON shaped like {@code {"scenarios":[…]}}
+     * Phase-B of the parallel-5 analysis flow — the 3P scenarios with full
+     * narrative cards. Web search is enabled so probabilities and
+     * narratives are anchored on real-world signals.
      */
     public Mono<JsonNode> analyzeScenarios(AnalyzeRequest request) {
         return anthropicClient
-                .sendMessage(ANALYZE_SCENARIOS_SYSTEM, analyzePrompt(request), 4000)
+                .sendMessageWithWebSearch(ANALYZE_SCENARIOS_SYSTEM, analyzePrompt(request), 8000)
                 .map(AiResponseSanitizer::sanitize);
     }
 
@@ -788,39 +809,47 @@ public class AiService {
                 Company profile: %s
                 STEEP analysis: %s
                 Horizon signals: %s
+                %s
                 """
                 .formatted(
                         langInstruction(request.language()),
                         request.companyProfile().toString(),
                         request.steep().toString(),
-                        request.horizon().toString());
+                        request.horizon().toString(),
+                        horizonContextBlock(request.companyProfile(), request.language()));
     }
 
     /**
-     * Second pass — driving forces, critical-uncertainty axes, impact-matrix placement and
-     * narrative logic per scenario. Anchored on the scenarios produced by {@link #analyze}.
+     * Section-C — scenario planning structure. Web search enabled to
+     * ground the driving forces and axes on observable trends.
      */
     public Mono<JsonNode> scenarioPlanning(AnalyzeContextRequest request) {
         String prompt = contextPrompt(request);
-        return anthropicClient.sendMessage(SCENARIO_PLANNING_SYSTEM, prompt, 8000).map(AiResponseSanitizer::sanitize);
+        return anthropicClient
+                .sendMessageWithWebSearch(SCENARIO_PLANNING_SYSTEM, prompt, 8000)
+                .map(AiResponseSanitizer::sanitize);
     }
 
     /**
-     * Third pass — one backcasting panel per scenario, milestones from now to horizon plus
-     * the immediate next move. Anchored on the scenarios produced by {@link #analyze}.
+     * Section-E — backcasting trajectories. Web search enabled so
+     * milestones can reference real upcoming policy/market events.
      */
     public Mono<JsonNode> backcasting(AnalyzeContextRequest request) {
         String prompt = contextPrompt(request);
-        return anthropicClient.sendMessage(BACKCASTING_SYSTEM, prompt, 10000).map(AiResponseSanitizer::sanitize);
+        return anthropicClient
+                .sendMessageWithWebSearch(BACKCASTING_SYSTEM, prompt, 8000)
+                .map(AiResponseSanitizer::sanitize);
     }
 
     /**
-     * Fourth pass — strategic priorities organised by horizon (H1/H2/H3). Anchored on the
-     * scenarios produced by {@link #analyze}.
+     * Section-D — strategic priorities by horizon. Web search enabled to
+     * keep recommendations connected to current sector reality.
      */
     public Mono<JsonNode> strategicMap(AnalyzeContextRequest request) {
         String prompt = contextPrompt(request);
-        return anthropicClient.sendMessage(STRATEGIC_MAP_SYSTEM, prompt, 6000).map(AiResponseSanitizer::sanitize);
+        return anthropicClient
+                .sendMessageWithWebSearch(STRATEGIC_MAP_SYSTEM, prompt, 8000)
+                .map(AiResponseSanitizer::sanitize);
     }
 
     /**
@@ -867,7 +896,8 @@ public class AiService {
     /**
      * Builds the user-turn prompt shared by the four downstream analysis passes. Includes
      * {@code scenarios} when the caller passed them in so the model anchors its output on
-     * the same 3P set the user already saw.
+     * the same 3P set the user already saw, plus a block of horizon-derived calendar years
+     * and timeframe strings the section prompts rely on.
      */
     private String contextPrompt(AnalyzeContextRequest request) {
         StringBuilder sb = new StringBuilder()
@@ -878,7 +908,62 @@ public class AiService {
         if (request.scenarios() != null && !request.scenarios().isNull()) {
             sb.append("\nScenarios already chosen: ").append(request.scenarios());
         }
+        sb.append('\n').append(horizonContextBlock(request.companyProfile(), request.language()));
         return sb.toString();
+    }
+
+    /**
+     * Produces the auxiliary block of horizon-derived values that the
+     * backcasting and strategic-map prompts reference (milestone calendar
+     * years and the H1/H2/H3 timeframe strings in the response language).
+     *
+     * <p>The block is harmless for sections that don't need it — the model
+     * ignores fields it doesn't have a slot for. Including it
+     * unconditionally keeps the shared user-prompt helpers symmetric.
+     */
+    private String horizonContextBlock(JsonNode companyProfile, String language) {
+        int h    = extractHorizonYears(companyProfile);
+        int hMid = Math.max(1, Math.round(h / 2.0f));
+        int hq   = Math.max(1, Math.round(hMid / 2.0f));
+        int y0   = java.time.Year.now().getValue();
+        boolean en = "en".equals(lang(language));
+        String yearsWord  = en ? "years"  : "años";
+        String monthsWord = en ? "months" : "meses";
+        return """
+
+                HORIZON-DERIVED VALUES (use exactly these strings where the JSON schema asks for years or timeframes):
+                - Earliest backcasting milestone year: "%d"
+                - Intermediate backcasting milestone year: "%d"
+                - Final-state backcasting milestone year: "%d" (the horizon year)
+                - Strategic-map timeframe strings:
+                  - H1: "0-18 %s"
+                  - H2: "18 %s-%d %s"
+                  - H3: "%d-%d %s"
+                """
+                .formatted(
+                        y0 + hq, y0 + hMid, y0 + h,
+                        monthsWord,
+                        monthsWord, hMid, yearsWord,
+                        hMid, h, yearsWord);
+    }
+
+    /**
+     * Extracts the strategic horizon (in years) from a company-profile
+     * JsonNode, tolerating numeric or string encodings and falling back to
+     * the demo's default of 5 when the field is missing or unparseable.
+     */
+    private int extractHorizonYears(JsonNode companyProfile) {
+        if (companyProfile == null || companyProfile.isNull()) return 5;
+        JsonNode h = companyProfile.get("horizon");
+        if (h == null || h.isNull()) return 5;
+        if (h.isInt() || h.isLong() || h.isShort()) return Math.max(1, h.intValue());
+        String s = h.asText().trim().replaceAll("[^0-9]", "");
+        if (s.isEmpty()) return 5;
+        try {
+            return Math.max(1, Integer.parseInt(s));
+        } catch (NumberFormatException e) {
+            return 5;
+        }
     }
 
     /**

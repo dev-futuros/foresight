@@ -2,10 +2,14 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type {
   Backcasting,
+  GlobalSteep,
+  KeyUncertainty,
   Scenario,
   ScenarioPlanning,
   Sources,
   StrategicMap,
+  WeakSignal,
+  Wildcard,
 } from '../../lib/aiClient';
 import TabSummary from './tabs/TabSummary';
 import TabScenarios from './tabs/TabScenarios';
@@ -15,6 +19,16 @@ import TabSignals from './tabs/TabSignals';
 import TabStrategicMap from './tabs/TabStrategicMap';
 import TabSources from './tabs/TabSources';
 
+/**
+ * Projection of `report.inputData` consumed by the Summary tab's STEEP echo
+ * block. Both keys are optional — legacy reports may have neither, in which
+ * case the echo block simply doesn't render.
+ */
+export interface InputProjection {
+  globalSteep?: Partial<GlobalSteep>;
+  sectorialSteep?: Partial<GlobalSteep>;
+}
+
 /** Shape we read from `report.resultData`. The backend stores JSONB so the
  *  source field is loosely typed; this interface is the projection we
  *  actually render.
@@ -22,12 +36,17 @@ import TabSources from './tabs/TabSources';
  *  Each block (scenarioPlanning, backcasting, strategicMap, sources) is
  *  filled in by its own /api/ai/analyze/* call, so individual blocks may be
  *  missing if a sub-call failed or is still in flight. The renderer tolerates
- *  any subset gracefully. */
+ *  any subset gracefully.
+ *
+ *  Field shapes track the demo-aligned analysis pipeline — see
+ *  {@link AnalyzeSummary}, {@link ScenarioPlanning}, etc. in
+ *  `lib/aiClient.ts` for the per-section contracts. */
 export interface ResultData {
+  executiveSummary?: string;
   scenarios?: Scenario[];
-  weakSignals?: string[];
-  wildcards?: string[];
-  keyUncertainties?: string[];
+  weakSignals?: WeakSignal[];
+  wildcards?: Wildcard[];
+  keyUncertainties?: KeyUncertainty[];
   scenarioPlanning?: ScenarioPlanning;
   backcasting?: Backcasting;
   strategicMap?: StrategicMap;
@@ -39,8 +58,8 @@ type TabKey = 'res' | 'esc' | 'sp' | 'bc' | 'sig' | 'str' | 'src';
 interface TabDef {
   key: TabKey;
   labelKey: string;
-  available: (r: ResultData) => boolean;
-  render: (r: ResultData) => JSX.Element | null;
+  available: (r: ResultData, input?: InputProjection) => boolean;
+  render: (r: ResultData, input?: InputProjection) => JSX.Element | null;
 }
 
 /** Tab definitions in display order. `available` decides whether a tab is
@@ -50,9 +69,11 @@ const TABS: TabDef[] = [
   {
     key: 'res',
     labelKey: 'report.results.tabs.summary',
-    available: (r) =>
-      (r.scenarios?.length ?? 0) > 0 || (r.keyUncertainties?.length ?? 0) > 0,
-    render: (r) => <TabSummary result={r} />,
+    available: (r, input) =>
+      !!r.executiveSummary ||
+      (r.keyUncertainties?.length ?? 0) > 0 ||
+      hasAnySteepValue(input),
+    render: (r, input) => <TabSummary result={r} input={input} />,
   },
   {
     key: 'esc',
@@ -66,9 +87,9 @@ const TABS: TabDef[] = [
     available: (r) => {
       const p = r.scenarioPlanning;
       return !!p && (
-        (p.forces?.length ?? 0) > 0 ||
+        (p.drivingForces?.length ?? 0) > 0 ||
         (p.axes?.length ?? 0) > 0 ||
-        (p.narrativeLogics?.length ?? 0) > 0
+        (p.scenarioLogics?.length ?? 0) > 0
       );
     },
     render: (r) => <TabScenarioPlanning result={r} />,
@@ -76,7 +97,7 @@ const TABS: TabDef[] = [
   {
     key: 'bc',
     labelKey: 'report.results.tabs.bc',
-    available: (r) => (r.backcasting?.panels?.length ?? 0) > 0,
+    available: (r) => (r.backcasting?.length ?? 0) > 0,
     render: (r) => <TabBackcasting result={r} />,
   },
   {
@@ -88,22 +109,32 @@ const TABS: TabDef[] = [
   {
     key: 'str',
     labelKey: 'report.results.tabs.str',
-    available: (r) => {
-      const m = r.strategicMap;
-      return !!m && ((m.h1?.length ?? 0) + (m.h2?.length ?? 0) + (m.h3?.length ?? 0)) > 0;
-    },
+    available: (r) => (r.strategicMap?.length ?? 0) > 0,
     render: (r) => <TabStrategicMap result={r} />,
   },
   {
     key: 'src',
     labelKey: 'report.results.tabs.sources',
-    available: (r) => (r.sources?.sources?.length ?? 0) > 0,
+    available: (r) => {
+      const s = r.sources;
+      if (!s) return false;
+      if ((s.sources?.length ?? 0) > 0) return true;
+      if ((s.report?.length ?? 0) > 0) return true;
+      if ((s.globalSteep?.length ?? 0) > 0) return true;
+      if (s.bySection) {
+        for (const k of Object.keys(s.bySection)) {
+          if ((s.bySection[k as 'A' | 'B' | 'C' | 'D' | 'E']?.length ?? 0) > 0) return true;
+        }
+      }
+      return false;
+    },
     render: (r) => <TabSources result={r} />,
   },
 ];
 
 interface Props {
   result: ResultData;
+  input?: InputProjection;
 }
 
 /**
@@ -115,9 +146,12 @@ interface Props {
  * (e.g. legacy or partial-failure) shows the remaining tabs without empty
  * placeholders.
  */
-export default function ReportContent({ result }: Props) {
+export default function ReportContent({ result, input }: Props) {
   const { t } = useTranslation();
-  const visible = useMemo(() => TABS.filter((t) => t.available(result)), [result]);
+  const visible = useMemo(
+    () => TABS.filter((tb) => tb.available(result, input)),
+    [result, input],
+  );
   const [active, setActive] = useState<TabKey>(() => visible[0]?.key ?? 'res');
 
   if (visible.length === 0) return null;
@@ -125,7 +159,7 @@ export default function ReportContent({ result }: Props) {
   // Guard against `active` referring to a tab that became unavailable when
   // the data shape changed under us (e.g. a refetch). Falling back to the
   // first visible tab keeps the panel from rendering nothing.
-  const activeTab = visible.find((t) => t.key === active) ?? visible[0];
+  const activeTab = visible.find((tb) => tb.key === active) ?? visible[0];
 
   return (
     <div>
@@ -143,7 +177,16 @@ export default function ReportContent({ result }: Props) {
           </button>
         ))}
       </div>
-      <div className="tab-panel">{activeTab.render(result)}</div>
+      <div className="tab-panel">{activeTab.render(result, input)}</div>
     </div>
+  );
+}
+
+function hasAnySteepValue(input: InputProjection | undefined): boolean {
+  if (!input) return false;
+  const g = input.globalSteep ?? {};
+  const s = input.sectorialSteep ?? {};
+  return (['S', 'T', 'E', 'ENV', 'P'] as const).some(
+    (k) => (g[k] ?? '').trim().length > 0 || (s[k] ?? '').trim().length > 0,
   );
 }

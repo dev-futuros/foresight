@@ -1,12 +1,17 @@
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { usePublicShare } from '../../hooks/useShare';
-import ReportContent, { type ResultData } from '../report/ReportContent';
+import ReportContent, {
+  type InputProjection,
+  type ResultData,
+} from '../report/ReportContent';
 import '../report/report.css';
 import './publicShare.css';
 
 type InputData = {
   companyProfile?: { name?: string; sector?: string; horizon?: string; challenge?: string };
+  globalSteep?: Record<string, string>;
+  steep?: Record<string, string>;
 };
 
 /**
@@ -75,7 +80,13 @@ export default function PublicSharePage() {
               </div>
             </header>
             {data.resultData && (
-              <ReportContent result={data.resultData as ResultData} />
+              <ReportContent
+                result={data.resultData as ResultData}
+                input={{
+                  globalSteep: (data.inputData as InputData)?.globalSteep,
+                  sectorialSteep: (data.inputData as InputData)?.steep,
+                }}
+              />
             )}
           </div>
         )}

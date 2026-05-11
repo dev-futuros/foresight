@@ -414,6 +414,26 @@ const en = {
         str: 'Strategic map',
         sources: 'Sources',
       },
+      scen: {
+        opps: 'Opportunities',
+        threats: 'Threats',
+        success: 'Success factors',
+        firstmove: 'First move',
+      },
+      steep: {
+        title: 'STEEP analysis',
+        global: 'Global',
+        sectorial: 'Sectorial',
+      },
+      matrix: {
+        title: 'Force positioning — Impact × Uncertainty',
+        q1: 'High impact · High uncertainty',
+        q2: 'High impact · Low uncertainty',
+        q3: 'Low impact · High uncertainty',
+        q4: 'Low impact · Low uncertainty',
+        hint: 'Hover each force to see details',
+        tipImpact: 'Impact',
+      },
       sp: {
         intro: 'The driving forces shaping each scenario, the critical-uncertainty axes, and the narrative logic of each possible future.',
         forces: 'Driving forces of change',
@@ -425,9 +445,15 @@ const en = {
       },
       bc: {
         intro: 'Backcasting starts from the desired future state and traces back the milestones and decisions needed to reach it.',
-        vision: 'Vision of the future',
+        vision: 'Vision —',
         now: 'The next move',
+        start: 'Starting point',
       },
+      sig: {
+        signals: 'Weak signals detected',
+        wildcards: 'Wildcards — high-impact events',
+      },
+      impact: { low: 'Low', medium: 'Medium', high: 'High' },
       str: {
         h1: 'Present-extended (0–2 years)',
         h2: 'Emerging future (2–5 years)',
@@ -435,6 +461,15 @@ const en = {
       },
       sources: {
         intro: 'Public sources consulted to ground the analysis. Retrieved via web search during generation.',
+        total: 'unique sources consulted',
+        global: 'Global context (Step 2)',
+        report: 'Report',
+        sectionA: 'Summary, uncertainties & signals',
+        sectionB: '3P scenarios',
+        sectionC: 'Scenario planning',
+        sectionD: 'Strategic priorities',
+        sectionE: 'Backcasting',
+        empty: 'This report was generated without web search — the model answered from its trained knowledge.',
       },
       progressItems: {
         summary: 'Summary, uncertainties & signals',

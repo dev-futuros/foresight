@@ -8,13 +8,15 @@ import { exportReportPpt } from '../../lib/exportPpt';
 import ExportMenu from '../../components/ExportMenu';
 import LoadingOverlay from '../../components/LoadingOverlay';
 import ShareModal from '../../components/ShareModal';
-import ReportContent, { type ResultData } from './ReportContent';
+import ReportContent, { type InputProjection, type ResultData } from './ReportContent';
 import '../../components/modal.css';
 import type { ReportStatus } from '../../types/api';
 import './report.css';
 
 type InputData = {
   companyProfile?: { name?: string; sector?: string; horizon?: string; challenge?: string };
+  globalSteep?: Record<string, string>;
+  steep?: Record<string, string>;
 };
 
 export default function ReportPage() {
@@ -96,6 +98,14 @@ export default function ReportPage() {
 
   const input = report.inputData as InputData;
   const result = report.resultData as ResultData | null;
+  // `inputData.steep` is the sectorial STEEP captured in step 3 (the
+  // wizard stores it under the bare `steep` key, not `sectorialSteep`).
+  // Surface it to ReportContent under the demo-aligned name so the
+  // Summary tab's STEEP echo block reads from a single typed projection.
+  const inputProjection: InputProjection = {
+    globalSteep: input?.globalSteep,
+    sectorialSteep: input?.steep,
+  };
 
   const formattedDate = new Date(report.createdAt).toLocaleDateString(
     i18n.language === 'en' ? 'en-GB' : 'es-ES',
@@ -149,7 +159,7 @@ export default function ReportPage() {
         </header>
 
         {result ? (
-          <ReportContent result={result} />
+          <ReportContent result={result} input={inputProjection} />
         ) : (
           // Legacy fallback: reports created with the old wizard flow may
           // still exist as DRAFT (no resultData). New flow always generates

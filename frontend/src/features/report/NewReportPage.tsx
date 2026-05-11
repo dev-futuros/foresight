@@ -13,6 +13,7 @@ import {
   analyzeScenarios,
   analyzeStrategicMap,
   analyzeSummary,
+  type SourceItem,
 } from '../../lib/aiClient';
 import { extractApiErrorMessage } from '../../lib/apiError';
 import OnboardingDialog from '../../components/OnboardingDialog';
@@ -482,16 +483,64 @@ export default function NewReportPage() {
       // 3. Merge the successful sections into a single resultData blob.
       //    Anything that errored is silently skipped — the renderer's
       //    tabs handle a missing section with an empty-state.
+      //
+      //    Backcasting entries arrive with placeholder `scenarioName` values
+      //    (the prompt has no access to the 3P names produced by the
+      //    scenarios-call sibling). We patch them here so each entry shows
+      //    the matching evocative scenario name — mirrors the merge step
+      //    in the demo's analysis.js.
+      //
+      //    Each section call also surfaces the web_search citations the
+      //    model consulted during that turn. We bucket them by section id
+      //    (A-E) and emit a deduped flat `report` list, matching the
+      //    prototype's source-aggregation contract.
       const fullResult: Record<string, unknown> = {};
+      const scenarioList =
+        scenarios.status === 'fulfilled' ? scenarios.value.result.scenarios ?? [] : [];
+      const nameByType: Record<string, string | undefined> = {};
+      for (const s of scenarioList) {
+        if (s.type) nameByType[s.type] = s.name ?? s.title;
+      }
       if (summary.status === 'fulfilled') {
-        Object.assign(fullResult, summary.value);
+        Object.assign(fullResult, summary.value.result);
       }
-      if (scenarios.status === 'fulfilled' && scenarios.value.scenarios) {
-        fullResult.scenarios = scenarios.value.scenarios;
+      if (scenarioList.length > 0) {
+        fullResult.scenarios = scenarioList;
       }
-      if (planning.status === 'fulfilled') fullResult.scenarioPlanning = planning.value;
-      if (strategicMap.status === 'fulfilled') fullResult.strategicMap = strategicMap.value;
-      if (backcasting.status === 'fulfilled') fullResult.backcasting = backcasting.value;
+      if (planning.status === 'fulfilled') fullResult.scenarioPlanning = planning.value.result;
+      if (strategicMap.status === 'fulfilled')
+        fullResult.strategicMap = strategicMap.value.result;
+      if (backcasting.status === 'fulfilled') {
+        fullResult.backcasting = backcasting.value.result.map((bc) => ({
+          ...bc,
+          scenarioName: nameByType[bc.scenarioType] ?? bc.scenarioName,
+        }));
+      }
+
+      // ── Aggregate web_search citations into resultData.sources ────
+      const bySection: Record<'A' | 'B' | 'C' | 'D' | 'E', SourceItem[]> = {
+        A: summary.status === 'fulfilled' ? summary.value.citations : [],
+        B: scenarios.status === 'fulfilled' ? scenarios.value.citations : [],
+        C: planning.status === 'fulfilled' ? planning.value.citations : [],
+        D: strategicMap.status === 'fulfilled' ? strategicMap.value.citations : [],
+        E: backcasting.status === 'fulfilled' ? backcasting.value.citations : [],
+      };
+      const flatByUrl = new Map<string, SourceItem>();
+      for (const key of ['A', 'B', 'C', 'D', 'E'] as const) {
+        for (const c of bySection[key]) {
+          if (!flatByUrl.has(c.url)) flatByUrl.set(c.url, c);
+        }
+      }
+      if (flatByUrl.size > 0) {
+        fullResult.sources = {
+          bySection,
+          report: Array.from(flatByUrl.values()),
+          // globalSteep citations from Step 2 aren't surfaced yet — wiring
+          // them through requires persisting StepGlobal's web_search result
+          // pre-analyze. Empty array keeps the renderer's contract intact.
+          globalSteep: [],
+        };
+      }
 
       await updateReport.mutateAsync({
         id: targetReportId,

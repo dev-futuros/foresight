@@ -414,6 +414,26 @@ const es = {
         str: 'Mapa estratégico',
         sources: 'Fuentes',
       },
+      scen: {
+        opps: 'Oportunidades',
+        threats: 'Amenazas',
+        success: 'Factores de éxito',
+        firstmove: 'Primer movimiento',
+      },
+      steep: {
+        title: 'Análisis STEEP',
+        global: 'Global',
+        sectorial: 'Sectorial',
+      },
+      matrix: {
+        title: 'Posicionamiento de fuerzas — Impacto × Incertidumbre',
+        q1: 'Alto impacto · Alta incertidumbre',
+        q2: 'Alto impacto · Baja incertidumbre',
+        q3: 'Bajo impacto · Alta incertidumbre',
+        q4: 'Bajo impacto · Baja incertidumbre',
+        hint: 'Pasa el cursor sobre cada fuerza para ver detalles',
+        tipImpact: 'Impacto',
+      },
       sp: {
         intro: 'Las fuerzas motrices que conforman cada escenario, los ejes de incertidumbre crítica y la lógica narrativa de cada futuro posible.',
         forces: 'Fuerzas motrices del cambio',
@@ -425,9 +445,15 @@ const es = {
       },
       bc: {
         intro: 'El backcasting parte del estado futuro deseado y traza hacia atrás los hitos y decisiones necesarias para llegar a él.',
-        vision: 'Visión del futuro',
+        vision: 'Visión —',
         now: 'El siguiente movimiento',
+        start: 'Punto de partida',
       },
+      sig: {
+        signals: 'Señales débiles detectadas',
+        wildcards: 'Wildcards — eventos de alto impacto',
+      },
+      impact: { low: 'Bajo', medium: 'Medio', high: 'Alto' },
       str: {
         h1: 'Presente extendido (0–2 años)',
         h2: 'Futuro emergente (2–5 años)',
@@ -435,6 +461,15 @@ const es = {
       },
       sources: {
         intro: 'Fuentes públicas consultadas para fundamentar el análisis. Se obtuvieron mediante búsqueda web durante la generación.',
+        total: 'fuentes únicas consultadas',
+        global: 'Contexto global (Paso 2)',
+        report: 'Informe',
+        sectionA: 'Resumen, incertidumbres y señales',
+        sectionB: 'Escenarios 3P',
+        sectionC: 'Scenario planning',
+        sectionD: 'Prioridades estratégicas',
+        sectionE: 'Backcasting',
+        empty: 'Este informe se generó sin búsqueda web — el modelo respondió a partir de su conocimiento entrenado.',
       },
       progressItems: {
         summary: 'Resumen, incertidumbres y señales',
