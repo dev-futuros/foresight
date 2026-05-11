@@ -9,6 +9,7 @@ import { useCurrentUser } from '../../hooks/useAuth';
 import { useSetStepper } from '../shell/StepperContext';
 import {
   analyzeBackcasting,
+  analyzeScan,
   analyzeScenarioPlanning,
   analyzeScenarios,
   analyzeStrategicMap,
@@ -128,20 +129,45 @@ export default function NewReportPage() {
   // report is fully built (we navigate away) or the pipeline errors.
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
-  // Per-section status for the analysis loader checklist. Five rows, one
-  // per parallel call — matches the demo's layout exactly. The order here
-  // is the visual order in the loader.
+  // Per-row status for the analysis loader checklist. Mirrors the demo's
+  // scan-then-reformulate pattern: one up-front "research" row that runs
+  // the web_search-enabled scan, then 5 parallel section rows that
+  // anchor on the shared research bullets. The order here is the visual
+  // order in the loader.
   const [analysisProgress, setAnalysisProgress] = useState<
     Record<
-      'summary' | 'scenarios' | 'planning' | 'strategicMap' | 'backcasting',
+      'research' | 'summary' | 'scenarios' | 'planning' | 'strategicMap' | 'backcasting',
       ProgressItemStatus
     >
   >({
+    research: 'pending',
     summary: 'pending',
     scenarios: 'pending',
     planning: 'pending',
     strategicMap: 'pending',
     backcasting: 'pending',
+  });
+  // Live progress counters for the research row (the only call that
+  // touches web_search now). We track BOTH the source count AND the
+  // streamed character count so the row keeps showing forward motion
+  // after web_search stops adding URLs but the model is still writing
+  // out the consolidated research bullets.
+  const [researchSources, setResearchSources] = useState(0);
+  const [researchChars, setResearchChars] = useState(0);
+  // Live character count for each of the 5 section rows — the sections
+  // no longer use web_search, so chars-streamed is the meaningful
+  // progress signal. Updated from each analyzeX onProgress callback.
+  const [sectionChars, setSectionChars] = useState<
+    Record<
+      'summary' | 'scenarios' | 'planning' | 'strategicMap' | 'backcasting',
+      number
+    >
+  >({
+    summary: 0,
+    scenarios: 0,
+    planning: 0,
+    strategicMap: 0,
+    backcasting: 0,
   });
   // Highest step the user has ever reached. Lets the stepper allow forward
   // jumps to already-visited steps in addition to back-nav. In edit mode
@@ -295,6 +321,14 @@ export default function NewReportPage() {
   const [globalData, setGlobalData] = useState<GlobalSteepData>(EMPTY_GLOBAL_STEEP);
   const [steep, setSteep] = useState<SteepData>(EMPTY_STEEP);
   const [horizon, setHorizon] = useState<HorizonData>(EMPTY_HORIZON);
+  // Citations harvested from Step 2's web_search-enabled scan. Held in
+  // transient state until the user runs the full analysis, at which
+  // point they're written into resultData.sources.globalSteep so the
+  // Sources tab can render a dedicated "Global context (Step 2)"
+  // bucket. Resets when the user re-runs the scan (StepGlobal sends a
+  // fresh array via onCitations); not persisted in inputData on
+  // purpose — only kept around for the in-flight wizard session.
+  const [globalSteepCitations, setGlobalSteepCitations] = useState<SourceItem[]>([]);
 
   // Mirror the four slices into refs every render. persistDraft reads from
   // these so it always sees the freshest values without being rebuilt on
@@ -392,14 +426,25 @@ export default function NewReportPage() {
   async function handleSubmit() {
     setGenerateError(null);
     setIsGenerating(true);
-    // All 5 rows start running at the same time — the calls fire in
-    // parallel below, so there's no honest "still pending" state to show.
+    // Reset loader state — research row starts running immediately, the
+    // 5 section rows stay pending until research completes (they're
+    // gated on it).
     setAnalysisProgress({
-      summary: 'running',
-      scenarios: 'running',
-      planning: 'running',
-      strategicMap: 'running',
-      backcasting: 'running',
+      research: 'running',
+      summary: 'pending',
+      scenarios: 'pending',
+      planning: 'pending',
+      strategicMap: 'pending',
+      backcasting: 'pending',
+    });
+    setResearchSources(0);
+    setResearchChars(0);
+    setSectionChars({
+      summary: 0,
+      scenarios: 0,
+      planning: 0,
+      strategicMap: 0,
+      backcasting: 0,
     });
     try {
       // 1. Make sure the latest inputs are persisted before we kick off
@@ -424,63 +469,87 @@ export default function NewReportPage() {
       const targetReportId = reportIdRef.current!;
       const args = { companyProfile: empresa, steep, horizon, language };
 
-      // 2. ALL FIVE analysis calls in parallel. Each marks its own row
-      //    done/error as it resolves so the loader animates in real
-      //    time. Promise.allSettled means a partial failure (e.g. one
-      //    section times out) still produces a report containing the
-      //    sections that came back. The 3P scenarios call (analyzeScenarios)
-      //    no longer gates the others — each section anchors on
-      //    Probable/Plausible/Possible types directly.
+      // 2. Up-front research pass. ONE web_search-enabled call gathers
+      //    concrete, dated facts about the sector + challenge; the
+      //    result is then folded into each of the 5 section prompts so
+      //    they all anchor on the same shared bullets. Mirrors the
+      //    Global STEEP scan-then-reformulate pattern and cuts the
+      //    total web_search budget by ~5×. If the scan fails the whole
+      //    generation fails — the user retries.
+      const scan = await analyzeScan(args, (p) => {
+        // Both counters tick during the scan — sources climb while
+        // web_search runs, chars climb while the model is writing out
+        // the research bullets.
+        setResearchSources((prev) => (prev === p.sources ? prev : p.sources));
+        setResearchChars((prev) => (prev === p.chars ? prev : p.chars));
+      })
+        .then((r) => {
+          setAnalysisProgress((p) => ({ ...p, research: 'done' }));
+          return r;
+        })
+        .catch((err) => {
+          setAnalysisProgress((p) => ({ ...p, research: 'error' }));
+          console.error('[analyze:research] failed:', err);
+          throw err;
+        });
+
+      // 3. ALL FIVE analysis calls fire in parallel with the shared
+      //    research context. No web_search inside these — they use the
+      //    bullets from step 2 verbatim. Promise.allSettled means a
+      //    partial failure still produces a report with the sections
+      //    that came back.
+      const argsWithResearch = { ...args, research: scan.research };
+      type SectionKey =
+        | 'summary'
+        | 'scenarios'
+        | 'planning'
+        | 'strategicMap'
+        | 'backcasting';
+      // Sections no longer use web_search, so chars-streamed is the
+      // meaningful progress signal (sources stays 0 across the board).
+      const onSectionProgress = (key: SectionKey) => (p: { chars: number }) => {
+        setSectionChars((prev) =>
+          prev[key] === p.chars ? prev : { ...prev, [key]: p.chars },
+        );
+      };
+      setAnalysisProgress((p) => ({
+        ...p,
+        summary: 'running',
+        scenarios: 'running',
+        planning: 'running',
+        strategicMap: 'running',
+        backcasting: 'running',
+      }));
+
+      // Helper that wraps each section call with its progress-state
+      // transitions AND logs the rejection reason. Promise.allSettled
+      // swallows individual rejections silently otherwise — the loader
+      // row turns red but the actual error message never surfaces.
+      const onSectionDone = (key: SectionKey) => (r: unknown) => {
+        setAnalysisProgress((p) => ({ ...p, [key]: 'done' }));
+        return r;
+      };
+      const onSectionError = (key: SectionKey) => (err: unknown) => {
+        setAnalysisProgress((p) => ({ ...p, [key]: 'error' }));
+        console.error(`[analyze:${key}] failed:`, err);
+        throw err;
+      };
+
       const [summary, scenarios, planning, strategicMap, backcasting] =
         await Promise.allSettled([
-          analyzeSummary(args)
-            .then((r) => {
-              setAnalysisProgress((p) => ({ ...p, summary: 'done' }));
-              return r;
-            })
-            .catch((err) => {
-              setAnalysisProgress((p) => ({ ...p, summary: 'error' }));
-              throw err;
-            }),
-          analyzeScenarios(args)
-            .then((r) => {
-              setAnalysisProgress((p) => ({ ...p, scenarios: 'done' }));
-              return r;
-            })
-            .catch((err) => {
-              setAnalysisProgress((p) => ({ ...p, scenarios: 'error' }));
-              throw err;
-            }),
-          analyzeScenarioPlanning(args)
-            .then((r) => {
-              setAnalysisProgress((p) => ({ ...p, planning: 'done' }));
-              return r;
-            })
-            .catch((err) => {
-              setAnalysisProgress((p) => ({ ...p, planning: 'error' }));
-              throw err;
-            }),
-          analyzeStrategicMap(args)
-            .then((r) => {
-              setAnalysisProgress((p) => ({ ...p, strategicMap: 'done' }));
-              return r;
-            })
-            .catch((err) => {
-              setAnalysisProgress((p) => ({ ...p, strategicMap: 'error' }));
-              throw err;
-            }),
-          analyzeBackcasting(args)
-            .then((r) => {
-              setAnalysisProgress((p) => ({ ...p, backcasting: 'done' }));
-              return r;
-            })
-            .catch((err) => {
-              setAnalysisProgress((p) => ({ ...p, backcasting: 'error' }));
-              throw err;
-            }),
+          analyzeSummary(argsWithResearch, onSectionProgress('summary'))
+            .then(onSectionDone('summary'), onSectionError('summary')),
+          analyzeScenarios(argsWithResearch, onSectionProgress('scenarios'))
+            .then(onSectionDone('scenarios'), onSectionError('scenarios')),
+          analyzeScenarioPlanning(argsWithResearch, onSectionProgress('planning'))
+            .then(onSectionDone('planning'), onSectionError('planning')),
+          analyzeStrategicMap(argsWithResearch, onSectionProgress('strategicMap'))
+            .then(onSectionDone('strategicMap'), onSectionError('strategicMap')),
+          analyzeBackcasting(argsWithResearch, onSectionProgress('backcasting'))
+            .then(onSectionDone('backcasting'), onSectionError('backcasting')),
         ]);
 
-      // 3. Merge the successful sections into a single resultData blob.
+      // 4. Merge the successful sections into a single resultData blob.
       //    Anything that errored is silently skipped — the renderer's
       //    tabs handle a missing section with an empty-state.
       //
@@ -490,10 +559,10 @@ export default function NewReportPage() {
       //    the matching evocative scenario name — mirrors the merge step
       //    in the demo's analysis.js.
       //
-      //    Each section call also surfaces the web_search citations the
-      //    model consulted during that turn. We bucket them by section id
-      //    (A-E) and emit a deduped flat `report` list, matching the
-      //    prototype's source-aggregation contract.
+      //    Sources are now sourced entirely from the up-front scan call
+      //    (the 5 sections don't web_search anymore), so we store them
+      //    as the consolidated `report` bucket and skip the per-section
+      //    breakdown that used to be `bySection`.
       const fullResult: Record<string, unknown> = {};
       const scenarioList =
         scenarios.status === 'fulfilled' ? scenarios.value.result.scenarios ?? [] : [];
@@ -517,28 +586,27 @@ export default function NewReportPage() {
         }));
       }
 
-      // ── Aggregate web_search citations into resultData.sources ────
-      const bySection: Record<'A' | 'B' | 'C' | 'D' | 'E', SourceItem[]> = {
-        A: summary.status === 'fulfilled' ? summary.value.citations : [],
-        B: scenarios.status === 'fulfilled' ? scenarios.value.citations : [],
-        C: planning.status === 'fulfilled' ? planning.value.citations : [],
-        D: strategicMap.status === 'fulfilled' ? strategicMap.value.citations : [],
-        E: backcasting.status === 'fulfilled' ? backcasting.value.citations : [],
-      };
-      const flatByUrl = new Map<string, SourceItem>();
-      for (const key of ['A', 'B', 'C', 'D', 'E'] as const) {
-        for (const c of bySection[key]) {
-          if (!flatByUrl.has(c.url)) flatByUrl.set(c.url, c);
-        }
-      }
-      if (flatByUrl.size > 0) {
+      // ── Sources from the up-front scan + Step 2 globalSteep scan ──
+      // Two buckets are surfaced in the report's Sources tab:
+      //   report      — citations from the analyze/scan call (this run)
+      //   globalSteep — citations from the Step 2 globalSteepScan call,
+      //                 captured in transient state when StepGlobal ran
+      //                 (may be empty for reports loaded from a saved
+      //                 draft where the user never re-ran step 2).
+      // Each bucket is deduped independently — same URL surfacing in
+      // both is rare and worth showing twice with its proper attribution.
+      const hasAnyCitations = scan.citations.length > 0 || globalSteepCitations.length > 0;
+      if (hasAnyCitations) {
+        const dedup = (items: SourceItem[]) => {
+          const seen = new Map<string, SourceItem>();
+          for (const c of items) {
+            if (!seen.has(c.url)) seen.set(c.url, c);
+          }
+          return Array.from(seen.values());
+        };
         fullResult.sources = {
-          bySection,
-          report: Array.from(flatByUrl.values()),
-          // globalSteep citations from Step 2 aren't surfaced yet — wiring
-          // them through requires persisting StepGlobal's web_search result
-          // pre-analyze. Empty array keeps the renderer's contract intact.
-          globalSteep: [],
+          report: dedup(scan.citations),
+          globalSteep: dedup(globalSteepCitations),
         };
       }
 
@@ -769,6 +837,7 @@ export default function NewReportPage() {
                 sector={empresa.sector}
                 language={language}
                 onChange={setGlobalData}
+                onCitations={setGlobalSteepCitations}
                 onNext={() => goToStep(3)}
                 onBack={() => goToStep(1)}
               />
@@ -821,29 +890,40 @@ export default function NewReportPage() {
           running={isGenerating}
           items={[
             {
+              key: 'research',
+              label: t('report.results.progressItems.research'),
+              status: analysisProgress.research,
+              metric: { sources: researchSources, chars: researchChars },
+            },
+            {
               key: 'summary',
               label: t('report.results.progressItems.summary'),
               status: analysisProgress.summary,
+              metric: { chars: sectionChars.summary },
             },
             {
               key: 'scenarios',
               label: t('report.results.progressItems.scenarios'),
               status: analysisProgress.scenarios,
+              metric: { chars: sectionChars.scenarios },
             },
             {
               key: 'planning',
               label: t('report.results.progressItems.scenarioPlanning'),
               status: analysisProgress.planning,
+              metric: { chars: sectionChars.planning },
             },
             {
               key: 'strategicMap',
               label: t('report.results.progressItems.strategicMap'),
               status: analysisProgress.strategicMap,
+              metric: { chars: sectionChars.strategicMap },
             },
             {
               key: 'backcasting',
               label: t('report.results.progressItems.backcasting'),
               status: analysisProgress.backcasting,
+              metric: { chars: sectionChars.backcasting },
             },
           ] satisfies ProgressItem[]}
         />

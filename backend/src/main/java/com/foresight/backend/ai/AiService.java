@@ -1,8 +1,20 @@
 package com.foresight.backend.ai;
 
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
+
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 
+import lombok.extern.slf4j.Slf4j;
+
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.foresight.backend.ai.dto.AnalyzeContextRequest;
 import com.foresight.backend.ai.dto.AnalyzeRequest;
 import com.foresight.backend.ai.dto.ChatRequest;
@@ -12,6 +24,7 @@ import com.foresight.backend.ai.dto.HorizonSuggestRequest;
 import com.foresight.backend.ai.dto.SteepSuggestRequest;
 
 import lombok.RequiredArgsConstructor;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /**
@@ -21,6 +34,7 @@ import reactor.core.publisher.Mono;
  * layer ({@link AnthropicClient}). Each public method corresponds to one user-facing AI feature
  * and specifies its own {@code max_tokens} budget.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AiService {
@@ -148,6 +162,45 @@ public class AiService {
             - 3-5 items per array (keyUncertainties / weakSignals / wildcards), each a single sentence.
             - No extra top-level keys. No prose outside the JSON.
             - Respond in the requested language.
+            """;
+
+    /**
+     * Up-front research pass — gathers concrete, dated facts about the
+     * sector + strategic challenge via web_search, so the 5 analysis
+     * sections can anchor on the SAME set of grounded bullets instead
+     * of each firing their own search loop. Mirrors the Global STEEP
+     * scan-then-reformulate pattern.
+     *
+     * <p>The output is plain text (categorised dated bullets), NOT JSON.
+     * Each downstream analyze prompt folds it verbatim into its user
+     * turn under a "CURRENT RESEARCH" header.
+     */
+    private static final String ANALYZE_SCAN_SYSTEM =
+            """
+            You are a strategic foresight researcher. Use the web_search tool to gather
+            concrete, current facts relevant to the company, sector and strategic
+            challenge described in the user prompt.
+
+            Cover (roughly in this order of importance, depending on what's available):
+            - Recent sector developments — market events, M&A, big bets, strategy shifts
+            - Active regulation and policy that affects the sector
+            - Technology adoption and disruption trends in or adjacent to the sector
+            - Competitive landscape moves
+            - Demographic / consumer / labour shifts
+            - Geopolitical and macro factors with sector impact
+            - Weak signals — emerging anomalies, early indicators of structural change
+
+            Prioritise facts from the last 18 months. Each item must be a single dated
+            bullet ("2025-Q3: ...", "Oct 2025: ...", "this year: ..."). NO prose, NO
+            scenarios, NO interpretation, NO recommendations — just the raw observable
+            facts a strategist could verify. Downstream calls will turn these bullets
+            into the strategic analysis.
+
+            Respond with the bullets directly, one per line, grouped by short ALL-CAPS
+            category headers (e.g. "REGULATION:", "TECHNOLOGY:") between groups. No
+            JSON, no markdown formatting, no backticks, no preamble. Just the bullets.
+
+            Respond in the requested language.
             """;
 
     /**
@@ -658,6 +711,8 @@ public class AiService {
             """;
 
     private final AnthropicClient anthropicClient;
+    private final ObjectMapper objectMapper;
+    private final AnthropicProperties properties;
 
     /**
      * Generates a current global STEEP briefing for a given sector, grounded on live web
@@ -679,7 +734,7 @@ public class AiService {
                     .formatted(request.dimension(), request.dimension());
         }
         return anthropicClient
-                .sendMessageWithWebSearch(GLOBAL_STEEP_SYSTEM, prompt, 1500)
+                .sendMessageWithWebSearch(properties.sonnet(), GLOBAL_STEEP_SYSTEM, prompt, 1500)
                 .map(AiResponseSanitizer::sanitize);
     }
 
@@ -689,6 +744,10 @@ public class AiService {
      * Frontend then fans out 5 parallel {@link #globalSteepDim} calls to
      * reformulate each dimension's bullets into prose, with no further
      * search needed.
+     *
+     * <p>Uses the Sonnet tier — web_search calls benefit from the stronger
+     * reasoning when stitching disparate search results into a coherent
+     * sector-relevant briefing.
      *
      * @param request validated request (sector, language)
      * @return Claude's raw JSON reply, expected shape
@@ -701,7 +760,7 @@ public class AiService {
                         request.sector(),
                         java.time.Year.now().getValue());
         return anthropicClient
-                .sendMessageWithWebSearch(GLOBAL_STEEP_SCAN_SYSTEM, prompt, 2000)
+                .sendMessageWithWebSearch(properties.sonnet(), GLOBAL_STEEP_SCAN_SYSTEM, prompt, 2000)
                 .map(AiResponseSanitizer::sanitize);
     }
 
@@ -726,12 +785,12 @@ public class AiService {
                         java.time.Year.now().getValue(),
                         snippet.isBlank() ? "(none — write a brief, plausible 2-3 sentence summary for this dimension and sector)" : snippet);
         return anthropicClient
-                .sendMessage(GLOBAL_STEEP_DIM_SYSTEM, prompt, 600)
+                .sendMessage(properties.haiku(), GLOBAL_STEEP_DIM_SYSTEM, prompt, 600)
                 .map(AiResponseSanitizer::sanitize);
     }
 
     /**
-     * Suggests STEEP factors for one dimension.
+     * Suggests STEEP factors for one dimension. Cheap call → Haiku tier.
      *
      * @param request validated request carrying dimension, company profile, and language
      * @return Claude's raw JSON reply (expected shape: {@code {"factors": [...]}})
@@ -739,7 +798,9 @@ public class AiService {
     public Mono<JsonNode> suggestSteep(SteepSuggestRequest request) {
         String prompt = "%s\n\nDimension: %s\nCompany profile:\n%s"
                 .formatted(langInstruction(request.language()), request.dimension(), request.companyProfile());
-        return anthropicClient.sendMessage(STEEP_SYSTEM, prompt, 700).map(AiResponseSanitizer::sanitize);
+        return anthropicClient
+                .sendMessage(properties.haiku(), STEEP_SYSTEM, prompt, 700)
+                .map(AiResponseSanitizer::sanitize);
     }
 
     /**
@@ -751,7 +812,9 @@ public class AiService {
     public Mono<JsonNode> suggestHorizon(HorizonSuggestRequest request) {
         String prompt = "%s\n\nHorizon: %s\nCompany profile:\n%s"
                 .formatted(langInstruction(request.language()), request.horizon(), request.companyProfile());
-        return anthropicClient.sendMessage(HORIZON_SYSTEM, prompt, 800).map(AiResponseSanitizer::sanitize);
+        return anthropicClient
+                .sendMessage(properties.haiku(), HORIZON_SYSTEM, prompt, 800)
+                .map(AiResponseSanitizer::sanitize);
     }
 
     /**
@@ -778,32 +841,54 @@ public class AiService {
                                 request.companyProfile().toString(),
                                 request.steep().toString(),
                                 request.horizon().toString());
-        return anthropicClient.sendMessage(ANALYZE_SYSTEM, prompt, 16000).map(AiResponseSanitizer::sanitize);
-    }
-
-    /**
-     * Phase-A of the parallel-5 analysis flow — executive summary,
-     * uncertainties, weak signals and wildcards. Web search is enabled to
-     * match the demo's grounded-on-current-events behaviour.
-     */
-    public Mono<JsonNode> analyzeSummary(AnalyzeRequest request) {
         return anthropicClient
-                .sendMessageWithWebSearch(ANALYZE_SUMMARY_SYSTEM, analyzePrompt(request), 8000)
+                .sendMessage(properties.opus(), ANALYZE_SYSTEM, prompt, 16000)
                 .map(AiResponseSanitizer::sanitize);
     }
 
     /**
-     * Phase-B of the parallel-5 analysis flow — the 3P scenarios with full
-     * narrative cards. Web search is enabled so probabilities and
-     * narratives are anchored on real-world signals.
+     * Up-front research pass — mirrors the Global STEEP scan-then-reformulate
+     * pattern. One web_search-enabled call gathers concrete, current,
+     * dated facts about the sector + strategic challenge; the 5 analysis
+     * sections then run WITHOUT web_search, anchored on the shared
+     * research bullets injected via {@link AnalyzeRequest#research()}.
+     *
+     * <p>Roughly 5× cheaper than letting each section search independently
+     * (we go from up to 25 searches to up to 5), and keeps the analysis
+     * outputs cross-consistent because they read the same source-of-truth
+     * bullets. Frontend's loader surfaces this as the "research" row.
      */
-    public Mono<JsonNode> analyzeScenarios(AnalyzeRequest request) {
-        return anthropicClient
-                .sendMessageWithWebSearch(ANALYZE_SCENARIOS_SYSTEM, analyzePrompt(request), 8000)
-                .map(AiResponseSanitizer::sanitize);
+    public Flux<JsonNode> analyzeScanStream(AnalyzeRequest request) {
+        return streamUpstream(anthropicClient.streamMessageWithWebSearch(
+                properties.opus(), ANALYZE_SCAN_SYSTEM, analyzePrompt(request), 4000));
     }
 
-    /** Shared user-turn prompt for the two analyze siblings. */
+    /**
+     * Phase-A of the parallel-5 analysis flow — streamed. Emits SSE
+     * progress events as the model writes, then a final {@code done}
+     * event with the full text. No web_search at this layer: the shared
+     * research bullets from {@link #analyzeScanStream} are folded into
+     * the user prompt instead.
+     *
+     * <p>Sonnet tier — the 5 parallel section calls don't do their own
+     * search (the upstream scan handles all grounding via Opus), so
+     * Sonnet hits the right cost/quality point for high-throughput
+     * structured JSON generation under a shared research context.
+     */
+    public Flux<JsonNode> analyzeSummaryStream(AnalyzeRequest request) {
+        return streamUpstream(anthropicClient.streamMessage(
+                properties.sonnet(), ANALYZE_SUMMARY_SYSTEM, analyzePrompt(request), 8000));
+    }
+
+    /** Phase-B — streamed 3P scenarios. Anchored on shared research bullets. Sonnet tier. */
+    public Flux<JsonNode> analyzeScenariosStream(AnalyzeRequest request) {
+        return streamUpstream(anthropicClient.streamMessage(
+                properties.sonnet(), ANALYZE_SCENARIOS_SYSTEM, analyzePrompt(request), 8000));
+    }
+
+    /** Shared user-turn prompt for the analyze section calls and the
+     *  up-front {@code /analyze/scan} pass. Folds in the horizon-derived
+     *  years and any shared research bullets the scan produced. */
     private String analyzePrompt(AnalyzeRequest request) {
         return """
                 %s
@@ -812,46 +897,230 @@ public class AiService {
                 STEEP analysis: %s
                 Horizon signals: %s
                 %s
+                %s
                 """
                 .formatted(
                         langInstruction(request.language()),
                         request.companyProfile().toString(),
                         request.steep().toString(),
                         request.horizon().toString(),
-                        horizonContextBlock(request.companyProfile(), request.language()));
+                        horizonContextBlock(request.companyProfile(), request.language()),
+                        researchBlock(request.research()));
+    }
+
+    /** Section-C — streamed scenario planning structure. Sonnet tier (no web_search at this layer). */
+    public Flux<JsonNode> scenarioPlanningStream(AnalyzeContextRequest request) {
+        return streamUpstream(anthropicClient.streamMessage(
+                properties.sonnet(), SCENARIO_PLANNING_SYSTEM, contextPrompt(request), 8000));
+    }
+
+    /** Section-E — streamed backcasting trajectories. Sonnet tier. */
+    public Flux<JsonNode> backcastingStream(AnalyzeContextRequest request) {
+        return streamUpstream(anthropicClient.streamMessage(
+                properties.sonnet(), BACKCASTING_SYSTEM, contextPrompt(request), 8000));
+    }
+
+    /** Section-D — streamed strategic priorities by horizon. Sonnet tier. */
+    public Flux<JsonNode> strategicMapStream(AnalyzeContextRequest request) {
+        return streamUpstream(anthropicClient.streamMessage(
+                properties.sonnet(), STRATEGIC_MAP_SYSTEM, contextPrompt(request), 8000));
     }
 
     /**
-     * Section-C — scenario planning structure. Web search enabled to
-     * ground the driving forces and axes on observable trends.
+     * Shared per-section streaming pipeline. Consumes the raw Anthropic
+     * SSE flow, accumulates the text-delta deltas + harvests {@code
+     * web_search_tool_result} citations, and emits compact progress
+     * events the frontend's loader renders directly:
+     *
+     * <ul>
+     *   <li>{@code {"type":"progress","chars":N,"sources":M}} — throttled
+     *       (~5/s by default) so a chatty stream doesn't drown the
+     *       frontend</li>
+     *   <li>{@code {"type":"done","text":"…","citations":[…]}} — one final
+     *       event carrying the full accumulated text and deduped citation
+     *       list; the frontend parses the text into the section's JSON
+     *       shape (the existing repair-and-parse path)</li>
+     * </ul>
+     *
+     * <p>Errors propagate up the Flux and surface to the controller's
+     * SSE writer. The frontend treats a stream that closes without a
+     * {@code done} event as a failure of that section.
      */
-    public Mono<JsonNode> scenarioPlanning(AnalyzeContextRequest request) {
-        String prompt = contextPrompt(request);
-        return anthropicClient
-                .sendMessageWithWebSearch(SCENARIO_PLANNING_SYSTEM, prompt, 8000)
-                .map(AiResponseSanitizer::sanitize);
+    /**
+     * Streaming variant of {@link #globalSteepScan} — consumed by Step 2's
+     * loader. Surfaces source count progress + final JSON text. The Step 2
+     * loader's scan row reads the source count in real time.
+     */
+    public Flux<JsonNode> globalSteepScanStream(GlobalSteepRequest request) {
+        String prompt = "%s\n\nSector: %s\nCurrent year: %d"
+                .formatted(
+                        langInstruction(request.language()),
+                        request.sector(),
+                        java.time.Year.now().getValue());
+        return streamUpstream(
+                anthropicClient.streamMessageWithWebSearch(properties.sonnet(), GLOBAL_STEEP_SCAN_SYSTEM, prompt, 2000));
     }
 
     /**
-     * Section-E — backcasting trajectories. Web search enabled so
-     * milestones can reference real upcoming policy/market events.
+     * Streaming variant of {@link #globalSteepDim} — consumed by Step 2's
+     * loader for each of the 5 dimension reformulations. No web_search,
+     * so the only meaningful progress metric is character count. The
+     * "text" of the final done event is plain prose (no JSON wrapper);
+     * the frontend uses it verbatim.
      */
-    public Mono<JsonNode> backcasting(AnalyzeContextRequest request) {
-        String prompt = contextPrompt(request);
-        return anthropicClient
-                .sendMessageWithWebSearch(BACKCASTING_SYSTEM, prompt, 8000)
-                .map(AiResponseSanitizer::sanitize);
+    public Flux<JsonNode> globalSteepDimStream(GlobalSteepDimRequest request) {
+        String snippet = request.snippet() == null ? "" : request.snippet();
+        String prompt = "%s\n\nDimension: %s\nSector: %s\nCurrent year: %d\n\nRaw bullets to reformulate:\n%s"
+                .formatted(
+                        langInstruction(request.language()),
+                        request.dimension(),
+                        request.sector(),
+                        java.time.Year.now().getValue(),
+                        snippet.isBlank()
+                                ? "(none — write a brief, plausible 2-3 sentence summary for this dimension and sector)"
+                                : snippet);
+        return streamUpstream(
+                anthropicClient.streamMessage(properties.haiku(), GLOBAL_STEEP_DIM_SYSTEM, prompt, 600));
     }
 
     /**
-     * Section-D — strategic priorities by horizon. Web search enabled to
-     * keep recommendations connected to current sector reality.
+     * Generic SSE adapter: consumes an upstream Anthropic stream, emits
+     * downstream {@code progress} events (chars + sources counters) as
+     * data arrives, and a final {@code done} event carrying the
+     * accumulated text + collected citations.
+     *
+     * <p>Shared between the analyze sections (web_search-enabled) and
+     * the Step 2 Global STEEP scan/dim flows (the scan uses web_search,
+     * the dim calls don't — for those, citations stays empty).
      */
-    public Mono<JsonNode> strategicMap(AnalyzeContextRequest request) {
-        String prompt = contextPrompt(request);
-        return anthropicClient
-                .sendMessageWithWebSearch(STRATEGIC_MAP_SYSTEM, prompt, 8000)
-                .map(AiResponseSanitizer::sanitize);
+    private Flux<JsonNode> streamUpstream(Flux<ServerSentEvent<String>> upstream) {
+        StringBuilder accText = new StringBuilder();
+        Set<String> seenUrls = new HashSet<>();
+        ArrayNode citations = objectMapper.createArrayNode();
+        AtomicLong lastEmit = new AtomicLong(0L);
+        // Per-event counter for the diagnostic log we emit on completion.
+        // Helps us tell "stream never delivered" from "stream delivered
+        // events but our matcher skipped them".
+        java.util.concurrent.atomic.AtomicInteger seenEvents =
+                new java.util.concurrent.atomic.AtomicInteger(0);
+        java.util.concurrent.atomic.AtomicInteger deltaEvents =
+                new java.util.concurrent.atomic.AtomicInteger(0);
+
+        Flux<JsonNode> progressFlux = upstream.concatMap(sse -> {
+            int n = seenEvents.incrementAndGet();
+            // Log the first event we see so we can confirm the upstream
+            // shape (event name + data preview). If this log never fires,
+            // the WebClient isn't decoding SSE.
+            if (n == 1) {
+                String d = sse.data();
+                log.info(
+                        "[ai stream] first event: name={} data-preview={}",
+                        sse.event(),
+                        d == null ? "<null>" : d.substring(0, Math.min(d.length(), 120)));
+            }
+            return handleSseEvent(sse, accText, seenUrls, citations, lastEmit, deltaEvents);
+        });
+
+        Flux<JsonNode> doneFlux = Flux.defer(() -> {
+            log.info(
+                    "[ai stream] done: total-events={} content-deltas={} chars={} sources={}",
+                    seenEvents.get(),
+                    deltaEvents.get(),
+                    accText.length(),
+                    citations.size());
+            ObjectNode done = objectMapper.createObjectNode();
+            done.put("type", "done");
+            done.put("text", accText.toString());
+            done.set("citations", citations.deepCopy());
+            return Flux.just((JsonNode) done);
+        });
+
+        return progressFlux.concatWith(doneFlux);
+    }
+
+    /**
+     * Translates one upstream Anthropic SSE event into 0..1 downstream
+     * progress events. Text deltas append to {@code accText} and emit
+     * a throttled {@code progress} event; {@code web_search_tool_result}
+     * blocks append new citations and emit an immediate {@code progress}
+     * event so the counter visibly ticks the moment a search returns.
+     */
+    private Flux<JsonNode> handleSseEvent(
+            ServerSentEvent<String> sse,
+            StringBuilder accText,
+            Set<String> seenUrls,
+            ArrayNode citations,
+            AtomicLong lastEmit,
+            java.util.concurrent.atomic.AtomicInteger deltaEvents) {
+        String data = sse.data();
+        if (data == null) return Flux.empty();
+        JsonNode payload;
+        try {
+            payload = objectMapper.readTree(data);
+        } catch (Exception e) {
+            return Flux.empty();
+        }
+        // Anthropic includes the event type in BOTH the `event:` line
+        // (surfaced via sse.event()) and the `type` field of the JSON
+        // body. Some WebClient codec configurations don't populate
+        // sse.event() reliably, so we fall back to the payload's type
+        // field — it's authoritative regardless.
+        String type = sse.event();
+        if (type == null || type.isBlank()) {
+            type = payload.path("type").asText("");
+        }
+        if (type.isEmpty()) return Flux.empty();
+        if ("content_block_delta".equals(type)) {
+            deltaEvents.incrementAndGet();
+            JsonNode delta = payload.path("delta");
+            if ("text_delta".equals(delta.path("type").asText())) {
+                accText.append(delta.path("text").asText());
+                // Throttle char-progress to ~5 events/s to keep the SSE
+                // channel cheap and the frontend's setState calm.
+                long now = System.currentTimeMillis();
+                if (now - lastEmit.get() >= 200) {
+                    lastEmit.set(now);
+                    return Flux.just(progressEvent(accText.length(), citations.size()));
+                }
+            }
+            return Flux.empty();
+        }
+        if ("content_block_start".equals(type)) {
+            JsonNode cb = payload.path("content_block");
+            if ("web_search_tool_result".equals(cb.path("type").asText())) {
+                boolean added = false;
+                JsonNode results = cb.path("content");
+                if (results.isArray()) {
+                    for (JsonNode r : results) {
+                        if (!"web_search_result".equals(r.path("type").asText())) continue;
+                        String url = r.path("url").asText("");
+                        if (url.isEmpty() || !seenUrls.add(url)) continue;
+                        ObjectNode citation = objectMapper.createObjectNode();
+                        citation.put("url", url);
+                        String title = r.path("title").asText("");
+                        citation.put("title", title.isEmpty() ? url : title);
+                        citations.add(citation);
+                        added = true;
+                    }
+                }
+                if (added) {
+                    // Sources always emit immediately — they're rare and
+                    // the user is specifically watching for them.
+                    lastEmit.set(System.currentTimeMillis());
+                    return Flux.just(progressEvent(accText.length(), citations.size()));
+                }
+            }
+            return Flux.empty();
+        }
+        return Flux.empty();
+    }
+
+    private JsonNode progressEvent(int chars, int sources) {
+        ObjectNode evt = objectMapper.createObjectNode();
+        evt.put("type", "progress");
+        evt.put("chars", chars);
+        evt.put("sources", sources);
+        return evt;
     }
 
     /**
@@ -862,7 +1131,7 @@ public class AiService {
     public Mono<JsonNode> sources(AnalyzeContextRequest request) {
         String prompt = contextPrompt(request);
         return anthropicClient
-                .sendMessageWithWebSearch(SOURCES_SYSTEM, prompt, 4000)
+                .sendMessageWithWebSearch(properties.opus(), SOURCES_SYSTEM, prompt, 4000)
                 .map(AiResponseSanitizer::sanitize);
     }
 
@@ -891,7 +1160,7 @@ public class AiService {
         String template = "en".equals(lang(request.language())) ? CHAT_SYSTEM_EN : CHAT_SYSTEM_ES;
         String systemPrompt = template.formatted(snapshot);
         return anthropicClient
-                .sendConversation(systemPrompt, request.messages(), AssistantTools.TOOLS, 4096)
+                .sendConversation(properties.sonnet(), systemPrompt, request.messages(), AssistantTools.TOOLS, 4096)
                 .map(AiResponseSanitizer::sanitize);
     }
 
@@ -911,7 +1180,25 @@ public class AiService {
             sb.append("\nScenarios already chosen: ").append(request.scenarios());
         }
         sb.append('\n').append(horizonContextBlock(request.companyProfile(), request.language()));
+        sb.append(researchBlock(request.research()));
         return sb.toString();
+    }
+
+    /**
+     * Renders the shared research bullets (gathered up front by
+     * {@code /analyze/scan}) into the user prompt under a CURRENT
+     * RESEARCH header. Returns an empty string when no scan was run —
+     * the section calls then have to rely on their generic training-
+     * data knowledge for grounding, which is the legacy behaviour.
+     */
+    private String researchBlock(String research) {
+        if (research == null || research.isBlank()) return "";
+        return """
+
+                CURRENT RESEARCH (gathered via web_search; anchor your analysis on these facts — they reflect the present situation as of the lookup date):
+                %s
+                """
+                .formatted(research.trim());
     }
 
     /**

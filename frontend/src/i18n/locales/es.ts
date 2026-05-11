@@ -1,4 +1,12 @@
 const es = {
+  loader: {
+    metric: {
+      sources_one: '~{{count}} fuente',
+      sources_other: '~{{count}} fuentes',
+      chars_one: '~{{count}} car.',
+      chars_other: '~{{count}} car.',
+    },
+  },
   common: {
     loading: 'Cargando…',
     retry: 'Reintentar',
@@ -231,7 +239,7 @@ const es = {
         2: 'Filtrando señales relevantes para {{sector}}…',
       },
       progressItems: {
-        scan: 'Búsqueda web · recopilando datos actuales',
+        scan: 'Investigación — recopilando fuentes actuales',
       },
       errorDefault: 'No se pudo generar el contexto global automáticamente. Puedes introducirlo manualmente o continuar sin él.',
       next: 'Continuar — STEEP Sectorial →',
@@ -472,6 +480,7 @@ const es = {
         empty: 'Este informe se generó sin búsqueda web — el modelo respondió a partir de su conocimiento entrenado.',
       },
       progressItems: {
+        research: 'Investigación — recopilando fuentes actuales',
         summary: 'Resumen, incertidumbres y señales',
         scenarios: 'Escenarios 3P',
         scenarioPlanning: 'Scenario planning',

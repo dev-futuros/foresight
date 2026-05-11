@@ -15,6 +15,11 @@ import io.swagger.v3.oas.annotations.media.Schema;
  * @param companyProfile JSON describing the company/context
  * @param steep          JSON with the STEEP analysis (factors per dimension)
  * @param horizon        JSON with horizon signals (H1/H2/H3)
+ * @param research       optional bundle of dated research bullets gathered by
+ *                       {@code /analyze/scan} up front. When present, the 5
+ *                       analyze section calls fold it into their user prompt
+ *                       so they can anchor on the same shared facts (and skip
+ *                       their own web_search loop, saving 4× the search budget).
  * @param language       optional language tag ({@code "en"} or {@code "es"}); defaults to Spanish
  */
 public record AnalyzeRequest(
@@ -49,4 +54,6 @@ public record AnalyzeRequest(
                                 """)
                 @NotNull
                 JsonNode horizon,
+        @Schema(description = "Dated research bullets from /analyze/scan. Optional.")
+                String research,
         @Schema(example = "es") String language) {}

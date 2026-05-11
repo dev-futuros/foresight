@@ -8,6 +8,14 @@ const en = {
     togglePassword: 'Show/hide password',
     brand: 'Foresight Strategy · Powered by Claude AI',
   },
+  loader: {
+    metric: {
+      sources_one: '~{{count}} source',
+      sources_other: '~{{count}} sources',
+      chars_one: '~{{count}} char',
+      chars_other: '~{{count}} chars',
+    },
+  },
   modals: {
     deleteReport: {
       title: 'Delete this report?',
@@ -231,7 +239,7 @@ const en = {
         2: 'Filtering signals relevant for {{sector}}…',
       },
       progressItems: {
-        scan: 'Web search · gathering current data',
+        scan: 'Research — gathering current sources',
       },
       errorDefault: 'Could not generate the global context automatically. You can fill it manually or continue without it.',
       next: 'Continue — Sector STEEP →',
@@ -472,6 +480,7 @@ const en = {
         empty: 'This report was generated without web search — the model answered from its trained knowledge.',
       },
       progressItems: {
+        research: 'Research — gathering current sources',
         summary: 'Summary, uncertainties & signals',
         scenarios: '3P scenarios',
         scenarioPlanning: 'Scenario planning',

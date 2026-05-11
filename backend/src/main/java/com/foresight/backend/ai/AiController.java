@@ -2,6 +2,8 @@ package com.foresight.backend.ai;
 
 import jakarta.validation.Valid;
 
+import org.springframework.http.MediaType;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,6 +19,7 @@ import com.foresight.backend.ai.dto.HorizonSuggestRequest;
 import com.foresight.backend.ai.dto.SteepSuggestRequest;
 
 import lombok.RequiredArgsConstructor;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /**
@@ -54,32 +57,26 @@ public class AiController {
     }
 
     /**
-     * Phase 1 of the split Global STEEP flow — a single web-search call
-     * that returns raw dated bullets for all five STEEP dimensions in one
-     * JSON. Pairs with {@link #globalSteepDim} for the per-dimension
-     * reformulation phase.
-     *
-     * @param request validated payload (sector, language)
-     * @return raw JSON shaped like {@code {"S":"...","T":"...","E":"...","ENV":"...","P":"..."}}
+     * Phase 1 of the split Global STEEP flow — streamed. Emits the same
+     * {@code {type:"progress",chars,sources} / {type:"done",text,citations}}
+     * SSE shape as the analyze endpoints so the Step 2 loader can tick
+     * the "sources consulted" counter for the scan row in real time.
      */
-    @PostMapping("/global-steep-scan")
-    public Mono<JsonNode> globalSteepScan(@Valid @RequestBody GlobalSteepRequest request) {
-        return aiService.globalSteepScan(request);
+    @PostMapping(value = "/global-steep-scan", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<JsonNode>> globalSteepScan(@Valid @RequestBody GlobalSteepRequest request) {
+        return wrapSse(aiService.globalSteepScanStream(request));
     }
 
     /**
-     * Phase 2 of the split Global STEEP flow — reformulates one
-     * dimension's raw bullets (from the upstream scan) into 2-3
-     * sentences of prose. No web search. Frontend fans out five of these
-     * in parallel after the scan completes.
-     *
-     * @param request validated payload (sector, language, dimension, snippet)
-     * @return raw Claude response; the {@code text} block contains the
-     *         plain-prose reformulation
+     * Phase 2 of the split Global STEEP flow — streamed per-dimension
+     * reformulation. No web_search, so the {@code sources} counter stays
+     * at zero; the loader displays raw characters for these rows
+     * instead. The {@code done} event's {@code text} is plain prose, not
+     * JSON — the frontend uses it verbatim.
      */
-    @PostMapping("/global-steep-dim")
-    public Mono<JsonNode> globalSteepDim(@Valid @RequestBody GlobalSteepDimRequest request) {
-        return aiService.globalSteepDim(request);
+    @PostMapping(value = "/global-steep-dim", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<JsonNode>> globalSteepDim(@Valid @RequestBody GlobalSteepDimRequest request) {
+        return wrapSse(aiService.globalSteepDimStream(request));
     }
 
     /**
@@ -117,48 +114,72 @@ public class AiController {
     }
 
     /**
-     * Phase A of the parallel-5 analysis flow — summary block
-     * (keyUncertainties, weakSignals, wildcards). Runs concurrently
-     * with {@link #analyzeScenarios} and the three section endpoints.
-     */
-    @PostMapping("/analyze/summary")
-    public Mono<JsonNode> analyzeSummary(@Valid @RequestBody AnalyzeRequest request) {
-        return aiService.analyzeSummary(request);
-    }
-
-    /**
-     * Phase B of the parallel-5 analysis flow — the three 3P scenarios
-     * only. Runs concurrently with {@link #analyzeSummary} and the three
-     * section endpoints.
-     */
-    @PostMapping("/analyze/scenarios")
-    public Mono<JsonNode> analyzeScenarios(@Valid @RequestBody AnalyzeRequest request) {
-        return aiService.analyzeScenarios(request);
-    }
-
-    /**
-     * Second pass — driving forces, critical-uncertainty axes, impact matrix placements
-     * and narrative logic per scenario. Anchored on the scenarios produced by /analyze.
+     * Up-front research pass — single web_search-enabled call that
+     * gathers dated facts for the whole report. The frontend runs this
+     * before the 5 parallel section calls, then folds the {@code text}
+     * of the {@code done} event into each section's request as the
+     * {@code research} field. This mirrors the Global STEEP scan-then-
+     * reformulate pattern and cuts total web_search budget by ~5×.
      *
-     * <p>Split from {@link #analyze} to keep each pass under {@code max_tokens}: an earlier
-     * iteration tried to emit all of these inside a single response and got truncated
-     * mid-JSON. See the comment on {@code ANALYZE_SYSTEM} in {@link AiService}.
+     * <p>Same SSE event shape as the section endpoints
+     * ({@code progress} / {@code done}), so the loader can reuse its
+     * existing row rendering.
      */
-    @PostMapping("/analyze/scenario-planning")
-    public Mono<JsonNode> scenarioPlanning(@Valid @RequestBody AnalyzeContextRequest request) {
-        return aiService.scenarioPlanning(request);
+    @PostMapping(value = "/analyze/scan", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<JsonNode>> analyzeScan(@Valid @RequestBody AnalyzeRequest request) {
+        return wrapSse(aiService.analyzeScanStream(request));
     }
 
-    /** Third pass — backcasting panels per scenario. */
-    @PostMapping("/analyze/backcasting")
-    public Mono<JsonNode> backcasting(@Valid @RequestBody AnalyzeContextRequest request) {
-        return aiService.backcasting(request);
+    /**
+     * Phase A of the parallel-5 analysis flow — summary block
+     * (executiveSummary, keyUncertainties, weakSignals, wildcards). The
+     * endpoint streams progress as Server-Sent Events: each event carries a
+     * tiny JSON payload (either {@code {"type":"progress","chars":…,"sources":…}}
+     * during generation or a final {@code {"type":"done","text":"…","citations":[…]}}).
+     * The frontend's loader rows tick the chars/sources counters from
+     * these events in real time.
+     */
+    @PostMapping(value = "/analyze/summary", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<JsonNode>> analyzeSummary(@Valid @RequestBody AnalyzeRequest request) {
+        return wrapSse(aiService.analyzeSummaryStream(request));
     }
 
-    /** Fourth pass — strategic priorities by horizon (H1/H2/H3). */
-    @PostMapping("/analyze/strategic-map")
-    public Mono<JsonNode> strategicMap(@Valid @RequestBody AnalyzeContextRequest request) {
-        return aiService.strategicMap(request);
+    /** Phase B — streamed 3P scenarios. See {@link #analyzeSummary} for the event shape. */
+    @PostMapping(value = "/analyze/scenarios", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<JsonNode>> analyzeScenarios(@Valid @RequestBody AnalyzeRequest request) {
+        return wrapSse(aiService.analyzeScenariosStream(request));
+    }
+
+    /**
+     * Section C — streamed scenario planning structure (driving forces,
+     * critical-uncertainty axes, narrative logics). Same SSE event shape
+     * as {@link #analyzeSummary}.
+     */
+    @PostMapping(value = "/analyze/scenario-planning", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<JsonNode>> scenarioPlanning(@Valid @RequestBody AnalyzeContextRequest request) {
+        return wrapSse(aiService.scenarioPlanningStream(request));
+    }
+
+    /** Section E — streamed backcasting trajectories. */
+    @PostMapping(value = "/analyze/backcasting", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<JsonNode>> backcasting(@Valid @RequestBody AnalyzeContextRequest request) {
+        return wrapSse(aiService.backcastingStream(request));
+    }
+
+    /** Section D — streamed strategic priorities by horizon (H1/H2/H3). */
+    @PostMapping(value = "/analyze/strategic-map", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<JsonNode>> strategicMap(@Valid @RequestBody AnalyzeContextRequest request) {
+        return wrapSse(aiService.strategicMapStream(request));
+    }
+
+    /**
+     * Boxes a {@code Flux<JsonNode>} into a {@code Flux<ServerSentEvent<JsonNode>>}
+     * so Spring's SSE writer can serialize it. We don't set the event
+     * name — the data envelope already carries a {@code type} field that
+     * the frontend dispatches on.
+     */
+    private static Flux<ServerSentEvent<JsonNode>> wrapSse(Flux<JsonNode> source) {
+        return source.map(json -> ServerSentEvent.<JsonNode>builder().data(json).build());
     }
 
     /** Fifth pass — public web sources that ground the analysis (uses web_search). */

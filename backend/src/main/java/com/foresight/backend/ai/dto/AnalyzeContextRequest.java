@@ -36,4 +36,9 @@ public record AnalyzeContextRequest(
                         + " downstream analysis stays consistent with what the user has already"
                         + " seen. Optional; omit for the sources call.")
                 JsonNode scenarios,
+        @Schema(
+                description = "Dated research bullets gathered by /analyze/scan up front."
+                        + " When present, section calls anchor on these shared facts instead of"
+                        + " each firing their own web_search loop.")
+                String research,
         @Schema(example = "es") String language) {}

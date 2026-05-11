@@ -5,6 +5,7 @@ import {
   globalSteepScan,
   type GlobalSteep,
   type GlobalSteepDimension,
+  type SourceItem,
 } from '../../../lib/aiClient';
 import { extractApiErrorMessage } from '../../../lib/apiError';
 import { useMaximizable } from '../../../components/useMaximizable';
@@ -25,6 +26,15 @@ interface Props {
   sector: string;
   language: 'es' | 'en';
   onChange: (data: GlobalSteepData) => void;
+  /**
+   * Optional sink for the web_search citations harvested during the scan.
+   * NewReportPage holds them in transient state until the user runs the
+   * full analysis, at which point they're saved into
+   * {@code resultData.sources.globalSteep} so the Sources tab can show a
+   * dedicated "Global context (Step 2)" bucket alongside the report-level
+   * research citations.
+   */
+  onCitations?: (citations: SourceItem[]) => void;
   onNext: () => void;
   onBack: () => void;
 }
@@ -48,6 +58,7 @@ export default function StepGlobal({
   sector,
   language,
   onChange,
+  onCitations,
   onNext,
   onBack,
 }: Props) {
@@ -64,6 +75,18 @@ export default function StepGlobal({
     E: 'pending',
     ENV: 'pending',
     P: 'pending',
+  });
+  // Per-row live metric. `scan` uses web_search → we surface both the
+  // source count AND the streamed character count so the row keeps
+  // showing forward motion after web_search stops adding URLs but the
+  // model is still writing out the bullets. The 5 dimension
+  // reformulations are pure prose with no search → chars are the only
+  // available signal. Updated in real time from each call's onProgress
+  // SSE callback.
+  const [scanSources, setScanSources] = useState(0);
+  const [scanChars, setScanChars] = useState(0);
+  const [dimChars, setDimChars] = useState<Record<FieldKey, number>>({
+    S: 0, T: 0, E: 0, ENV: 0, P: 0,
   });
   const [error, setError] = useState<string | null>(null);
   const fetchedFor = useRef<string | null>(null);
@@ -91,9 +114,28 @@ export default function StepGlobal({
       ENV: 'pending',
       P: 'pending',
     });
+    setScanSources(0);
+    setScanChars(0);
+    setDimChars({ S: 0, T: 0, E: 0, ENV: 0, P: 0 });
     try {
       // ── Phase 1 — scan ──
-      const scan = await globalSteepScan({ sector, language });
+      // Streamed: onProgress fires as Anthropic returns new web_search
+      // results. The scan row's "sources consulted" counter ticks live.
+      // The scan's citations are bubbled up via onCitations so the
+      // parent can save them into resultData.sources.globalSteep when
+      // the full analysis runs — that's what surfaces the "Global
+      // context (Step 2)" bucket in the report's Sources tab.
+      const { result: scan, citations: scanCitations } = await globalSteepScan(
+        { sector, language },
+        (p) => {
+          // Both counters tick during the scan — sources climb while
+          // web_search runs, chars climb while the model writes out
+          // the dated bullets.
+          setScanSources((prev) => (prev === p.sources ? prev : p.sources));
+          setScanChars((prev) => (prev === p.chars ? prev : p.chars));
+        },
+      );
+      onCitations?.(scanCitations);
       setProgress((p) => ({
         ...p,
         scan: 'done',
@@ -105,20 +147,29 @@ export default function StepGlobal({
       }));
 
       // ── Phase 2 — 5 parallel dim reformulations ──
-      // Accumulate results into a local mirror so we can issue ONE final
-      // onChange with the whole batch (avoids 5 intermediate parent re-
-      // renders that would clobber each other's autosave). Each dim still
-      // flips its progress row independently as it resolves.
+      // Each dim streams plain prose (no web_search). The onProgress
+      // callback's `chars` is the accumulated character count so far —
+      // that drives the per-row metric. Results merge into a local
+      // mirror so we can issue ONE final onChange with the whole batch
+      // (avoids 5 intermediate parent re-renders that would clobber each
+      // other's autosave). Each dim still flips its progress row
+      // independently as it resolves.
       const merged: GlobalSteepData = { S: '', T: '', E: '', ENV: '', P: '' };
       await Promise.allSettled(
         FIELD_KEYS.map(async (key) => {
           try {
-            const text = await globalSteepDim({
-              sector,
-              language,
-              dimension: key as GlobalSteepDimension,
-              snippet: scan[key] ?? '',
-            });
+            const text = await globalSteepDim(
+              {
+                sector,
+                language,
+                dimension: key as GlobalSteepDimension,
+                snippet: scan[key] ?? '',
+              },
+              (p) =>
+                setDimChars((prev) =>
+                  prev[key] === p.chars ? prev : { ...prev, [key]: p.chars },
+                ),
+            );
             merged[key] = text;
             setProgress((p) => ({ ...p, [key]: 'done' }));
           } catch (e) {
@@ -188,17 +239,22 @@ export default function StepGlobal({
   const showContent = !bulkLoading;
 
   // Loader checklist — 1 scan row + 5 dim rows. Labels live in i18n so
-  // they translate with the rest of the wizard.
+  // they translate with the rest of the wizard. The scan row reports
+  // BOTH live source count and streamed chars (web_search row); the
+  // dim rows report accumulated character count only (no web_search,
+  // prose only).
   const loadingItems: ProgressItem[] = [
     {
       key: 'scan',
       label: t('wizard.global.progressItems.scan'),
       status: progress.scan,
+      metric: { sources: scanSources, chars: scanChars },
     },
     ...FIELD_KEYS.map((key): ProgressItem => ({
       key,
       label: t(`wizard.global.dimensions.${key}`),
       status: progress[key],
+      metric: { chars: dimChars[key] },
     })),
   ];
 

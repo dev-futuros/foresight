@@ -1,4 +1,4 @@
-import api from './api';
+import api, { getAuthToken } from './api';
 
 /**
  * Thin wrappers around the backend `/api/ai/*` proxy endpoints. The Anthropic API key
@@ -19,17 +19,9 @@ export interface GlobalSteep {
   P: string;
 }
 
-interface AnthropicWebSearchResult {
-  type: 'web_search_result';
-  url: string;
-  title?: string;
-}
-
 interface AnthropicContentBlock {
   type: string;
   text?: string;
-  /** Present on `web_search_tool_result` blocks — an array of search results. */
-  content?: AnthropicWebSearchResult[];
 }
 
 interface AnthropicResponse {
@@ -105,33 +97,6 @@ function repairJsonString(s: string): string {
   return out;
 }
 
-/**
- * Walks an Anthropic response and surfaces the unique {url, title} pairs
- * from any `web_search_tool_result` content blocks the model produced
- * during this turn. Mirrors the demo's SSE-stream citation collector, but
- * runs against the materialised response after our backend has proxied
- * the call.
- *
- * <p>Each `web_search_tool_result` block carries an inner `content` array
- * of `web_search_result` items. We dedupe by URL — the same source often
- * surfaces across multiple search calls within a single Anthropic turn.
- */
-export function extractCitations(payload: AnthropicResponse): SourceItem[] {
-  if (!payload?.content) return [];
-  const seen = new Map<string, SourceItem>();
-  for (const block of payload.content) {
-    if (block.type !== 'web_search_tool_result') continue;
-    const items = Array.isArray(block.content) ? block.content : [];
-    for (const item of items) {
-      if (!item || item.type !== 'web_search_result' || !item.url) continue;
-      if (!seen.has(item.url)) {
-        seen.set(item.url, { url: item.url, title: item.title ?? item.url });
-      }
-    }
-  }
-  return Array.from(seen.values());
-}
-
 function parseJson<T>(payload: AnthropicResponse): T {
   // Backend may have already returned the parsed JSON shape (e.g. when Claude responds
   // with a single text block we still wrap it in `content`). Try both paths.
@@ -196,32 +161,45 @@ export async function globalSteep(args: {
  * a single JSON. Pair with {@link globalSteepDim} for the per-dimension
  * reformulation phase (5 parallel calls, no further search).
  */
-export async function globalSteepScan(args: {
-  sector: string;
-  language: 'es' | 'en';
-}): Promise<Partial<GlobalSteep>> {
-  const { data } = await api.post<AnthropicResponse>('ai/global-steep-scan', args);
-  return parseJson<Partial<GlobalSteep>>(data);
+export async function globalSteepScan(
+  args: { sector: string; language: 'es' | 'en' },
+  onProgress?: ProgressCallback,
+): Promise<{ result: Partial<GlobalSteep>; citations: SourceItem[] }> {
+  return streamSse<typeof args, Partial<GlobalSteep>>(
+    'ai/global-steep-scan',
+    args,
+    (text) => parseJsonText<Partial<GlobalSteep>>(text),
+    onProgress,
+  );
 }
 
 /**
- * Phase 2 of the split Global STEEP flow. Takes one dimension's raw
- * bullets (from {@link globalSteepScan}) and returns 2-3 sentences of
- * polished prose. No web search, so the call is fast and cheap — the
- * client runs five of these in parallel.
+ * Phase 2 of the split Global STEEP flow — streamed. No web_search, so
+ * the {@code onProgress} callback will only carry character counts
+ * (sources stays at 0). The model emits plain prose, so the streaming
+ * consumer's parser just trims whitespace + any stray surrounding
+ * quotes — there's no JSON envelope to extract.
  *
  * <p>Defensively strips quote characters left over from prompts that
  * accidentally wrap their output (the backend tries hard to avoid this,
  * but the safety net keeps the textareas clean either way).
  */
-export async function globalSteepDim(args: {
-  sector: string;
-  language: 'es' | 'en';
-  dimension: GlobalSteepDimension;
-  snippet: string;
-}): Promise<string> {
-  const { data } = await api.post<AnthropicResponse>('ai/global-steep-dim', args);
-  return extractText(data).replace(/^["']+|["']+$/g, '').trim();
+export async function globalSteepDim(
+  args: {
+    sector: string;
+    language: 'es' | 'en';
+    dimension: GlobalSteepDimension;
+    snippet: string;
+  },
+  onProgress?: ProgressCallback,
+): Promise<string> {
+  const res = await streamSse<typeof args, string>(
+    'ai/global-steep-dim',
+    args,
+    (text) => text.replace(/^["']+|["']+$/g, '').trim(),
+    onProgress,
+  );
+  return res.result;
 }
 
 /**
@@ -396,6 +374,15 @@ interface AnalyzeArgs {
   companyProfile: unknown;
   steep: unknown;
   horizon: unknown;
+  /**
+   * Shared research bullets gathered by {@link analyzeScan} up front.
+   * When present, the 5 section calls fold this verbatim into their
+   * user prompt so they can anchor on the same facts and skip their
+   * own web_search loop (~5× cheaper end-to-end). Omit on the very
+   * first call to {@link analyzeScan} itself — that's the call that
+   * produces it.
+   */
+  research?: string;
   language: 'es' | 'en';
 }
 
@@ -429,30 +416,249 @@ export interface AnalyzeSectionResponse<T> {
   citations: SourceItem[];
 }
 
-async function callAnalyze<T>(
-  path: string,
-  args: AnalyzeArgs,
-  parser: (data: AnthropicResponse) => T,
-): Promise<AnalyzeSectionResponse<T>> {
-  const { data } = await api.post<AnthropicResponse>(path, args);
-  return { result: parser(data), citations: extractCitations(data) };
+/**
+ * Per-section progress event surfaced to the loader UI.
+ *
+ * <p>{@code chars} is the running total of characters streamed from the
+ * model's text-delta blocks; {@code sources} is the running count of
+ * unique URLs harvested from {@code web_search_tool_result} blocks
+ * during this section's turn.
+ */
+export interface AnalyzeProgress {
+  chars: number;
+  sources: number;
 }
 
-/** Phase-A of the parallel-5 analysis flow — executive summary,
- *  uncertainties, signals, wildcards. Returns citations from this section's
- *  web_search calls alongside the parsed JSON. */
+export type ProgressCallback = (progress: AnalyzeProgress) => void;
+
+/**
+ * Generic SSE consumer for the 5 analyze section endpoints. POSTs the
+ * request payload to the streaming endpoint, parses each {@code data:}
+ * event the backend emits (see {@code streamSection} on the server),
+ * and resolves with the final parsed JSON + collected citations once
+ * the {@code done} event arrives.
+ *
+ * <p>Progress events fire {@code onProgress} synchronously so loader
+ * counters tick in real time. The backend throttles them server-side
+ * (~5/s) so we don't need additional rate-limiting here.
+ *
+ * <p>The function uses {@code fetch} (not axios) because axios doesn't
+ * stream a response body — it buffers the whole payload before the
+ * promise resolves, which would defeat the entire point. Auth is
+ * threaded through {@link getAuthToken}.
+ */
+async function streamAnalyze<T>(
+  path: string,
+  args: AnalyzeArgs,
+  parser: (text: string) => T,
+  onProgress?: ProgressCallback,
+): Promise<AnalyzeSectionResponse<T>> {
+  return streamSse<unknown, T>(path, args, parser, onProgress);
+}
+
+/**
+ * Generic SSE POST + stream-consume helper. Used by both the analyze
+ * section calls and the Step 2 Global STEEP calls — they share the
+ * exact same `{type:"progress"|"done", ...}` event envelope, so the
+ * consumer is independent of the request payload shape.
+ *
+ * <p>Resolves with the final parsed result + citations once the stream
+ * emits a {@code done} event. Throws clearly when the response isn't
+ * SSE or the stream closes empty (proxies that strip Content-Type or
+ * connections that drop mid-flight produce diagnosable errors instead
+ * of hanging the caller).
+ */
+async function streamSse<TBody, T>(
+  path: string,
+  body: TBody,
+  parser: (text: string) => T,
+  onProgress?: ProgressCallback,
+): Promise<AnalyzeSectionResponse<T>> {
+  const token = await getAuthToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'text/event-stream',
+  };
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const url = `/api/${path}`;
+  // Verbose logs are gated on a localStorage flag so they don't spam
+  // every successful generation. Set `localStorage.streamDebug = '1'`
+  // in DevTools and re-run to see the play-by-play.
+  const debug =
+    typeof window !== 'undefined' &&
+    (window.localStorage?.getItem('streamDebug') === '1');
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  });
+  if (debug) {
+    console.log(`[streamSse] ${url} →`, res.status, res.statusText, {
+      contentType: res.headers.get('content-type'),
+    });
+  }
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(`HTTP ${res.status} ${res.statusText} — ${detail.slice(0, 200)}`);
+  }
+  if (!res.body) {
+    throw new Error('Stream response had no body');
+  }
+  // If the server didn't respond with SSE, fetch isn't going to honour
+  // chunked semantics the way we expect. Bail loud so this kind of
+  // misconfiguration (e.g. a reverse proxy stripping the content type)
+  // is visible instead of hanging forever.
+  const ct = res.headers.get('content-type') ?? '';
+  if (!ct.includes('text/event-stream')) {
+    throw new Error(`Expected text/event-stream, got "${ct}"`);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+  let buffer = '';
+  let finalText = '';
+  let citations: SourceItem[] = [];
+  let frameCount = 0;
+
+  // SSE frames are separated by a blank line. Spec is LF-LF; some
+  // proxies normalise to CRLF-CRLF — match both.
+  const splitFrame = (b: string): { frame: string; rest: string } | null => {
+    const lflf = b.indexOf('\n\n');
+    const crlflf = b.indexOf('\r\n\r\n');
+    if (lflf === -1 && crlflf === -1) return null;
+    if (crlflf !== -1 && (lflf === -1 || crlflf < lflf)) {
+      return { frame: b.slice(0, crlflf), rest: b.slice(crlflf + 4) };
+    }
+    return { frame: b.slice(0, lflf), rest: b.slice(lflf + 2) };
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let next = splitFrame(buffer);
+    while (next !== null) {
+      const { frame, rest } = next;
+      buffer = rest;
+      frameCount += 1;
+      const dataLines = frame
+        .split(/\r?\n/)
+        .filter((l) => l.startsWith('data:'))
+        .map((l) => l.slice(5).trimStart());
+      if (dataLines.length === 0) {
+        next = splitFrame(buffer);
+        continue;
+      }
+      let payload: unknown;
+      try {
+        payload = JSON.parse(dataLines.join('\n'));
+      } catch (e) {
+        if (debug) console.warn('[streamSse] bad JSON frame', dataLines, e);
+        next = splitFrame(buffer);
+        continue;
+      }
+      const evt = payload as
+        | { type: 'progress'; chars: number; sources: number }
+        | { type: 'done'; text: string; citations: SourceItem[] };
+      if (evt.type === 'progress') {
+        onProgress?.({ chars: evt.chars ?? 0, sources: evt.sources ?? 0 });
+      } else if (evt.type === 'done') {
+        finalText = evt.text ?? '';
+        citations = Array.isArray(evt.citations) ? evt.citations : [];
+      }
+      next = splitFrame(buffer);
+    }
+  }
+  if (debug) {
+    console.log(`[streamSse] ${url} closed`, {
+      frames: frameCount,
+      finalTextLen: finalText.length,
+      citations: citations.length,
+    });
+  }
+  if (!finalText) {
+    throw new Error(
+      `Stream closed before final response (received ${frameCount} frame${frameCount === 1 ? '' : 's'})`,
+    );
+  }
+  return { result: parser(finalText), citations };
+}
+
+/**
+ * Apply the JSON-extract + repair pipeline to a plain text string.
+ * Mirrors {@link parseJson} but operates on already-extracted text,
+ * which is what the streaming consumer holds after assembling all
+ * the text-delta fragments.
+ */
+function parseJsonText<T>(text: string): T {
+  const cleaned = stripFences(text);
+  const first = cleaned.indexOf('{');
+  const last = cleaned.lastIndexOf('}');
+  if (first === -1 || last === -1) {
+    throw new Error('No JSON object found in streamed response');
+  }
+  const slice = cleaned.slice(first, last + 1);
+  try {
+    return JSON.parse(slice) as T;
+  } catch {
+    return JSON.parse(repairJsonString(slice)) as T;
+  }
+}
+
+/**
+ * Up-front research pass — runs once before the 5 parallel section
+ * calls. Streams a web_search-enabled call that gathers concrete,
+ * dated facts about the sector + strategic challenge. The result text
+ * (the {@code research} field) and citations are then handed to each
+ * of the 5 analyze section calls as their shared context.
+ *
+ * <p>This is the entry point for the demo's scan-then-analyse pattern
+ * applied to the report flow — it cuts total web_search budget from
+ * ~25 (5 sections × 5 uses each) down to ~5.
+ */
+export async function analyzeScan(
+  args: AnalyzeArgs,
+  onProgress?: ProgressCallback,
+): Promise<{ research: string; citations: SourceItem[] }> {
+  const res = await streamSse<AnalyzeArgs, string>(
+    'ai/analyze/scan',
+    args,
+    (text) => text.trim(),
+    onProgress,
+  );
+  return { research: res.result, citations: res.citations };
+}
+
+/**
+ * Phase-A of the parallel-5 analysis flow — executive summary,
+ * uncertainties, signals, wildcards. The endpoint now streams progress
+ * via SSE; pass {@code onProgress} to receive char + source counts as
+ * the model writes.
+ */
 export async function analyzeSummary(
   args: AnalyzeArgs,
+  onProgress?: ProgressCallback,
 ): Promise<AnalyzeSectionResponse<AnalyzeSummary>> {
-  return callAnalyze('ai/analyze/summary', args, (d) => parseJson<AnalyzeSummary>(d));
+  return streamAnalyze(
+    'ai/analyze/summary',
+    args,
+    (text) => parseJsonText<AnalyzeSummary>(text),
+    onProgress,
+  );
 }
 
 /** Phase-B of the parallel-5 analysis flow — the 3P scenarios. */
 export async function analyzeScenarios(
   args: AnalyzeArgs,
+  onProgress?: ProgressCallback,
 ): Promise<AnalyzeSectionResponse<{ scenarios?: Scenario[] }>> {
-  return callAnalyze('ai/analyze/scenarios', args, (d) =>
-    parseJson<{ scenarios?: Scenario[] }>(d),
+  return streamAnalyze(
+    'ai/analyze/scenarios',
+    args,
+    (text) => parseJsonText<{ scenarios?: Scenario[] }>(text),
+    onProgress,
   );
 }
 
@@ -470,11 +676,17 @@ export async function analyzeScenarios(
  */
 export async function analyzeScenarioPlanning(
   args: AnalyzeArgs,
+  onProgress?: ProgressCallback,
 ): Promise<AnalyzeSectionResponse<ScenarioPlanning>> {
-  return callAnalyze('ai/analyze/scenario-planning', args, (d) => {
-    const parsed = parseJson<{ scenarioPlanning?: ScenarioPlanning } & ScenarioPlanning>(d);
-    return parsed.scenarioPlanning ?? parsed;
-  });
+  return streamAnalyze(
+    'ai/analyze/scenario-planning',
+    args,
+    (text) => {
+      const parsed = parseJsonText<{ scenarioPlanning?: ScenarioPlanning } & ScenarioPlanning>(text);
+      return parsed.scenarioPlanning ?? parsed;
+    },
+    onProgress,
+  );
 }
 
 /**
@@ -484,11 +696,17 @@ export async function analyzeScenarioPlanning(
  */
 export async function analyzeBackcasting(
   args: AnalyzeArgs,
+  onProgress?: ProgressCallback,
 ): Promise<AnalyzeSectionResponse<Backcasting>> {
-  return callAnalyze('ai/analyze/backcasting', args, (d) => {
-    const parsed = parseJson<{ backcasting?: Backcasting }>(d);
-    return parsed.backcasting ?? [];
-  });
+  return streamAnalyze(
+    'ai/analyze/backcasting',
+    args,
+    (text) => {
+      const parsed = parseJsonText<{ backcasting?: Backcasting }>(text);
+      return parsed.backcasting ?? [];
+    },
+    onProgress,
+  );
 }
 
 /**
@@ -497,11 +715,17 @@ export async function analyzeBackcasting(
  */
 export async function analyzeStrategicMap(
   args: AnalyzeArgs,
+  onProgress?: ProgressCallback,
 ): Promise<AnalyzeSectionResponse<StrategicMap>> {
-  return callAnalyze('ai/analyze/strategic-map', args, (d) => {
-    const parsed = parseJson<{ strategicPriorities?: StrategicMap }>(d);
-    return parsed.strategicPriorities ?? [];
-  });
+  return streamAnalyze(
+    'ai/analyze/strategic-map',
+    args,
+    (text) => {
+      const parsed = parseJsonText<{ strategicPriorities?: StrategicMap }>(text);
+      return parsed.strategicPriorities ?? [];
+    },
+    onProgress,
+  );
 }
 
 /** Sources doesn't need scenarios — we still accept the same shape so callers
