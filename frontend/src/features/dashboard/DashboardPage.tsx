@@ -76,7 +76,7 @@ export default function DashboardPage() {
       // overlay paints before the work begins, matching the ReportPage
       // export pattern.
       await new Promise((r) => setTimeout(r, 0));
-      if (kind === 'pdf') exportReportPdf(report);
+      if (kind === 'pdf') await exportReportPdf(report);
       else exportReportPpt(report);
     } catch (err) {
       // eslint-disable-next-line no-console

@@ -61,12 +61,12 @@ export default function ReportPage() {
   function runExport(kind: 'pdf' | 'ppt') {
     if (!report) return;
     setExporting(kind);
-    // jspdf and pptxgenjs work synchronously and block the main thread.
-    // setTimeout(0) yields to React so the overlay paints before the work
-    // begins; otherwise the user sees nothing until export completes.
-    setTimeout(() => {
+    // Yield to React so the overlay paints before the work begins; pdf
+    // export now needs to await font loading (brand TTFs registered
+    // with jsPDF) so we kick off an async IIFE here.
+    setTimeout(async () => {
       try {
-        if (kind === 'pdf') exportReportPdf(report);
+        if (kind === 'pdf') await exportReportPdf(report);
         else exportReportPpt(report);
       } finally {
         setExporting(null);
