@@ -67,4 +67,37 @@ public class Report extends BaseEntity {
     @Type(JsonBinaryType.class)
     @Column(name = "result_data", columnDefinition = "jsonb")
     private JsonNode resultData;
+
+    /**
+     * Language the wizard used to generate this report. New reports default to
+     * {@code "es"}; the wizard sets it explicitly to {@code "en"} when run in
+     * English. The on-demand translation cache below keys other languages off
+     * of this one — the primary language's entry is generally absent from
+     * {@link #translations} since the original {@link #inputData} /
+     * {@link #resultData} columns hold it.
+     */
+    @Column(name = "primary_language", nullable = false, length = 8)
+    @Builder.Default
+    private String primaryLanguage = "es";
+
+    /**
+     * Optional per-language cache of translated report copies. Shape:
+     * <pre>
+     * {
+     *   "en": {
+     *     "inputData":   { ... same shape as the primary inputData ... },
+     *     "resultData":  { ... same shape as the primary resultData ... },
+     *     "generatedAt": "2026-05-11T12:34:56Z"
+     *   },
+     *   "es": { ... }
+     * }
+     * </pre>
+     *
+     * Populated lazily by {@code ReportService.translate} when the user
+     * picks a non-primary language in the share or export dialog. Reused
+     * verbatim on every subsequent share/export in that language.
+     */
+    @Type(JsonBinaryType.class)
+    @Column(name = "translations", columnDefinition = "jsonb")
+    private JsonNode translations;
 }

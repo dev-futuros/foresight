@@ -1,15 +1,21 @@
 package com.foresight.backend.report;
 
 import java.util.UUID;
+import java.util.concurrent.Callable;
 
 import jakarta.validation.Valid;
 
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.*;
 
+import reactor.core.publisher.Flux;
+
+import com.fasterxml.jackson.databind.JsonNode;
 import com.foresight.backend.common.security.AuthenticatedUser;
 import com.foresight.backend.common.security.CurrentUser;
 import com.foresight.backend.report.dto.CreateReportRequest;
@@ -114,5 +120,82 @@ public class ReportController {
     public ResponseEntity<Void> delete(@CurrentUser AuthenticatedUser principal, @PathVariable UUID id) {
         reportService.delete(id, principal.id());
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Translate a report's {@code inputData} + {@code resultData} into the
+     * requested target language and return the translated payload. Cached
+     * per (report × language) — repeated calls reuse the stored copy
+     * unless {@code force=true} is supplied.
+     *
+     * @param principal      authenticated caller
+     * @param id             report UUID
+     * @param targetLanguage ISO-639-1 two-letter code (currently {@code "es"} or {@code "en"})
+     * @param force          when {@code true} bypasses the cache and re-translates
+     * @return a JSON object: {@code { "inputData": ..., "resultData": ..., "generatedAt": ... }}
+     */
+    @Operation(
+            summary = "Translate a report into another language",
+            description =
+                    """
+                    Returns the report's inputData + resultData translated into the given target
+                    language. The result is cached per (report × language) on the report row;
+                    subsequent calls return the cached copy without round-tripping to the AI
+                    provider unless `force=true` is supplied.
+
+                    Returned as a Spring async `Callable` so the full Anthropic round-trip
+                    (which can take 30s+ for a long report) runs under
+                    `spring.mvc.async.request-timeout` (480s) rather than Tomcat's
+                    short default connection timeout.
+                    """)
+    @PostMapping("/{id}/translate")
+    public Callable<JsonNode> translate(
+            @CurrentUser AuthenticatedUser principal,
+            @PathVariable UUID id,
+            @RequestParam("targetLanguage") String targetLanguage,
+            @RequestParam(value = "force", defaultValue = "false") boolean force) {
+        return () -> reportService.translate(id, principal.id(), targetLanguage, force);
+    }
+
+    /**
+     * Server-Sent Events variant of {@link #translate}. Streams two kinds
+     * of events while the translation is in flight so the frontend can
+     * render a determinate progress bar:
+     *
+     * <ul>
+     *   <li>{@code {"type":"progress","inputChars":N,"outputChars":M}} —
+     *       emitted ~5 times per second while the translator streams text
+     *       back. {@code outputChars / inputChars} is a usable proxy for
+     *       percentage completion (the translated envelope is roughly the
+     *       same length as the source).</li>
+     *   <li>{@code {"type":"done","inputData":..., "resultData":..., "generatedAt":"..."}}
+     *       — emitted once at the end, carrying the final parsed
+     *       translation. The same payload gets persisted into the
+     *       report's translations cache so subsequent share/export calls
+     *       are cache hits.</li>
+     * </ul>
+     *
+     * <p>If a cache entry already exists for {@code (report × language)}
+     * and {@code force=false}, a single {@code done} event is emitted
+     * immediately without contacting Anthropic.
+     */
+    @Operation(
+            summary = "Translate a report (streaming)",
+            description =
+                    """
+                    Server-Sent Events stream of `progress` then `done` events. Use this when
+                    you want to render a real-time progress bar — the regular
+                    `POST /{id}/translate` endpoint blocks until the translation is complete
+                    and is fine for most callers.
+                    """)
+    @PostMapping(value = "/{id}/translate/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<JsonNode>> translateStream(
+            @CurrentUser AuthenticatedUser principal,
+            @PathVariable UUID id,
+            @RequestParam("targetLanguage") String targetLanguage,
+            @RequestParam(value = "force", defaultValue = "false") boolean force) {
+        return reportService
+                .translateStream(id, principal.id(), targetLanguage, force)
+                .map(json -> ServerSentEvent.<JsonNode>builder().data(json).build());
     }
 }

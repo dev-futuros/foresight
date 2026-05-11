@@ -303,11 +303,23 @@ public class AnthropicClient {
      * </ul>
      */
     private static boolean isRetriable(Throwable t) {
-        if (t instanceof IOException) {
-            return true;
-        }
         if (t instanceof WebClientResponseException wcre) {
             return wcre.getStatusCode().value() >= 500;
+        }
+        // Walk the cause chain — reactor-netty wraps transport-level
+        // failures (PrematureCloseException for stale-pool connections,
+        // IOException for transient network blips) inside Spring's
+        // WebClientRequestException (a RuntimeException), so a direct
+        // `instanceof IOException` check on the top-level fails.
+        Throwable cursor = t;
+        for (int i = 0; cursor != null && i < 8; i++) {
+            if (cursor instanceof IOException) return true;
+            String className = cursor.getClass().getName();
+            // reactor.netty.http.client.PrematureCloseException is a
+            // RuntimeException — recognise it by name so we don't need
+            // a compile-time dependency on the reactor-netty class.
+            if (className.endsWith("PrematureCloseException")) return true;
+            cursor = cursor.getCause();
         }
         return false;
     }

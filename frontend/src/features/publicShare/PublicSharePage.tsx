@@ -1,4 +1,5 @@
-import { useParams } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { usePublicShare } from '../../hooks/useShare';
 import ReportContent, {
@@ -26,7 +27,27 @@ type InputData = {
 export default function PublicSharePage() {
   const { t, i18n } = useTranslation();
   const { token } = useParams<{ token: string }>();
+  const [searchParams] = useSearchParams();
   const { data, isLoading, isError } = usePublicShare(token ?? '');
+
+  // The share URL may carry ?lang=es|en (set when the owner created the
+  // share in a non-primary language). Switch the public UI to that
+  // language so the chrome around the report content (section labels,
+  // tab titles, etc.) matches what the recipient is reading.
+  //
+  // Effect deps are reduced to the lang query value: i18n is a stable
+  // singleton but its hook-returned reference flips on every render,
+  // and including it here caused this effect to re-fire on every mouse
+  // event — fighting `useLanguageSync` for any signed-in owner viewing
+  // their own EN share. That re-render storm is what blacked out the
+  // backdrop-filtered sticky tab-row.
+  const langParam = searchParams.get('lang');
+  useEffect(() => {
+    if (langParam && (langParam === 'es' || langParam === 'en') && langParam !== i18n.language) {
+      void i18n.changeLanguage(langParam);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [langParam]);
 
   const formattedDate = data
     ? new Date(data.createdAt).toLocaleDateString(

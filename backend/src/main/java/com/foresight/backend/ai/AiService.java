@@ -710,6 +710,68 @@ public class AiService {
             - Respond in the requested language.
             """;
 
+    /**
+     * System prompt for full-report translation. The model receives the
+     * report's {@code inputData} + {@code resultData} as a single JSON
+     * envelope and must emit the SAME envelope with every human-readable
+     * string value translated into the target language. Critically:
+     *
+     * <ul>
+     *   <li>Keys are NEVER translated — the renderer addresses fields by
+     *       name (e.g. {@code companyProfile.challenge}, {@code scenarios[].type}).</li>
+     *   <li>Numeric values, dates, percentages, brand names, currency
+     *       symbols and URLs are preserved verbatim.</li>
+     *   <li>Pinned terminology: scenario type tokens map
+     *       Spanish "Posible" ↔ English "Possible" (the only token that
+     *       changes); "Probable" and "Plausible" stay identical in both.
+     *       STEEP dimension names (used in {@code weakSignals[].dimension})
+     *       map Spanish "Social/Tecnológico/Económico/Medioambiental/Político"
+     *       ↔ English "Social/Technological/Economic/Environmental/Political".</li>
+     *   <li>Editorial tone preserved — keep paragraph breaks
+     *       ({@code \n\n}), bullet markers and sentence lengths.</li>
+     * </ul>
+     *
+     * Sources are stripped from the input before the call (URLs and source
+     * titles stay in their language of origin); the caller re-attaches the
+     * original sources after the response returns.
+     */
+    private static final String TRANSLATE_SYSTEM =
+            """
+            You are a professional translator specialised in strategic foresight reports.
+            You will receive a JSON envelope with two top-level keys, "inputData" and
+            "resultData", containing a complete foresight report. Translate every
+            human-readable string value into the target language.
+
+            Strict rules:
+            - Output ONLY a valid JSON object with the EXACT same structure as the input.
+              No backticks, no markdown, no preamble, no prose outside JSON.
+            - Keep keys identical — translate VALUES only.
+            - Preserve numeric values, percentages, dates, currency symbols, URLs, brand
+              names, product names, regulatory acronyms (EU AI Act, CSRD, VSME, GDPR,
+              ESRS, PERTE, KIT Digital, etc.) and proper nouns.
+            - Preserve paragraph breaks "\\n\\n" exactly as they appear.
+            - Preserve bullet markers ("•") at the start of lines exactly.
+            - Maintain editorial tone, sentence rhythm and approximate length.
+            - Scenario type tokens are pinned: when translating ES→EN, "Posible"
+              becomes "Possible"; when translating EN→ES, "Possible" becomes "Posible".
+              "Probable" and "Plausible" are identical in both languages — keep them
+              unchanged.
+            - STEEP dimension names (only in resultData.weakSignals[].dimension):
+              ES↔EN map is Social↔Social, Tecnológico↔Technological,
+              Económico↔Economic, Medioambiental↔Environmental, Político↔Political.
+              Use the target language's form.
+            - Horizon labels ("H1", "H2", "H3", and their full names like
+              "Corto plazo" / "Short term"): keep "H1/H2/H3" identical; translate
+              the full-name labels using the target language's standard horizon
+              naming (Corto plazo ↔ Short term, Medio plazo ↔ Medium term, Largo
+              plazo ↔ Long term).
+            - Impact level tokens (resultData.strategicMap[].impact): preserve
+              EXACTLY one of "low" / "medium" / "high" — these are enum codes,
+              not localised labels.
+            - Do not add, remove or reorder fields. The output must be a complete,
+              valid JSON object that round-trips through the report renderer.
+            """;
+
     private final AnthropicClient anthropicClient;
     private final ObjectMapper objectMapper;
     private final AnthropicProperties properties;
@@ -1133,6 +1195,286 @@ public class AiService {
         return anthropicClient
                 .sendMessageWithWebSearch(properties.opus(), SOURCES_SYSTEM, prompt, 4000)
                 .map(AiResponseSanitizer::sanitize);
+    }
+
+    /**
+     * Translate a report's {@code inputData} + {@code resultData} into the
+     * target language. The {@code sources} block (if any) is stripped from
+     * the input before the call and re-attached verbatim afterwards — web
+     * source titles + URLs stay in their language of origin, which keeps
+     * the linkable text faithful and skips a chunk of token cost.
+     *
+     * <p>Single Sonnet-tier call, no web_search, no streaming. Designed
+     * to be invoked on demand from the share/export dialog and cached by
+     * the report row so subsequent shares/exports in the same target
+     * language are free.
+     *
+     * @param inputData      the report's primary-language inputData
+     * @param resultData     the report's primary-language resultData (or {@code null})
+     * @param targetLanguage ISO-639-1 two-letter code, currently {@code "es"} or {@code "en"}
+     * @return a {@code Mono} emitting an object node with the same two keys
+     *         in the target language: {@code {"inputData":..., "resultData":...}}
+     */
+    public Mono<JsonNode> translateReport(
+            JsonNode inputData, JsonNode resultData, String targetLanguage) {
+        String target = lang(targetLanguage);
+        ObjectNode envelope = objectMapper.createObjectNode();
+        if (inputData != null) envelope.set("inputData", inputData);
+        // Strip sources before the translation call — they are URLs and
+        // already-cited source titles in their language of origin and
+        // we'll splice them back into the response unchanged.
+        JsonNode strippedResult = stripSources(resultData);
+        if (strippedResult != null) envelope.set("resultData", strippedResult);
+
+        String envelopeJson;
+        try {
+            envelopeJson = objectMapper.writeValueAsString(envelope);
+        } catch (Exception e) {
+            return Mono.error(new AiException("Failed to serialise report for translation"));
+        }
+
+        String userPrompt = (target.equals("en")
+                        ? "Target language: ENGLISH. Translate the following foresight report "
+                                + "envelope into English following the strict rules above.\n\n"
+                        : "Idioma destino: ESPAÑOL. Traduce el siguiente sobre de informe de "
+                                + "foresight al español siguiendo las reglas estrictas anteriores.\n\n")
+                + envelopeJson;
+
+        // Translation streams the response over SSE rather than
+        // posting non-stream and waiting for a single ~30s response.
+        // The non-streaming path was failing with
+        // PrematureCloseException — Anthropic's edge closes idle-like
+        // connections when the model is still generating and no bytes
+        // have left the server. Streaming keeps the channel alive
+        // because Anthropic emits keep-alive deltas as the response
+        // builds. Same pattern the analyze section calls use
+        // reliably, which is the proof-point.
+        //
+        // Haiku is the right tier for a pure-transform task — fast,
+        // cheap, and adequate quality (Sonnet's reasoning isn't
+        // needed for translation).
+        //
+        // max_tokens=24000: the translated payload is roughly the same
+        // size as the source, so a 30KB JSON in → 30KB JSON out ≈
+        // ~9-10K tokens. We need significant headroom above that so a
+        // verbose translation never truncates mid-JSON (which fails
+        // the downstream parse).
+        return streamMessageToText(
+                        anthropicClient.streamMessage(
+                                properties.haiku(), TRANSLATE_SYSTEM, userPrompt, 24000))
+                .map(this::parseTranslationJson)
+                .map(translated -> reattachSources(translated, resultData));
+    }
+
+    /**
+     * Accumulate every {@code content_block_delta} text fragment from
+     * an Anthropic SSE stream into a single {@code Mono<String>}.
+     * Drops progress / start / stop events — the caller just wants the
+     * final concatenated text.
+     */
+    private Mono<String> streamMessageToText(Flux<ServerSentEvent<String>> upstream) {
+        StringBuilder acc = new StringBuilder();
+        return upstream
+                .doOnNext(sse -> {
+                    String data = sse.data();
+                    if (data == null) return;
+                    JsonNode payload;
+                    try {
+                        payload = objectMapper.readTree(data);
+                    } catch (Exception e) {
+                        return;
+                    }
+                    String type = sse.event();
+                    if (type == null || type.isBlank()) {
+                        type = payload.path("type").asText("");
+                    }
+                    if ("content_block_delta".equals(type)) {
+                        JsonNode delta = payload.path("delta");
+                        if ("text_delta".equals(delta.path("type").asText())) {
+                            acc.append(delta.path("text").asText());
+                        }
+                    }
+                })
+                .then(Mono.fromCallable(acc::toString));
+    }
+
+    /**
+     * Streaming variant of {@link #translateReport}. Emits compact
+     * progress events the frontend renders as a determinate progress
+     * bar, then a final {@code done} event carrying the parsed
+     * translation:
+     *
+     * <ul>
+     *   <li>{@code {"type":"progress","inputChars":N,"outputChars":M}} — throttled to
+     *       ~5/s. {@code inputChars} is the byte-size of the source envelope
+     *       we sent to Anthropic; {@code outputChars} is how much text the
+     *       model has streamed back so far. The translation length is
+     *       approximately the source length, so {@code outputChars / inputChars}
+     *       is a good basis for a determinate bar.</li>
+     *   <li>{@code {"type":"done","inputData":..., "resultData":..., "generatedAt":"..."}}
+     *       — emitted once when the stream completes. Carries the final
+     *       parsed translation envelope with sources re-attached.</li>
+     * </ul>
+     *
+     * <p>If the model truncates mid-JSON (max_tokens exhausted), the
+     * stream errors with {@code AiException}; clients should retry
+     * with a higher token budget or shorter input.
+     */
+    public Flux<JsonNode> translateReportStream(
+            JsonNode inputData, JsonNode resultData, String targetLanguage) {
+        String target = lang(targetLanguage);
+        ObjectNode envelope = objectMapper.createObjectNode();
+        if (inputData != null) envelope.set("inputData", inputData);
+        JsonNode strippedResult = stripSources(resultData);
+        if (strippedResult != null) envelope.set("resultData", strippedResult);
+
+        String envelopeJson;
+        try {
+            envelopeJson = objectMapper.writeValueAsString(envelope);
+        } catch (Exception e) {
+            return Flux.error(new AiException("Failed to serialise report for translation"));
+        }
+        final int inputChars = envelopeJson.length();
+
+        String userPrompt = (target.equals("en")
+                        ? "Target language: ENGLISH. Translate the following foresight report "
+                                + "envelope into English following the strict rules above.\n\n"
+                        : "Idioma destino: ESPAÑOL. Traduce el siguiente sobre de informe de "
+                                + "foresight al español siguiendo las reglas estrictas anteriores.\n\n")
+                + envelopeJson;
+
+        Flux<ServerSentEvent<String>> upstream = anthropicClient.streamMessage(
+                properties.haiku(), TRANSLATE_SYSTEM, userPrompt, 24000);
+
+        StringBuilder acc = new StringBuilder();
+        AtomicLong lastEmit = new AtomicLong(0L);
+
+        Flux<JsonNode> progressFlux = upstream.concatMap(sse -> {
+            String data = sse.data();
+            if (data == null) return Flux.empty();
+            JsonNode payload;
+            try {
+                payload = objectMapper.readTree(data);
+            } catch (Exception e) {
+                return Flux.empty();
+            }
+            String type = sse.event();
+            if (type == null || type.isBlank()) {
+                type = payload.path("type").asText("");
+            }
+            if (!"content_block_delta".equals(type)) return Flux.empty();
+            JsonNode delta = payload.path("delta");
+            if (!"text_delta".equals(delta.path("type").asText())) return Flux.empty();
+            acc.append(delta.path("text").asText());
+            // Throttle progress to ~5/s so an SSE-chatty stream doesn't
+            // spam the frontend's render loop. Same cadence as the
+            // analyze section progress events.
+            long now = System.currentTimeMillis();
+            if (now - lastEmit.get() < 200) return Flux.empty();
+            lastEmit.set(now);
+            return Flux.just(translateProgressEvent(inputChars, acc.length()));
+        });
+
+        Flux<JsonNode> doneFlux = Flux.defer(() -> {
+            JsonNode parsed;
+            try {
+                parsed = parseTranslationJson(acc.toString());
+            } catch (AiException e) {
+                return Flux.error(e);
+            }
+            JsonNode complete = reattachSources(parsed, resultData);
+            ObjectNode done = objectMapper.createObjectNode();
+            done.put("type", "done");
+            if (complete != null && complete.has("inputData")) {
+                done.set("inputData", complete.get("inputData"));
+            }
+            if (complete != null && complete.has("resultData")) {
+                done.set("resultData", complete.get("resultData"));
+            }
+            done.put("generatedAt", java.time.Instant.now().toString());
+            return Flux.just((JsonNode) done);
+        });
+
+        return progressFlux.concatWith(doneFlux);
+    }
+
+    private JsonNode translateProgressEvent(int inputChars, int outputChars) {
+        ObjectNode evt = objectMapper.createObjectNode();
+        evt.put("type", "progress");
+        evt.put("inputChars", inputChars);
+        evt.put("outputChars", outputChars);
+        return evt;
+    }
+
+    /**
+     * Parse the translator's output text as JSON. The model is
+     * instructed to emit raw JSON only; we strip any leading/trailing
+     * code-fence markers and whitespace defensively, then parse.
+     */
+    private JsonNode parseTranslationJson(String text) {
+        if (text == null || text.isBlank()) {
+            throw new AiException("Translator returned an empty response");
+        }
+        String cleaned = text.trim();
+        // Strip ``` fences if the model wrapped its output despite the
+        // explicit "no backticks, no markdown" instruction.
+        if (cleaned.startsWith("```")) {
+            int firstNewline = cleaned.indexOf('\n');
+            if (firstNewline > 0) cleaned = cleaned.substring(firstNewline + 1);
+            if (cleaned.endsWith("```")) cleaned = cleaned.substring(0, cleaned.length() - 3);
+            cleaned = cleaned.trim();
+        }
+        try {
+            return objectMapper.readTree(cleaned);
+        } catch (Exception e) {
+            // Heuristic: if the output looks like valid JSON that just
+            // didn't finish (opens with `{`, doesn't close with `}`),
+            // the model hit its max_tokens budget mid-document. Tell
+            // the operator exactly that — they can bump max_tokens or
+            // shrink the source rather than chasing a parser bug.
+            String head = cleaned.substring(0, Math.min(200, cleaned.length()));
+            String tail = cleaned.substring(Math.max(0, cleaned.length() - 200));
+            boolean looksTruncated = cleaned.startsWith("{") && !cleaned.endsWith("}");
+            log.error(
+                    "Failed to parse translation JSON ({} chars{}): head=[{}] tail=[{}]",
+                    cleaned.length(),
+                    looksTruncated ? ", looks truncated — bump max_tokens" : "",
+                    head,
+                    tail);
+            throw new AiException(
+                    looksTruncated
+                            ? "Translator response truncated — try a shorter report or raise max_tokens"
+                            : "Translator returned invalid JSON");
+        }
+    }
+
+    /**
+     * Returns a copy of {@code resultData} with its {@code sources} block
+     * removed (and references trimmed inside any per-section citation
+     * objects, if those existed). Used to keep source titles + URLs out
+     * of the translation pass — they stay in their language of origin.
+     */
+    private JsonNode stripSources(JsonNode resultData) {
+        if (resultData == null || !resultData.isObject()) return resultData;
+        ObjectNode copy = resultData.deepCopy();
+        copy.remove("sources");
+        return copy;
+    }
+
+    /**
+     * Splice the original {@code sources} block back into the translated
+     * resultData so the final envelope is shape-complete and the URLs
+     * remain canonical.
+     */
+    private JsonNode reattachSources(JsonNode translated, JsonNode originalResult) {
+        if (translated == null || !translated.isObject()) return translated;
+        if (originalResult == null || !originalResult.isObject()) return translated;
+        JsonNode originalSources = originalResult.get("sources");
+        if (originalSources == null) return translated;
+        JsonNode result = translated.get("resultData");
+        if (result == null || !result.isObject()) return translated;
+        ((ObjectNode) result).set("sources", originalSources);
+        return translated;
     }
 
     /**
