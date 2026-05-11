@@ -39,6 +39,54 @@ const en = {
     typing: 'The assistant is typing',
     intro: 'Hi — I am the Foresight assistant. I can help you navigate the wizard, suggest values for the fields, launch the analysis or explain the methodology. Ask anything.',
     disclaimer: 'Answers may contain errors',
+    /**
+     * Three context-aware starter questions shown under the welcome
+     * message when the chat first opens. The bucket is picked from the
+     * current route + wizard step — see {@code suggestionBucket} in
+     * ChatAssistant.tsx. They disappear on the user's first message.
+     */
+    suggested: {
+      s1: [
+        'How do I write a good strategic challenge?',
+        'What time horizon should I choose?',
+        'Explain the 6-step flow',
+      ],
+      s2: [
+        'What is the global STEEP?',
+        'Can I edit the generated dimensions?',
+        'What if I leave a dimension empty?',
+      ],
+      s3: [
+        'How is the sectorial STEEP different from the global one?',
+        'How do I use the AI Suggest button?',
+        'How many factors should I put per dimension?',
+      ],
+      s4: [
+        'What is Horizon Scanning?',
+        'Explain H1, H2 and H3',
+        'What signals should I look for in each horizon?',
+      ],
+      report: [
+        'What are the 3P scenarios?',
+        'Explain backcasting',
+        'How do I export the report?',
+      ],
+      dashboard: [
+        'How do I start a new report?',
+        'What can I do with my saved reports?',
+        'How does sharing a report work?',
+      ],
+      account: [
+        'How do I change the report language?',
+        'Where do I update my profile?',
+        'How do I log out?',
+      ],
+      default: [
+        'How does the tool work?',
+        'What is strategic foresight?',
+        'Walk me through the process',
+      ],
+    },
     confirm: {
       runAnalysis: 'Run foresight analysis',
       generateGlobalSteep: 'Generate global STEEP',

@@ -266,6 +266,52 @@ body.chat-open .chat-collapse {
   padding: 12px 4px;
 }
 
+/* ── Suggested-question chips ──────────────────────────────────
+   Shown under the welcome message when the chat first opens. Three
+   context-aware starter questions picked from the i18n bucket that
+   matches the user's current route + wizard step. Each chip auto-
+   sends its prompt on click. The whole row disappears once the
+   user has any messages, so it stays out of the way once the
+   conversation gets going. */
+.chat-suggested {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 16px;
+  align-items: flex-start;
+}
+.chat-suggest {
+  appearance: none;
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  color: var(--ink-soft);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  line-height: 1.4;
+  padding: 7px 12px;
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background 140ms var(--ease),
+    border-color 140ms var(--ease),
+    color 140ms var(--ease);
+  max-width: 100%;
+  white-space: normal;
+}
+.chat-suggest:hover {
+  background: var(--gold-bg);
+  border-color: var(--line-accent);
+  color: var(--ink);
+}
+.chat-suggest:active {
+  background: var(--gold-bg-2);
+}
+.chat-suggest:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .chat-msg {
   display: flex;
   flex-direction: column;

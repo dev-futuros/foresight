@@ -39,6 +39,48 @@ const es = {
     typing: 'El asistente está escribiendo',
     intro: 'Hola — soy el asistente de Foresight. Puedo ayudarte a navegar el wizard, sugerir valores para los campos, lanzar el análisis o explicarte la metodología. Pregunta lo que necesites.',
     disclaimer: 'Las respuestas pueden contener errores',
+    suggested: {
+      s1: [
+        '¿Cómo redacto un buen reto estratégico?',
+        '¿Qué horizonte temporal debo elegir?',
+        'Explícame el flujo de 6 pasos',
+      ],
+      s2: [
+        '¿Qué es el STEEP global?',
+        '¿Puedo editar las dimensiones generadas?',
+        '¿Qué pasa si dejo una dimensión vacía?',
+      ],
+      s3: [
+        '¿En qué se diferencia el STEEP sectorial del global?',
+        '¿Cómo uso el botón Sugerir IA?',
+        '¿Cuántos factores debo poner por dimensión?',
+      ],
+      s4: [
+        '¿Qué es Horizon Scanning?',
+        'Explícame H1, H2 y H3',
+        '¿Qué señales busco en cada horizonte?',
+      ],
+      report: [
+        '¿Qué son los escenarios 3P?',
+        'Explícame el backcasting',
+        '¿Cómo exporto el informe?',
+      ],
+      dashboard: [
+        '¿Cómo empiezo un informe nuevo?',
+        '¿Qué puedo hacer con mis informes guardados?',
+        '¿Cómo funciona compartir un informe?',
+      ],
+      account: [
+        '¿Cómo cambio el idioma del informe?',
+        '¿Dónde actualizo mi perfil?',
+        '¿Cómo cierro sesión?',
+      ],
+      default: [
+        '¿Cómo funciona la herramienta?',
+        '¿Qué es el foresight estratégico?',
+        'Guíame por el proceso',
+      ],
+    },
     confirm: {
       runAnalysis: 'Lanzar análisis de foresight',
       generateGlobalSteep: 'Generar STEEP mundial',
@@ -121,6 +163,7 @@ const es = {
     logout: 'Cerrar sesión',
     menu: 'Abrir menú',
     dashboard: 'Dashboard',
+    brandTitle: 'Empezar un nuevo informe',
     brandTag: 'Foresight Strategy · Powered by AI',
     footerTag: 'Foresight Strategy · Powered by AI',
   },

@@ -239,6 +239,49 @@ export default function ChatAssistant() {
     el.style.height = Math.min(el.scrollHeight, 160) + 'px';
   }
 
+  /**
+   * Picks which {@code chat.suggested.<bucket>} array to render in the
+   * empty-state welcome screen, based on where the user is. Mirrors the
+   * demo's route → bucket mapping but uses semantic bucket names (s1-s4
+   * for the wizard steps, "report" for the viewer, plus "dashboard" /
+   * "account" / "default") so the i18n keys read naturally without
+   * having to memorise step numbers.
+   */
+  function suggestionBucket(): string {
+    const path = location.pathname;
+    if (path === '/dashboard') return 'dashboard';
+    if (path === '/account') return 'account';
+    if (path.startsWith('/share/')) return 'report';
+    // Wizard routes — /reports/new or /reports/:id/edit. The current
+    // step lives on the published assistant context.
+    if (path === '/reports/new' || /^\/reports\/[^/]+\/edit$/.test(path)) {
+      const step = ctx?.currentStep ?? 1;
+      if (step >= 1 && step <= 4) return `s${step}`;
+      return 'default';
+    }
+    // Report viewer — /reports/:id (no trailing /edit).
+    if (/^\/reports\/[^/]+$/.test(path)) return 'report';
+    return 'default';
+  }
+
+  /**
+   * Read the suggestion list for the current bucket. i18next's
+   * {@code returnObjects: true} returns the raw array; we defensively
+   * filter to string items so a misconfigured key (or a future
+   * translator who fat-fingers a nested object in) can't crash the
+   * render.
+   */
+  const suggestions = useMemo<string[]>(() => {
+    const bucket = suggestionBucket();
+    const raw = t(`chat.suggested.${bucket}`, {
+      returnObjects: true,
+      defaultValue: [],
+    });
+    if (!Array.isArray(raw)) return [];
+    return raw.filter((x): x is string => typeof x === 'string');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [t, language, location.pathname, ctx?.currentStep]);
+
   function onSubmit() {
     if (!draft.trim() || pending) return;
     send(draft, { context: snapshot, language });
@@ -350,6 +393,31 @@ export default function ChatAssistant() {
           {messages.length === 0 && (
             <div className="chat-empty">
               <p>{t('chat.intro')}</p>
+              {suggestions.length > 0 && (
+                <div className="chat-suggested" role="list">
+                  {suggestions.map((q) => (
+                    <button
+                      key={q}
+                      type="button"
+                      role="listitem"
+                      className="chat-suggest"
+                      // Send the suggestion directly — bypasses the draft
+                      // textarea so the user doesn't have to confirm,
+                      // matching the demo's chip-click → autosend flow.
+                      // Chips disappear once `messages.length > 0` makes
+                      // this whole block conditional, so no manual
+                      // clearing is needed.
+                      onClick={() => {
+                        if (pending) return;
+                        send(q, { context: snapshot, language });
+                      }}
+                      disabled={pending}
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
           {messages.map((m, i) => (
