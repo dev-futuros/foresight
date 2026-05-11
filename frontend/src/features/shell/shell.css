@@ -10,6 +10,19 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  /* Matches .chat-panel's width transition (chat.css) so the shell and the
+     panel slide in lock-step. The chat panel is position:fixed at right:0;
+     pushing the shell left by its width gives the demo's "panel beside
+     content" effect instead of an overlay. */
+  transition: margin-right 320ms cubic-bezier(0.32, 0.72, 0.24, 1);
+}
+/* Only push on wider viewports — at ≤720px the chat panel goes full-width
+   anyway (see chat.css media query), so shifting the shell off-screen
+   would just hide everything underneath. */
+@media (min-width: 721px) {
+  body.chat-open .app-shell {
+    margin-right: 380px;
+  }
 }
 
 /* Flex grower around <Outlet />. Pushes AppFooter to the bottom on short

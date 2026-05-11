@@ -10,6 +10,11 @@ export interface PendingConfirm {
    *  chip is queued so the UI can render without re-resolving the command. */
   label: string;
   preview?: string;
+  /** Set to true after the user has clicked the chip. The chip stays in
+   *  the array (rather than being removed) so the UI can render it in
+   *  an "applied" green state instead of collapsing into something
+   *  smaller — matches the demo's persistent chip behaviour. */
+  applied?: boolean;
 }
 
 interface ChatContextSnapshot {
@@ -182,6 +187,41 @@ export function useChat() {
       const trimmed = text.trim();
       if (!trimmed) return;
       ctxRef.current = snapshot;
+
+      // If there are unresolved (un-applied) confirm chips from the
+      // previous assistant turn, auto-decline them so the new user
+      // message doesn't violate Anthropic's tool_use/tool_result
+      // pairing. The chip UI no longer exposes a decline button —
+      // clicking the chip is the only explicit action — so "user moved
+      // on without clicking" needs to be turned into a tool_result here.
+      // Applied chips are skipped (their tool_results were already
+      // flushed by resolveConfirm) and kept in the array so they stay
+      // visible in their green applied state.
+      const unresolved = pendingConfirms.filter((c) => !c.applied);
+      if (unresolved.length > 0) {
+        const declineBlocks: ChatContentBlock[] = unresolved.map((c) => ({
+          type: 'tool_result',
+          tool_use_id: c.toolUseId,
+          content: 'User did not click this action; treating as declined.',
+        }));
+        const userMsg: ChatMessage = {
+          role: 'user',
+          content: [...declineBlocks, { type: 'text', text: trimmed }],
+        };
+        // Drop only the now-declined chips; keep the applied ones so
+        // they remain rendered in their green state in the conversation.
+        setPendingConfirms((prev) => prev.filter((c) => c.applied));
+        pendingResultsRef.current = [];
+        expectedResultsRef.current = 0;
+        historyAtFlushRef.current = [];
+        setMessages((prev) => {
+          const next = [...prev, userMsg];
+          void runLoop(next);
+          return next;
+        });
+        return;
+      }
+
       const userMsg: ChatMessage = { role: 'user', content: trimmed };
       setMessages((prev) => {
         const next = [...prev, userMsg];
@@ -189,16 +229,30 @@ export function useChat() {
         return next;
       });
     },
-    [runLoop],
+    [pendingConfirms, runLoop],
   );
 
   /** Resolve a queued confirm chip. Pushes its tool_result into the same
-   *  buffer the runLoop started; flushes when the threshold is reached. */
+   *  buffer the runLoop started; flushes when the threshold is reached.
+   *
+   *  <p>On accept, the chip is marked {@code applied: true} (rather than
+   *  being removed) so the UI keeps rendering it in green-applied state.
+   *  On decline, the chip is removed entirely — there's no compelling
+   *  visual story for "user said no", and keeping it would clutter the
+   *  bubble. (Decline is only triggered by the auto-decline path in
+   *  send() these days; the chip UI no longer surfaces a decline button.)
+   */
   const resolveConfirm = useCallback(
     async (toolUseId: string, accept: boolean) => {
       const target = pendingConfirms.find((c) => c.toolUseId === toolUseId);
-      if (!target) return;
-      setPendingConfirms((prev) => prev.filter((c) => c.toolUseId !== toolUseId));
+      if (!target || target.applied) return;
+      if (accept) {
+        setPendingConfirms((prev) =>
+          prev.map((c) => (c.toolUseId === toolUseId ? { ...c, applied: true } : c)),
+        );
+      } else {
+        setPendingConfirms((prev) => prev.filter((c) => c.toolUseId !== toolUseId));
+      }
 
       let result: ChatContentBlock;
       if (!accept) {

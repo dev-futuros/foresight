@@ -29,6 +29,35 @@ const STEP_FOR_FIELD_ID: Record<string, number> = {
   'hs-h1': 4, 'hs-h2': 4, 'hs-h3': 4,
 };
 
+/** Lookup table mapping setField field ids to a concise human-readable
+ *  label suitable for the chip head. Localised values live in
+ *  i18n.chat.fields; this map just bridges the raw ids the model sends
+ *  to those translation keys. */
+const FIELD_NAME_KEY: Record<string, string> = {
+  'f-name': 'chat.fields.f-name',
+  'f-sector': 'chat.fields.f-sector',
+  'f-size': 'chat.fields.f-size',
+  'f-horizon': 'chat.fields.f-horizon',
+  'f-market': 'chat.fields.f-market',
+  'f-challenge': 'chat.fields.f-challenge',
+  'f-strengths': 'chat.fields.f-strengths',
+  'f-consultant-name': 'chat.fields.f-consultant-name',
+  'f-consultant-company': 'chat.fields.f-consultant-company',
+  'gs-s': 'chat.fields.gs-s',
+  'gs-t': 'chat.fields.gs-t',
+  'gs-e': 'chat.fields.gs-e',
+  'gs-env': 'chat.fields.gs-env',
+  'gs-p': 'chat.fields.gs-p',
+  'steep-s': 'chat.fields.steep-s',
+  'steep-t': 'chat.fields.steep-t',
+  'steep-e': 'chat.fields.steep-e',
+  'steep-env': 'chat.fields.steep-env',
+  'steep-p': 'chat.fields.steep-p',
+  'hs-h1': 'chat.fields.hs-h1',
+  'hs-h2': 'chat.fields.hs-h2',
+  'hs-h3': 'chat.fields.hs-h3',
+};
+
 /** Min character length at which a setField proposal gets a "Show more"
  *  toggle. Below this the preview fits within the 4-line clamp anyway, so
  *  a toggle is meaningless visual noise. Matches the staging demo's
@@ -39,6 +68,41 @@ const PREVIEW_TOGGLE_THRESHOLD = 120;
  *  Long enough for the user to see the destination step flash, short enough
  *  that the apply doesn't feel laggy. Matches the staging demo. */
 const PRE_NAV_DELAY_MS = 280;
+
+/**
+ * Tiny inline-markdown pass ported from the staging demo's
+ * {@code renderChatMarkdown}. Supports {@code **bold**}, {@code *italic*}
+ * and {@code `code`} — the three markers the assistant's system prompt
+ * actually emits. Anything else passes through as escaped plain text.
+ *
+ * <p>Security: the input is HTML-escaped FIRST, then only the specific
+ * markdown patterns are replaced with the corresponding tags. Nothing the
+ * LLM (or user) can write reaches the DOM unescaped except for the
+ * literal {@code <strong>}, {@code <em>}, {@code <code>} we inject.
+ *
+ * <p>Line breaks are intentionally not transformed: {@code white-space:
+ * pre-wrap} on {@code .chat-bubble-text} already preserves newlines in
+ * the source text, so doubling them as {@code <br>} would over-space.
+ */
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+function renderInlineMd(text: string): string {
+  let h = escapeHtml(text);
+  // Order matters: code first so backticks aren't confused with stars
+  // inside code spans. Bold before italic so `**foo**` doesn't get
+  // partially eaten by the italic rule. The italic lookarounds prevent
+  // a stray `*` from neighbouring bold markup being re-matched.
+  h = h.replace(/`([^`]+)`/g, '<code>$1</code>');
+  h = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  h = h.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '<em>$1</em>');
+  return h;
+}
 
 /** Same shape NewReportPage publishes via setAssistantContext. Other pages
  *  (dashboard, account, report viewer) don't publish today; their fields
@@ -159,6 +223,17 @@ export default function ChatAssistant() {
     }
   }, [open, pending]);
 
+  // Toggle a body-level class while the chat panel is open. shell.css uses
+  // it to push the .app-shell content left by the panel width so the chat
+  // doesn't overlap any of the page underneath — matches the demo's
+  // "push content aside" behaviour rather than the older overlay style.
+  useEffect(() => {
+    if (open) {
+      document.body.classList.add('chat-open');
+      return () => document.body.classList.remove('chat-open');
+    }
+  }, [open]);
+
   function autosize(el: HTMLTextAreaElement) {
     el.style.height = 'auto';
     el.style.height = Math.min(el.scrollHeight, 160) + 'px';
@@ -212,11 +287,6 @@ export default function ChatAssistant() {
     [pendingConfirms, ctx?.currentStep, resolveConfirm],
   );
 
-  const handleDecline = useCallback(
-    (toolUseId: string) => resolveConfirm(toolUseId, false),
-    [resolveConfirm],
-  );
-
   return (
     <>
       {!open && (
@@ -259,9 +329,13 @@ export default function ChatAssistant() {
               <path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5" />
             </svg>
           </button>
+          {/* Close X is hidden on desktop — dismissal goes through the
+              .chat-collapse handle on the panel's left edge. On mobile
+              the panel is full-width and the collapse handle is hidden,
+              so this X becomes the primary close affordance. */}
           <button
             type="button"
-            className="chat-head-btn"
+            className="chat-head-btn chat-head-close"
             onClick={() => setOpen(false)}
             title={t('chat.close')}
             aria-label={t('chat.close')}
@@ -285,7 +359,6 @@ export default function ChatAssistant() {
               pendingConfirms={pendingConfirms}
               onApprove={handleApproveChip}
               onApproveDirect={(id) => resolveConfirm(id, true)}
-              onDecline={handleDecline}
             />
           ))}
           {pending && (
@@ -340,6 +413,24 @@ export default function ChatAssistant() {
         </form>
         <div className="chat-foot">{t('chat.disclaimer')}</div>
       </aside>
+
+      {/* Mini collapse handle — sits on the panel's left edge while the chat
+          is open. At rest, a small clickable nub; on hover, expands to show
+          the chevron icon. CSS handles the slide-in animation in lockstep
+          with the panel's width transition. Always rendered (visibility
+          toggles) so the right-position transition can fire. */}
+      <button
+        type="button"
+        className="chat-collapse"
+        onClick={() => setOpen(false)}
+        title={t('chat.close')}
+        aria-label={t('chat.close')}
+        tabIndex={open ? 0 : -1}
+      >
+        <svg viewBox="0 0 24 24" aria-hidden>
+          <path d="M9 6l6 6-6 6" />
+        </svg>
+      </button>
     </>
   );
 }
@@ -355,7 +446,6 @@ interface MessageViewProps {
    *  Promise-returning shape lets the apply-all loop {@code await} each
    *  resolution sequentially. */
   onApproveDirect: (toolUseId: string) => Promise<void>;
-  onDecline: (toolUseId: string) => void;
 }
 
 type ApplyAllState = 'idle' | 'running' | 'done';
@@ -377,26 +467,42 @@ function MessageView({
   pendingConfirms,
   onApprove,
   onApproveDirect,
-  onDecline,
 }: MessageViewProps) {
   const { t } = useTranslation();
   const [applyAllState, setApplyAllState] = useState<ApplyAllState>('idle');
 
   if (typeof message.content === 'string') {
+    const isBot = message.role !== 'user';
     return (
-      <div className={`chat-msg ${message.role === 'user' ? 'user' : 'bot'}`}>
-        <div className="chat-bubble-text">{message.content}</div>
+      <div className={`chat-msg ${isBot ? 'bot' : 'user'}`}>
+        {isBot ? (
+          // Assistant string content (rare path — most assistant turns
+          // come as block arrays). Render through the tiny markdown pass
+          // so any **bold**/`code`/*italic* still works.
+          <div
+            className="chat-bubble-text"
+            dangerouslySetInnerHTML={{ __html: renderInlineMd(message.content) }}
+          />
+        ) : (
+          // User content — auto-escaped by React, no markdown.
+          <div className="chat-bubble-text">{message.content}</div>
+        )}
       </div>
     );
   }
 
   // Walk this message's blocks once to find the tool_use ids that are
-  // still awaiting user approval. Used both for the apply-all visibility
-  // check and as the click-time iteration order (DOM order).
+  // still awaiting user approval (excluding chips already in the
+  // applied=true state). Used both for the apply-all visibility check
+  // and as the click-time iteration order (DOM order).
   const blocks = message.content;
   const pendingIdsInBubble: string[] = [];
   for (const b of blocks) {
-    if (b.type === 'tool_use' && b.id && pendingConfirms.some((c) => c.toolUseId === b.id)) {
+    if (
+      b.type === 'tool_use' &&
+      b.id &&
+      pendingConfirms.some((c) => c.toolUseId === b.id && !c.applied)
+    ) {
       pendingIdsInBubble.push(b.id);
     }
   }
@@ -427,7 +533,6 @@ function MessageView({
           block={block}
           pendingConfirms={pendingConfirms}
           onApprove={onApprove}
-          onDecline={onDecline}
         />
       ))}
       {showApplyAll && (
@@ -448,15 +553,21 @@ function BlockView({
   block,
   pendingConfirms,
   onApprove,
-  onDecline,
 }: {
   block: ChatContentBlock;
   pendingConfirms: PendingConfirm[];
   onApprove: (toolUseId: string) => void;
-  onDecline: (toolUseId: string) => void;
 }) {
   if (block.type === 'text' && block.text) {
-    return <div className="chat-bubble-text">{block.text}</div>;
+    // Assistant prose — render the demo's tiny markdown subset. Safe:
+    // renderInlineMd escapes first, then only injects <strong>, <em>,
+    // <code> from matching markdown patterns.
+    return (
+      <div
+        className="chat-bubble-text"
+        dangerouslySetInnerHTML={{ __html: renderInlineMd(block.text) }}
+      />
+    );
   }
   if (block.type === 'tool_use' && block.id && block.name) {
     const pending = pendingConfirms.find((c) => c.toolUseId === block.id);
@@ -466,13 +577,13 @@ function BlockView({
           toolUseId={block.id}
           pending={pending}
           onApprove={onApprove}
-          onDecline={onDecline}
         />
       );
     }
-    // Already resolved — render as a quiet activity line so the user can
-    // still see what the assistant did.
-    return <div className="chat-activity">⟶ {block.name}</div>;
+    // No matching pending → the chip was either declined (silently
+    // dropped on next message) or this is from before the applied-flag
+    // refactor. Render nothing rather than a stale tag.
+    return null;
   }
   // tool_result and unknown types are silent — the next assistant text
   // turn already speaks to them, and rendering raw JSON adds noise.
@@ -495,49 +606,98 @@ function ConfirmChip({
   toolUseId,
   pending,
   onApprove,
-  onDecline,
 }: {
   toolUseId: string;
   pending: PendingConfirm;
   onApprove: (toolUseId: string) => void;
-  onDecline: (toolUseId: string) => void;
 }) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const showToggle = !!pending.preview && pending.preview.length >= PREVIEW_TOGGLE_THRESHOLD;
+  const applied = !!pending.applied;
+
+  /** Head text — for setField chips, render "REPLACE IN: <field>" /
+   *  "ADD TO: <field>" / "APPLIED TO: <field>" using human-readable
+   *  field names from {@link FIELD_NAME_KEY}. For other commands, fall
+   *  back to the spec-provided label (covers runAnalysis, delete, etc.).
+   *  The pending state's verb depends on the setField mode arg so the
+   *  chip shows what's actually about to happen. */
+  const headText = (() => {
+    if (pending.name === 'setField') {
+      const input = pending.input as { id?: string; mode?: string } | undefined;
+      const fieldId = input?.id ?? '';
+      const fieldKey = FIELD_NAME_KEY[fieldId];
+      const fieldName = fieldKey ? t(fieldKey) : fieldId;
+      const verb = applied
+        ? t('chat.appliedTo')
+        : input?.mode === 'add'
+          ? t('chat.addTo')
+          : t('chat.replaceIn');
+      return `${verb}: ${fieldName}`;
+    }
+    return pending.label;
+  })();
+
+  /** The chip body itself is the click target — clicking ANYWHERE on
+   *  the chip (head, preview area, even whitespace) approves the
+   *  action. Once applied, the chip is "spent" — further clicks are
+   *  no-ops (the chip stays visible in green-applied state). */
+  function handleChipClick() {
+    if (applied) return;
+    onApprove(toolUseId);
+  }
+  function handleChipKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (applied) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onApprove(toolUseId);
+    }
+  }
+
   return (
-    <div className="chat-confirm">
-      <div className="chat-confirm-head">{pending.label}</div>
+    // Plain div + role=button (not <button>) so the nested "Show more"
+    // <button> doesn't produce invalid button-in-button HTML. Keyboard
+    // accessibility is restored via tabIndex + Enter/Space handlers.
+    <div
+      className={`chat-confirm${expanded ? ' expanded' : ''}${applied ? ' applied' : ''}`}
+      role={applied ? undefined : 'button'}
+      tabIndex={applied ? -1 : 0}
+      onClick={handleChipClick}
+      onKeyDown={handleChipKeyDown}
+      aria-label={headText}
+      aria-disabled={applied || undefined}
+    >
+      <div className="chat-confirm-head">
+        <svg className="chat-confirm-head-ico" aria-hidden>
+          <use href="#i-swap" />
+        </svg>
+        <span>{headText}</span>
+      </div>
       {pending.preview && (
         <div className={`chat-confirm-preview${expanded ? ' expanded' : ''}`}>
           {pending.preview}
         </div>
       )}
       {showToggle && (
-        <button
-          type="button"
-          className="chat-confirm-toggle"
-          onClick={() => setExpanded((v) => !v)}
-        >
-          {expanded ? t('chat.showLess') : t('chat.showMore')}
-        </button>
+        <div className="chat-confirm-toggle-wrap">
+          <button
+            type="button"
+            className="chat-confirm-toggle"
+            onClick={(e) => {
+              // Don't bubble — toggling the preview shouldn't fire the
+              // outer chip's apply handler.
+              e.stopPropagation();
+              setExpanded((v) => !v);
+            }}
+            // Match Enter/Space to its own toggle action so keyboard
+            // users don't accidentally apply the chip.
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            <span className="caret" aria-hidden>▾</span>
+            {expanded ? t('chat.showLess') : t('chat.showMore')}
+          </button>
+        </div>
       )}
-      <div className="chat-confirm-actions">
-        <button
-          type="button"
-          className="chat-confirm-btn chat-confirm-btn--accept"
-          onClick={() => onApprove(toolUseId)}
-        >
-          ✓
-        </button>
-        <button
-          type="button"
-          className="chat-confirm-btn"
-          onClick={() => onDecline(toolUseId)}
-        >
-          ✕
-        </button>
-      </div>
     </div>
   );
 }

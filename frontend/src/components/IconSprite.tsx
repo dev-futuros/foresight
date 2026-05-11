@@ -149,6 +149,15 @@ export default function IconSprite() {
         <polyline points="16 17 21 12 16 7" />
         <line x1="21" y1="12" x2="9" y2="12" />
       </symbol>
+
+      {/* swap / replace — two horizontal arrows pointing opposite ways
+          (header glyph for setField confirm chips). */}
+      <symbol id="i-swap" viewBox="0 0 24 24">
+        <polyline points="16 3 20 7 16 11" />
+        <line x1="4" y1="7" x2="20" y2="7" />
+        <polyline points="8 21 4 17 8 13" />
+        <line x1="20" y1="17" x2="4" y2="17" />
+      </symbol>
     </svg>
   );
 }
