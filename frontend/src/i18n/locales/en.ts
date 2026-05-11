@@ -7,6 +7,12 @@ const en = {
     close: 'Close',
     togglePassword: 'Show/hide password',
     brand: 'Foresight Strategy · Powered by Claude AI',
+    /** Generic "Read more / Read less" used by the LineClamp primitive. */
+    readMore: 'Read more',
+    readLess: 'Read less',
+    expandAll: 'Expand all',
+    collapseAll: 'Collapse all',
+    all: 'All',
   },
   loader: {
     metric: {
@@ -411,6 +417,12 @@ const en = {
       FAILED: 'Error',
     },
   },
+  reportDensity: {
+    label: 'View density',
+    compact: 'Compact',
+    comfortable: 'Comfortable',
+    spacious: 'Spacious',
+  },
   report: {
     backToDashboard: '← My reports',
     eyebrow: 'Strategic foresight report',
@@ -475,11 +487,16 @@ const en = {
         str: 'Strategic map',
         sources: 'Sources',
       },
+      summary: {
+        execTitle: 'Executive summary',
+      },
       scen: {
         opps: 'Opportunities',
         threats: 'Threats',
         success: 'Success factors',
         firstmove: 'First move',
+        probability: 'Probability',
+        probabilityHint: 'Model-estimated relative likelihood of this scenario. The three scenario probabilities sum to 100% and reflect the AI’s reading of current signals, trends and structural conditions described in your inputs and web-search research.',
       },
       steep: {
         title: 'STEEP analysis',
@@ -501,6 +518,8 @@ const en = {
         axesTitle: 'Critical uncertainty axes',
         matrix: 'Impact and uncertainty matrix',
         logics: 'Narrative logic per scenario',
+        rationale: 'Rationale',
+        impactScoreHint: 'Model-estimated influence of this force on the strategic outcome, on a 0–100 scale. Scores descend strictly from rank #1 to #4, so they reflect relative weight rather than absolute magnitude.',
         impact: { low: 'Low impact', medium: 'Medium impact', high: 'High impact' },
         unc: { low: 'Low uncertainty', medium: 'Medium uncertainty', high: 'High uncertainty' },
       },
@@ -519,6 +538,8 @@ const en = {
         h1: 'Present-extended (0–2 years)',
         h2: 'Emerging future (2–5 years)',
         h3: 'Possible future (5+ years)',
+        priorityCount_one: '{{count}} priority',
+        priorityCount_other: '{{count}} priorities',
       },
       sources: {
         intro: 'Public sources consulted to ground the analysis. Retrieved via web search during generation.',

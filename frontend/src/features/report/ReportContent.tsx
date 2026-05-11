@@ -177,7 +177,13 @@ export default function ReportContent({ result, input }: Props) {
           </button>
         ))}
       </div>
-      <div className="tab-panel">{activeTab.render(result, input)}</div>
+      {/* Keyed on the active tab id so React unmounts the previous tab's
+          subtree and mounts a fresh one when the user switches — that
+          restarts the CSS fade-in animation on .tab-panel cleanly, with
+          no need for a transition library. */}
+      <div className="tab-panel" key={activeTab.key}>
+        {activeTab.render(result, input)}
+      </div>
     </div>
   );
 }

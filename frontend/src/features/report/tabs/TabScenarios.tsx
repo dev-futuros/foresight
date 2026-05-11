@@ -1,90 +1,231 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Scenario } from '../../../lib/aiClient';
 import type { ResultData } from '../ReportContent';
+import InfoTooltip from '../../../components/InfoTooltip';
 
 /**
- * Escenarios 3P tab — the full prototype card for each 3P scenario:
- * coloured stripe, type badge, evocative name, probability pill,
- * narrative description (which may break into two paragraphs via `\n\n`),
- * coloured opportunity / threat / success-factor lists, and the
- * gold-bg "primer movimiento" footer.
+ * Escenarios 3P tab — explorer layout.
  *
- * <p>The 11-row subgrid declared in `report.css#scenarios-grid` keeps the
- * same section aligned horizontally across all three cards regardless of
- * content length, so the visual rhythm of the demo is preserved even
- * when the model produces uneven content.
+ * <p>Top row: a compact comparison strip with all three scenarios as
+ * mini-cards (stripe + type/probability + name + 2-line abstract).
+ * Clicking a card selects it.
+ *
+ * <p>Below: a single wide detail panel showing the selected scenario in
+ * a two-column layout — full description + first-move on the left, the
+ * three action lists (opportunities / threats / success factors) stacked
+ * on the right. Probability gets a small visual meter next to the
+ * heading so the relative likelihood of the three reads at a glance.
+ *
+ * <p>This replaces the previous "three crowded cards side-by-side"
+ * pattern: comparison and deep dive each get their own optimised view,
+ * so scanning across scenarios and reading any one of them in full are
+ * both first-class flows.
  */
 export default function TabScenarios({ result }: { result: ResultData }) {
   const { t } = useTranslation();
   const scenarios = result.scenarios ?? [];
+  const [selectedIdx, setSelectedIdx] = useState(0);
   if (scenarios.length === 0) return null;
 
+  const selected = scenarios[Math.min(selectedIdx, scenarios.length - 1)];
+  const opps = selected.opportunities ?? [];
+  const threats = selected.threats ?? [];
+  const success = selected.successFactors ?? [];
+
   return (
-    <div className="scenarios-grid">
-      {scenarios.map((s, i) => (
-        <article key={s.type ?? i} className={`scen-card ${scenarioModifier(s)}`}>
-          <div className="scen-stripe" aria-hidden />
-          <div className="scen-type-badge">{s.type}</div>
-          <h3 className="scen-name">{s.name ?? s.title}</h3>
-          {s.probability ? (
-            <div className="prob-pill">P: {s.probability}</div>
-          ) : (
-            <div className="prob-pill" aria-hidden />
+    <div className="scenarios-explorer">
+      {/* Comparison strip — mini-cards for at-a-glance scan + selection */}
+      <div className="scen-compare-row" role="tablist">
+        {scenarios.map((s, i) => (
+          <button
+            key={s.type ?? i}
+            type="button"
+            role="tab"
+            aria-selected={i === selectedIdx}
+            className={`scen-compare-card ${scenarioModifier(s)}${
+              i === selectedIdx ? ' active' : ''
+            }`}
+            onClick={() => setSelectedIdx(i)}
+          >
+            <div className="scen-compare-stripe" aria-hidden />
+            <div className="scen-compare-meta">
+              <span className="scen-compare-type">{s.type}</span>
+              {s.probability && (
+                <span
+                  className="scen-compare-prob"
+                  title={t('report.results.scen.probabilityHint')}
+                >
+                  {s.probability}
+                </span>
+              )}
+            </div>
+            <div className="scen-compare-name">{s.name ?? s.title}</div>
+            <div className="scen-compare-abstract">
+              {firstSentence(s.description)}
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {/* Detail panel for the currently-selected scenario. Keyed on
+          selection so React remounts a fresh subtree per click,
+          restarting the fade-in animation cleanly. */}
+      <article
+        key={selectedIdx}
+        className={`scen-detail ${scenarioModifier(selected)}`}
+      >
+        <div className="scen-detail-stripe" aria-hidden />
+
+        <header className="scen-detail-head">
+          <div className="scen-detail-head-text">
+            <span className="scen-detail-type">{selected.type}</span>
+            <h2 className="scen-detail-name">{selected.name ?? selected.title}</h2>
+          </div>
+          {selected.probability && (
+            <ProbabilityMeter value={selected.probability} t={t} />
           )}
-          <p className="scen-desc">{s.description}</p>
+        </header>
 
-          <div className="scen-section-label">{t('report.results.scen.opps')}</div>
-          <div className="scen-items">
-            {(s.opportunities ?? []).map((o, j) => (
-              <div key={j} className="scen-item">
-                <div className="scen-dot" style={{ background: 'var(--green)' }} />
-                <span>{o}</span>
+        <div className="scen-detail-body">
+          <div className="scen-detail-left">
+            <p className="scen-detail-desc">{selected.description}</p>
+
+            {selected.firstMove && (
+              <div className="scen-firstmove">
+                <div className="scen-firstmove-label">
+                  {t('report.results.scen.firstmove')}
+                </div>
+                <div className="scen-firstmove-text">{selected.firstMove}</div>
               </div>
-            ))}
+            )}
           </div>
 
-          <div className="scen-section-label">{t('report.results.scen.threats')}</div>
-          <div className="scen-items">
-            {(s.threats ?? []).map((th, j) => (
-              <div key={j} className="scen-item">
-                <div className="scen-dot" style={{ background: 'var(--red)' }} />
-                <span>{th}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="scen-section-label">{t('report.results.scen.success')}</div>
-          <div className="scen-items">
-            {(s.successFactors ?? []).map((f, j) => (
-              <div key={j} className="scen-item">
-                <div className="scen-dot" style={{ background: 'var(--gold)' }} />
-                <span>{f}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="scen-firstmove">
-            <div className="scen-firstmove-label">{t('report.results.scen.firstmove')}</div>
-            <div className="scen-firstmove-text">{s.firstMove ?? '—'}</div>
-          </div>
-        </article>
-      ))}
+          <aside className="scen-detail-right">
+            <ActionList
+              variant="opps"
+              label={t('report.results.scen.opps')}
+              items={opps}
+              dotColor="var(--green)"
+            />
+            <ActionList
+              variant="threats"
+              label={t('report.results.scen.threats')}
+              items={threats}
+              dotColor="var(--red)"
+            />
+            <ActionList
+              variant="success"
+              label={t('report.results.scen.success')}
+              items={success}
+              dotColor="var(--gold)"
+            />
+          </aside>
+        </div>
+      </article>
     </div>
   );
 }
 
 /**
- * Maps a scenario's `type` token to the matching `scen-card--*` modifier so
- * the coloured stripe + badge follow the scenario semantically (rather than
- * by ordinal position). Falls back to no modifier if the type doesn't
- * match a known token — the nth-child fallback in CSS still colour-codes
- * by position.
+ * Small horizontal probability meter next to the scenario name. Parses
+ * the percentage string ("72%", "21.5%") into a number — falls back to
+ * 0 if the format is unexpected (the prompt pins it to "XX%" so this
+ * should rarely fire, but the parser is defensive).
  */
+function ProbabilityMeter({
+  value,
+  t,
+}: {
+  value: string;
+  t: ReturnType<typeof useTranslation>['t'];
+}) {
+  const pct = clampPct(parsePercent(value));
+  return (
+    <div className="scen-detail-prob" aria-label={`${t('report.results.scen.probability')}: ${value}`}>
+      <span className="scen-detail-prob-label">
+        {t('report.results.scen.probability')}
+        <InfoTooltip text={t('report.results.scen.probabilityHint')} />
+      </span>
+      <div className="scen-detail-prob-meter" aria-hidden>
+        <div
+          className="scen-detail-prob-fill"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className="scen-detail-prob-value">{value}</span>
+    </div>
+  );
+}
+
+function ActionList({
+  variant,
+  label,
+  items,
+  dotColor,
+}: {
+  variant: 'opps' | 'threats' | 'success';
+  label: string;
+  items: string[];
+  dotColor: string;
+}) {
+  return (
+    <div className={`scen-action-card scen-action-card--${variant}`}>
+      <div className="scen-action-head">
+        <span
+          className="scen-action-dot"
+          style={{ background: dotColor }}
+          aria-hidden
+        />
+        <span className="scen-action-label">{label}</span>
+        <span className="scen-action-count">{items.length}</span>
+      </div>
+      {items.length > 0 ? (
+        <ul className="scen-action-list">
+          {items.map((it, i) => (
+            <li key={i}>{it}</li>
+          ))}
+        </ul>
+      ) : (
+        <p className="scen-action-empty">—</p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * First-sentence preview for the comparison strip's abstract. Splits on
+ * the first sentence terminator that looks like a real one (period
+ * followed by space + capital, or a paragraph break). Falls back to
+ * the first ~140 chars to avoid pathologically long abstracts.
+ */
+function firstSentence(text: string): string {
+  if (!text) return '';
+  // Paragraph break takes precedence — model uses \n\n for explicit splits.
+  const para = text.indexOf('\n\n');
+  if (para !== -1 && para < 200) return text.slice(0, para).trim();
+  // Sentence boundary heuristic.
+  const m = text.match(/^[\s\S]+?[.!?](?=\s+[A-ZÁÉÍÓÚÑ]|$)/);
+  if (m) return m[0].trim();
+  return text.length > 140 ? text.slice(0, 140).trim() + '…' : text;
+}
+
+function parsePercent(s: string): number {
+  const m = s.match(/-?\d+(?:[.,]\d+)?/);
+  if (!m) return 0;
+  return Number(m[0].replace(',', '.'));
+}
+function clampPct(n: number): number {
+  if (Number.isNaN(n)) return 0;
+  if (n < 0) return 0;
+  if (n > 100) return 100;
+  return n;
+}
+
 function scenarioModifier(s: Scenario): string {
   const t = (s.type ?? '').toLowerCase();
   if (t === 'probable') return 'scen-card--probable';
   if (t === 'plausible') return 'scen-card--plausible';
-  // Demo Spanish uses "Posible" (one 's'); English uses "Possible".
   if (t === 'posible' || t === 'possible') return 'scen-card--possible';
   return '';
 }

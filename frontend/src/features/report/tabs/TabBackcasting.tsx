@@ -1,26 +1,41 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { BackcastingEntry } from '../../../lib/aiClient';
 import type { ResultData } from '../ReportContent';
 
 /**
- * Backcasting tab — port of the demo's tab-bc content.
+ * Backcasting tab — horizontal milestone strip + slide-open detail panel.
  *
- * <p>Top-row pill selector switches between the three scenarios. Each
- * panel shows the vision statement at the top (with a scenario-coloured
- * stripe), then the milestone timeline (gold dot + connecting line),
- * then the "starting point" card describing today's situation.
+ * <p>Top: pill selector for the three 3P scenarios. Below: vision card
+ * with a scenario-coloured stripe. Then a horizontal strip of milestone
+ * cards (year + title), connected by a thin gold line. Clicking a card
+ * selects it; the description + actions for the selected milestone slide
+ * open into a single panel below the strip. Bottom: starting-point card.
+ *
+ * <p>This replaces the old vertical timeline — it surfaces all the years
+ * at a glance and limits the visible prose to one milestone at a time,
+ * which is the friendlier reading mode on a wide screen.
  */
 export default function TabBackcasting({ result }: { result: ResultData }) {
   const { t } = useTranslation();
   const entries = result.backcasting ?? [];
   const [activeIdx, setActiveIdx] = useState(0);
+  const [selectedMilestoneIdx, setSelectedMilestoneIdx] = useState(0);
+
+  // When the user switches scenarios, reset the milestone selection to
+  // the first card so the detail panel doesn't briefly read from the
+  // previous scenario before the user clicks again.
+  useEffect(() => {
+    setSelectedMilestoneIdx(0);
+  }, [activeIdx]);
 
   if (entries.length === 0) {
     return <p className="empty-state">{t('report.results.empty')}</p>;
   }
 
   const active = entries[Math.min(activeIdx, entries.length - 1)];
+  const milestones = active.milestones ?? [];
+  const selected = milestones[Math.min(selectedMilestoneIdx, milestones.length - 1)];
 
   return (
     <div className="bc-tab">
@@ -49,23 +64,51 @@ export default function TabBackcasting({ result }: { result: ResultData }) {
         <p className="bc-vision-text">{active.visionStatement}</p>
       </div>
 
-      {active.milestones && active.milestones.length > 0 && (
-        <div className="bc-timeline">
-          {active.milestones.map((m, i) => (
-            <div key={i} className="bc-milestone">
-              <div className="bc-m-time">{m.year}</div>
-              <div className="bc-m-title">{m.title}</div>
-              <p className="bc-m-desc">{m.description}</p>
-              {m.actions && m.actions.length > 0 && (
+      {milestones.length > 0 && (
+        <>
+          {/* Horizontal milestone strip — cards laid out in a flex row
+              with a faint horizontal connector behind the dots so the
+              reading direction is unambiguous. Scrolls horizontally
+              when the row outgrows the viewport. */}
+          <div className="bc-strip" role="tablist" aria-label={t('report.results.bc.intro')}>
+            <div className="bc-strip-track" aria-hidden />
+            {milestones.map((m, i) => (
+              <button
+                key={i}
+                type="button"
+                role="tab"
+                aria-selected={i === selectedMilestoneIdx}
+                className={`bc-strip-card${i === selectedMilestoneIdx ? ' active' : ''}`}
+                onClick={() => setSelectedMilestoneIdx(i)}
+              >
+                <span className="bc-strip-dot" aria-hidden />
+                <span className="bc-strip-year">{m.year}</span>
+                <span className="bc-strip-title">{m.title}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Detail panel — slides open with the selected milestone's
+              description + actions. Keyed on selection so React mounts a
+              fresh subtree per click, which restarts the slide-in
+              animation cleanly. */}
+          {selected && (
+            <div className="bc-detail" key={`m-${activeIdx}-${selectedMilestoneIdx}`}>
+              <div className="bc-detail-head">
+                <span className="bc-m-time">{selected.year}</span>
+                <span className="bc-m-title">{selected.title}</span>
+              </div>
+              <p className="bc-m-desc">{selected.description}</p>
+              {selected.actions && selected.actions.length > 0 && (
                 <ul className="bc-m-actions">
-                  {m.actions.map((a, j) => (
+                  {selected.actions.map((a, j) => (
                     <li key={j} className="bc-action">{a}</li>
                   ))}
                 </ul>
               )}
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
 
       {active.startingPoint && (
@@ -78,11 +121,6 @@ export default function TabBackcasting({ result }: { result: ResultData }) {
   );
 }
 
-/**
- * Map a backcasting entry to the `bc-vision--*` modifier that colours the
- * top stripe according to scenario type (green / blue / orange). Falls
- * back to the default gold stripe when the type token doesn't match.
- */
 function visionModifier(bc: BackcastingEntry): string {
   const tType = (bc.scenarioType ?? '').toLowerCase();
   if (tType === 'probable') return 'bc-vision--probable';

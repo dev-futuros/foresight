@@ -1,23 +1,21 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type {
+  DrivingForce,
+  ScenarioLogic,
+  UncertaintyAxis,
+} from '../../../lib/aiClient';
 import type { ResultData } from '../ReportContent';
 import ImpactMatrix from './ImpactMatrix';
+import InfoTooltip from '../../../components/InfoTooltip';
 
 /**
- * Scenario Planning tab — port of the demo's tab-sp content.
+ * Scenario Planning tab.
  *
- * <p>Renders (in order):
- * <ul>
- *   <li>An intro paragraph from `scenarioPlanning.intro`</li>
- *   <li>The 4 ranked driving forces in a 2-column grid (rank badge,
- *       title, description, score bar + numeric score)</li>
- *   <li>The "Ejes de incertidumbre crítica" panel containing two axis
- *       cards (axis label, centred bar, low/high pole rows, rationale)</li>
- *   <li>The 4-quadrant Impact × Uncertainty matrix SVG (positions derived
- *       client-side from impactScore + the two axes — see
- *       {@link ImpactMatrix})</li>
- *   <li>The 3 colour-coded scenario-logic cards (green/blue/orange) at
- *       the bottom</li>
- * </ul>
+ * <p>Three progressive-disclosure blocks — driving forces, axes, and
+ * scenario logics — each pair a compact selectable strip with a single
+ * detail panel, so the whole tab stays scannable and fits without
+ * runaway vertical growth.
  */
 export default function TabScenarioPlanning({ result }: { result: ResultData }) {
   const { t } = useTranslation();
@@ -38,26 +36,7 @@ export default function TabScenarioPlanning({ result }: { result: ResultData }) 
       {planning.drivingForces && planning.drivingForces.length > 0 && (
         <>
           <p className="section-label">{t('report.results.sp.forces')}</p>
-          <div className="forces-grid">
-            {planning.drivingForces.map((f) => (
-              <div key={f.rank} className="force-card">
-                <div className="force-head">
-                  <span className="force-rank">#{f.rank}</span>
-                  <span className="force-title">{f.title}</span>
-                </div>
-                <p className="force-desc">{f.description}</p>
-                <div className="force-meter">
-                  <div className="force-bar-bg">
-                    <div
-                      className="force-bar-fill"
-                      style={{ width: `${clampScore(f.impactScore)}%` }}
-                    />
-                  </div>
-                  <span className="force-score">{clampScore(f.impactScore)}/100</span>
-                </div>
-              </div>
-            ))}
-          </div>
+          <DrivingForcesExplorer forces={planning.drivingForces} />
         </>
       )}
 
@@ -66,21 +45,7 @@ export default function TabScenarioPlanning({ result }: { result: ResultData }) 
           <div className="axes-title">{t('report.results.sp.axesTitle')}</div>
           <div className="axes-grid">
             {planning.axes.map((ax, i) => (
-              <div key={i} className="axis-card">
-                <div className="axis-label">{ax.label}</div>
-                <div className="axis-bar" aria-hidden />
-                <div className="axis-pole-row">
-                  <span className="axis-pole-tag low">−</span>
-                  <span className="axis-pole">{ax.poleLow}</span>
-                </div>
-                <div className="axis-pole-row">
-                  <span className="axis-pole-tag high">+</span>
-                  <span className="axis-pole">{ax.poleHigh}</span>
-                </div>
-                {ax.rationale && (
-                  <div className="axis-rationale">{ax.rationale}</div>
-                )}
-              </div>
+              <AxisCard key={i} axis={ax} />
             ))}
           </div>
         </div>
@@ -88,25 +53,164 @@ export default function TabScenarioPlanning({ result }: { result: ResultData }) 
 
       {planning.drivingForces && planning.drivingForces.length >= 2 &&
         planning.axes && planning.axes.length >= 1 && (
-          <>
-            <p className="section-label">{t('report.results.sp.matrix')}</p>
-            <ImpactMatrix forces={planning.drivingForces} axes={planning.axes} />
-          </>
+          <ImpactMatrix forces={planning.drivingForces} axes={planning.axes} />
         )}
 
       {planning.scenarioLogics && planning.scenarioLogics.length > 0 && (
         <>
           <p className="section-label">{t('report.results.sp.logics')}</p>
-          <div className="sp-scen-row">
-            {planning.scenarioLogics.map((sl, i) => (
-              <div key={i} className="sp-scen-card">
-                <div className="sp-scen-name">{sl.name}</div>
-                <p className="sp-scen-logic">{sl.logic}</p>
-              </div>
-            ))}
-          </div>
+          <ScenarioLogicsExplorer logics={planning.scenarioLogics} />
         </>
       )}
+    </div>
+  );
+}
+
+/**
+ * Driving-forces explorer — ranked-row list on the left, detail panel
+ * on the right. The list compacts the 4 forces into rank + title +
+ * score-bar; clicking a row reveals the full description in the panel.
+ * Keeps the section short instead of stacking 4 description blocks.
+ */
+function DrivingForcesExplorer({ forces }: { forces: DrivingForce[] }) {
+  const { t } = useTranslation();
+  const sorted = [...forces].sort((a, b) => a.rank - b.rank);
+  const [selectedIdx, setSelectedIdx] = useState(0);
+  const safeIdx = Math.min(selectedIdx, sorted.length - 1);
+  const selected = sorted[safeIdx];
+
+  return (
+    <div className="forces-explorer">
+      <ol className="forces-list" role="tablist">
+        {sorted.map((f, i) => {
+          const score = clampScore(f.impactScore);
+          const active = i === safeIdx;
+          return (
+            <li key={f.rank}>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={active}
+                className={`forces-row${active ? ' forces-row--active' : ''}`}
+                onClick={() => setSelectedIdx(i)}
+              >
+                <span className="force-rank" aria-hidden>#{f.rank}</span>
+                <span className="forces-row-title">{f.title}</span>
+                <span className="forces-row-meter" aria-hidden>
+                  <span className="forces-row-bar-bg">
+                    <span
+                      className="forces-row-bar-fill"
+                      style={{ width: `${score}%` }}
+                    />
+                  </span>
+                </span>
+                <span className="forces-row-score">{score}%</span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+      <div key={safeIdx} className="forces-detail">
+        <div className="forces-detail-head">
+          <span className="force-rank">#{selected.rank}</span>
+          <h4 className="forces-detail-title">{selected.title}</h4>
+          <span className="forces-detail-score">
+            {clampScore(selected.impactScore)}%
+            <InfoTooltip text={t('report.results.sp.impactScoreHint')} />
+          </span>
+        </div>
+        <p className="forces-detail-desc">{selected.description}</p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Single axis card — poles always visible, rationale tucked behind a
+ * small inline toggle so the two axis cards stay compact side-by-side.
+ */
+function AxisCard({ axis }: { axis: UncertaintyAxis }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="axis-card">
+      <div className="axis-label">{axis.label}</div>
+      <div className="axis-bar" aria-hidden />
+      <div className="axis-pole-row">
+        <span className="axis-pole-tag low">−</span>
+        <span className="axis-pole">{axis.poleLow}</span>
+      </div>
+      <div className="axis-pole-row">
+        <span className="axis-pole-tag high">+</span>
+        <span className="axis-pole">{axis.poleHigh}</span>
+      </div>
+      {axis.rationale && (
+        <>
+          <button
+            type="button"
+            className={`axis-rationale-toggle${open ? ' axis-rationale-toggle--open' : ''}`}
+            onClick={() => setOpen((p) => !p)}
+            aria-expanded={open}
+          >
+            <span>{t('report.results.sp.rationale')}</span>
+            <svg
+              viewBox="0 0 12 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.6}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="M3 4.5 L6 7.5 L9 4.5" />
+            </svg>
+          </button>
+          {open && <div className="axis-rationale">{axis.rationale}</div>}
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Scenario-logics explorer — comparison strip of 3 colour-coded
+ * mini-cards on top, single detail panel below. Mirrors the Scenarios
+ * tab pattern so picking and reading a scenario logic feels the same
+ * across the report.
+ */
+function ScenarioLogicsExplorer({ logics }: { logics: ScenarioLogic[] }) {
+  const [selectedIdx, setSelectedIdx] = useState(0);
+  const safeIdx = Math.min(selectedIdx, logics.length - 1);
+  const selected = logics[safeIdx];
+  const accentClass = (i: number): string =>
+    i % 3 === 0
+      ? 'sp-logic--green'
+      : i % 3 === 1
+        ? 'sp-logic--blue'
+        : 'sp-logic--orange';
+
+  return (
+    <div className="sp-logics-explorer">
+      <div className="sp-logics-strip" role="tablist">
+        {logics.map((sl, i) => (
+          <button
+            key={i}
+            type="button"
+            role="tab"
+            aria-selected={i === safeIdx}
+            className={`sp-logic-card ${accentClass(i)}${i === safeIdx ? ' active' : ''}`}
+            onClick={() => setSelectedIdx(i)}
+          >
+            <span className="sp-logic-stripe" aria-hidden />
+            <span className="sp-logic-name">{sl.name}</span>
+          </button>
+        ))}
+      </div>
+      <article key={safeIdx} className={`sp-logic-detail ${accentClass(safeIdx)}`}>
+        <span className="sp-logic-detail-stripe" aria-hidden />
+        <h4 className="sp-logic-detail-name">{selected.name}</h4>
+        <p className="sp-logic-detail-text">{selected.logic}</p>
+      </article>
     </div>
   );
 }

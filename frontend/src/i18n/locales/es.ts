@@ -8,6 +8,12 @@ const es = {
     },
   },
   common: {
+    /** Generic "Read more / Read less" used by the LineClamp primitive. */
+    readMore: 'Leer más',
+    readLess: 'Leer menos',
+    expandAll: 'Expandir todo',
+    collapseAll: 'Contraer todo',
+    all: 'Todos',
     loading: 'Cargando…',
     retry: 'Reintentar',
     cancel: 'Cancelar',
@@ -405,6 +411,12 @@ const es = {
       FAILED: 'Error',
     },
   },
+  reportDensity: {
+    label: 'Densidad de vista',
+    compact: 'Compacta',
+    comfortable: 'Estándar',
+    spacious: 'Espaciosa',
+  },
   report: {
     backToDashboard: '← Mis informes',
     eyebrow: 'Informe de foresight estratégico',
@@ -469,11 +481,16 @@ const es = {
         str: 'Mapa estratégico',
         sources: 'Fuentes',
       },
+      summary: {
+        execTitle: 'Resumen ejecutivo',
+      },
       scen: {
         opps: 'Oportunidades',
         threats: 'Amenazas',
         success: 'Factores de éxito',
         firstmove: 'Primer movimiento',
+        probability: 'Probabilidad',
+        probabilityHint: 'Probabilidad relativa estimada por el modelo para este escenario. Las tres probabilidades suman 100 % y reflejan la lectura del modelo sobre las señales actuales, las tendencias y las condiciones estructurales descritas en tus entradas y la investigación con búsqueda web.',
       },
       steep: {
         title: 'Análisis STEEP',
@@ -495,6 +512,8 @@ const es = {
         axesTitle: 'Ejes de incertidumbre crítica',
         matrix: 'Matriz de impacto e incertidumbre',
         logics: 'Lógica narrativa por escenario',
+        rationale: 'Justificación',
+        impactScoreHint: 'Influencia estimada por el modelo de esta fuerza sobre el resultado estratégico, en una escala de 0 a 100. Las puntuaciones descienden estrictamente del #1 al #4, por lo que reflejan peso relativo y no magnitud absoluta.',
         impact: { low: 'Impacto bajo', medium: 'Impacto medio', high: 'Impacto alto' },
         unc: { low: 'Incertidumbre baja', medium: 'Incertidumbre media', high: 'Incertidumbre alta' },
       },
@@ -513,6 +532,8 @@ const es = {
         h1: 'Presente extendido (0–2 años)',
         h2: 'Futuro emergente (2–5 años)',
         h3: 'Futuro posible (5+ años)',
+        priorityCount_one: '{{count}} prioridad',
+        priorityCount_other: '{{count}} prioridades',
       },
       sources: {
         intro: 'Fuentes públicas consultadas para fundamentar el análisis. Se obtuvieron mediante búsqueda web durante la generación.',

@@ -74,7 +74,7 @@ export default function ImpactMatrix({
 
   return (
     <div className="matrix-wrap">
-      <div className="matrix-eyebrow">{t('report.results.matrix.title')}</div>
+      <h3 className="matrix-title">{t('report.results.sp.matrix')}</h3>
       <svg viewBox={`0 0 ${W} ${H}`} className="matrix-svg">
         {/* Quadrant background tints — same RGB as the prototype's dark mode. */}
         <rect x={PAD}            y={PAD}            width={iW / 2} height={iH / 2} fill="rgba(96,165,250,0.04)" rx={3} />
@@ -143,7 +143,7 @@ export default function ImpactMatrix({
             <strong>#{hovered.force.rank} {hovered.force.title}</strong>
           </div>
           <div className="matrix-tip-score">
-            {t('report.results.matrix.tipImpact')}: {hovered.force.impactScore}/100
+            {t('report.results.matrix.tipImpact')}: {hovered.force.impactScore}%
           </div>
         </div>
       )}
