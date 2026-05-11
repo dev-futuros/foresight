@@ -14,6 +14,15 @@ export interface ReportSummary {
   id: string;
   title: string;
   status: ReportStatus;
+  /** ISO-639-1 code of the language the wizard used. Mirrors `ReportResponse`. */
+  primaryLanguage: 'es' | 'en';
+  /**
+   * Languages this report is available in. Always contains {@link primaryLanguage};
+   * additional entries appear after a translation has been materialised. Driven by
+   * the dashboard's translate-chip UI so the user can see at a glance which reports
+   * are bilingual and which still need work.
+   */
+  availableLanguages: string[];
   createdAt: string;
   updatedAt: string;
 }

@@ -1,15 +1,14 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import {
-  translateReportStream,
-  useReport,
-  type TranslateProgress,
-} from '../../hooks/useReports';
+import { useReport, useTranslateReport } from '../../hooks/useReports';
 import { useSetStepper } from '../shell/StepperContext';
 import { exportReportPdf } from '../../lib/exportPdf';
 import { exportReportPpt } from '../../lib/exportPpt';
-import ExportMenu, { type ExportLanguage } from '../../components/ExportMenu';
+import ExportModal, {
+  type ExportFormat,
+  type ExportLanguage,
+} from '../../components/ExportModal';
 import LoadingOverlay from '../../components/LoadingOverlay';
 import ShareModal from '../../components/ShareModal';
 import ReportContent, { type InputProjection, type ResultData } from './ReportContent';
@@ -28,10 +27,10 @@ export default function ReportPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { data: report, isLoading, isError, refetch } = useReport(id!);
+  const translateReport = useTranslateReport();
   const [exporting, setExporting] = useState<'pdf' | 'ppt' | null>(null);
-  const [translating, setTranslating] = useState(false);
-  const [translateProgress, setTranslateProgress] = useState<TranslateProgress | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
 
   // Surface the wizard's 6-step indicator with step 6 ("Resultados") active.
   // Steps 1–4 navigate back into the wizard in edit mode so the user can
@@ -64,13 +63,11 @@ export default function ReportPage() {
   );
   useSetStepper(stepperState);
 
-  function runExport(kind: 'pdf' | 'ppt', language: ExportLanguage) {
+  function runExport(kind: ExportFormat, language: ExportLanguage) {
     if (!report) return;
     setExporting(kind);
     // Yield to React so the overlay paints before the work begins. PDF
-    // export awaits font loading (brand TTFs registered with jsPDF) and
-    // may translate the report payload first when the user picked a
-    // language different from the report's primary one.
+    // export awaits font loading (brand TTFs registered with jsPDF).
     setTimeout(async () => {
       try {
         const exportReport = await resolveReportForLanguage(report, language);
@@ -78,32 +75,26 @@ export default function ReportPage() {
         else exportReportPpt(exportReport);
       } finally {
         setExporting(null);
-        setTranslating(false);
-        setTranslateProgress(null);
       }
     }, 0);
   }
 
   /**
-   * If the requested export language matches the report's primary
-   * language, the original payload is fine. Otherwise we stream the
-   * backend translate endpoint (cached per report × language). The
-   * progress events feed {@code translateProgress} so the
-   * LoadingOverlay shows a determinate bar — the translated envelope is
-   * roughly the same length as the source, so {@code outputChars / inputChars}
-   * is a usable percentage.
+   * Swap the report's payload to the cached translation for the picked
+   * language, when it differs from the primary language. The export
+   * picker only exposes languages that are already materialised (driven
+   * by {@code availableLanguages}), so this call is a guaranteed cache
+   * hit on the backend — no Anthropic round-trip, no progress bar
+   * needed. Translation is the dashboard's responsibility now.
    */
   async function resolveReportForLanguage(
     base: ReportResponse,
     language: ExportLanguage,
   ): Promise<ReportResponse> {
     if (language === base.primaryLanguage) return base;
-    setTranslating(true);
-    setTranslateProgress(null);
-    const translated = await translateReportStream({
+    const translated = await translateReport.mutateAsync({
       id: base.id,
       targetLanguage: language,
-      onProgress: (p) => setTranslateProgress(p),
     });
     return {
       ...base,
@@ -187,13 +178,18 @@ export default function ReportPage() {
               </svg>
               {t('share.triggerBtn')}
             </button>
-            <ExportMenu
-              busy={exporting !== null}
-              onPdf={(lang) => runExport('pdf', lang)}
-              onPpt={(lang) => runExport('ppt', lang)}
-              triggerClassName="btn btn-primary"
-              primaryLanguage={(report.primaryLanguage as ExportLanguage) ?? 'es'}
-            />
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => setExportOpen(true)}
+              disabled={exporting !== null || !report.resultData}
+              title={t('dashboard.actions.export')}
+            >
+              <svg className="db-r-btn-ico" aria-hidden>
+                <use href="#i-dl" />
+              </svg>
+              {exporting !== null ? '…' : t('dashboard.actions.export')}
+            </button>
           </div>
         </header>
 
@@ -213,41 +209,18 @@ export default function ReportPage() {
 
       <LoadingOverlay
         open={exporting !== null}
-        text={
-          translating
-            ? t('share.translating', {
-                defaultValue: 'Translating report…',
-              })
-            : exporting === 'pdf'
-              ? t('modals.export.pdf')
-              : t('modals.export.ppt')
-        }
-        progressPct={
-          translating && translateProgress && translateProgress.inputChars > 0
-            ? Math.max(
-                2,
-                Math.min(
-                  99,
-                  Math.round(
-                    (translateProgress.outputChars / translateProgress.inputChars) * 100,
-                  ),
-                ),
-              )
-            : null
-        }
-        detail={
-          translating && translateProgress && translateProgress.inputChars > 0
-            ? `${translateProgress.outputChars.toLocaleString()} / ${translateProgress.inputChars.toLocaleString()} ${t(
-                'share.chars',
-                { defaultValue: 'chars' },
-              )}`
-            : null
-        }
+        text={exporting === 'pdf' ? t('modals.export.pdf') : t('modals.export.ppt')}
       />
       <ShareModal
         open={shareOpen}
         reportId={id!}
         onClose={() => setShareOpen(false)}
+      />
+      <ExportModal
+        open={exportOpen}
+        reportId={id!}
+        onClose={() => setExportOpen(false)}
+        onExport={(format, language) => runExport(format, language)}
       />
     </div>
   );

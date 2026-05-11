@@ -34,6 +34,16 @@ const es = {
     },
     loadExample: 'Creando informe de ejemplo…',
   },
+  exportModal: {
+    eyebrow: 'Exportar',
+    title: 'Exportar informe',
+    format: 'Formato',
+    formats: {
+      pdf: 'PDF — Documento imprimible',
+      ppt: 'PowerPoint — Diapositivas editables',
+    },
+    action: 'Exportar',
+  },
   chat: {
     title: 'Asistente',
     openAria: 'Abrir asistente',
@@ -133,9 +143,6 @@ const es = {
     title: 'Enlace compartible',
     triggerBtn: 'Compartir',
     generating: 'Generando enlace…',
-    translating: 'Traduciendo el informe…',
-    translatingPreparing: 'Preparando traducción…',
-    chars: 'caracteres',
     language: 'Idioma',
     lang: { es: 'Español', en: 'Inglés' },
     urlLabel: 'URL pública del informe',
@@ -414,6 +421,13 @@ const es = {
       PROCESSING: 'Procesando',
       COMPLETED: 'Completado',
       FAILED: 'Error',
+    },
+    lang: {
+      primary: 'Idioma principal',
+      available: 'Traducido',
+      translateTo: 'Traducir a {{lang}}',
+      translatingTo: 'Traduciendo a {{lang}}…',
+      delete: 'Eliminar la traducción a {{lang}}',
     },
   },
   reportDensity: {

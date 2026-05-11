@@ -385,45 +385,6 @@
 .share-lang-select:focus { border-color: var(--gold-soft); }
 .share-lang-select:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* ── Translation progress bar (share modal) ─────────────────
-   Rendered while the streaming /translate/stream endpoint feeds
-   `progress` events. `--share-progress-fill` width is driven by
-   `outputChars / inputChars` and capped at 99% so it doesn't snap
-   to 100 before the `done` frame + share-mint round-trip lands. */
-.share-translate {
-  margin: 12px 0 8px;
-}
-.share-translate-label {
-  font-family: var(--mono);
-  font-size: 11px;
-  color: var(--ink-mute);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  margin-bottom: 8px;
-}
-.share-progress {
-  position: relative;
-  height: 8px;
-  background: var(--surface-3);
-  border: 1px solid var(--line-accent);
-  border-radius: 999px;
-  overflow: hidden;
-}
-.share-progress-fill {
-  position: absolute;
-  inset: 0 auto 0 0;
-  background: linear-gradient(90deg, var(--gold-soft), var(--gold));
-  transition: width 220ms ease-out;
-  border-radius: 999px;
-}
-.share-translate-meta {
-  margin-top: 8px;
-  font-family: var(--mono);
-  font-size: 10.5px;
-  color: var(--ink-mute);
-  letter-spacing: 0.04em;
-}
-
 /* ── Fullscreen overlay parts (PDF / export spinner) ───────── */
 .pdf-ov-spinner {
   width: 44px;
@@ -439,30 +400,5 @@
   color: var(--gold);
   letter-spacing: 0.1em;
   text-transform: uppercase;
-}
-.pdf-ov-progress {
-  margin-top: 18px;
-  width: min(360px, calc(100vw - 64px));
-  height: 8px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid var(--line-accent);
-  border-radius: 999px;
-  overflow: hidden;
-  position: relative;
-}
-.pdf-ov-progress-fill {
-  position: absolute;
-  inset: 0 auto 0 0;
-  background: linear-gradient(90deg, var(--gold-soft), var(--gold));
-  transition: width 220ms ease-out;
-  border-radius: 999px;
-}
-.pdf-ov-detail {
-  margin-top: 10px;
-  font-family: var(--mono);
-  font-size: 10.5px;
-  color: var(--ink-mute);
-  letter-spacing: 0.04em;
-  text-transform: none;
 }
 @keyframes modal-spin { to { transform: rotate(360deg); } }

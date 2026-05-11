@@ -89,6 +89,25 @@ export function useDeleteReport() {
  * <p>{@code force} bypasses the backend cache and re-translates — use
  * when the report has been edited since the translation was generated.
  */
+/**
+ * Drop a cached translation from a report. Backend is idempotent (no-op
+ * when the language isn't materialised) and refuses to delete the
+ * primary language. On success the dashboard list is invalidated so the
+ * chip flips back to `+ EN`.
+ */
+export function useDeleteTranslation() {
+  const qc = useQueryClient();
+  return useMutation<void, Error, { id: string; language: 'es' | 'en' }>({
+    mutationFn: async ({ id, language }) => {
+      await api.delete(`/reports/${id}/translations/${language}`);
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['reports'] });
+      qc.invalidateQueries({ queryKey: ['reports', vars.id] });
+    },
+  });
+}
+
 export function useTranslateReport() {
   const qc = useQueryClient();
   return useMutation<

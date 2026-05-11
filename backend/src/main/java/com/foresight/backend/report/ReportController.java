@@ -198,4 +198,24 @@ public class ReportController {
                 .translateStream(id, principal.id(), targetLanguage, force)
                 .map(json -> ServerSentEvent.<JsonNode>builder().data(json).build());
     }
+
+    /**
+     * Drop a cached translation from a report the caller owns. Idempotent
+     * — deleting a language that isn't materialised is a no-op (HTTP 204).
+     * Refuses to delete the report's primary language (HTTP 400).
+     *
+     * @param principal authenticated caller
+     * @param id        report UUID
+     * @param language  ISO-639-1 code of the translation to remove
+     * @return HTTP 204 on success
+     */
+    @Operation(summary = "Delete a cached translation from a report (owner only).")
+    @DeleteMapping("/{id}/translations/{language}")
+    public ResponseEntity<Void> deleteTranslation(
+            @CurrentUser AuthenticatedUser principal,
+            @PathVariable UUID id,
+            @PathVariable String language) {
+        reportService.deleteTranslation(id, principal.id(), language);
+        return ResponseEntity.noContent().build();
+    }
 }

@@ -6,6 +6,7 @@ import { StepperProvider, useStepperSlot } from './StepperContext';
 import { AssistantContextProvider } from '../chat/AssistantContextProvider';
 import AssistantCommands from '../chat/AssistantCommands';
 import ChatAssistant from '../chat/ChatAssistant';
+import { TranslationsProvider } from '../translations/TranslationsContext';
 import './shell.css';
 
 /**
@@ -46,7 +47,9 @@ export default function AppShell() {
   return (
     <StepperProvider>
       <AssistantContextProvider>
-        <ShellInner />
+        <TranslationsProvider>
+          <ShellInner />
+        </TranslationsProvider>
       </AssistantContextProvider>
     </StepperProvider>
   );

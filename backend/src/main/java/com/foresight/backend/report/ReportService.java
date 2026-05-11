@@ -325,6 +325,40 @@ public class ReportService {
     }
 
     /**
+     * Drop the cached translation for the given language from a report
+     * the caller owns. No-op (silently) when no entry exists for that
+     * language — the API is idempotent so the frontend can fire it
+     * without first checking whether the chip is actually there.
+     *
+     * <p>Refuses to delete the primary language: that's the source of
+     * truth for the report's own content, not a translation, and
+     * removing it would leave the report with no readable body.
+     *
+     * @param id       report UUID
+     * @param userId   owner UUID
+     * @param language ISO-639-1 code of the translation to drop
+     */
+    @Transactional
+    public void deleteTranslation(UUID id, UUID userId, String language) {
+        if (language == null || language.isBlank()) {
+            throw new BadRequestException("Language is required");
+        }
+        Report report = getOwned(id, userId);
+        if (language.equals(report.getPrimaryLanguage())) {
+            throw new BadRequestException(
+                    "Cannot delete the report's primary language (" + language + ")");
+        }
+        JsonNode translations = report.getTranslations();
+        if (translations == null || !translations.isObject() || !translations.has(language)) {
+            return;
+        }
+        ObjectNode next = translations.deepCopy();
+        next.remove(language);
+        report.setTranslations(next);
+        reportRepository.save(report);
+    }
+
+    /**
      * Look up a cached translation for {@code targetLanguage}. Returns the
      * stored object node (with inputData / resultData / generatedAt keys)
      * or {@code null} if no cache entry exists yet.

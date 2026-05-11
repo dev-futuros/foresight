@@ -34,6 +34,16 @@ const en = {
     },
     loadExample: 'Creating example report…',
   },
+  exportModal: {
+    eyebrow: 'Export',
+    title: 'Export report',
+    format: 'Format',
+    formats: {
+      pdf: 'PDF — Printable document',
+      ppt: 'PowerPoint — Editable slides',
+    },
+    action: 'Export',
+  },
   chat: {
     title: 'Assistant',
     openAria: 'Open assistant',
@@ -139,9 +149,6 @@ const en = {
     title: 'Shareable link',
     triggerBtn: 'Share',
     generating: 'Generating link…',
-    translating: 'Translating report…',
-    translatingPreparing: 'Preparing translation…',
-    chars: 'chars',
     language: 'Language',
     lang: { es: 'Spanish', en: 'English' },
     urlLabel: 'Public URL for the report',
@@ -420,6 +427,13 @@ const en = {
       PROCESSING: 'Processing',
       COMPLETED: 'Completed',
       FAILED: 'Error',
+    },
+    lang: {
+      primary: 'Primary language',
+      available: 'Translated',
+      translateTo: 'Translate to {{lang}}',
+      translatingTo: 'Translating to {{lang}}…',
+      delete: 'Delete {{lang}} translation',
     },
   },
   reportDensity: {

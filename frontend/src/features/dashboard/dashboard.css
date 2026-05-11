@@ -206,9 +206,168 @@
   letter-spacing: 0.02em;
 }
 
+/* ── Language chips — translation state per card ──────────────
+   One small chip per available language (primary highlighted in gold).
+   Languages that aren't translated yet render as a "+ EN" / "+ ES"
+   button that fires off the streaming translate flow. `margin-top:auto`
+   pushes the chip row to the bottom of the column — it sits right
+   above the actions row so the language affordances live in the same
+   visual zone as Share / Export / Delete. Cards without a result
+   (drafts / failed) skip this row entirely. */
+.db-r-langs {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: auto;
+  margin-bottom: 10px;
+}
+.db-r-lang-chip {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  padding: 2px 7px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line);
+  color: var(--ink-mute);
+  background: transparent;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.db-r-lang-chip--primary {
+  border-color: var(--line-accent);
+  background: var(--gold-bg);
+  color: var(--gold);
+}
+/* × delete affordance inside a non-primary chip. Subtle until hover so it
+   doesn't visually compete with the language label, but easy to hit. */
+.db-r-lang-chip-x {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0 -2px 0 0;
+  width: 12px;
+  height: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--ink-mute);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: color 140ms var(--ease), background 140ms var(--ease);
+}
+.db-r-lang-chip-x:hover {
+  color: var(--red);
+  background: hsla(0, 80%, 70%, 0.12);
+}
+.db-r-lang-chip-x:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.db-r-lang-translate {
+  appearance: none;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  padding: 2px 7px;
+  border-radius: var(--r-pill);
+  border: 1px dashed var(--line);
+  color: var(--ink-soft);
+  background: transparent;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: border-color 160ms var(--ease), color 160ms var(--ease),
+    background 160ms var(--ease);
+}
+.db-r-lang-translate:hover {
+  border-color: var(--gold-soft);
+  color: var(--gold);
+  background: var(--gold-bg);
+}
+.db-r-lang-translate:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Card-scoped translation overlay ──────────────────────────
+   Covers the entire card with a translucent veil while a translation
+   is streaming, so the user has clear feedback AND can't accidentally
+   start another action against the same report. Multiple cards can
+   carry the overlay simultaneously since the state is per-id. */
+.db-report-card.db-r-card--translating {
+  cursor: progress;
+}
+.db-r-translate-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-radius: inherit;
+  background: hsla(240, 8%, 5%, 0.78);
+  -webkit-backdrop-filter: blur(4px) saturate(140%);
+  backdrop-filter: blur(4px) saturate(140%);
+  z-index: 3;
+  padding: 20px;
+  animation: db-r-translate-in 200ms var(--ease);
+}
+@keyframes db-r-translate-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.db-r-translate-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--gold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.db-r-translate-bar {
+  position: relative;
+  width: min(220px, calc(100% - 16px));
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--line-accent);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.db-r-translate-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: linear-gradient(90deg, var(--gold-soft), var(--gold));
+  transition: width 220ms ease-out;
+  border-radius: 999px;
+  /* Start visible at 0% so the gradient renders even before the first
+     progress frame — fills in smoothly as the stream lands. */
+  min-width: 2px;
+}
+.db-r-translate-meta {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--ink-mute);
+  letter-spacing: 0.04em;
+  min-height: 1em;
+}
+
 .db-r-actions {
   display: flex;
   gap: 6px;
+  /* .db-r-langs already carries margin-top: auto and pushes itself
+     plus this row to the bottom of the card. Re-applying it here
+     would be a no-op (only the first auto-margin in a flex column
+     soaks up available space), so we leave it off and let the
+     language row own the layout decision. Drafts / failed cards
+     don't render .db-r-langs, so we keep the auto here as a
+     fallback for those — keeps Delete pinned to the bottom even
+     when no chip row exists. */
   margin-top: auto;
   border-top: 1px solid var(--line);
   padding-top: 12px;
@@ -216,7 +375,6 @@
   flex-wrap: wrap;
   align-items: center;
 }
-.db-r-actions .export-dropdown { flex-shrink: 0; }
 .db-r-btn {
   font-family: var(--mono);
   font-size: 10.5px;
@@ -275,127 +433,6 @@
   stroke-linejoin: round;
   flex-shrink: 0;
   margin-left: 2px;
-}
-
-/* ── Export dropdown — per-card download menu (PDF / PPT) ──
-   Mirrors the staging demo's .export-dropdown / .export-menu pattern.
-   Positions the menu absolutely below the trigger button; closes on
-   outside click + Escape (handled in the component). */
-.export-dropdown {
-  position: relative;
-  display: inline-block;
-}
-.export-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  min-width: 220px;
-  background: var(--surface-2);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r-md);
-  padding: 6px;
-  box-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.6),
-    0 1px 0 hsla(0, 0%, 100%, 0.04) inset;
-  display: none;
-  flex-direction: column;
-  gap: 2px;
-  z-index: 200;
-  opacity: 0;
-  transform: translateY(-4px);
-  transition: opacity 140ms var(--ease), transform 140ms var(--ease);
-}
-.export-menu.open {
-  display: flex;
-  opacity: 1;
-  transform: translateY(0);
-}
-.export-item {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  padding: 9px 12px;
-  border: none;
-  background: transparent;
-  border-radius: var(--r-sm);
-  text-align: left;
-  cursor: pointer;
-  width: 100%;
-  color: var(--ink);
-  font-family: var(--sans);
-  transition: background 140ms var(--ease);
-}
-.export-item:hover:not(:disabled) {
-  background: var(--surface-3);
-}
-.export-item:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-.export-item-name {
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0;
-}
-.export-item-meta {
-  font-family: var(--mono);
-  font-size: 10px;
-  color: var(--ink-mute);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-/* Compact variant for dashboard cards — single row per item with smaller
-   typography so the menu doesn't dominate the card it dropped from. */
-.export-item.compact {
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 10px;
-}
-.export-item.compact .export-item-name { font-size: 12.5px; }
-.export-item.compact .export-item-meta { font-size: 9.5px; }
-
-/* Language toggle inside the export dropdown — ES / EN segmented
-   buttons sit below the format options so the user picks output
-   language before clicking the format. */
-.export-lang-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 8px 10px 8px 10px;
-  border-top: 1px solid var(--line);
-  margin-top: 2px;
-}
-.export-lang-label {
-  font-family: var(--mono);
-  font-size: 9.5px;
-  color: var(--ink-mute);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-.export-lang-toggle {
-  display: inline-flex;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r-sm);
-  overflow: hidden;
-}
-.export-lang-btn {
-  appearance: none;
-  background: transparent;
-  border: 0;
-  padding: 3px 9px;
-  font-family: var(--mono);
-  font-size: 10.5px;
-  letter-spacing: 0.08em;
-  color: var(--ink-mute);
-  cursor: pointer;
-  transition: background 150ms, color 150ms;
-}
-.export-lang-btn:hover { color: var(--ink); }
-.export-lang-btn.active {
-  background: var(--gold-bg);
-  color: var(--gold);
 }
 
 /* Example badge — small accent pill next to the report title on the
