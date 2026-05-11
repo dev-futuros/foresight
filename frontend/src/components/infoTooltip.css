@@ -1,0 +1,73 @@
+/* InfoTooltip — small (i) trigger with a hover/focus/click bubble.
+   The trigger is an inline button; the bubble is portaled to <body>
+   with `position: fixed` so ancestor `overflow: hidden` cannot clip it.
+   The `top` / `left` coordinates are set inline at runtime; the CSS
+   only handles transform-based anchoring, visuals and the entry fade. */
+
+.info-tip {
+  position: relative;
+  display: inline-flex;
+  vertical-align: middle;
+  line-height: 0;
+  margin-left: 4px;
+}
+.info-tip-trigger {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-mute);
+  cursor: help;
+  transition: color 160ms var(--ease);
+}
+.info-tip-trigger:hover,
+.info-tip-trigger:focus-visible {
+  color: var(--gold);
+  outline: none;
+}
+.info-tip-trigger svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Portaled bubble — fixed position relative to viewport. The inline
+   top/left point to the trigger; we anchor via translate so the bubble
+   sits ABOVE the trigger (placement=top) or BELOW it (placement=bottom). */
+.info-tip-bubble {
+  position: fixed;
+  width: max-content;
+  max-width: 280px;
+  background: var(--surface-3);
+  border: 1px solid var(--line-accent);
+  border-radius: var(--r-sm);
+  padding: 8px 10px;
+  font-family: var(--sans);
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--ink);
+  text-align: left;
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 400;
+  box-shadow: 0 6px 22px hsla(0, 0%, 0%, 0.45);
+  z-index: 1000;
+  white-space: normal;
+  animation: info-tip-in 140ms var(--ease);
+  pointer-events: none;
+}
+.info-tip-bubble--top {
+  transform: translate(-50%, -100%);
+}
+.info-tip-bubble--bottom {
+  transform: translate(-50%, 0);
+}
+@keyframes info-tip-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}

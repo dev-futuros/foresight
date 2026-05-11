@@ -1,0 +1,93 @@
+/* Public-share standalone chrome: no app shell, no edit affordances. Stays
+   visually aligned with the rest of the app (Futuros gold, dark backdrop)
+   so a recipient reading this still knows it's a Futuros artifact. */
+
+.public-share {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.public-share-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 32px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-1);
+}
+.public-share-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.public-share-brand-name {
+  font-family: var(--serif);
+  font-size: 22px;
+  color: var(--gold);
+  letter-spacing: -0.005em;
+  line-height: 1;
+}
+.public-share-brand-tag {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--ink-mute);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.public-share-main {
+  flex: 1;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 56px 32px 96px;
+}
+
+.public-share-state {
+  text-align: center;
+  padding: 96px 24px;
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+}
+.public-share-state--error h2 {
+  font-family: var(--serif);
+  font-size: 24px;
+  font-style: italic;
+  color: var(--ink);
+  margin-bottom: 10px;
+  letter-spacing: -0.005em;
+  font-weight: 400;
+}
+.public-share-state--error p {
+  color: var(--ink-mute);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+
+.public-share-footer {
+  padding: 18px 32px;
+  border-top: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-mute);
+  letter-spacing: 0.14em;
+  text-align: center;
+}
+
+/* Public-share has no stepper above the report — the authenticated
+   .tab-row defaults to top:118px (78px navbar + 40px stepper). Reset
+   to top:0 here so the report's tab bar sticks to the very top of
+   the viewport after the share topbar scrolls away. */
+.public-share .tab-row {
+  top: 0;
+}
+
+@media (max-width: 720px) {
+  .public-share-topbar { padding: 14px 18px; }
+  .public-share-main { padding: 32px 16px 64px; }
+}

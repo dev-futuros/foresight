@@ -6,6 +6,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.MediaType;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
@@ -14,6 +17,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 
@@ -59,13 +63,16 @@ public class AnthropicClient {
     /**
      * Sends a single-turn request to Anthropic's {@code /v1/messages} endpoint.
      *
+     * @param model        Anthropic model identifier (e.g. {@code claude-haiku-4-5-20251001}).
+     *                     Callers pick the tier from {@code AnthropicProperties.haiku()/sonnet()/opus()}.
      * @param systemPrompt the system instruction (sets the model's role/format constraints)
      * @param userPrompt   the user's turn content
      * @param maxTokens    upper bound on response length; pick generously for long outputs
      * @return a Mono that emits the raw JSON response from Anthropic
      */
-    public Mono<JsonNode> sendMessage(String systemPrompt, String userPrompt, int maxTokens) {
-        return doSend(systemPrompt, userPrompt, maxTokens, null);
+    public Mono<JsonNode> sendMessage(
+            String model, String systemPrompt, String userPrompt, int maxTokens) {
+        return doSend(model, systemPrompt, userPrompt, maxTokens, null);
     }
 
     /**
@@ -74,17 +81,119 @@ public class AnthropicClient {
      * {@code tool_use}/{@code tool_result} blocks — callers should filter content by
      * {@code type == "text"} before parsing.
      */
-    public Mono<JsonNode> sendMessageWithWebSearch(String systemPrompt, String userPrompt, int maxTokens) {
-        return doSend(systemPrompt, userPrompt, maxTokens, WEB_SEARCH_TOOLS);
+    public Mono<JsonNode> sendMessageWithWebSearch(
+            String model, String systemPrompt, String userPrompt, int maxTokens) {
+        return doSend(model, systemPrompt, userPrompt, maxTokens, WEB_SEARCH_TOOLS);
     }
 
-    private Mono<JsonNode> doSend(
-            String systemPrompt, String userPrompt, int maxTokens, List<Map<String, Object>> tools) {
+    private static final ParameterizedTypeReference<ServerSentEvent<String>> SSE_STRING =
+            new ParameterizedTypeReference<>() {};
+
+    /**
+     * Streaming variant of {@link #sendMessageWithWebSearch}. POSTs to
+     * {@code /v1/messages} with {@code stream: true} and forwards the
+     * upstream SSE flow as {@link ServerSentEvent} objects whose
+     * {@code event()} carries the Anthropic event name and {@code data()}
+     * carries the raw JSON payload. Caller accumulates text deltas and
+     * harvests {@code web_search_tool_result} blocks.
+     *
+     * <p>Streams are intentionally NOT retried: replaying events the
+     * frontend already consumed would surface stale character counts.
+     */
+    public Flux<ServerSentEvent<String>> streamMessageWithWebSearch(
+            String model, String systemPrompt, String userPrompt, int maxTokens) {
+        return streamRaw(model, systemPrompt, userPrompt, maxTokens, WEB_SEARCH_TOOLS);
+    }
+
+    /**
+     * Streaming variant of {@link #sendMessage} — no tools. Same SSE
+     * contract as {@link #streamMessageWithWebSearch} but without the
+     * web_search tool loop, so the upstream emits only text deltas
+     * (no {@code web_search_tool_result} blocks). Used by the Global
+     * STEEP per-dimension reformulation flow and the 5 analyze section
+     * calls, which both stream plain prose / JSON under shared research.
+     */
+    public Flux<ServerSentEvent<String>> streamMessage(
+            String model, String systemPrompt, String userPrompt, int maxTokens) {
+        return streamRaw(model, systemPrompt, userPrompt, maxTokens, null);
+    }
+
+    private Flux<ServerSentEvent<String>> streamRaw(
+            String model, String systemPrompt, String userPrompt, int maxTokens,
+            List<Map<String, Object>> tools) {
         Map<String, Object> body = new HashMap<>();
-        body.put("model", properties.model());
+        body.put("model", model);
         body.put("max_tokens", maxTokens);
         body.put("system", systemPrompt);
         body.put("messages", List.of(Map.of("role", "user", "content", userPrompt)));
+        body.put("stream", true);
+        if (tools != null && !tools.isEmpty()) {
+            body.put("tools", tools);
+        }
+
+        return anthropicWebClient
+                .post()
+                .uri("/v1/messages")
+                .accept(MediaType.TEXT_EVENT_STREAM)
+                .bodyValue(body)
+                .retrieve()
+                .bodyToFlux(SSE_STRING)
+                .doOnCancel(() -> log.info("Anthropic stream cancelled by downstream subscriber"))
+                .onErrorResume(WebClientResponseException.class, e -> {
+                    log.error("Anthropic stream error: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
+                    return Flux.error(new AiException("AI provider error: " + e.getStatusCode()));
+                })
+                .onErrorResume(t -> !(t instanceof AiException), t -> {
+                    log.error("Anthropic stream failed: {}", t.getMessage(), t);
+                    return Flux.error(new AiException("AI provider unavailable"));
+                });
+    }
+
+    /**
+     * Multi-turn variant for the chat assistant. Accepts a pre-built messages list
+     * (oldest-first) and an arbitrary tools catalogue, so callers can hand the model
+     * a conversation in flight along with any custom tools they want it to be able
+     * to invoke.
+     *
+     * <p>The response shape is identical to {@link #sendMessage}; callers iterate
+     * the {@code content} blocks looking for {@code text} and {@code tool_use}.
+     *
+     * @param systemPrompt sets the assistant's role + tool-use rules
+     * @param messages     oldest-first turn list, each entry already in Anthropic's wire shape
+     * @param tools        custom tool catalogue declared to the model
+     * @param maxTokens    upper bound on response length
+     */
+    public Mono<JsonNode> sendConversation(
+            String model,
+            String systemPrompt,
+            List<? extends Object> messages,
+            List<Map<String, Object>> tools,
+            int maxTokens) {
+        return doSendRaw(model, systemPrompt, messages, maxTokens, tools);
+    }
+
+    private Mono<JsonNode> doSend(
+            String model, String systemPrompt, String userPrompt, int maxTokens,
+            List<Map<String, Object>> tools) {
+        return doSendRaw(
+                model,
+                systemPrompt,
+                List.of(Map.of("role", "user", "content", userPrompt)),
+                maxTokens,
+                tools);
+    }
+
+    private Mono<JsonNode> doSendRaw(
+            String model,
+            String systemPrompt,
+            List<? extends Object> messages,
+            int maxTokens,
+            List<Map<String, Object>> tools) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("model", model);
+        body.put("max_tokens", maxTokens);
+        body.put("system", systemPrompt);
+        body.put("messages", messages);
         if (tools != null && !tools.isEmpty()) {
             body.put("tools", tools);
         }

@@ -1,277 +1,187 @@
-import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useCallback, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useReport, useUpdateReport } from '../../hooks/useReports';
-import { useCurrentUser } from '../../hooks/useAuth';
-import { analyze } from '../../lib/aiClient';
-import { extractApiErrorMessage } from '../../lib/apiError';
+import { useReport } from '../../hooks/useReports';
+import { useSetStepper } from '../shell/StepperContext';
 import { exportReportPdf } from '../../lib/exportPdf';
 import { exportReportPpt } from '../../lib/exportPpt';
+import ExportMenu from '../../components/ExportMenu';
+import LoadingOverlay from '../../components/LoadingOverlay';
+import ShareModal from '../../components/ShareModal';
+import ReportContent, { type InputProjection, type ResultData } from './ReportContent';
+import '../../components/modal.css';
+import type { ReportStatus } from '../../types/api';
 import './report.css';
 
-type Tab = 'inputs' | 'resultados';
+type InputData = {
+  companyProfile?: { name?: string; sector?: string; horizon?: string; challenge?: string };
+  globalSteep?: Record<string, string>;
+  steep?: Record<string, string>;
+};
 
 export default function ReportPage() {
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { data: report, isLoading, isError, refetch } = useReport(id!);
-  const { data: user } = useCurrentUser();
-  const updateReport = useUpdateReport();
-  const [tab, setTab] = useState<Tab>('inputs');
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState<'pdf' | 'ppt' | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
 
-  if (isLoading) return <div className="loading-screen">{t('report.loading')}</div>;
+  // Surface the wizard's 6-step indicator with step 6 ("Resultados") active.
+  // Steps 1–4 navigate back into the wizard in edit mode so the user can
+  // tweak inputs and regenerate. Step 5 is the analysis loading marker —
+  // marked clickable:false because there's no real page behind it.
+  const handleStepperSelect = useCallback(
+    (n: number) => {
+      if (n < 1 || n > 4) return;
+      navigate(`/reports/${id}/edit?step=${n}`);
+    },
+    [id, navigate],
+  );
+  // Same step list as NewReportPage — the transient "Analysis" loader (n=5)
+  // is omitted from the stepper. n values stay 1-6 so the routing handlers
+  // in handleStepperSelect can keep their 1-4 / 6 checks unchanged.
+  const stepperState = useMemo(
+    () => ({
+      steps: [
+        { n: 1, label: t('wizard.steps.empresa') },
+        { n: 2, label: t('wizard.steps.global') },
+        { n: 3, label: t('wizard.steps.steep') },
+        { n: 4, label: t('wizard.steps.horizon') },
+        { n: 6, label: t('wizard.steps.results') },
+      ],
+      current: 6,
+      maxReached: 6,
+      onSelect: handleStepperSelect,
+    }),
+    [t, handleStepperSelect],
+  );
+  useSetStepper(stepperState);
+
+  function runExport(kind: 'pdf' | 'ppt') {
+    if (!report) return;
+    setExporting(kind);
+    // Yield to React so the overlay paints before the work begins; pdf
+    // export now needs to await font loading (brand TTFs registered
+    // with jsPDF) so we kick off an async IIFE here.
+    setTimeout(async () => {
+      try {
+        if (kind === 'pdf') await exportReportPdf(report);
+        else exportReportPpt(report);
+      } finally {
+        setExporting(null);
+      }
+    }, 0);
+  }
+
+  if (isLoading) {
+    return <div className="loading-screen">{t('report.loading')}</div>;
+  }
   if (isError || !report) {
     return (
-      <div className="loading-screen" style={{ color: '#f87171', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        <span>{isError ? t('report.errorLoading') : t('report.notFound')}</span>
-        {isError && (
-          <button type="button" className="btn-retry" onClick={() => refetch()}>
-            {t('common.retry')}
-          </button>
-        )}
+      <div className="report-page">
+        <div className="report-main">
+          <div className="err-box" style={{ margin: '64px auto 0' }}>
+            {isError ? t('report.errorLoading') : t('report.notFound')}
+          </div>
+          {isError && (
+            <div style={{ textAlign: 'center', marginTop: 14 }}>
+              <button type="button" className="btn" onClick={() => refetch()}>
+                {t('common.retry')}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     );
   }
 
-  const input = report.inputData as {
-    companyProfile: { name: string; sector: string; horizon: string; challenge: string };
-    steep: Record<string, string>;
-    horizon: Record<string, string>;
+  const input = report.inputData as InputData;
+  const result = report.resultData as ResultData | null;
+  // `inputData.steep` is the sectorial STEEP captured in step 3 (the
+  // wizard stores it under the bare `steep` key, not `sectorialSteep`).
+  // Surface it to ReportContent under the demo-aligned name so the
+  // Summary tab's STEEP echo block reads from a single typed projection.
+  const inputProjection: InputProjection = {
+    globalSteep: input?.globalSteep,
+    sectorialSteep: input?.steep,
   };
 
   const formattedDate = new Date(report.createdAt).toLocaleDateString(
     i18n.language === 'en' ? 'en-GB' : 'es-ES',
-    { day: '2-digit', month: 'short', year: 'numeric' }
+    { day: '2-digit', month: 'short', year: 'numeric' },
   );
-
-  const language: 'es' | 'en' =
-    user?.language === 'en' || i18n.language === 'en' ? 'en' : 'es';
-
-  async function handleAnalyze() {
-    if (!report) return;
-    setIsAnalyzing(true);
-    setAnalyzeError(null);
-    try {
-      const inputs = report.inputData as {
-        companyProfile?: unknown;
-        steep?: unknown;
-        horizon?: unknown;
-      };
-      const result = await analyze({
-        companyProfile: inputs.companyProfile ?? {},
-        steep: inputs.steep ?? {},
-        horizon: inputs.horizon ?? {},
-        language,
-      });
-      await updateReport.mutateAsync({
-        id: report.id,
-        body: { resultData: result as unknown as Record<string, unknown> },
-      });
-      setTab('resultados');
-    } catch (e) {
-      setAnalyzeError(extractApiErrorMessage(e, t('report.results.errorDefault')));
-    } finally {
-      setIsAnalyzing(false);
-    }
-  }
 
   return (
     <div className="report-page">
-      <nav className="report-nav">
-        <div className="report-nav-left">
-          <Link to="/dashboard" className="btn-back-nav">{t('report.backToDashboard')}</Link>
-          <span className="report-title-nav">{report.title}</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <span className={`status-badge ${report.status}`} style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '3px 9px', borderRadius: '20px' }}>
-            {t(`report.status.${report.status}`)}
-          </span>
-          <button
-            className="btn-export"
-            onClick={() => exportReportPdf(report)}
-            disabled={!report.resultData}
-            title={t('report.export.pdfTitle')}
-          >
-            PDF
-          </button>
-          <button
-            className="btn-export"
-            onClick={() => exportReportPpt(report)}
-            disabled={!report.resultData}
-            title={t('report.export.pptTitle')}
-          >
-            PPT
-          </button>
-        </div>
-      </nav>
-
-      <div className="report-header">
-        <p className="report-eyebrow">{t('report.eyebrow')}</p>
-        <h1 className="report-main-title">{report.title}</h1>
-        <div className="report-meta">
-          <span className="report-meta-item">{t('report.meta.created', { date: formattedDate })}</span>
-          {input?.companyProfile?.horizon && (
-            <span className="report-meta-item">{t('report.meta.horizon', { value: input.companyProfile.horizon })}</span>
-          )}
-          {input?.companyProfile?.sector && (
-            <span className="report-meta-item">· {input.companyProfile.sector}</span>
-          )}
-        </div>
-      </div>
-
-      <div className="report-tabs">
-        <button className={`tab-btn ${tab === 'inputs' ? 'active' : ''}`} onClick={() => setTab('inputs')}>
-          {t('report.tabs.inputs')}
-        </button>
-        <button className={`tab-btn ${tab === 'resultados' ? 'active' : ''}`} onClick={() => setTab('resultados')}>
-          {t('report.tabs.results')}
-        </button>
-      </div>
-
-      <div className="report-content">
-        {tab === 'inputs' && (
-          <div>
-            <div className="input-grid">
-              <div className="input-card">
-                <div className="input-card-label">{t('report.inputs.organization')}</div>
-                <div className="input-card-value">{input?.companyProfile?.name || '—'}</div>
-              </div>
-              <div className="input-card">
-                <div className="input-card-label">{t('report.inputs.sector')}</div>
-                <div className="input-card-value">{input?.companyProfile?.sector || '—'}</div>
-              </div>
-              <div className="input-card full">
-                <div className="input-card-label">{t('report.inputs.challenge')}</div>
-                <div className="input-card-value">{input?.companyProfile?.challenge || '—'}</div>
-              </div>
+      <div className="report-main">
+        <header className="report-header">
+          <div className="report-heading">
+            <p className="report-eyebrow">{t('report.eyebrow')}</p>
+            <h1 className="report-main-title">{report.title}</h1>
+            <div className="report-meta">
+              <span className={`status-badge ${report.status}`}>
+                {t(`report.status.${report.status}` as `report.status.${ReportStatus}`)}
+              </span>
+              <span className="report-meta-item">
+                {t('report.meta.created', { date: formattedDate })}
+              </span>
+              {input?.companyProfile?.horizon && (
+                <span className="report-meta-item">
+                  {t('report.meta.horizon', { value: input.companyProfile.horizon })}
+                </span>
+              )}
+              {input?.companyProfile?.sector && (
+                <span className="report-meta-item">· {input.companyProfile.sector}</span>
+              )}
             </div>
-
-            {input?.steep && (
-              <>
-                <p className="input-card-label" style={{ marginBottom: '0.75rem' }}>{t('report.inputs.steep')}</p>
-                <div className="steep-grid">
-                  {Object.entries(input.steep).map(([key, value]) =>
-                    value ? (
-                      <div key={key} className="input-card">
-                        <div className="input-card-label">{t(`report.steepLabels.${key}`, { defaultValue: key })}</div>
-                        <div className="input-card-value">{value}</div>
-                      </div>
-                    ) : null
-                  )}
-                </div>
-              </>
-            )}
-
-            {input?.horizon && (
-              <>
-                <p className="input-card-label" style={{ marginBottom: '0.75rem' }}>{t('report.inputs.horizon')}</p>
-                <div className="horizon-list">
-                  {Object.entries(input.horizon).map(([key, value]) =>
-                    value ? (
-                      <div key={key} className="input-card">
-                        <div className="input-card-label">{t(`report.horizonLabels.${key}`, { defaultValue: key })}</div>
-                        <div className="input-card-value">{value}</div>
-                      </div>
-                    ) : null
-                  )}
-                </div>
-              </>
-            )}
           </div>
-        )}
-
-        {tab === 'resultados' && !report.resultData && (
-          <div className="report-draft-state">
-            <div className="report-draft-icon">◈</div>
-            <h2 className="report-draft-title">{t('report.results.pendingTitle')}</h2>
-            <p className="report-draft-desc">{t('report.results.pendingDesc')}</p>
+          <div className="report-actions">
             <button
-              className="btn-analyze"
-              onClick={handleAnalyze}
-              disabled={isAnalyzing}
+              type="button"
+              className="btn"
+              onClick={() => setShareOpen(true)}
+              disabled={!report.resultData}
+              title={t('share.triggerBtn')}
             >
-              {isAnalyzing ? (
-                <>
-                  <span className="btn-spinner" aria-hidden /> {t('report.results.analyzing')}
-                </>
-              ) : (
-                t('report.results.generateBtn')
-              )}
+              <svg className="db-r-btn-ico" aria-hidden>
+                <use href="#i-share" />
+              </svg>
+              {t('share.triggerBtn')}
             </button>
-            {analyzeError && (
-              <div className="err-box" style={{ marginTop: '1rem' }}>{analyzeError}</div>
-            )}
+            <ExportMenu
+              busy={exporting !== null}
+              onPdf={() => runExport('pdf')}
+              onPpt={() => runExport('ppt')}
+              triggerClassName="btn btn-primary"
+            />
+          </div>
+        </header>
+
+        {result ? (
+          <ReportContent result={result} input={inputProjection} />
+        ) : (
+          // Legacy fallback: reports created with the old wizard flow may
+          // still exist as DRAFT (no resultData). New flow always generates
+          // before navigating, so this branch is for old data only.
+          <div className="pending-state">
+            <div className="pending-icon">◈</div>
+            <h2 className="pending-title">{t('report.results.pendingTitle')}</h2>
+            <p className="pending-desc">{t('report.results.pendingDesc')}</p>
           </div>
         )}
-
-        {tab === 'resultados' && report.resultData && (() => {
-          const r = report.resultData as {
-            scenarios?: { type: string; title: string; description: string }[];
-            weakSignals?: string[];
-            wildcards?: string[];
-            keyUncertainties?: string[];
-          };
-          return (
-            <div>
-              {r.scenarios && r.scenarios.length > 0 && (
-                <>
-                  <p className="input-card-label" style={{ marginBottom: '0.75rem' }}>{t('report.results.scenarios')}</p>
-                  <div className="steep-grid" style={{ marginBottom: '1.5rem' }}>
-                    {r.scenarios.map((s) => (
-                      <div key={s.type} className="input-card">
-                        <div className="input-card-label">{s.type}</div>
-                        <div className="input-card-value" style={{ fontWeight: 500, marginBottom: '0.4rem' }}>{s.title}</div>
-                        <div className="input-card-value" style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>{s.description}</div>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              {r.keyUncertainties && r.keyUncertainties.length > 0 && (
-                <>
-                  <p className="input-card-label" style={{ marginBottom: '0.75rem' }}>{t('report.results.uncertainties')}</p>
-                  <div className="input-card full" style={{ marginBottom: '1.5rem' }}>
-                    <ul style={{ paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                      {r.keyUncertainties.map((u, i) => (
-                        <li key={i} className="input-card-value">{u}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </>
-              )}
-
-              {r.weakSignals && r.weakSignals.length > 0 && (
-                <>
-                  <p className="input-card-label" style={{ marginBottom: '0.75rem' }}>{t('report.results.weakSignals')}</p>
-                  <div className="input-card full" style={{ marginBottom: '1.5rem' }}>
-                    <ul style={{ paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                      {r.weakSignals.map((s, i) => (
-                        <li key={i} className="input-card-value">{s}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </>
-              )}
-
-              {r.wildcards && r.wildcards.length > 0 && (
-                <>
-                  <p className="input-card-label" style={{ marginBottom: '0.75rem' }}>{t('report.results.wildcards')}</p>
-                  <div className="input-card full">
-                    <ul style={{ paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                      {r.wildcards.map((w, i) => (
-                        <li key={i} className="input-card-value">{w}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </>
-              )}
-            </div>
-          );
-        })()}
       </div>
+
+      <LoadingOverlay
+        open={exporting !== null}
+        text={exporting === 'pdf' ? t('modals.export.pdf') : t('modals.export.ppt')}
+      />
+      <ShareModal
+        open={shareOpen}
+        reportId={id!}
+        onClose={() => setShareOpen(false)}
+      />
     </div>
   );
 }
+

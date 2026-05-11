@@ -7,12 +7,30 @@ services:
     ports:
       - "5173:5173"
     environment:
-      - NODE_ENV=development
-      - VITE_API_URL=http://backend:8080
-      - VITE_ALLOWED_HOSTS=all
+      NODE_ENV: development
+      VITE_API_URL: http://backend:8080
+      VITE_ALLOWED_HOSTS: all
+      # Vite reads VITE_CLERK_PUBLISHABLE_KEY from the bind-mounted
+      # frontend/.env.local (available inside the container as /app/.env.local).
+      # Don't set it here with a `${VAR:-""}` default — Docker Compose would
+      # pass an empty string into process.env and that takes precedence over
+      # the .env file in Vite, leaving Clerk unable to decode its hostname
+      # from the publishable key (failed_to_load_clerk_js).
+      # Vite watches via chokidar; on Windows/macOS host-mounted FS, inotify
+      # events don't propagate, so polling is needed for HMR to pick up edits.
+      CHOKIDAR_USEPOLLING: "true"
+    volumes:
+      # Bind-mount source so host edits hot-reload inside the container.
+      - ./frontend:/app
+      # Named volume preserves the image's installed node_modules so the
+      # bind mount above doesn't shadow them with the (empty) host dir.
+      - frontend_node_modules:/app/node_modules
     networks:
       - foresight
     restart: unless-stopped
+
+volumes:
+  frontend_node_modules:
 
 networks:
   foresight:

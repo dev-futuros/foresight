@@ -1,0 +1,636 @@
+/* ============================================================
+   CHAT ASSISTANT — floating edge button + side panel
+   Ported from demo `.chat-edge` / `.chat-panel`. Simplified to
+   the moving parts we use; full demo CSS had extra polish for
+   collapse-handle hover, mobile bottom-sheet, etc., that we can
+   layer in later.
+   ============================================================ */
+
+.chat-edge {
+  position: fixed;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  z-index: 9000;
+  background: hsla(240, 8%, 9%, 0.92);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  backdrop-filter: blur(12px) saturate(140%);
+  border: 1px solid var(--line-accent);
+  border-right: none;
+  border-radius: 10px 0 0 10px;
+  color: var(--gold);
+  cursor: pointer;
+  padding: 14px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.35), 0 0 24px hsla(40, 60%, 56%, 0.1);
+  transition: padding-right 180ms ease, color 180ms, background 180ms,
+    border-color 180ms;
+}
+.chat-edge:hover {
+  color: var(--ink);
+  background: hsla(240, 8%, 14%, 0.95);
+  padding-right: 16px;
+  border-color: var(--gold);
+}
+
+/* Mini collapse handle — appears on the chat panel's left edge while open.
+   At rest, a small clickable nub. On hover, expands into a chunky chevron
+   tab. The hit area sits flush against the panel's left edge so the user
+   can sweep the cursor onto it. Ported from the staging demo's
+   .chat-collapse pattern. */
+.chat-collapse {
+  position: fixed;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  z-index: 9101;
+  background: hsla(240, 8%, 9%, 0.92);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  backdrop-filter: blur(12px) saturate(140%);
+  border: 1px solid var(--line-accent);
+  border-right: none;
+  border-radius: 6px 0 0 6px;
+  color: var(--gold);
+  cursor: pointer;
+  /* Resting size: a thin clickable strip on the panel's left edge. Padding
+     defines the hit area; the SVG is collapsed (width 0) until hover. */
+  padding: 10px 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.35);
+  visibility: hidden;
+  pointer-events: none;
+  /* Slides in lockstep with the panel: 320ms with the same cubic-bezier
+     as .chat-panel's width transition. The visibility delay matches the
+     slide so the handle doesn't appear before the panel reaches its
+     resting width. */
+  transition: right 320ms cubic-bezier(0.32, 0.72, 0.24, 1),
+    padding 180ms ease, color 180ms, background 180ms, border-color 180ms,
+    border-radius 180ms, visibility 0s linear 320ms;
+}
+body.chat-open .chat-collapse {
+  /* The chat panel is min(380px, 100vw). Anchor the handle to the panel's
+     left edge by placing it at `right: 380px` (the desktop panel width).
+     Matches the body.chat-open margin-right in shell.css. */
+  right: 380px;
+  visibility: visible;
+  pointer-events: auto;
+  transition: right 320ms cubic-bezier(0.32, 0.72, 0.24, 1),
+    padding 180ms ease, color 180ms, background 180ms, border-color 180ms,
+    border-radius 180ms, visibility 0s linear 0s;
+}
+.chat-collapse:hover {
+  color: var(--ink);
+  background: hsla(240, 8%, 14%, 0.95);
+  /* Expand the hit area to reveal the icon; right padding adds a small
+     "peek into the panel" feel. */
+  padding: 14px 16px 14px 12px;
+  border-color: var(--gold);
+  border-radius: 10px 0 0 10px;
+}
+.chat-collapse svg {
+  width: 0;
+  height: 16px;
+  opacity: 0;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  display: block;
+  transition: width 180ms ease, opacity 140ms ease, transform 180ms ease;
+}
+.chat-collapse:hover svg {
+  width: 16px;
+  opacity: 1;
+  transform: translateX(2px);
+}
+/* Mobile (≤720px): the panel goes full-width, so the collapse handle would
+   sit off-screen. Hide it; users dismiss via the panel's own controls. */
+@media (max-width: 720px) {
+  .chat-collapse {
+    display: none;
+  }
+}
+.chat-edge svg {
+  width: 22px;
+  height: 22px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  display: block;
+}
+
+.chat-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9100;
+  width: 0;
+  background: hsla(240, 8%, 7%, 0.97);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(20px) saturate(140%);
+  border-left: 1px solid transparent;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  visibility: hidden;
+  transition: width 320ms cubic-bezier(0.32, 0.72, 0.24, 1),
+    border-color 320ms ease, visibility 0s linear 320ms;
+}
+.chat-panel.open {
+  width: min(380px, 100vw);
+  visibility: visible;
+  border-left-color: var(--line-strong);
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.5);
+  transition: width 320ms cubic-bezier(0.32, 0.72, 0.24, 1),
+    border-color 320ms ease, visibility 0s linear 0s;
+}
+/* Lock every direct child of the panel to the full target width during
+   the width animation. Without this, as the panel grows from 0 → 380px
+   the children get a narrow flex-basis on every frame and the text
+   inside re-wraps, looking like the characters are "re-computing" as
+   the panel slides in. With it, the children stay 380px wide and the
+   parent's `overflow: hidden` does the clipping — only the visible
+   slice changes, the inner layout stays put. */
+.chat-panel > * {
+  width: min(380px, 100vw);
+  min-width: min(380px, 100vw);
+  flex-shrink: 0;
+}
+
+.chat-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.chat-head-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--gold-bg);
+  color: var(--gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.chat-head-icon svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8;
+}
+.chat-head-text {
+  flex: 1;
+  min-width: 0;
+}
+.chat-head-title {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--ink);
+  text-transform: uppercase;
+}
+.chat-head-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  color: var(--ink-mute);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 150ms, background 150ms;
+  flex-shrink: 0;
+  padding: 0;
+}
+.chat-head-btn:hover {
+  color: var(--ink);
+  background: var(--line);
+}
+/* Close X is hidden on desktop — the .chat-collapse handle on the panel's
+   left edge is the desktop dismissal. The button is restored to view on
+   mobile (≤720px) via the media query at the bottom of this file, where
+   the collapse handle is hidden because the panel goes full-width. */
+.chat-head-close {
+  display: none;
+}
+@media (max-width: 720px) {
+  .chat-head-close {
+    display: flex;
+  }
+}
+.chat-head-btn svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+.chat-msgs {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  scroll-behavior: smooth;
+}
+.chat-msgs::-webkit-scrollbar {
+  width: 6px;
+}
+.chat-msgs::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 3px;
+}
+
+.chat-empty {
+  color: var(--ink-mute);
+  font-size: 13px;
+  line-height: 1.55;
+  padding: 12px 4px;
+}
+
+/* ── Suggested-question chips ──────────────────────────────────
+   Shown under the welcome message when the chat first opens. Three
+   context-aware starter questions picked from the i18n bucket that
+   matches the user's current route + wizard step. Each chip auto-
+   sends its prompt on click. The whole row disappears once the
+   user has any messages, so it stays out of the way once the
+   conversation gets going. */
+.chat-suggested {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 16px;
+  align-items: flex-start;
+}
+.chat-suggest {
+  appearance: none;
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  color: var(--ink-soft);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  line-height: 1.4;
+  padding: 7px 12px;
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background 140ms var(--ease),
+    border-color 140ms var(--ease),
+    color 140ms var(--ease);
+  max-width: 100%;
+  white-space: normal;
+}
+.chat-suggest:hover {
+  background: var(--gold-bg);
+  border-color: var(--line-accent);
+  color: var(--ink);
+}
+.chat-suggest:active {
+  background: var(--gold-bg-2);
+}
+.chat-suggest:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.chat-msg {
+  display: flex;
+  flex-direction: column;
+  /* More breathing room between elements inside a bot message — when the
+     assistant emits prose followed by confirm chips, a 6px gap felt
+     cramped. 12px gives the chip its own visual beat without breaking
+     the conversational flow. */
+  gap: 12px;
+  max-width: 88%;
+}
+.chat-msg.user {
+  align-self: flex-end;
+}
+.chat-msg.bot {
+  align-self: flex-start;
+}
+.chat-bubble-text {
+  font-size: 13px;
+  line-height: 1.55;
+  padding: 10px 13px;
+  border-radius: 14px;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.chat-msg.user .chat-bubble-text {
+  background: var(--gold-bg-2);
+  border: 1px solid var(--line-accent);
+  color: var(--ink);
+  border-bottom-right-radius: 4px;
+}
+.chat-msg.bot .chat-bubble-text {
+  background: hsla(240, 8%, 14%, 0.6);
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+  border-bottom-left-radius: 4px;
+}
+/* Inline markdown styles inside bubbles — ported from the demo so the
+   assistant's **bold**, *italic* and `code` render with consistent
+   accent colours instead of the browser defaults. */
+.chat-bubble-text strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+.chat-bubble-text em {
+  color: var(--gold);
+  font-style: normal;
+}
+.chat-bubble-text code {
+  font-family: var(--mono);
+  font-size: 11px;
+  background: hsla(0, 0%, 100%, 0.06);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+.chat-bubble-error {
+  color: var(--red);
+  border-color: hsla(0, 80%, 70%, 0.3);
+  background: hsla(0, 80%, 70%, 0.08);
+}
+
+.chat-typing {
+  display: inline-flex;
+  gap: 4px;
+  padding: 12px 14px;
+  background: hsla(240, 8%, 14%, 0.6);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  border-bottom-left-radius: 4px;
+}
+.chat-typing span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ink-mute);
+  animation: chat-blink 1.2s infinite ease-in-out;
+}
+.chat-typing span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.chat-typing span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+@keyframes chat-blink {
+  0%, 80%, 100% { opacity: 0.3; }
+  40% { opacity: 1; }
+}
+
+/* Confirm chip — a single clickable card that applies the proposed action
+   on click. No separate ✓/✕ buttons (matches the demo's .chat-applybtn).
+   "Decline" happens implicitly: if the user moves on by sending another
+   message, useChat.send() auto-declines unresolved chips so the
+   tool_use / tool_result pairing stays valid. */
+.chat-confirm {
+  display: block;
+  width: 100%;
+  margin: 4px 0;
+  padding: 10px 12px;
+  background: var(--gold-bg);
+  border: 1px solid var(--line-accent);
+  border-radius: 10px;
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+  transition: border-color 150ms, background 150ms;
+}
+.chat-confirm:hover {
+  border-color: var(--gold);
+  background: var(--gold-bg-2);
+}
+.chat-confirm:focus-visible {
+  outline: 2px solid var(--gold-soft);
+  outline-offset: 2px;
+}
+/* Applied state — chip stays visible after the user clicks it but
+   transitions to a green palette. No hover, no cursor pointer; it's
+   spent. Matches the demo's persistent-chip behaviour. */
+.chat-confirm.applied {
+  background: var(--green-bg);
+  border-color: hsla(160, 64%, 67%, 0.4);
+  cursor: default;
+}
+.chat-confirm.applied:hover {
+  background: var(--green-bg);
+  border-color: hsla(160, 64%, 67%, 0.4);
+}
+.chat-confirm.applied .chat-confirm-head {
+  color: var(--green);
+}
+.chat-confirm-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 5px;
+}
+.chat-confirm-head-ico {
+  width: 12px;
+  height: 12px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+}
+.chat-confirm-preview {
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: pre-wrap;
+}
+/* Expanded variant — drop the clamp so the full proposal is visible.
+   Toggled via the "Show more" button below the preview. */
+.chat-confirm-preview.expanded {
+  -webkit-line-clamp: unset;
+  display: block;
+  overflow: visible;
+}
+/* Wrapper that forces the toggle onto its own line below the preview. */
+.chat-confirm-toggle-wrap {
+  display: block;
+  margin-top: 8px;
+}
+/* Mini "Show more / Show less" toggle — chip-within-the-chip. Clicking
+   it only toggles the preview; it stops the outer chip's apply click via
+   stopPropagation in ChatAssistant.tsx. */
+.chat-confirm-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: hsla(0, 0%, 100%, 0.04);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  cursor: pointer;
+  user-select: none;
+  transition: color 150ms, background 150ms, border-color 150ms;
+}
+.chat-confirm-toggle:hover {
+  color: var(--ink);
+  background: hsla(0, 0%, 100%, 0.07);
+  border-color: var(--line-strong);
+}
+.chat-confirm-toggle .caret {
+  display: inline-block;
+  transition: transform 200ms ease;
+}
+.chat-confirm.expanded .chat-confirm-toggle .caret {
+  transform: rotate(180deg);
+}
+
+/* (Earlier .chat-activity green-pill style removed — applied chips now
+   stay rendered as full .chat-confirm.applied cards instead.) */
+
+/* "Apply all" button — appears below an assistant message that contains
+   2+ pending confirm chips (in practice setField). One-tap shortcut to
+   fire every chip in the bubble in DOM order. Sized between cmd-pill
+   and a normal button — a bit more emphatic than a chip since it does
+   N actions in one tap. */
+.chat-apply-all {
+  display: block;
+  width: 100%;
+  margin: 12px 0 4px;
+  padding: 8px 14px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gold);
+  background: var(--gold-bg);
+  border: 1px solid var(--gold-soft);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: color 150ms, background 150ms, border-color 150ms, opacity 150ms;
+}
+.chat-apply-all:hover:not(:disabled):not(.done) {
+  background: var(--gold-bg-2);
+  border-color: var(--gold);
+  color: var(--ink);
+}
+.chat-apply-all:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
+.chat-apply-all.done {
+  color: var(--green);
+  border-color: hsla(160, 64%, 67%, 0.4);
+  background: var(--green-bg);
+  cursor: default;
+}
+
+.chat-input-wrap {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  padding: 12px 12px 8px;
+  border-top: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.chat-input {
+  flex: 1;
+  min-height: 38px;
+  max-height: 160px;
+  padding: 9px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.45;
+  resize: none;
+  outline: none;
+  transition: border-color 150ms;
+}
+.chat-input:focus {
+  border-color: var(--line-accent);
+}
+.chat-send {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--gold);
+  border: 1px solid var(--gold);
+  color: #0a0a0a;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 150ms, opacity 150ms;
+  flex-shrink: 0;
+}
+.chat-send:hover:not(:disabled) {
+  background: var(--gold-soft);
+}
+.chat-send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.chat-send svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.chat-foot {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--ink-mute);
+  text-align: center;
+  padding: 0 12px 12px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 720px) {
+  .chat-panel.open {
+    width: 100vw;
+  }
+}

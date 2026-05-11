@@ -1,0 +1,52 @@
+/* ============================================================
+   LINE CLAMP — progressive-disclosure primitive for long prose.
+   Pairs the standard -webkit-line-clamp truncation with a tiny
+   mono "Read more / less" toggle below the clamped block.
+   See LineClamp.tsx for usage notes.
+   ============================================================ */
+
+.line-clamp {
+  display: flex;
+  flex-direction: column;
+  /* Tight gap — the toggle visually anchors to the content above. */
+  gap: 6px;
+}
+
+.line-clamp-content {
+  display: -webkit-box;
+  -webkit-line-clamp: var(--lc-lines, 3);
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  /* Smooth max-height animation falls back to a hard cut if the
+     browser doesn't support the line-clamp animation — visual jank
+     would only show up on a content-resize while the box is
+     clamped, which is rare for static report data. */
+  transition: max-height 220ms ease;
+}
+.line-clamp-content--expanded {
+  /* Drop the -webkit-box clamp by switching display, and let
+     overflow / line-clamp revert to defaults. Tested across modern
+     browsers — the visual change is instant; users see the rest of
+     the content unfold below the previously-clamped block. */
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
+}
+
+.line-clamp-toggle {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  align-self: flex-start;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold);
+  cursor: pointer;
+  transition: color 140ms var(--ease);
+}
+.line-clamp-toggle:hover {
+  color: var(--gold-soft);
+}

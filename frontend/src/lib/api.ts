@@ -15,6 +15,17 @@ export function setTokenGetter(getter: (() => Promise<string | null>) | null) {
   tokenGetter = getter;
 }
 
+/**
+ * Resolves the current session's bearer token via the registered getter,
+ * for callers that need to issue fetch() requests directly (e.g. SSE
+ * streaming consumers where axios isn't a good fit). Returns null in
+ * the brief window between mount and the first Clerk hydration; the
+ * fetch caller should simply omit the Authorization header in that case.
+ */
+export async function getAuthToken(): Promise<string | null> {
+  return tokenGetter ? tokenGetter() : null;
+}
+
 const api = axios.create({
   baseURL: '/api',
   headers: { 'Content-Type': 'application/json' },

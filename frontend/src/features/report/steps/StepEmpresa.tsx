@@ -1,4 +1,6 @@
 import { useTranslation } from 'react-i18next';
+import SplitButton from '../../../components/SplitButton';
+import '../../../components/splitButton.css';
 
 export interface EmpresaData {
   name: string;
@@ -17,21 +19,51 @@ export interface EmpresaData {
 interface Props {
   data: EmpresaData;
   onChange: (data: EmpresaData) => void;
-  onNext: () => void;
+  /**
+   * True when Step 2's Global STEEP has been filled (any of the 5
+   * dimensions has content). Drives which option the split-button
+   * defaults to — "Continue" when full, "Generate" when empty. The
+   * dropdown always carries the other option, so either path is one
+   * click away regardless of state.
+   */
+  hasGlobalSteep?: boolean;
+  /**
+   * Continue to step 2 without regenerating. Parent should claim the
+   * Step 2 auto-fetch ref so the user lands on step 2 without a
+   * surprise re-generation (relevant when fields happen to be empty —
+   * the user is signalling "I'll fill it manually").
+   */
+  onContinue: () => void;
+  /**
+   * Wipe Global STEEP state + auto-fetch ref so step 2 re-generates
+   * on entry. Parent owns the state, this component just emits intent.
+   */
+  onGenerate: () => void;
 }
 
 const HORIZON_VALUES = ['3', '5', '10'] as const;
 const SIZE_VALUES = ['startup', 'pyme', 'mediana', 'grande'] as const;
 const MARKET_VALUES = ['local', 'european', 'global'] as const;
 
-export default function StepEmpresa({ data, onChange, onNext }: Props) {
+export default function StepEmpresa({
+  data,
+  onChange,
+  hasGlobalSteep,
+  onContinue,
+  onGenerate,
+}: Props) {
   const { t } = useTranslation();
   const valid =
     data.name.trim() && data.sector.trim() && data.challenge.trim();
 
+  // Enter-key fallback inside text fields. Always runs the "default" path
+  // for the current state (Continue when full, Generate when empty), so
+  // the keyboard shortcut matches the SplitButton's primary slot.
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (valid) onNext();
+    if (!valid) return;
+    if (hasGlobalSteep) onContinue();
+    else onGenerate();
   }
 
   return (
@@ -123,22 +155,21 @@ export default function StepEmpresa({ data, onChange, onNext }: Props) {
           />
         </div>
 
-        <div className="field field-flush">
+        <div className="field">
           <label htmlFor="f-strengths">{t('wizard.empresa.strengths')}</label>
           <textarea
             id="f-strengths"
             placeholder={t('wizard.empresa.strengthsPlaceholder')}
             value={data.strengths}
             onChange={(e) => onChange({ ...data, strengths: e.target.value })}
-            style={{ minHeight: '60px' }}
           />
         </div>
       </div>
 
-      <div className="card" style={{ borderColor: 'var(--border-a)', marginTop: '0.75rem' }}>
+      <div className="card is-accent">
         <div className="card-label">{t('wizard.empresa.consultantLabel')}</div>
         <div className="g2">
-          <div className="field field-flush">
+          <div className="field">
             <label htmlFor="f-consultant-name">{t('wizard.empresa.consultantName')}</label>
             <input
               id="f-consultant-name"
@@ -148,7 +179,7 @@ export default function StepEmpresa({ data, onChange, onNext }: Props) {
               onChange={(e) => onChange({ ...data, consultantName: e.target.value })}
             />
           </div>
-          <div className="field field-flush">
+          <div className="field">
             <label htmlFor="f-consultant-company">{t('wizard.empresa.consultantCompany')}</label>
             <input
               id="f-consultant-company"
@@ -161,9 +192,9 @@ export default function StepEmpresa({ data, onChange, onNext }: Props) {
         </div>
       </div>
 
-      <div className="card" style={{ borderColor: 'var(--border-a)', marginTop: '0.75rem' }}>
+      <div className="card is-accent">
         <div className="card-label">{t('wizard.empresa.titleLabel')}</div>
-        <div className="field field-flush">
+        <div className="field">
           <label htmlFor="f-title">{t('wizard.empresa.titleField')}</label>
           <input
             id="f-title"
@@ -180,9 +211,35 @@ export default function StepEmpresa({ data, onChange, onNext }: Props) {
       </div>
 
       <div className="btn-row">
-        <button type="submit" className="btn btn-primary" disabled={!valid}>
-          {t('wizard.empresa.next')}
-        </button>
+        {/* Both options are always passed in. The SplitButton picks one
+            as the primary slot based on `primary={...}` (driven by
+            hasGlobalSteep) and shows the other in the always-visible
+            dropdown — so the user can swap modes in one click whether
+            Global STEEP is filled or empty. */}
+        {(() => {
+          const continueOption = {
+            key: 'continue' as const,
+            label: t('wizard.empresa.nextContinue'),
+            onClick: () => {
+              if (valid) onContinue();
+            },
+          };
+          const generateOption = {
+            key: 'generate' as const,
+            label: t('wizard.empresa.next'),
+            onClick: () => {
+              if (valid) onGenerate();
+            },
+          };
+          return (
+            <SplitButton
+              disabled={!valid}
+              menuAriaLabel={t('wizard.empresa.nextMenuAria')}
+              primary={hasGlobalSteep ? continueOption : generateOption}
+              options={[hasGlobalSteep ? generateOption : continueOption]}
+            />
+          );
+        })()}
       </div>
     </form>
   );

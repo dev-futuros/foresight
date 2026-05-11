@@ -35,6 +35,8 @@ import lombok.extern.slf4j.Slf4j;
  *
  * <ul>
  *   <li>{@code POST /api/webhooks/clerk} — protected by Svix signature, not by JWT.
+ *   <li>{@code GET /api/public/**} — anonymous-readable share snapshots (token-gated at the
+ *       service layer; see {@link com.foresight.backend.share.PublicShareController}).
  *   <li>{@code /api/health}, {@code /actuator/health[/**]} — liveness probes.
  *   <li>Swagger UI / OpenAPI docs.
  * </ul>
@@ -79,6 +81,8 @@ public class SecurityConfig {
                     } else {
                         auth.requestMatchers(HttpMethod.POST, "/api/webhooks/clerk")
                                 .permitAll()
+                                .requestMatchers(HttpMethod.GET, "/api/public/**")
+                                .permitAll()
                                 .requestMatchers(
                                         "/api/health",
                                         "/actuator/health",
@@ -102,7 +106,10 @@ public class SecurityConfig {
     @Bean
     public UrlBasedCorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(properties.cors().allowedOrigins());
+        List<String> origins = properties.cors().allowedOrigins();
+        System.out.println(">>> CORS allowed origins: " + origins); // ← add here
+    
+        config.setAllowedOriginPatterns(origins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);

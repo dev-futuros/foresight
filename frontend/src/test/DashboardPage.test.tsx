@@ -1,19 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, fireEvent } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import { renderWithProviders } from './renderWithProviders';
 import DashboardPage from '../features/dashboard/DashboardPage';
 import type { ReportSummary } from '../types/api';
 
-const mockLogout = vi.fn();
-const mockMutate = vi.fn();
+// Tests render DashboardPage in isolation (no shell). Brand / topbar / logout
+// live in features/shell and are exercised by their own tests.
 
-vi.mock('../hooks/useAuth', () => ({
-  useCurrentUser: () => ({
-    data: { id: 'uuid-1', name: 'Alice', role: 'USER', language: 'es' },
-    isLoading: false,
-  }),
-  useLogout: () => mockLogout,
-}));
+const mockMutate = vi.fn();
 
 vi.mock('../hooks/useReports', () => ({
   useReports: vi.fn(),
@@ -32,19 +26,11 @@ const mockPage = (reports: ReportSummary[] = []) => ({
 describe('DashboardPage', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('renders nav with user name and logout button', () => {
+  it('shows empty state when no reports', () => {
     vi.mocked(useReports).mockReturnValue(mockPage() as ReturnType<typeof useReports>);
     renderWithProviders(<DashboardPage />);
 
-    expect(screen.getByText('Alice')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /cerrar sesión/i })).toBeInTheDocument();
-  });
-
-  it('shows empty state when no reports', () => {
-    vi.mocked(useReports).mockReturnValue(mockPage([]) as ReturnType<typeof useReports>);
-    renderWithProviders(<DashboardPage />);
-
-    expect(screen.getByText(/aún no tienes informes/i)).toBeInTheDocument();
+    expect(screen.getByText(/aún no hay informes guardados/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /nuevo informe/i })).toBeInTheDocument();
   });
 
@@ -62,7 +48,7 @@ describe('DashboardPage', () => {
     expect(screen.getByText(/error al cargar/i)).toBeInTheDocument();
   });
 
-  it('renders report list with title and status badge', () => {
+  it('renders report cards with title and status', () => {
     vi.mocked(useReports).mockReturnValue(mockPage([
       { id: 'r1', title: 'Informe Q1 2026', status: 'COMPLETED', createdAt: '2026-04-01T10:00:00Z', updatedAt: '2026-04-01T10:00:00Z' },
       { id: 'r2', title: 'Informe Q2 2026', status: 'DRAFT',     createdAt: '2026-04-10T10:00:00Z', updatedAt: '2026-04-10T10:00:00Z' },
@@ -76,12 +62,21 @@ describe('DashboardPage', () => {
     expect(screen.getByText('Borrador')).toBeInTheDocument();
   });
 
-  it('calls logout when clicking cerrar sesión', () => {
-    vi.mocked(useReports).mockReturnValue(mockPage() as ReturnType<typeof useReports>);
+  it('renders the four stat cards once data is loaded', () => {
+    vi.mocked(useReports).mockReturnValue(mockPage([
+      { id: 'r1', title: 'A', status: 'COMPLETED', createdAt: '2026-04-01T10:00:00Z', updatedAt: '2026-04-01T10:00:00Z' },
+      { id: 'r2', title: 'B', status: 'DRAFT',     createdAt: '2026-04-10T10:00:00Z', updatedAt: '2026-04-10T10:00:00Z' },
+      { id: 'r3', title: 'C', status: 'PROCESSING',createdAt: '2026-04-11T10:00:00Z', updatedAt: '2026-04-11T10:00:00Z' },
+      { id: 'r4', title: 'D', status: 'FAILED',    createdAt: '2026-04-12T10:00:00Z', updatedAt: '2026-04-12T10:00:00Z' },
+    ]) as ReturnType<typeof useReports>);
+
     renderWithProviders(<DashboardPage />);
 
-    fireEvent.click(screen.getByRole('button', { name: /cerrar sesión/i }));
-    expect(mockLogout).toHaveBeenCalled();
+    // Labels for the four stats
+    expect(screen.getByText(/informes generados/i)).toBeInTheDocument();
+    expect(screen.getByText(/^completados$/i)).toBeInTheDocument();
+    expect(screen.getByText(/en progreso/i)).toBeInTheDocument();
+    expect(screen.getByText(/con error/i)).toBeInTheDocument();
   });
 
   it('nuevo informe link points to /reports/new', () => {

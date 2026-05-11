@@ -86,7 +86,18 @@ public class ReportService {
         Report report = getOwned(id, userId);
         if (request.title() != null) report.setTitle(request.title());
         if (request.inputData() != null) report.setInputData(request.inputData());
-        if (request.resultData() != null) report.setResultData(request.resultData());
+        if (request.resultData() != null) {
+            report.setResultData(request.resultData());
+            // The wizard auto-saves a DRAFT on every step transition. The
+            // status only flips to COMPLETED when the analysis succeeds and
+            // we receive a non-null resultData payload — that's the contract
+            // the frontend relies on to badge drafts in the dashboard. We
+            // never downgrade from COMPLETED back to DRAFT on a subsequent
+            // input-only PATCH (the user editing inputs after generating
+            // shouldn't invalidate their previous result until they click
+            // generate again).
+            report.setStatus(ReportStatus.COMPLETED);
+        }
         return reportRepository.save(report);
     }
 

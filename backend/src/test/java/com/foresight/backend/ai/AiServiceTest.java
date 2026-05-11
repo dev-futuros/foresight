@@ -1,13 +1,17 @@
 package com.foresight.backend.ai;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Duration;
+
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -28,16 +32,35 @@ class AiServiceTest {
     @Mock
     private AnthropicClient anthropicClient;
 
-    @InjectMocks
     private AiService aiService;
+
+    @BeforeEach
+    void setup() {
+        // The AnthropicClient signatures take a `model` parameter as their
+        // first arg (per-tier dispatch). We construct a real properties
+        // record with marker tier IDs so the AiService picks them up — the
+        // tests only verify that the call shape matches, not the specific
+        // tier (the per-call tier mapping is straightforward and is best
+        // covered by reading the AiService source rather than by mocking).
+        AnthropicProperties.Models models =
+                new AnthropicProperties.Models("test-haiku", "test-sonnet", "test-opus");
+        AnthropicProperties props = new AnthropicProperties(
+                "test-key",
+                "https://api.anthropic.test",
+                "test-default",
+                models,
+                "2023-06-01",
+                Duration.ofSeconds(10),
+                Duration.ofSeconds(60),
+                3,
+                Duration.ofSeconds(5));
+        aiService = new AiService(anthropicClient, MAPPER, props);
+    }
 
     @Test
     void suggestSteepBuildsPromptAndUsesCorrectBudget() throws Exception {
         JsonNode expected = MAPPER.readTree("{\"factors\":[]}");
-        when(anthropicClient.sendMessage(
-                        org.mockito.ArgumentMatchers.anyString(),
-                        org.mockito.ArgumentMatchers.anyString(),
-                        org.mockito.ArgumentMatchers.eq(700)))
+        when(anthropicClient.sendMessage(anyString(), anyString(), anyString(), eq(700)))
                 .thenReturn(Mono.just(expected));
 
         JsonNode result = aiService
@@ -47,7 +70,7 @@ class AiServiceTest {
         ArgumentCaptor<String> systemCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
         verify(anthropicClient)
-                .sendMessage(systemCaptor.capture(), promptCaptor.capture(), org.mockito.ArgumentMatchers.eq(700));
+                .sendMessage(anyString(), systemCaptor.capture(), promptCaptor.capture(), eq(700));
 
         assertThat(systemCaptor.getValue()).contains("STEEP dimension");
         assertThat(promptCaptor.getValue())
@@ -59,20 +82,14 @@ class AiServiceTest {
 
     @Test
     void suggestSteepDefaultsLanguageToSpanishWhenNull() throws Exception {
-        when(anthropicClient.sendMessage(
-                        org.mockito.ArgumentMatchers.anyString(),
-                        org.mockito.ArgumentMatchers.anyString(),
-                        org.mockito.ArgumentMatchers.eq(700)))
+        when(anthropicClient.sendMessage(anyString(), anyString(), anyString(), eq(700)))
                 .thenReturn(Mono.just(MAPPER.readTree("{\"factors\":[]}")));
 
         aiService.suggestSteep(new SteepSuggestRequest("social", "Acme", null)).block();
 
         ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
         verify(anthropicClient)
-                .sendMessage(
-                        org.mockito.ArgumentMatchers.anyString(),
-                        promptCaptor.capture(),
-                        org.mockito.ArgumentMatchers.eq(700));
+                .sendMessage(anyString(), anyString(), promptCaptor.capture(), eq(700));
 
         assertThat(promptCaptor.getValue()).contains("Language: es");
     }
@@ -80,10 +97,7 @@ class AiServiceTest {
     @Test
     void suggestHorizonUsesHorizonSystemPromptAndBudget() throws Exception {
         JsonNode expected = MAPPER.readTree("{\"signals\":[]}");
-        when(anthropicClient.sendMessage(
-                        org.mockito.ArgumentMatchers.anyString(),
-                        org.mockito.ArgumentMatchers.anyString(),
-                        org.mockito.ArgumentMatchers.eq(800)))
+        when(anthropicClient.sendMessage(anyString(), anyString(), anyString(), eq(800)))
                 .thenReturn(Mono.just(expected));
 
         aiService
@@ -93,7 +107,7 @@ class AiServiceTest {
         ArgumentCaptor<String> systemCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
         verify(anthropicClient)
-                .sendMessage(systemCaptor.capture(), promptCaptor.capture(), org.mockito.ArgumentMatchers.eq(800));
+                .sendMessage(anyString(), systemCaptor.capture(), promptCaptor.capture(), eq(800));
 
         assertThat(systemCaptor.getValue()).contains("Horizon Scanning");
         assertThat(promptCaptor.getValue()).contains("Language: es").contains("Horizon: H2");
@@ -102,10 +116,7 @@ class AiServiceTest {
     @Test
     void globalSteepCallsWebSearchVariantWithSectorAndYear() throws Exception {
         JsonNode expected = MAPPER.readTree("{\"S\":\"\",\"T\":\"\",\"E\":\"\",\"ENV\":\"\",\"P\":\"\"}");
-        when(anthropicClient.sendMessageWithWebSearch(
-                        org.mockito.ArgumentMatchers.anyString(),
-                        org.mockito.ArgumentMatchers.anyString(),
-                        org.mockito.ArgumentMatchers.eq(1500)))
+        when(anthropicClient.sendMessageWithWebSearch(anyString(), anyString(), anyString(), eq(1500)))
                 .thenReturn(Mono.just(expected));
 
         aiService
@@ -116,7 +127,7 @@ class AiServiceTest {
         ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
         verify(anthropicClient)
                 .sendMessageWithWebSearch(
-                        systemCaptor.capture(), promptCaptor.capture(), org.mockito.ArgumentMatchers.eq(1500));
+                        anyString(), systemCaptor.capture(), promptCaptor.capture(), eq(1500));
 
         assertThat(systemCaptor.getValue()).contains("web_search");
         assertThat(promptCaptor.getValue())
@@ -129,10 +140,7 @@ class AiServiceTest {
     @Test
     void globalSteepWithDimensionPinsPromptToSingleKey() throws Exception {
         JsonNode expected = MAPPER.readTree("{\"P\":\"some political signal\"}");
-        when(anthropicClient.sendMessageWithWebSearch(
-                        org.mockito.ArgumentMatchers.anyString(),
-                        org.mockito.ArgumentMatchers.anyString(),
-                        org.mockito.ArgumentMatchers.eq(1500)))
+        when(anthropicClient.sendMessageWithWebSearch(anyString(), anyString(), anyString(), eq(1500)))
                 .thenReturn(Mono.just(expected));
 
         aiService
@@ -142,9 +150,7 @@ class AiServiceTest {
         ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
         verify(anthropicClient)
                 .sendMessageWithWebSearch(
-                        org.mockito.ArgumentMatchers.anyString(),
-                        promptCaptor.capture(),
-                        org.mockito.ArgumentMatchers.eq(1500));
+                        anyString(), anyString(), promptCaptor.capture(), eq(1500));
 
         assertThat(promptCaptor.getValue())
                 .contains("Sector: Movilidad eléctrica")
@@ -159,22 +165,20 @@ class AiServiceTest {
         JsonNode horizon = MAPPER.readTree("{\"H1\":[]}");
         JsonNode expected = MAPPER.readTree("{\"report\":{}}");
 
-        when(anthropicClient.sendMessage(
-                        org.mockito.ArgumentMatchers.anyString(),
-                        org.mockito.ArgumentMatchers.anyString(),
-                        org.mockito.ArgumentMatchers.eq(16000)))
+        when(anthropicClient.sendMessage(anyString(), anyString(), anyString(), eq(16000)))
                 .thenReturn(Mono.just(expected));
 
         aiService
-                .analyze(new AnalyzeRequest(companyProfile, steep, horizon, "en"))
+                .analyze(new AnalyzeRequest(companyProfile, steep, horizon, null, "en"))
                 .block();
 
+        // First arg is the model id (per the new per-tier signature) — we
+        // don't assert on it here, the tier mapping is read directly from
+        // AiService; this test just confirms the prompt body contents
+        // reach the client unchanged.
         ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
         verify(anthropicClient)
-                .sendMessage(
-                        org.mockito.ArgumentMatchers.anyString(),
-                        promptCaptor.capture(),
-                        org.mockito.ArgumentMatchers.eq(16000));
+                .sendMessage(anyString(), anyString(), promptCaptor.capture(), eq(16000));
 
         String prompt = promptCaptor.getValue();
         assertThat(prompt)
