@@ -450,8 +450,6 @@ const en = {
     title: 'My account',
     backToDashboard: '← My reports',
     loading: 'Loading profile…',
-    sessionTitle: 'Session',
-    sessionDesc: 'Click your avatar to manage your account.',
     profile: {
       title: 'Profile',
       email: 'Email',

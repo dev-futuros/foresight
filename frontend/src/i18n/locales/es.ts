@@ -450,8 +450,6 @@ const es = {
     title: 'Mi cuenta',
     backToDashboard: '← Mis informes',
     loading: 'Cargando perfil…',
-    sessionTitle: 'Sesión',
-    sessionDesc: 'Pulsa tu avatar para gestionar tu cuenta.',
     profile: {
       title: 'Perfil',
       email: 'Email',

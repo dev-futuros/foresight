@@ -243,7 +243,6 @@
    Clerk's default `overflow: hidden` somewhere up the tree clips the gold
    glow box-shadow on the primary button at the form's left/right edges. */
 .cl-root,
-.cl-root > div,
 .cl-card,
 .cl-card-box,
 .cl-main {
@@ -488,16 +487,14 @@
   border-bottom-color: rgba(212, 168, 83, 0.7);
 }
 
-/* Hide Clerk's "Secured by" footer branding row (its own dedicated subtree).
-   The third selector matches any class starting with "cl-internal-" inside
-   the footer — written as an attribute selector so lightningcss accepts it
-   (the literal `.cl-internal-*` form is not a valid CSS selector and the
-   build minifier rejects it). */
-.cl-card .cl-internal-1rpdi70,
-.cl-card [data-localization-key='footerPageLink__help'],
-.cl-card .cl-footer [class*='cl-internal-'] {
-  /* harmless if these classes change; the rules above handle the visible bits */
-}
+/* (Removed the previous "hide Clerk's 'Secured by' footer branding"
+   block. It depended on Clerk-internal classnames like cl-internal-1rpdi70
+   and a data-localization-key attribute — both flagged by Clerk's
+   structural-CSS warning as breakage-prone. The visible footer link
+   styling above (".cl-footer-action-*") still applies; the branding
+   row is now just unstyled. If it needs hiding, install @clerk/ui to
+   pin the DOM structure or use the Clerk appearance API once that
+   element gets a stable hook.) */
 
 /* OAuth / social buttons.
    Clerk renders TWO different OAuth button styles:
@@ -510,9 +507,14 @@
    applies (e.g. button-group `10px 10px 0 0`). */
 
 /* Block buttons (wide, "Continue with Google") */
-.cl-social-btn,
-.cl-social-btn > button,
-.cl-social-btn button {
+/* Radii applied to the appearance-class element itself. The earlier
+   ".cl-social-btn > button" / ".cl-social-btn button" variants were
+   removed — they targeted Clerk's nested DOM and tripped its
+   structural-CSS warning. If Clerk renders the button wrapped inside
+   .cl-social-btn (instead of being it), the radius rule still applies
+   to the outer element; only the inner pixel-perfect rounding could
+   theoretically differ. */
+.cl-social-btn {
   border-top-left-radius: var(--r-md) !important;
   border-top-right-radius: var(--r-md) !important;
   border-bottom-left-radius: var(--r-md) !important;
@@ -540,9 +542,9 @@
    Clerk's default radius for these is half the button width, which makes
    them perfect circles. We force a small uniform radius so they read as
    rounded squares instead — same family as the block buttons but tighter. */
-.cl-social-icon-btn,
-.cl-social-icon-btn > button,
-.cl-social-icon-btn button {
+/* Same as above — icon-only social buttons. Targeting only the
+   appearance-class element to avoid Clerk's structural-CSS warning. */
+.cl-social-icon-btn {
   border-top-left-radius: var(--r-sm) !important;
   border-top-right-radius: var(--r-sm) !important;
   border-bottom-left-radius: var(--r-sm) !important;

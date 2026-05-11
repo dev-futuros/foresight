@@ -53,26 +53,14 @@
   margin-bottom: 14px;
 }
 
-/* ── Session card (Clerk UserButton) ──────────────────────── */
-.account-page .account-session {
+/* Avatar — floats above the form cards, centered, no enclosing card.
+   The Clerk UserButton's avatarBox is sized via the appearance prop in
+   AccountPage.tsx (120×120); this wrapper just gives it room and
+   horizontal centering. */
+.account-page .account-avatar {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-.account-page .account-session-desc {
-  font-size: 13.5px;
-  color: var(--ink-soft);
-  line-height: 1.55;
-  margin: 0;
-  flex: 1;
-  min-width: 220px;
-}
-.account-page .account-clerk-button {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
+  justify-content: center;
+  margin: 8px 0 32px;
 }
 
 /* ── Form fields (port of prototype form rules) ────────────── */
@@ -212,5 +200,4 @@
 @media (max-width: 720px) {
   .account-page .account-main { padding: 24px 16px 64px; }
   .account-page .page-title { font-size: 26px; }
-  .account-page .account-session { flex-direction: column; align-items: stretch; }
 }

@@ -83,17 +83,23 @@ export default function AccountPage() {
           <h1 className="page-title">{t('account.title')}</h1>
         </header>
 
-        {/* Session — Clerk-managed (email/password). The button opens Clerk's
-            account modal where users change email, set up 2FA, etc. */}
-        <section className="account-card card">
-          <div className="card-label">{t('account.sessionTitle')}</div>
-          <div className="account-session">
-            <p className="account-session-desc">{t('account.sessionDesc')}</p>
-            <div className="account-clerk-button">
-              <UserButton />
-            </div>
-          </div>
-        </section>
+        {/* Avatar — Clerk's UserButton, centered and oversized so it reads
+            as a profile photo rather than a tucked-away menu trigger.
+            Clicking it still opens Clerk's account modal (email, password,
+            2FA, etc.) — the title and descriptor were trimmed since the
+            avatar itself is now obviously the entry point. */}
+        <div className="account-avatar">
+          <UserButton
+            appearance={{
+              elements: {
+                avatarBox: {
+                  width: 120,
+                  height: 120,
+                },
+              },
+            }}
+          />
+        </div>
 
         {/* Profile — local fields (name, role). Email is read-only (lives in Clerk). */}
         <section className="account-card card">
