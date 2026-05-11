@@ -341,6 +341,20 @@
 }
 @keyframes wizard-spin { to { transform: rotate(360deg); } }
 
+/* Brief gold flash on a form field after the assistant writes to it via
+   setField. Triggered by NewReportPage's setField handler adding the
+   .fs-suggest-flash class to the matching element by id, then removing
+   it after the animation completes. Outline-style (box-shadow) so it
+   composes over any existing borders and works on inputs, selects,
+   and textareas alike. */
+@keyframes fs-suggest-flash {
+  0%   { box-shadow: 0 0 0 2px var(--gold), 0 0 16px hsla(40, 60%, 56%, 0.4); }
+  100% { box-shadow: 0 0 0 0 transparent, 0 0 0 0 transparent; }
+}
+.fs-suggest-flash {
+  animation: fs-suggest-flash 1.4s ease-out;
+}
+
 /* ── Dimension icons (STEEP + Horizon) ──────────────────────── */
 .wizard .dim-icon {
   width: 30px;

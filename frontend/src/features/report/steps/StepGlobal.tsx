@@ -298,6 +298,10 @@ export default function StepGlobal({
                     </div>
                   </div>
                   <textarea
+                    /* id matches the setField target id (gs-s, gs-t, gs-e,
+                       gs-env, gs-p) so the gold flash in NewReportPage's
+                       setField handler can find this element. */
+                    id={`gs-${key.toLowerCase()}`}
                     value={data[key]}
                     onChange={(e) => onChange({ ...data, [key]: e.target.value })}
                   />

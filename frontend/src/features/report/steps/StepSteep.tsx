@@ -14,6 +14,17 @@ const DIMENSION_KEYS = [
 
 type DimensionKey = (typeof DIMENSION_KEYS)[number];
 
+/** setField target id for each sectorial STEEP dimension. Used to wire
+ *  the textarea's HTML id so NewReportPage's setField gold-flash can
+ *  find the right element. */
+const DIM_FIELD_ID: Record<DimensionKey, string> = {
+  social: 'steep-s',
+  technological: 'steep-t',
+  economic: 'steep-e',
+  environmental: 'steep-env',
+  political: 'steep-p',
+};
+
 export type SteepData = Record<DimensionKey, string>;
 
 interface Props {
@@ -158,6 +169,7 @@ export default function StepSteep({
               </div>
 
               <textarea
+                id={DIM_FIELD_ID[key]}
                 placeholder={t(`wizard.steep.placeholders.${key}`)}
                 value={data[key]}
                 onChange={(e) => onChange({ ...data, [key]: e.target.value })}

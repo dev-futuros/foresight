@@ -597,6 +597,18 @@ export default function NewReportPage() {
           default:
             throw new Error(`Unknown field id: ${id}`);
         }
+        // Brief gold flash on the field so the user can see WHERE the
+        // value landed. Deferred to the next macrotask so React commits
+        // the new value first; otherwise the flash starts before the
+        // textarea/input visibly updates. The field's id matches the
+        // setField target id by design — see the id attributes on each
+        // wizard step's inputs.
+        window.setTimeout(() => {
+          const el = document.getElementById(id);
+          if (!el) return;
+          el.classList.add('fs-suggest-flash');
+          window.setTimeout(() => el.classList.remove('fs-suggest-flash'), 1500);
+        }, 0);
         return `Applied to ${id}.`;
       },
     },

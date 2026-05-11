@@ -137,6 +137,10 @@ export default function StepHorizon({
               </div>
 
               <textarea
+                /* id matches the setField target (hs-h1 / hs-h2 / hs-h3)
+                   so the gold flash in NewReportPage's setField handler
+                   can find this textarea. */
+                id={`hs-${key.toLowerCase()}`}
                 placeholder={t(`wizard.horizon.placeholders.${key}`)}
                 value={data[key]}
                 onChange={(e) => onChange({ ...data, [key]: e.target.value })}
