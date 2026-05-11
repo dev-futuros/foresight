@@ -79,6 +79,14 @@
   text-align: center;
 }
 
+/* Public-share has no stepper above the report — the authenticated
+   .tab-row defaults to top:118px (78px navbar + 40px stepper). Reset
+   to top:0 here so the report's tab bar sticks to the very top of
+   the viewport after the share topbar scrolls away. */
+.public-share .tab-row {
+  top: 0;
+}
+
 @media (max-width: 720px) {
   .public-share-topbar { padding: 14px 18px; }
   .public-share-main { padding: 32px 16px 64px; }
