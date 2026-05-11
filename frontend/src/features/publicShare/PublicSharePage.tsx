@@ -34,20 +34,12 @@ export default function PublicSharePage() {
   // share in a non-primary language). Switch the public UI to that
   // language so the chrome around the report content (section labels,
   // tab titles, etc.) matches what the recipient is reading.
-  //
-  // Effect deps are reduced to the lang query value: i18n is a stable
-  // singleton but its hook-returned reference flips on every render,
-  // and including it here caused this effect to re-fire on every mouse
-  // event — fighting `useLanguageSync` for any signed-in owner viewing
-  // their own EN share. That re-render storm is what blacked out the
-  // backdrop-filtered sticky tab-row.
-  const langParam = searchParams.get('lang');
   useEffect(() => {
-    if (langParam && (langParam === 'es' || langParam === 'en') && langParam !== i18n.language) {
-      void i18n.changeLanguage(langParam);
+    const lang = searchParams.get('lang');
+    if (lang && (lang === 'es' || lang === 'en') && lang !== i18n.language) {
+      void i18n.changeLanguage(lang);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [langParam]);
+  }, [searchParams, i18n]);
 
   const formattedDate = data
     ? new Date(data.createdAt).toLocaleDateString(
