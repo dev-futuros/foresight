@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type {
   Backcasting,
@@ -148,6 +148,8 @@ interface Props {
  */
 export default function ReportContent({ result, input }: Props) {
   const { t } = useTranslation();
+  const tabRowRef = useRef<HTMLDivElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
   const visible = useMemo(
     () => TABS.filter((tb) => tb.available(result, input)),
     [result, input],
@@ -161,9 +163,34 @@ export default function ReportContent({ result, input }: Props) {
   // first visible tab keeps the panel from rendering nothing.
   const activeTab = visible.find((tb) => tb.key === active) ?? visible[0];
 
+  /**
+   * Scroll so the panel's top edge sits just below the sticky tab-row.
+   * Works whether the user is at the report header (need to scroll
+   * down) or deep inside the previous panel's content (need to scroll
+   * up). Reads the row's computed `top` so it stays correct in both
+   * the authenticated app (top: 118px) and the public-share page
+   * (top: 0) without branching on context.
+   */
+  function handleTabClick(key: TabKey) {
+    setActive(key);
+    // Defer the scroll one frame so the new panel has rendered — its
+    // height affects nothing here, but its content start is the
+    // semantic target of the scroll.
+    requestAnimationFrame(() => {
+      const row = tabRowRef.current;
+      const panel = panelRef.current;
+      if (!row || !panel) return;
+      const stickyTop = parseFloat(getComputedStyle(row).top) || 0;
+      const rowH = row.offsetHeight;
+      const panelDocTop = window.scrollY + panel.getBoundingClientRect().top;
+      const targetY = Math.max(0, panelDocTop - stickyTop - rowH);
+      window.scrollTo({ top: targetY, behavior: 'smooth' });
+    });
+  }
+
   return (
     <div>
-      <div className="tab-row" role="tablist">
+      <div className="tab-row" role="tablist" ref={tabRowRef}>
         {visible.map((tab) => (
           <button
             key={tab.key}
@@ -171,7 +198,7 @@ export default function ReportContent({ result, input }: Props) {
             role="tab"
             className={`tab-btn${tab.key === activeTab.key ? ' active' : ''}`}
             aria-selected={tab.key === activeTab.key}
-            onClick={() => setActive(tab.key)}
+            onClick={() => handleTabClick(tab.key)}
           >
             {t(tab.labelKey)}
           </button>
@@ -181,7 +208,7 @@ export default function ReportContent({ result, input }: Props) {
           subtree and mounts a fresh one when the user switches — that
           restarts the CSS fade-in animation on .tab-panel cleanly, with
           no need for a transition library. */}
-      <div className="tab-panel" key={activeTab.key}>
+      <div className="tab-panel" key={activeTab.key} ref={panelRef}>
         {activeTab.render(result, input)}
       </div>
     </div>

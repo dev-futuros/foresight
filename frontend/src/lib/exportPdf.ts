@@ -996,13 +996,15 @@ function renderToc(
   doc.line(MARGIN_X, y, PAGE_W - MARGIN_X, y);
   y += 16;
 
-  // Entries
+  // Entries — each row is also a clickable internal link that jumps
+  // to the section's start page in PDF readers that support links.
   const entryGap = 14;
   const pageColW = 22;
   const textColW = CONTENT_W - pageColW - 6;
   for (const e of tocEntries) {
     y = checkY(doc, y, 28);
     const shifted = e.page + shift;
+    const entryTopY = y - 8; // approximate top edge of the row for hit area
     // Big colored numeral
     setText(doc, e.color, 22, 'bold', FONT_SERIF);
     doc.text(e.num, MARGIN_X, y + 1);
@@ -1039,6 +1041,12 @@ function renderToc(
     doc.setDrawColor(LINE);
     doc.setLineWidth(0.2);
     doc.line(MARGIN_X, y - 8, PAGE_W - MARGIN_X, y - 8);
+    // Whole-row link annotation — clickable in PDF readers (Preview,
+    // Acrobat, browsers, etc.) jumps the viewer to the target page.
+    const entryBottomY = y - 8;
+    doc.link(MARGIN_X, entryTopY, CONTENT_W, entryBottomY - entryTopY, {
+      pageNumber: shifted,
+    });
   }
 
   // Footer credit
