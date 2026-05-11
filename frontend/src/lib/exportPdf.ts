@@ -299,7 +299,7 @@ function body(
   const paragraphGap = opts.paragraphGap ?? leading * 0.7;
   const trailingGap = opts.trailingGap ?? leading * 0.6;
   setText(doc, opts.color ?? INK_SOFT, size, opts.weight ?? 'normal', opts.family ?? FONT_SANS);
-  const paragraphs = text.split(/\n{2,}/);
+  const paragraphs = splitParagraphs(text);
   for (let p = 0; p < paragraphs.length; p++) {
     const lines = doc.splitTextToSize(paragraphs[p].trim(), maxWidth) as string[];
     for (const ln of lines) {
@@ -312,6 +312,19 @@ function body(
   return y + trailingGap;
 }
 
+/**
+ * Split body text into paragraphs on either real newlines (`\n\n`)
+ * or literal backslash-escape sequences (`\\n\\n`). The model
+ * occasionally returns the latter when its JSON output isn't fully
+ * unescaped during analysis — splitting on both keeps the rendered
+ * body free of visible `\n` characters.
+ */
+function splitParagraphs(text: string): string[] {
+  return text
+    .replace(/\\n/g, '\n')
+    .split(/\n{2,}/);
+}
+
 /** Measure a body block in mm without drawing it. */
 function measureBody(
   doc: jsPDF,
@@ -321,7 +334,7 @@ function measureBody(
   const size = opts.size ?? 10.5;
   const leading = opts.leading ?? size * 0.55;
   setText(doc, INK, size, opts.weight ?? 'normal', opts.family ?? FONT_SANS);
-  const paragraphs = text.split(/\n{2,}/);
+  const paragraphs = splitParagraphs(text);
   let h = 0;
   paragraphs.forEach((p, i) => {
     const lines = doc.splitTextToSize(p.trim(), opts.maxWidth) as string[];
@@ -336,10 +349,19 @@ function measureBody(
  * underneath, matching the on-screen {@code .section-label} pattern.
  * Used inside section bodies for sub-blocks (e.g. "Opportunities"
  * within a scenario card). Major sections instead use section-opener
- * pages — see {@link sectionOpener}.
+ * pages — section openers are inlined per renderer.
  */
-function sectionLabel(doc: jsPDF, y: number, text: string, color = GOLD): number {
-  y = checkY(doc, y, 14);
+function sectionLabel(
+  doc: jsPDF,
+  y: number,
+  text: string,
+  color = GOLD,
+  nextBlockH = 24,
+): number {
+  // Reserve enough space for the label plus the first content block
+  // that follows. Without this, a label can land at the bottom of a
+  // page while its content paginates to the next, leaving an orphan.
+  y = checkY(doc, y, 14 + nextBlockH);
   setText(doc, color, 8, 'bold', FONT_MONO);
   doc.text(text.toUpperCase(), MARGIN_X, y);
   doc.setDrawColor(LINE_ACCENT);
@@ -449,6 +471,39 @@ function dotBullets(
 }
 
 /**
+ * No-pagination variant of {@link dotBullets} — draws at the given y
+ * without ever calling `checkY`. Required for multi-column grid
+ * layouts where a per-line pagination would shift the doc cursor to
+ * a new page mid-column and break the side-by-side rendering of
+ * subsequent columns. Callers must pre-measure to ensure the block
+ * fits the available page space.
+ */
+function drawBulletsNoPaginate(
+  doc: jsPDF,
+  yStart: number,
+  items: string[],
+  color: string,
+  opts: { size?: number; leading?: number; indent: number; maxWidth: number; textColor?: string },
+): number {
+  const size = opts.size ?? 9;
+  const leading = opts.leading ?? size * 0.55;
+  const textX = opts.indent + 4;
+  let y = yStart;
+  for (const it of items) {
+    if (!it) continue;
+    setText(doc, opts.textColor ?? INK_SOFT, size, 'normal', FONT_SANS);
+    const lines = doc.splitTextToSize(it, opts.maxWidth) as string[];
+    for (let i = 0; i < lines.length; i++) {
+      if (i === 0) dot(doc, opts.indent + 0.5, y - 1.4, color, 1.4);
+      doc.text(lines[i], textX, y);
+      y += leading;
+    }
+    y += 0.4;
+  }
+  return y + 0.5;
+}
+
+/**
  * Small uppercase mono kicker — eyebrow used above headlines. Returns
  * the y position after rendering (caller controls leading).
  */
@@ -523,62 +578,6 @@ function pageHeader(
   doc.setLineWidth(0.4);
   doc.line(MARGIN_X, ty, PAGE_W - MARGIN_X, ty);
   return ty + 8;
-}
-
-/**
- * Flow body text into N columns starting at (xStart, yStart). Returns
- * the y of the bottom of the longest column. Does NOT paginate — the
- * caller must ensure the text fits the available block height.
- */
-function bodyColumns(
-  doc: jsPDF,
-  xStart: number,
-  yStart: number,
-  totalWidth: number,
-  text: string,
-  cols: number,
-  opts: {
-    gap?: number;
-    size?: number;
-    leading?: number;
-    color?: string;
-    family?: string;
-    weight?: FontWeight;
-  } = {},
-): number {
-  const gap = opts.gap ?? 6;
-  const size = opts.size ?? 10.5;
-  const leading = opts.leading ?? size * 0.55;
-  const colW = (totalWidth - gap * (cols - 1)) / cols;
-  setText(doc, opts.color ?? INK_SOFT, size, opts.weight ?? 'normal', opts.family ?? FONT_SANS);
-  // Split into all lines first, then distribute across columns by
-  // count. Simple but works for short blocks; paragraphs collapse.
-  const paragraphs = text.split(/\n{2,}/);
-  const lines: string[] = [];
-  for (let p = 0; p < paragraphs.length; p++) {
-    const para = paragraphs[p].trim();
-    const wrapped = doc.splitTextToSize(para, colW) as string[];
-    lines.push(...wrapped);
-    if (p < paragraphs.length - 1) lines.push(''); // paragraph break
-  }
-  const linesPerCol = Math.ceil(lines.length / cols);
-  let maxY = yStart;
-  for (let c = 0; c < cols; c++) {
-    const cx = xStart + c * (colW + gap);
-    let cy = yStart;
-    const start = c * linesPerCol;
-    const end = Math.min(start + linesPerCol, lines.length);
-    for (let i = start; i < end; i++) {
-      if (lines[i] === '') {
-        cy += leading * 0.5;
-        continue;
-      }
-      doc.text(lines[i], cx, cy);
-      cy += leading;
-    }
-    maxY = Math.max(maxY, cy);
-  }
-  return maxY;
 }
 
 /* ── i18n helpers ─────────────────────────────────────────────────── */
@@ -671,6 +670,38 @@ function parsePercent(s: string | undefined): number {
   return m ? Number(m[0].replace(',', '.')) : 0;
 }
 
+/**
+ * Normalise a STEEP block into the canonical `S/T/E/ENV/P` shape used
+ * by every PDF renderer. The wizard's StepSteep saves with full names
+ * (`social`, `technological`, …) and StepGlobal saves with short
+ * codes; this helper accepts either so the renderer doesn't branch.
+ */
+function normalizeSteepKeys(
+  s: SteepBlock | Record<string, unknown> | undefined,
+): SteepBlock {
+  if (!s) return {};
+  const src = s as Record<string, unknown>;
+  const pick = (...keys: string[]): string | undefined => {
+    for (const k of keys) {
+      const v = src[k];
+      if (typeof v === 'string' && v.trim().length > 0) return v;
+    }
+    return undefined;
+  };
+  const out: SteepBlock = {};
+  const S = pick('S', 'social', 'Social');
+  const T = pick('T', 'technological', 'Technological', 'tecnológico', 'tecnologico');
+  const E = pick('E', 'economic', 'Economic', 'económico', 'economico');
+  const ENV = pick('ENV', 'environmental', 'Environmental', 'medioambiental');
+  const P = pick('P', 'political', 'Political', 'político', 'politico');
+  if (S) out.S = S;
+  if (T) out.T = T;
+  if (E) out.E = E;
+  if (ENV) out.ENV = ENV;
+  if (P) out.P = P;
+  return out;
+}
+
 /* ── Page-tracking + TOC ──────────────────────────────────────────── */
 
 interface TocEntry {
@@ -690,53 +721,9 @@ function recordSection(doc: jsPDF, title: string, color = GOLD) {
 }
 
 /**
- * Full-page section opener: huge gold serif numeral on the left
- * baseline + section title in display serif. Acts as a "chapter
- * break" between major sections, matching magazine convention. The
- * opener also records the TOC entry.
- */
-function sectionOpener(
-  doc: jsPDF,
-  title: string,
-  kicker: string,
-  color = GOLD,
-): number {
-  let y = addPage(doc);
-  const num = recordSection(doc, title, color);
-
-  // Top-of-page wordmark + gold rule (running head).
-  drawRunningHead(doc);
-
-  // Vertical hairline aligned with the numeral.
-  doc.setDrawColor(color);
-  doc.setLineWidth(0.45);
-  const numAreaX = MARGIN_X;
-  const numY = MARGIN_TOP + 80;
-  doc.line(numAreaX, numY - 50, numAreaX, numY - 6);
-
-  // Oversized numeral
-  setText(doc, color, 86, 'bold', FONT_SERIF);
-  doc.text(num, numAreaX + 4, numY);
-
-  // Kicker (mono uppercase)
-  setText(doc, INK_MUTE, 8.5, 'bold', FONT_MONO);
-  doc.text(kicker.toUpperCase(), numAreaX + 4, numY + 12);
-
-  // Title (display serif)
-  setText(doc, INK, 30, 'bold', FONT_SERIF);
-  const titleLines = doc.splitTextToSize(title, CONTENT_W - 4) as string[];
-  let ty = numY + 30;
-  for (const ln of titleLines) {
-    doc.text(ln, numAreaX + 4, ty);
-    ty += 12;
-  }
-  return ty + 14;
-}
-
-/**
  * Running head drawn at the top of every non-cover, non-TOC page —
  * gold "FUTUROS" wordmark left, report title right, with a thin
- * rule below. Called from {@link addFooters} + sectionOpener.
+ * rule below. Called when sections add a fresh page.
  */
 function drawRunningHead(doc: jsPDF, reportTitle?: string) {
   setText(doc, GOLD, 7.5, 'bold', FONT_MONO);
@@ -824,31 +811,33 @@ function renderCover(doc: jsPDF, report: ReportResponse, result: ResultData | nu
   doc.line(MARGIN_X, y, MARGIN_X + 30, y);
   y += 12;
 
-  // Standfirst / deck — derived from the executive summary's first
-  // sentence if available; falls back to the strategic challenge.
+  // Standfirst / deck — short, capped to ~4 lines so it can't push
+  // into the stats strip. Falls back to the strategic challenge.
   const deck = pickCoverDeck(result, cp, en);
   if (deck) {
-    y = standfirst(doc, MARGIN_X, y, CONTENT_W * 0.86, deck, {
-      size: 15,
+    y = standfirst(doc, MARGIN_X, y, CONTENT_W * 0.88, deck, {
+      size: 13.5,
       color: INK_SOFT,
-      leading: 9,
+      leading: 7.6,
     });
     y += 4;
   }
 
-  // ── Quick-stats strip ──────────────────────────────────────────
-  // Three magazine-style stat lock-ups in a row — surfaces the
-  // report's scale at a glance.
+  // ── Quick-stats strip — anchored to the bottom block so it doesn't
+  //    collide with the standfirst, regardless of deck length.
   const stats = collectCoverStats(report, result, cp, en);
   if (stats.length > 0) {
-    const statsY = 222;
+    // Stats sit ~46mm above the bottom-of-page consultant/colophon
+    // row. PAGE_H - 46 = 251mm. Always below the standfirst (which
+    // we capped above), and well clear of the bottom byline at 270.
+    const statsY = Math.max(y + 30, PAGE_H - 60);
     doc.setDrawColor(LINE_STRONG);
     doc.setLineWidth(0.2);
     doc.line(MARGIN_X, statsY - 12, PAGE_W - MARGIN_X, statsY - 12);
     const colW = CONTENT_W / stats.length;
     for (let i = 0; i < stats.length; i++) {
       const x = MARGIN_X + i * colW;
-      setText(doc, INK, 26, 'bold', FONT_SERIF);
+      setText(doc, INK, 24, 'bold', FONT_SERIF);
       doc.text(stats[i].value, x, statsY);
       setText(doc, INK_MUTE, 7.5, 'bold', FONT_MONO);
       doc.text(stats[i].label.toUpperCase(), x, statsY + 4.8);
@@ -983,68 +972,55 @@ function renderToc(
   drawRunningHead(doc, reportTitle);
   const en = isEnLang();
 
-  // Editorial top block: kicker + huge "Contents" headline
-  let y = MARGIN_TOP + 14;
-  kicker(doc, MARGIN_X, y, en ? 'Inside this report' : 'Dentro de este informe', GOLD, 8.5);
-  y += 10;
-  setText(doc, INK, 38, 'bold', FONT_SERIF);
-  doc.text(en ? 'Contents' : 'Contenidos', MARGIN_X, y + 14);
-  y += 22;
-  // Long gold rule
+  // Editorial top block: kicker + "Contents" headline (compact so the
+  // whole TOC — 10 entries plus chrome — fits on the reserved page).
+  let y = MARGIN_TOP + 8;
+  kicker(doc, MARGIN_X, y, en ? 'Inside this report' : 'Dentro de este informe', GOLD, 8);
+  y += 8;
+  setText(doc, INK, 28, 'bold', FONT_SERIF);
+  doc.text(en ? 'Contents' : 'Contenidos', MARGIN_X, y + 12);
+  y += 18;
   doc.setDrawColor(GOLD);
-  doc.setLineWidth(0.5);
+  doc.setLineWidth(0.4);
   doc.line(MARGIN_X, y, PAGE_W - MARGIN_X, y);
-  y += 16;
+  y += 10;
 
-  // Entries — each row is also a clickable internal link that jumps
-  // to the section's start page in PDF readers that support links.
-  const entryGap = 14;
+  // Entries — single-line layout per entry: NN | Title (teaser as
+  // small italic continuation on the same row) | Page #. Capped to
+  // ~17mm per entry so all 10 fit in the 220mm content area.
+  const entryH = 17;
   const pageColW = 22;
   const textColW = CONTENT_W - pageColW - 6;
   for (const e of tocEntries) {
-    y = checkY(doc, y, 28);
     const shifted = e.page + shift;
-    const entryTopY = y - 8; // approximate top edge of the row for hit area
-    // Big colored numeral
-    setText(doc, e.color, 22, 'bold', FONT_SERIF);
-    doc.text(e.num, MARGIN_X, y + 1);
-    // Title in display serif
-    const titleX = MARGIN_X + 16;
-    setText(doc, INK, 16, 'bold', FONT_SERIF);
-    const titleMaxW = textColW - 16;
-    const titleLines = doc.splitTextToSize(e.title, titleMaxW) as string[];
-    let ty = y;
-    for (const ln of titleLines) {
-      doc.text(ln, titleX, ty);
-      ty += 7.2;
-    }
-    // Teaser
+    const entryTopY = y - 4;
+    // Numeral — neutral mute tone so the index reads as a quiet
+    // typographic list rather than a coloured palette.
+    setText(doc, INK_MUTE, 16, 'bold', FONT_SERIF);
+    doc.text(e.num, MARGIN_X, y + 4);
+    // Title — display serif, 13pt, one line max
+    const titleX = MARGIN_X + 14;
+    setText(doc, INK, 13, 'bold', FONT_SERIF);
+    const titleMaxW = textColW - 14;
+    doc.text(clipText(doc, e.title, titleMaxW), titleX, y + 3);
+    // Teaser — small italic, one line max
     const teaser = teasers[e.num];
     if (teaser) {
-      setText(doc, INK_SOFT, 10, 'italic', FONT_SERIF);
-      const teaserLines = doc.splitTextToSize(teaser, titleMaxW) as string[];
-      for (const ln of teaserLines.slice(0, 2)) {
-        doc.text(ln, titleX, ty);
-        ty += 5;
-      }
+      setText(doc, INK_SOFT, 8.5, 'italic', FONT_SERIF);
+      doc.text(clipText(doc, teaser, titleMaxW), titleX, y + 10);
     }
     // Page number on the right
-    setText(doc, INK, 22, 'normal', FONT_SERIF);
+    setText(doc, INK, 18, 'normal', FONT_SERIF);
     const pageStr = String(shifted);
     const pageW = doc.getTextWidth(pageStr);
-    doc.text(pageStr, PAGE_W - MARGIN_X - pageW, y + 1);
-    setText(doc, INK_MUTE, 6.5, 'bold', FONT_MONO);
-    doc.text((en ? 'Page' : 'Pág.').toUpperCase(), PAGE_W - MARGIN_X - pageW, y - 4);
-    // Move y past the longer of the two columns
-    y = Math.max(ty, y + 8) + entryGap;
+    doc.text(pageStr, PAGE_W - MARGIN_X - pageW, y + 5);
     // Thin rule between entries
+    y += entryH;
     doc.setDrawColor(LINE);
-    doc.setLineWidth(0.2);
-    doc.line(MARGIN_X, y - 8, PAGE_W - MARGIN_X, y - 8);
-    // Whole-row link annotation — clickable in PDF readers (Preview,
-    // Acrobat, browsers, etc.) jumps the viewer to the target page.
-    const entryBottomY = y - 8;
-    doc.link(MARGIN_X, entryTopY, CONTENT_W, entryBottomY - entryTopY, {
+    doc.setLineWidth(0.15);
+    doc.line(MARGIN_X, y - 3, PAGE_W - MARGIN_X, y - 3);
+    // Whole-row link annotation
+    doc.link(MARGIN_X, entryTopY, CONTENT_W, entryH, {
       pageNumber: shifted,
     });
   }
@@ -1458,8 +1434,8 @@ function extractPullQuote(text: string): string | null {
  * a small "GLOBAL · SECTORIAL" intertitle in between.
  */
 function renderSteepInputs(doc: jsPDF, yIn: number, input: InputData): number {
-  const g = input.globalSteep ?? {};
-  const s = input.steep ?? {};
+  const g = normalizeSteepKeys(input.globalSteep);
+  const s = normalizeSteepKeys(input.steep);
   const dims: Array<'S' | 'T' | 'E' | 'ENV' | 'P'> = ['S', 'T', 'E', 'ENV', 'P'];
   const hasGlobal = dims.some((k) => (g[k] ?? '').trim().length > 0);
   const hasSect = dims.some((k) => (s[k] ?? '').trim().length > 0);
@@ -1486,8 +1462,11 @@ function renderSteepInputs(doc: jsPDF, yIn: number, input: InputData): number {
 }
 
 /**
- * Renders STEEP dimensions as a 2-column grid of compact cards. Pairs
- * up two cards per row, advancing y by the taller card's height.
+ * Renders a STEEP block as a sequence of compact "header + body"
+ * rows. Each dimension gets a colour-coded letter badge + label, then
+ * its description flows as line-paginated body text. Drops the
+ * fixed-height card pattern which orphaned the page header when a
+ * single dimension's text exceeded one card height.
  */
 function renderSteepGrid(
   doc: jsPDF,
@@ -1496,60 +1475,54 @@ function renderSteepGrid(
   dims: Array<'S' | 'T' | 'E' | 'ENV' | 'P'>,
 ): number {
   let y = yIn;
-  const gap = 6;
-  const colW = (CONTENT_W - gap) / 2;
   const filled = dims.filter((k) => (block[k] ?? '').trim().length > 0);
-  for (let i = 0; i < filled.length; i += 2) {
-    const pair = filled.slice(i, i + 2);
-    const heights = pair.map((k) => measureSteepCard(doc, k, (block[k] ?? '').trim(), colW));
-    const rowH = Math.max(...heights);
-    y = checkY(doc, y, rowH + 4);
-    pair.forEach((k, idx) => {
-      const x = MARGIN_X + idx * (colW + gap);
-      drawSteepCard(doc, x, y, colW, rowH, k, (block[k] ?? '').trim());
-    });
-    y += rowH + gap;
+  for (let i = 0; i < filled.length; i++) {
+    const k = filled[i];
+    const value = (block[k] ?? '').trim();
+    y = renderSteepRow(doc, y, k, value);
+    if (i < filled.length - 1) y += 3;
   }
   return y;
 }
 
-function measureSteepCard(doc: jsPDF, _k: string, value: string, w: number): number {
-  const innerPad = 5;
-  const innerW = w - innerPad * 2 - 12;
-  const descH = measureBody(doc, value, { size: 9.5, family: FONT_SANS, maxWidth: innerW, leading: 5 });
-  return innerPad + 12 + descH + innerPad - 2;
-}
-
-function drawSteepCard(
+/**
+ * One STEEP dimension as a compact row — letter badge + label on the
+ * first line, description flowing at body size below. Body paginates
+ * line-by-line via `body()`, so verbose dimensions don't break the
+ * page in inconvenient places.
+ */
+function renderSteepRow(
   doc: jsPDF,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
+  yIn: number,
   k: 'S' | 'T' | 'E' | 'ENV' | 'P',
   value: string,
-) {
+): number {
+  // Reserve enough space to render at least the badge + label + a few
+  // lines of body. If we can't, paginate first so the heading stays
+  // attached to its content.
+  let y = checkY(doc, yIn, 28);
   const { fg, bg } = steepColor(k);
-  card(doc, x, y, w, h, { fill: SURFACE_1, stripe: fg });
-  const innerPad = 5;
   // Letter badge
   doc.setFillColor(bg);
-  doc.roundedRect(x + innerPad, y + innerPad - 1, 9, 9, 1.5, 1.5, 'F');
-  setText(doc, fg, 9, 'bold', FONT_MONO);
+  doc.roundedRect(MARGIN_X, y - 4, 8, 8, 1.4, 1.4, 'F');
+  setText(doc, fg, 8.5, 'bold', FONT_MONO);
   const lw = doc.getTextWidth(k);
-  doc.text(k, x + innerPad + 4.5 - lw / 2, y + innerPad + 5);
-  // Title
+  doc.text(k, MARGIN_X + 4 - lw / 2, y + 1.5);
+  // Label
   setText(doc, INK, 11, 'bold', FONT_SANS);
-  doc.text(steepLabel(k), x + innerPad + 13, y + innerPad + 5);
-  // Description
-  body(doc, y + innerPad + 11, value, {
-    indent: x + innerPad,
-    maxWidth: w - innerPad * 2,
-    size: 9.5,
+  doc.text(steepLabel(k), MARGIN_X + 12, y + 1);
+  // Description — flowing body, line-paginates naturally
+  y += 6;
+  y = body(doc, y, value, {
+    indent: MARGIN_X + 12,
+    maxWidth: CONTENT_W - 12,
     color: INK_SOFT,
-    leading: 5,
-    trailingGap: 0,
+    size: 9.5,
+    leading: 4.8,
+    paragraphGap: 2.5,
+    trailingGap: 2,
   });
+  return y;
 }
 
 /* ── Section: Key Uncertainties ───────────────────────────────────── */
@@ -1568,37 +1541,38 @@ function renderUncertainties(doc: jsPDF, yIn: number, items: KeyUncertainty[]): 
     isEnLang() ? 'Open questions' : 'Preguntas abiertas',
     GOLD,
   );
-  const gap = 8;
+  const gap = 6;
   const colW = (CONTENT_W - gap) / 2;
   for (let i = 0; i < items.length; i += 2) {
     const pair = items.slice(i, i + 2);
     const heights = pair.map((u) => measureUncertaintyCard(doc, u, colW));
     const rowH = Math.max(...heights);
-    y = checkY(doc, y, rowH + 6);
+    y = checkY(doc, y, rowH + 4);
     pair.forEach((u, idx) => {
       const x = MARGIN_X + idx * (colW + gap);
       drawUncertaintyCard(doc, x, y, colW, rowH, u, i + idx);
     });
-    y += rowH + 10;
-    // Optional thin rule between rows for editorial cadence
+    y += rowH + 5;
+    // Thin rule between rows for editorial cadence
     if (i + 2 < items.length) {
       doc.setDrawColor(LINE);
-      doc.setLineWidth(0.2);
-      doc.line(MARGIN_X, y - 5, PAGE_W - MARGIN_X, y - 5);
+      doc.setLineWidth(0.15);
+      doc.line(MARGIN_X, y - 2.5, PAGE_W - MARGIN_X, y - 2.5);
+      y += 1;
     }
   }
   return y + 2;
 }
 
 function measureUncertaintyCard(doc: jsPDF, u: KeyUncertainty, w: number): number {
-  const titleW = w - 14;
-  setText(doc, INK, 13, 'bold', FONT_SERIF);
+  const titleW = w - 12;
+  setText(doc, INK, 11.5, 'bold', FONT_SERIF);
   const titleLines = doc.splitTextToSize(u.name, titleW) as string[];
-  const titleH = titleLines.length * 6.5;
+  const titleH = titleLines.length * 5.6;
   const descH = u.description
-    ? measureBody(doc, u.description, { size: 10, family: FONT_SANS, maxWidth: titleW, leading: 5.3 })
+    ? measureBody(doc, u.description, { size: 9, family: FONT_SANS, maxWidth: titleW, leading: 4.7 })
     : 0;
-  return Math.max(titleH + descH + 6, 22);
+  return Math.max(titleH + descH + 5, 20);
 }
 
 function drawUncertaintyCard(
@@ -1611,30 +1585,26 @@ function drawUncertaintyCard(
   idx: number,
 ) {
   const numStr = String(idx + 1).padStart(2, '0');
-  // Big gold numeral
-  setText(doc, GOLD, 28, 'bold', FONT_SERIF);
-  doc.text(numStr, x, y + 8);
-  // Tiny "QUESTION" kicker under the numeral
-  const en = isEnLang();
-  setText(doc, INK_MUTE, 6.5, 'bold', FONT_MONO);
-  doc.text((en ? 'Question' : 'Pregunta').toUpperCase(), x, y + 13);
+  // Compact gold numeral
+  setText(doc, GOLD, 22, 'bold', FONT_SERIF);
+  doc.text(numStr, x, y + 7);
   // Title
-  const titleX = x + 14;
-  const titleW = w - 14;
-  setText(doc, INK, 13, 'bold', FONT_SERIF);
+  const titleX = x + 12;
+  const titleW = w - 12;
+  setText(doc, INK, 11.5, 'bold', FONT_SERIF);
   const titleLines = doc.splitTextToSize(u.name, titleW) as string[];
-  let ty = y + 5;
+  let ty = y + 4;
   for (const ln of titleLines) {
     doc.text(ln, titleX, ty);
-    ty += 6.5;
+    ty += 5.6;
   }
   if (u.description) {
-    body(doc, ty + 1, u.description, {
+    body(doc, ty, u.description, {
       indent: titleX,
       maxWidth: titleW,
       color: INK_SOFT,
-      size: 10,
-      leading: 5.3,
+      size: 9,
+      leading: 4.7,
       trailingGap: 0,
     });
   }
@@ -1643,64 +1613,21 @@ function drawUncertaintyCard(
 /* ── Section: 3P Scenarios ────────────────────────────────────────── */
 
 function renderScenarios(doc: jsPDF, scenarios: Scenario[]): number {
-  let y = sectionOpener(
-    doc,
-    tx('report.results.tabs.scenarios', '3P Scenarios'),
-    isEnLang() ? 'Futures' : 'Futuros',
-    GREEN,
-  );
-  // Section opener page also has room to introduce the trio — list
-  // them as a "preview index" so readers know what's coming.
-  y = renderScenarioPreview(doc, y, scenarios);
+  // No standalone "section opener" page — each scenario IS the
+  // feature spread, and 3 spreads is enough section identity. Saves
+  // 1-2 pages and avoids the "empty title page" symptom.
+  let y = 0;
   for (let i = 0; i < scenarios.length; i++) {
     y = addPage(doc);
     drawRunningHead(doc);
+    if (i === 0) {
+      // First scenario page records the "3P Scenarios" TOC entry so
+      // the section is still indexed.
+      recordSection(doc, tx('report.results.tabs.scenarios', '3P Scenarios'), GREEN);
+    }
     y = renderScenarioFeature(doc, y, scenarios[i], i);
   }
   return y;
-}
-
-/**
- * Scenario preview index — appears on the section-opener page after
- * the big numeral. Three slim "card-strip" rows, one per scenario,
- * giving type + name + probability so the opener page already
- * communicates the scope of what follows.
- */
-function renderScenarioPreview(doc: jsPDF, yIn: number, scenarios: Scenario[]): number {
-  let y = yIn;
-  setText(doc, INK_MUTE, 7.5, 'bold', FONT_MONO);
-  doc.text(
-    (isEnLang() ? 'In this section' : 'En esta sección').toUpperCase(),
-    MARGIN_X,
-    y,
-  );
-  y += 8;
-  for (let i = 0; i < scenarios.length; i++) {
-    const s = scenarios[i];
-    const colors = scenarioColors(s.type, i);
-    y = checkY(doc, y, 18);
-    // Stripe + name + type pill + probability
-    card(doc, MARGIN_X, y, CONTENT_W, 14, { fill: SURFACE_1, stripe: colors.fg });
-    setText(doc, colors.fg, 22, 'bold', FONT_SERIF);
-    doc.text(String(i + 1).padStart(2, '0'), MARGIN_X + 6, y + 11);
-    setText(doc, INK, 13, 'bold', FONT_SERIF);
-    const name = s.name ?? s.title ?? '';
-    const nameMaxW = CONTENT_W - 70;
-    const nameClipped = clipText(doc, name, nameMaxW);
-    doc.text(nameClipped, MARGIN_X + 22, y + 9);
-    // Type pill right-aligned, with probability
-    if (s.probability) {
-      setText(doc, colors.fg, 11, 'bold', FONT_SERIF);
-      const pw = doc.getTextWidth(s.probability);
-      doc.text(s.probability, PAGE_W - MARGIN_X - 6 - pw, y + 9);
-    }
-    setText(doc, colors.fg, 7, 'bold', FONT_MONO);
-    const typeStr = (s.type ?? '').toUpperCase();
-    const tw = doc.getTextWidth(typeStr);
-    doc.text(typeStr, PAGE_W - MARGIN_X - 6 - tw - 18, y + 9);
-    y += 18;
-  }
-  return y + 4;
 }
 
 /**
@@ -1734,106 +1661,109 @@ function renderScenarioFeature(doc: jsPDF, yIn: number, s: Scenario, idx: number
 
   // ── Top row ────────────────────────────────────────────────────
   pill(doc, MARGIN_X, yIn + 5, s.type ?? '', colors.fg, colors.bg);
-  // Scenario number on the right — big serif numeral
-  setText(doc, colors.fg, 26, 'bold', FONT_SERIF);
+  // Scenario number on the right — compact
+  setText(doc, colors.fg, 20, 'bold', FONT_SERIF);
   const numStr = String(idx + 1).padStart(2, '0');
   const nw = doc.getTextWidth(numStr);
-  doc.text(numStr, PAGE_W - MARGIN_X - nw, yIn + 10);
+  doc.text(numStr, PAGE_W - MARGIN_X - nw, yIn + 8);
   setText(doc, INK_MUTE, 6.5, 'bold', FONT_MONO);
   doc.text(
     (en ? 'Scenario' : 'Escenario').toUpperCase(),
     PAGE_W - MARGIN_X - nw,
-    yIn + 14,
+    yIn + 12,
   );
-  let y = yIn + 22;
+  let y = yIn + 18;
 
-  // ── Headline ──────────────────────────────────────────────────
-  // Auto-shrink the headline to keep it to <=3 lines.
-  let titleSize = 36;
+  // ── Headline — auto-shrink so we keep <=2 lines and tighter leading
+  let titleSize = 30;
   let titleLines: string[] = [];
   for (;;) {
     setText(doc, INK, titleSize, 'bold', FONT_SERIF);
     titleLines = doc.splitTextToSize(s.name ?? s.title ?? '', CONTENT_W) as string[];
-    if (titleLines.length <= 3 || titleSize <= 22) break;
-    titleSize -= 3;
+    if (titleLines.length <= 2 || titleSize <= 20) break;
+    titleSize -= 2;
   }
   setText(doc, INK, titleSize, 'bold', FONT_SERIF);
   for (const ln of titleLines) {
-    y = checkY(doc, y, titleSize * 0.5);
-    doc.text(ln, MARGIN_X, y + titleSize * 0.32);
-    y += titleSize * 0.48;
+    y = checkY(doc, y, titleSize * 0.45);
+    doc.text(ln, MARGIN_X, y + titleSize * 0.3);
+    y += titleSize * 0.42;
   }
-  y += 4;
+  y += 3;
   doc.setDrawColor(colors.fg);
-  doc.setLineWidth(0.6);
-  doc.line(MARGIN_X, y, MARGIN_X + 28, y);
-  y += 10;
+  doc.setLineWidth(0.5);
+  doc.line(MARGIN_X, y, MARGIN_X + 24, y);
+  y += 6;
 
-  // ── Standfirst (italic deck — first sentence of description) ───
+  // ── Standfirst + hero probability stat in a 2-column row ──────
   const descParts = (s.description ?? '').trim();
   const firstSentence = descParts
     .replace(/\s+/g, ' ')
     .split(/(?<=[.!?])\s+(?=[A-ZÁÉÍÓÚÑ¿¡])/)[0];
   const rest = descParts.slice(firstSentence.length).trim();
-  if (firstSentence) {
-    y = standfirst(doc, MARGIN_X, y, CONTENT_W, firstSentence, {
-      size: 14,
-      color: INK,
-      leading: 8,
-    });
-    y += 2;
-  }
 
-  // ── Hero probability stat (right-aligned) + body block ─────────
   if (s.probability) {
-    // Render the stat anchored to the top-right of the body block.
-    const statW = 56;
+    // Stat block top-right
+    const statW = 50;
     const statX = PAGE_W - MARGIN_X - statW;
-    setText(doc, INK_MUTE, 7, 'bold', FONT_MONO);
+    const heroTop = y;
+    setText(doc, INK_MUTE, 6.5, 'bold', FONT_MONO);
     doc.text(
       tx('report.results.scen.probability', 'Probability').toUpperCase(),
       statX,
-      y + 4,
+      heroTop + 3,
     );
-    setText(doc, colors.fg, 36, 'bold', FONT_SERIF);
-    doc.text(s.probability, statX, y + 22);
-    bar(doc, statX, y + 26, statW, pct, colors.fg);
-    setText(doc, INK_MUTE, 6.5, 'normal', FONT_MONO);
+    setText(doc, colors.fg, 28, 'bold', FONT_SERIF);
+    doc.text(s.probability, statX, heroTop + 18);
+    bar(doc, statX, heroTop + 21, statW, pct, colors.fg);
+    setText(doc, INK_MUTE, 6, 'normal', FONT_MONO);
     doc.text(
-      (en ? 'Model-estimated likelihood' : 'Probabilidad estimada').toUpperCase(),
+      (en ? 'Model likelihood' : 'Probabilidad').toUpperCase(),
       statX,
-      y + 31,
+      heroTop + 26,
     );
-
-    // Body flows in the left 60% so it doesn't collide with the stat.
-    const bodyW = CONTENT_W - statW - 8;
-    if (rest) {
-      y = body(doc, y, rest, {
-        indent: MARGIN_X,
-        maxWidth: bodyW,
-        color: INK_SOFT,
-        size: 11,
-        family: FONT_SERIF,
-        leading: 6,
-        trailingGap: 4,
+    // Standfirst flows in the left 65%
+    if (firstSentence) {
+      const standfirstW = CONTENT_W - statW - 8;
+      y = standfirst(doc, MARGIN_X, y, standfirstW, firstSentence, {
+        size: 12,
+        color: INK,
+        leading: 6.6,
       });
-    } else {
-      y += 34;
     }
-    y = Math.max(y, yIn + 110); // ensure we cleared the stat block
-  } else if (rest) {
-    // No probability — body flows full-width in 2 columns.
-    y = bodyColumns(doc, MARGIN_X, y, CONTENT_W, rest, 2, {
-      size: 11,
-      family: FONT_SERIF,
-      color: INK_SOFT,
-      leading: 6,
-      gap: 8,
+    y = Math.max(y, heroTop + 32);
+    y += 2;
+  } else if (firstSentence) {
+    y = standfirst(doc, MARGIN_X, y, CONTENT_W, firstSentence, {
+      size: 12,
+      color: INK,
+      leading: 6.6,
     });
   }
-  y += 6;
 
-  // ── Action sidebar (3 columns, all on this page) ───────────────
+  // ── Body description ──────────────────────────────────────────
+  if (rest) {
+    y = body(doc, y, rest, {
+      indent: MARGIN_X,
+      maxWidth: CONTENT_W,
+      color: INK_SOFT,
+      size: 10,
+      family: FONT_SERIF,
+      leading: 5.4,
+      trailingGap: 5,
+    });
+  }
+
+  // ── Action sidebar (3 columns, OR stacked when too tall) ──────
+  //
+  // We pre-measure all 3 columns first. If they fit side-by-side on
+  // the current (or a fresh) page, render in parallel — same start-y
+  // for each column. If the tallest column would still exceed a page,
+  // fall back to a stacked layout that flows + paginates naturally.
+  // Without this, dotBullets's per-line pagination inside the first
+  // column moves the doc cursor to a new page, and subsequent
+  // columns get drawn at the OLD start-y on the NEW page — visually
+  // collapsing the 3-col grid into a 1-col layout.
   const lists: Array<[string[] | undefined, string, string]> = [
     [s.opportunities, tx('report.results.scen.opps', 'Opportunities'), GREEN],
     [s.threats, tx('report.results.scen.threats', 'Threats'), RED],
@@ -1841,74 +1771,115 @@ function renderScenarioFeature(doc: jsPDF, yIn: number, s: Scenario, idx: number
   ];
   const cols = lists.filter(([items]) => (items?.length ?? 0) > 0);
   if (cols.length > 0) {
-    y = checkY(doc, y + 2, 50);
-    // Rule above the action block for editorial separation
-    doc.setDrawColor(LINE_STRONG);
-    doc.setLineWidth(0.25);
-    doc.line(MARGIN_X, y, PAGE_W - MARGIN_X, y);
-    y += 8;
-    const colGap = 6;
+    const colGap = 5;
     const colW = (CONTENT_W - colGap * (cols.length - 1)) / cols.length;
-    const colStartY = y;
-    let maxColY = colStartY;
-    for (let i = 0; i < cols.length; i++) {
-      const [items, label, color] = cols[i];
-      const colX = MARGIN_X + (colW + colGap) * i;
-      let cy = colStartY;
-      // Section kicker
-      setText(doc, color, 7.5, 'bold', FONT_MONO);
-      doc.text(label.toUpperCase(), colX, cy);
-      doc.setDrawColor(color);
-      doc.setLineWidth(0.4);
-      doc.line(colX, cy + 2, colX + 14, cy + 2);
-      // Count badge
-      const count = items?.length ?? 0;
-      setText(doc, INK_MUTE, 7, 'bold', FONT_MONO);
-      doc.text(String(count).padStart(2, '0'), colX + colW - 6, cy);
-      cy += 8;
-      cy = dotBullets(doc, cy, items ?? [], color, {
-        indent: colX,
-        maxWidth: colW - 4,
-        size: 9.5,
-        textColor: INK_SOFT,
-      });
-      maxColY = Math.max(maxColY, cy);
+    const colItemSize = 8.5;
+    const colItemLeading = 4.4;
+    // Measure each column's height for the side-by-side layout.
+    const colHeights = cols.map(([items]) => {
+      let h = 6; // header row
+      for (const it of items ?? []) {
+        const lines = doc.splitTextToSize(it, colW - 4) as string[];
+        h += lines.length * colItemLeading + 0.4;
+      }
+      return h + 1;
+    });
+    const tallestCol = Math.max(...colHeights);
+    const headerBlockH = 8; // rule + 6mm
+    const availOnPage = PAGE_BOTTOM - y;
+    const fitsSideBySide = tallestCol + headerBlockH <= availOnPage;
+    const fitsOnFreshPage = tallestCol + headerBlockH <= PAGE_BOTTOM - MARGIN_TOP;
+
+    if (fitsSideBySide || fitsOnFreshPage) {
+      if (!fitsSideBySide) {
+        y = addPage(doc);
+        drawRunningHead(doc);
+      } else {
+        y += 1;
+      }
+      doc.setDrawColor(LINE_STRONG);
+      doc.setLineWidth(0.2);
+      doc.line(MARGIN_X, y, PAGE_W - MARGIN_X, y);
+      y += 6;
+      const colStartY = y;
+      for (let i = 0; i < cols.length; i++) {
+        const [items, label, color] = cols[i];
+        const colX = MARGIN_X + (colW + colGap) * i;
+        let cy = colStartY;
+        setText(doc, color, 7, 'bold', FONT_MONO);
+        doc.text(label.toUpperCase(), colX, cy);
+        doc.setDrawColor(color);
+        doc.setLineWidth(0.35);
+        doc.line(colX, cy + 1.6, colX + 12, cy + 1.6);
+        const count = items?.length ?? 0;
+        setText(doc, INK_MUTE, 6.5, 'bold', FONT_MONO);
+        doc.text(String(count).padStart(2, '0'), colX + colW - 5, cy);
+        cy += 6;
+        // Draw bullets directly without checkY — we already verified
+        // the column fits. This prevents the mid-render pagination
+        // that breaks the side-by-side layout.
+        drawBulletsNoPaginate(doc, cy, items ?? [], color, {
+          indent: colX,
+          maxWidth: colW - 4,
+          size: colItemSize,
+          leading: colItemLeading,
+          textColor: INK_SOFT,
+        });
+      }
+      y = colStartY + tallestCol + 1;
+    } else {
+      // Stacked fallback — render each block as a horizontal row that
+      // paginates naturally if it overflows.
+      y = checkY(doc, y + 1, 20);
+      doc.setDrawColor(LINE_STRONG);
+      doc.setLineWidth(0.2);
+      doc.line(MARGIN_X, y, PAGE_W - MARGIN_X, y);
+      y += 5;
+      for (const [items, label, color] of cols) {
+        y = checkY(doc, y, 12);
+        setText(doc, color, 7, 'bold', FONT_MONO);
+        doc.text(label.toUpperCase(), MARGIN_X, y);
+        doc.setDrawColor(color);
+        doc.setLineWidth(0.35);
+        doc.line(MARGIN_X, y + 1.6, MARGIN_X + 14, y + 1.6);
+        y += 6;
+        y = dotBullets(doc, y, items ?? [], color, {
+          indent: MARGIN_X,
+          maxWidth: CONTENT_W - 4,
+          size: 9,
+          textColor: INK_SOFT,
+        });
+        y += 2;
+      }
     }
-    y = maxColY + 4;
   }
 
-  // ── First-move pull-out ────────────────────────────────────────
+  // ── First-move pull-out ───────────────────────────────────────
   if (s.firstMove) {
-    y = checkY(doc, y + 2, 24);
-    const innerW = CONTENT_W - 16;
-    const fmH = measureBody(doc, s.firstMove, { size: 11.5, family: FONT_SANS, maxWidth: innerW, leading: 6.2 }) + 14;
+    y = checkY(doc, y + 1, 20);
+    const innerW = CONTENT_W - 14;
+    const fmH = measureBody(doc, s.firstMove, { size: 10.5, family: FONT_SANS, maxWidth: innerW, leading: 5.5 }) + 12;
     card(doc, MARGIN_X, y, CONTENT_W, fmH, {
       fill: SURFACE_2,
       border: LINE_ACCENT,
       stripe: GOLD,
     });
-    setText(doc, GOLD, 7.5, 'bold', FONT_MONO);
+    setText(doc, GOLD, 7, 'bold', FONT_MONO);
     doc.text(
       tx('report.results.scen.firstmove', 'First move').toUpperCase(),
-      MARGIN_X + 8,
-      y + 7,
+      MARGIN_X + 7,
+      y + 5.5,
     );
-    setText(doc, INK_MUTE, 6.5, 'normal', FONT_MONO);
-    doc.text(
-      (en ? 'Concrete action to activate this scenario' : 'Acción concreta para activar este escenario').toUpperCase(),
-      MARGIN_X + 8,
-      y + 11.5,
-    );
-    body(doc, y + 17, s.firstMove, {
-      indent: MARGIN_X + 8,
+    body(doc, y + 10.5, s.firstMove, {
+      indent: MARGIN_X + 7,
       maxWidth: innerW,
       color: INK,
-      size: 11.5,
+      size: 10.5,
       family: FONT_SANS,
-      leading: 6.2,
+      leading: 5.5,
       trailingGap: 0,
     });
-    y += fmH + 4;
+    y += fmH + 3;
   }
 
   return y;
@@ -1934,127 +1905,184 @@ function renderScenarioPlanning(doc: jsPDF, sp: ScenarioPlanning): number {
   );
 
   if (sp.intro) {
-    y = standfirst(doc, MARGIN_X, y, CONTENT_W * 0.9, sp.intro, {
-      size: 13,
+    y = standfirst(doc, MARGIN_X, y, CONTENT_W, sp.intro, {
+      size: 11.5,
       color: INK,
-      leading: 7.4,
+      leading: 6.4,
     });
-    y += 6;
-  }
-
-  // ── Driving forces — 2-column grid ────────────────────────────
-  if (sp.drivingForces?.length) {
-    y = sectionLabel(doc, y, tx('report.results.sp.forces', 'Driving forces of change'));
-    const forces = [...sp.drivingForces].sort((a, b) => a.rank - b.rank);
-    const gap = 6;
-    const colW = (CONTENT_W - gap) / 2;
-    for (let i = 0; i < forces.length; i += 2) {
-      const pair = forces.slice(i, i + 2);
-      const heights = pair.map((f) => measureDrivingForceCard(doc, f, colW));
-      const rowH = Math.max(...heights);
-      y = checkY(doc, y, rowH + 4);
-      pair.forEach((f, idx) => {
-        const x = MARGIN_X + idx * (colW + gap);
-        drawDrivingForceCard(doc, x, y, colW, rowH, f);
-      });
-      y += rowH + gap;
-    }
     y += 4;
   }
 
-  // ── Axes — featured 2-column spread ────────────────────────────
-  if (sp.axes?.length) {
-    y = sectionLabel(doc, y, tx('report.results.sp.axesTitle', 'Critical uncertainty axes'));
-    const colGap = 8;
-    const colW = (CONTENT_W - colGap) / 2;
-    let leftY = y;
-    let rightY = y;
-    sp.axes.forEach((ax, i) => {
-      const colX = i === 0 ? MARGIN_X : MARGIN_X + colW + colGap;
-      const targetY = i === 0 ? leftY : rightY;
-      const endY = renderAxisCard(doc, colX, targetY, colW, ax);
-      if (i === 0) leftY = endY;
-      else rightY = endY;
-    });
-    y = Math.max(leftY, rightY) + 4;
+  // ── Driving forces — single-column compact rows (no fixed-height
+  //    cards that orphaned the header on long descriptions). Each
+  //    force flows naturally; pagination is by line. Reserve at
+  //    least ~24mm after the label so it doesn't orphan.
+  if (sp.drivingForces?.length) {
+    y = sectionLabel(doc, y, tx('report.results.sp.forces', 'Driving forces of change'), GOLD, 26);
+    const forces = [...sp.drivingForces].sort((a, b) => a.rank - b.rank);
+    for (const f of forces) y = renderDrivingForceRow(doc, y, f);
+    y += 3;
   }
 
-  // ── Scenario logics — 3 narrow cards in a row ──────────────────
-  if (sp.scenarioLogics?.length) {
-    y = sectionLabel(doc, y, tx('report.results.sp.logics', 'Narrative logic per scenario'));
-    const n = sp.scenarioLogics.length;
-    const gap = 6;
-    const colW = (CONTENT_W - gap * (n - 1)) / n;
-    // Compute uniform height across the row for visual rhythm
-    const heights = sp.scenarioLogics.map((l) => measureScenarioLogicCard(doc, l, colW));
-    const rowH = Math.max(...heights);
-    y = checkY(doc, y, rowH + 4);
-    sp.scenarioLogics.forEach((l, i) => {
-      const x = MARGIN_X + i * (colW + gap);
-      drawScenarioLogicCard(doc, x, y, colW, rowH, l, i);
+  // ── Axes — 2-column featured spread ──────────────────────────
+  if (sp.axes?.length) {
+    const colGap = 8;
+    const colW = (CONTENT_W - colGap) / 2;
+    const axisHeights = sp.axes.map((ax) => measureAxisCard(doc, ax, colW));
+    const axesRowH = Math.max(...axisHeights);
+    // Pass the row height so the section label stays glued to the
+    // axes cards instead of orphaning at the bottom of the page.
+    y = sectionLabel(
+      doc,
+      y,
+      tx('report.results.sp.axesTitle', 'Critical uncertainty axes'),
+      GOLD,
+      axesRowH + 4,
+    );
+    sp.axes.forEach((ax, i) => {
+      const colX = i === 0 ? MARGIN_X : MARGIN_X + colW + colGap;
+      renderAxisCard(doc, colX, y, colW, ax);
     });
-    y += rowH + 4;
+    y += axesRowH + 4;
+  }
+
+  // ── Scenario logics — stacked full-width cards. A 3-column row
+  //    works on screen but in print each card's long logic text
+  //    drives the column to many lines, leaving narrow strips that
+  //    spill one per page. Stacking gives each logic the full content
+  //    width so the description reads in 4-6 lines instead of 28.
+  if (sp.scenarioLogics?.length) {
+    // Lookahead height for the first logic card so the section label
+    // keeps it on the same page.
+    const firstLogicH = measureScenarioLogicRow(doc, sp.scenarioLogics[0]);
+    y = sectionLabel(
+      doc,
+      y,
+      tx('report.results.sp.logics', 'Narrative logic per scenario'),
+      GOLD,
+      firstLogicH + 4,
+    );
+    for (let i = 0; i < sp.scenarioLogics.length; i++) {
+      y = renderScenarioLogicRow(doc, y, sp.scenarioLogics[i], i);
+    }
   }
   return y;
 }
 
-function measureDrivingForceCard(doc: jsPDF, f: DrivingForce, w: number): number {
+function measureScenarioLogicRow(doc: jsPDF, l: ScenarioLogic): number {
   const innerPad = 6;
-  const innerW = w - innerPad * 2;
-  setText(doc, INK, 11.5, 'bold', FONT_SERIF);
-  const titleLines = doc.splitTextToSize(f.title, innerW - 16) as string[];
-  const titleH = titleLines.length * 6;
-  const descH = f.description
-    ? measureBody(doc, f.description, { size: 9.5, family: FONT_SANS, maxWidth: innerW - 14, leading: 5 })
+  const innerW = CONTENT_W - innerPad * 2;
+  const logicH = l.logic
+    ? measureBody(doc, l.logic, { size: 10, family: FONT_SANS, maxWidth: innerW - 14, leading: 5.2 })
     : 0;
-  return innerPad + Math.max(titleH, 14) + 4 + descH + innerPad - 2;
+  return innerPad + 8 + logicH + innerPad - 2;
 }
 
-function drawDrivingForceCard(
+/**
+ * Full-width scenario-logic card — coloured numeral + serif name on
+ * the same row, narrative logic flowing below at body size. Replaces
+ * the 3-column variant that produced tall narrow strips on print.
+ */
+function renderScenarioLogicRow(
   doc: jsPDF,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  f: DrivingForce,
-) {
-  const score = Math.max(0, Math.min(100, Math.round(f.impactScore ?? 0)));
+  yIn: number,
+  l: ScenarioLogic,
+  idx: number,
+): number {
+  const colors = scenarioColors(undefined, idx);
   const innerPad = 6;
-  const innerW = w - innerPad * 2;
-  card(doc, x, y, w, h, { fill: SURFACE_1, stripe: GOLD });
-  // Big rank numeral on the left
-  setText(doc, GOLD, 24, 'bold', FONT_SERIF);
-  doc.text(`${f.rank}`, x + innerPad + 1, y + innerPad + 13);
-  // Score top-right
-  setText(doc, GOLD, 13, 'bold', FONT_MONO);
-  const scoreStr = `${score}%`;
-  const scoreW = doc.getTextWidth(scoreStr);
-  doc.text(scoreStr, x + w - innerPad - scoreW, y + innerPad + 6);
-  // Title
-  setText(doc, INK, 11.5, 'bold', FONT_SERIF);
-  const titleX = x + innerPad + 14;
-  const titleMaxW = innerW - 14 - scoreW - 3;
-  const titleLines = doc.splitTextToSize(f.title, titleMaxW) as string[];
-  let ty = y + innerPad + 5;
-  for (const ln of titleLines) {
-    doc.text(ln, titleX, ty);
-    ty += 6;
-  }
-  // Mini bar under the title row
-  const barW = innerW - 14;
-  bar(doc, titleX, ty + 1, barW, score, GOLD);
-  ty += 5;
-  // Description
-  if (f.description) {
-    body(doc, ty, f.description, {
-      indent: titleX,
-      maxWidth: titleMaxW + 14 - 4,
+  const innerW = CONTENT_W - innerPad * 2;
+  const logicH = l.logic
+    ? measureBody(doc, l.logic, { size: 10, family: FONT_SANS, maxWidth: innerW - 14, leading: 5.2 })
+    : 0;
+  const cardH = innerPad + 8 + logicH + innerPad - 2;
+  const y = checkY(doc, yIn, cardH + 3);
+  card(doc, MARGIN_X, y, CONTENT_W, cardH, { fill: SURFACE_1, stripe: colors.fg });
+  // Numeral
+  setText(doc, colors.fg, 16, 'bold', FONT_SERIF);
+  doc.text(String(idx + 1).padStart(2, '0'), MARGIN_X + innerPad + 1, y + innerPad + 7);
+  // Scenario name
+  setText(doc, colors.fg, 12.5, 'bold', FONT_SERIF);
+  doc.text(l.name, MARGIN_X + innerPad + 14, y + innerPad + 6);
+  if (l.logic) {
+    body(doc, y + innerPad + 12, l.logic, {
+      indent: MARGIN_X + innerPad + 14,
+      maxWidth: innerW - 14,
       color: INK_SOFT,
-      size: 9.5,
-      leading: 5,
+      size: 10,
+      leading: 5.2,
       trailingGap: 0,
     });
   }
+  return y + cardH + 3;
+}
+
+/**
+ * Single-column driving-force row — rank numeral + title + score bar
+ * on the first line, description flowing below at body size. Replaces
+ * the 2-col grid that caused row-height orphan headers when forces
+ * had long descriptions.
+ */
+function renderDrivingForceRow(doc: jsPDF, yIn: number, f: DrivingForce): number {
+  let y = checkY(doc, yIn, 18);
+  const score = Math.max(0, Math.min(100, Math.round(f.impactScore ?? 0)));
+  const titleX = MARGIN_X + 12;
+  // Score lock-up reserves a fixed width on the right edge (number +
+  // bar). Title can use everything to its left and wraps on overflow.
+  setText(doc, GOLD, 10, 'bold', FONT_MONO);
+  const scoreStr = `${score}%`;
+  const scoreW = doc.getTextWidth(scoreStr);
+  const barW = 50;
+  const rightBlockW = scoreW + barW + 4;
+  const titleMaxW = CONTENT_W - 12 - rightBlockW - 4;
+  // Big rank numeral
+  setText(doc, GOLD, 18, 'bold', FONT_SERIF);
+  doc.text(`${f.rank}`, MARGIN_X, y + 4);
+  // Title — wraps to multiple lines if needed (no clipping)
+  setText(doc, INK, 11, 'bold', FONT_SERIF);
+  const titleLines = doc.splitTextToSize(f.title, titleMaxW) as string[];
+  let ty = y + 3;
+  for (let i = 0; i < titleLines.length; i++) {
+    doc.text(titleLines[i], titleX, ty);
+    ty += 5.5;
+  }
+  // Score + bar — drawn on the right of the FIRST title line
+  bar(doc, PAGE_W - MARGIN_X - scoreW - barW - 4, y + 1.5, barW, score, GOLD);
+  setText(doc, GOLD, 10, 'bold', FONT_MONO);
+  doc.text(scoreStr, PAGE_W - MARGIN_X - scoreW, y + 3);
+  // Move y past the (possibly multi-line) title
+  y = Math.max(ty, y + 6);
+  // Description
+  if (f.description) {
+    y = body(doc, y, f.description, {
+      indent: titleX,
+      maxWidth: CONTENT_W - 12,
+      color: INK_SOFT,
+      size: 9.5,
+      leading: 4.8,
+      trailingGap: 3,
+    });
+  }
+  return y + 1;
+}
+
+/** Measure an axis card's height for the row-paginate check. */
+function measureAxisCard(doc: jsPDF, a: UncertaintyAxis, w: number): number {
+  const innerPad = 6;
+  const innerW = w - innerPad * 2;
+  setText(doc, INK, 11, 'bold', FONT_SERIF);
+  const labelLines = doc.splitTextToSize(a.label, innerW) as string[];
+  const labelH = labelLines.length * 5.6;
+  const poleLowH = a.poleLow
+    ? measureBody(doc, a.poleLow, { size: 9, family: FONT_SANS, maxWidth: innerW - 7, leading: 4.6 })
+    : 0;
+  const poleHighH = a.poleHigh
+    ? measureBody(doc, a.poleHigh, { size: 9, family: FONT_SANS, maxWidth: innerW - 7, leading: 4.6 })
+    : 0;
+  const rationaleH = a.rationale
+    ? 5 + measureBody(doc, a.rationale, { size: 8.5, family: FONT_SANS, maxWidth: innerW, leading: 4.4 })
+    : 0;
+  return innerPad + labelH + 3 + poleLowH + 3 + poleHighH + 5 + rationaleH + innerPad - 2;
 }
 
 function renderAxisCard(
@@ -2064,108 +2092,54 @@ function renderAxisCard(
   w: number,
   a: UncertaintyAxis,
 ): number {
-  const innerPad = 7;
+  const innerPad = 6;
   const innerW = w - innerPad * 2;
-  const labelLines = doc.splitTextToSize(a.label, innerW) as string[];
-  const labelH = labelLines.length * 6.5;
-  const poleLowH = a.poleLow
-    ? measureBody(doc, a.poleLow, { size: 9.5, family: FONT_SANS, maxWidth: innerW - 7, leading: 4.9 })
-    : 0;
-  const poleHighH = a.poleHigh
-    ? measureBody(doc, a.poleHigh, { size: 9.5, family: FONT_SANS, maxWidth: innerW - 7, leading: 4.9 })
-    : 0;
-  const rationaleH = a.rationale
-    ? 6 + measureBody(doc, a.rationale, { size: 9, family: FONT_SANS, maxWidth: innerW, leading: 4.7 })
-    : 0;
-  const cardH = innerPad + labelH + 5 + poleLowH + 4 + poleHighH + 6 + rationaleH + innerPad - 2;
-  const y = checkY(doc, yIn, cardH + 4);
+  const cardH = measureAxisCard(doc, a, w);
+  const y = yIn;
   card(doc, x, y, w, cardH, { fill: SURFACE_1 });
-  setText(doc, INK, 12, 'bold', FONT_SERIF);
+  setText(doc, INK, 11, 'bold', FONT_SERIF);
+  const labelLines = doc.splitTextToSize(a.label, innerW) as string[];
   let ty = y + innerPad + 4;
   for (const ln of labelLines) {
     doc.text(ln, x + innerPad, ty);
-    ty += 6.5;
+    ty += 5.6;
   }
+  ty += 1;
   if (a.poleLow) {
-    pill(doc, x + innerPad, ty + 1, '−', RED, RED_BG);
+    pill(doc, x + innerPad, ty + 0.5, '−', RED, RED_BG);
     ty = body(doc, ty, a.poleLow, {
       indent: x + innerPad + 7,
       maxWidth: innerW - 7,
-      size: 9.5,
+      size: 9,
       color: INK_SOFT,
-      leading: 4.9,
+      leading: 4.6,
       trailingGap: 1,
     });
   }
   if (a.poleHigh) {
-    pill(doc, x + innerPad, ty + 1, '+', GREEN, GREEN_BG);
+    pill(doc, x + innerPad, ty + 0.5, '+', GREEN, GREEN_BG);
     ty = body(doc, ty, a.poleHigh, {
       indent: x + innerPad + 7,
       maxWidth: innerW - 7,
-      size: 9.5,
+      size: 9,
       color: INK_SOFT,
-      leading: 4.9,
+      leading: 4.6,
       trailingGap: 1,
     });
   }
   if (a.rationale) {
-    setText(doc, GOLD, 7, 'bold', FONT_MONO);
-    doc.text(tx('report.results.sp.rationale', 'Rationale').toUpperCase(), x + innerPad, ty + 4);
-    body(doc, ty + 8, a.rationale, {
+    setText(doc, GOLD, 6.8, 'bold', FONT_MONO);
+    doc.text(tx('report.results.sp.rationale', 'Rationale').toUpperCase(), x + innerPad, ty + 3);
+    body(doc, ty + 6.5, a.rationale, {
       indent: x + innerPad,
       maxWidth: innerW,
-      size: 9,
+      size: 8.5,
       color: INK_MUTE,
-      leading: 4.7,
+      leading: 4.4,
       trailingGap: 0,
     });
   }
-  return y + cardH + 4;
-}
-
-function measureScenarioLogicCard(doc: jsPDF, l: ScenarioLogic, w: number): number {
-  const innerPad = 6;
-  const innerW = w - innerPad * 2;
-  const logicH = l.logic
-    ? measureBody(doc, l.logic, { size: 9.5, family: FONT_SANS, maxWidth: innerW, leading: 5 })
-    : 0;
-  return innerPad + 14 + logicH + innerPad - 2;
-}
-
-function drawScenarioLogicCard(
-  doc: jsPDF,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  l: ScenarioLogic,
-  idx: number,
-) {
-  const colors = scenarioColors(undefined, idx);
-  const innerPad = 6;
-  const innerW = w - innerPad * 2;
-  card(doc, x, y, w, h, { fill: SURFACE_1, stripe: colors.fg });
-  // Number
-  setText(doc, colors.fg, 7, 'bold', FONT_MONO);
-  doc.text(String(idx + 1).padStart(2, '0'), x + innerPad + 1, y + innerPad + 4);
-  // Name in serif
-  setText(doc, colors.fg, 12, 'bold', FONT_SERIF);
-  const nameLines = doc.splitTextToSize(l.name, innerW) as string[];
-  let ty = y + innerPad + 10;
-  for (const ln of nameLines.slice(0, 2)) {
-    doc.text(ln, x + innerPad + 1, ty);
-    ty += 5.5;
-  }
-  if (l.logic) {
-    body(doc, ty + 1, l.logic, {
-      indent: x + innerPad + 1,
-      maxWidth: innerW,
-      color: INK_SOFT,
-      size: 9.5,
-      leading: 5,
-      trailingGap: 0,
-    });
-  }
+  return y + cardH + 3;
 }
 
 /* ── Section: Backcasting ─────────────────────────────────────────── */
@@ -2181,8 +2155,13 @@ function renderBackcasting(doc: jsPDF, entries: BackcastingEntry[]): number {
     ORANGE,
   );
   for (let i = 0; i < entries.length; i++) {
+    if (i > 0) {
+      // Each scenario gets a fresh page so type pill + scenario name
+      // never bury at the bottom of the previous entry's milestones.
+      y = addPage(doc);
+      drawRunningHead(doc);
+    }
     y = renderBackcastingEntry(doc, y, entries[i], i);
-    if (i < entries.length - 1) y = rule(doc, y + 2, LINE_STRONG) + 4;
   }
   return y;
 }
@@ -2195,53 +2174,49 @@ function renderBackcastingEntry(
 ): number {
   const colors = scenarioColors(e.scenarioType, idx);
   let y = yIn;
-  // Type pill
-  pill(doc, MARGIN_X, y + 4, e.scenarioType ?? '', colors.fg, colors.bg);
-  y += 10;
-  // Scenario name
-  setText(doc, INK, 22, 'bold', FONT_SERIF);
+  // Type pill — the pill rect extends ~3.4mm above its anchor y.
+  // The 18pt serif title has ~6.5mm cap height, so we need >10mm
+  // total clearance between the pill anchor and the title baseline
+  // to keep the pill and title visually separated.
+  pill(doc, MARGIN_X, y + 5, e.scenarioType ?? '', colors.fg, colors.bg);
+  y += 16;
+  // Scenario name — more compact
+  setText(doc, INK, 18, 'bold', FONT_SERIF);
   const nameLines = doc.splitTextToSize(e.scenarioName ?? '', CONTENT_W) as string[];
   for (const ln of nameLines) {
-    y = checkY(doc, y, 9);
+    y = checkY(doc, y, 7.5);
     doc.text(ln, MARGIN_X, y);
-    y += 9;
+    y += 7.5;
   }
-  y += 2;
+  y += 1;
   doc.setDrawColor(colors.fg);
-  doc.setLineWidth(0.5);
-  doc.line(MARGIN_X, y, MARGIN_X + 24, y);
-  y += 8;
+  doc.setLineWidth(0.4);
+  doc.line(MARGIN_X, y, MARGIN_X + 22, y);
+  y += 6;
 
   if (e.visionStatement) {
     y = subLabel(doc, y, (tx('report.results.bc.vision', 'Vision —').replace(/[—–-]\s*$/, '').trim()), colors.fg);
     y = body(doc, y, e.visionStatement, {
       color: INK,
-      size: 12.5,
+      size: 11,
       family: FONT_SERIF,
       weight: 'italic',
-      leading: 6.6,
-      trailingGap: 8,
+      leading: 5.8,
+      trailingGap: 5,
     });
   }
 
   if (e.milestones?.length) {
-    // Vertical timeline rail down the left side.
-    const railX = MARGIN_X + 8;
-    const railTop = y;
-    for (const m of e.milestones) y = renderMilestone(doc, y, m, colors.fg, railX);
-    // Draw rail after all milestones so the height is known.
-    doc.setDrawColor(colors.fg);
-    doc.setLineWidth(0.6);
-    doc.line(railX, railTop - 2, railX, y - 6);
+    for (const m of e.milestones) y = renderMilestone(doc, y, m, colors.fg);
   }
 
   if (e.startingPoint) {
     y = subLabel(doc, y, tx('report.results.bc.start', 'Starting point'), colors.fg);
     y = body(doc, y, e.startingPoint, {
       color: INK_SOFT,
-      size: 10.5,
-      leading: 5.5,
-      trailingGap: 4,
+      size: 10,
+      leading: 5.2,
+      trailingGap: 3,
     });
   }
   return y;
@@ -2252,60 +2227,46 @@ function renderMilestone(
   yIn: number,
   m: BackcastingMilestone,
   accent: string,
-  railX: number,
 ): number {
-  const indent = railX + 6;
-  const maxWidth = CONTENT_W - (indent - MARGIN_X);
+  const maxWidth = CONTENT_W;
   const titleLines = doc.splitTextToSize(m.title ?? '', maxWidth) as string[];
-  const titleH = titleLines.length * 6.2;
+  const titleH = titleLines.length * 5.6;
   const descH = m.description
-    ? measureBody(doc, m.description, { size: 10, family: FONT_SANS, maxWidth, leading: 5.3 })
+    ? measureBody(doc, m.description, { size: 9.5, family: FONT_SANS, maxWidth, leading: 4.9 })
     : 0;
-  let actionsH = 0;
-  if (m.actions?.length) {
-    const size = 9.5;
-    const leading = size * 0.55;
-    for (const a of m.actions) {
-      const lines = doc.splitTextToSize(a, maxWidth - 4) as string[];
-      actionsH += lines.length * leading + 0.6;
-    }
-    actionsH += 2;
+  const blockH = 10 + titleH + descH + 12;
+  let y = checkY(doc, yIn, blockH);
+
+  // Year — small mono uppercase label above the title, in the accent
+  // colour. No circle, no rail; just a typographic marker.
+  if (m.year) {
+    setText(doc, accent, 8, 'bold', FONT_MONO);
+    doc.text(m.year.toUpperCase(), MARGIN_X, y + 2);
+    y += 5;
   }
-  const blockH = 8 + titleH + descH + actionsH + 4;
-  let y = checkY(doc, yIn, blockH + 4);
-  // Year badge — circular gold node on the rail
-  doc.setFillColor(BG);
-  doc.circle(railX, y + 4, 3.2, 'F');
-  doc.setDrawColor(accent);
-  doc.setLineWidth(0.6);
-  doc.circle(railX, y + 4, 3.2, 'S');
-  setText(doc, accent, 8, 'bold', FONT_MONO);
-  const yr = m.year ?? '';
-  const yrW = doc.getTextWidth(yr);
-  doc.text(yr, railX - yrW / 2, y + 1);
 
   // Title
   setText(doc, INK, 12, 'bold', FONT_SERIF);
-  let ty = y + 5;
+  let ty = y + 4;
   for (const ln of titleLines) {
-    doc.text(ln, indent, ty);
-    ty += 6.2;
+    doc.text(ln, MARGIN_X, ty);
+    ty += 5.6;
   }
   if (m.description) {
-    ty = body(doc, ty + 1, m.description, {
-      indent,
+    ty = body(doc, ty + 0.5, m.description, {
+      indent: MARGIN_X,
       maxWidth,
       color: INK_SOFT,
-      size: 10,
-      leading: 5.3,
-      trailingGap: 1,
+      size: 9.5,
+      leading: 4.9,
+      trailingGap: 0.5,
     });
   }
   if (m.actions?.length) {
-    ty = dotBullets(doc, ty + 1, m.actions, accent, {
-      indent,
+    ty = dotBullets(doc, ty + 0.5, m.actions, accent, {
+      indent: MARGIN_X,
       maxWidth,
-      size: 9.5,
+      size: 9,
       textColor: INK_SOFT,
     });
   }
@@ -2315,10 +2276,12 @@ function renderMilestone(
 /* ── Section: Strategic Map ───────────────────────────────────────── */
 
 /**
- * Strategic map — 3-column horizon strip. Each horizon (H1/H2/H3) is
- * a column; priorities stack vertically within each column. This is
- * the on-screen tab's most powerful at-a-glance layout — three
- * timeframes visible together — and it ports cleanly to print.
+ * Strategic map — stacked H1 / H2 / H3 sections, full-width per
+ * priority. The 3-column "horizon strip" looks great on screen but
+ * breaks in print when any column's cards exceed page height (the
+ * dotBullets-per-line pagination shifts subsequent columns to a
+ * fresh page at their start-y, collapsing the grid). A stacked
+ * layout paginates naturally and packs density without orphan pages.
  */
 function renderStrategicMap(doc: jsPDF, items: StrategicPriority[]): number {
   let y = addPage(doc);
@@ -2337,105 +2300,94 @@ function renderStrategicMap(doc: jsPDF, items: StrategicPriority[]): number {
     H2: BLUE,
     H3: PURPLE,
   };
-  const visible = order.filter((h) => items.some((it) => it.horizon === h));
-  if (visible.length === 0) return y;
-
-  const gap = 6;
-  const colW = (CONTENT_W - gap * (visible.length - 1)) / visible.length;
-  // Column headers
-  const headerY = y;
-  visible.forEach((h, i) => {
-    const x = MARGIN_X + i * (colW + gap);
-    const color = horizonColors[h];
-    setText(doc, color, 28, 'bold', FONT_SERIF);
-    doc.text(h, x, headerY + 4);
-    setText(doc, INK, 10, 'bold', FONT_SANS);
-    doc.text(tx(`report.results.str.${h.toLowerCase()}`, h), x, headerY + 12);
-    doc.setDrawColor(color);
-    doc.setLineWidth(0.5);
-    doc.line(x, headerY + 16, x + 18, headerY + 16);
-  });
-  y = headerY + 22;
-
-  // Render each column's cards independently and track the max y.
-  let maxY = y;
-  visible.forEach((h, i) => {
-    const x = MARGIN_X + i * (colW + gap);
-    const color = horizonColors[h];
-    let cy = y;
+  for (const h of order) {
     const group = items.filter((it) => it.horizon === h);
-    for (const it of group) {
-      cy = renderPriorityCardCol(doc, x, cy, colW, it, color);
-    }
-    maxY = Math.max(maxY, cy);
-  });
-  return maxY + 4;
+    if (group.length === 0) continue;
+    y = renderHorizonHeader(doc, y, h, horizonColors[h]);
+    for (const it of group) y = renderPriorityCardWide(doc, y, it, horizonColors[h]);
+    y += 4;
+  }
+  return y;
 }
 
 /**
- * Render a priority card inside a horizon column. Same look-and-feel
- * as the full-width version, but the layout adapts to the narrower
- * column (impact pill below the title rather than right-aligned).
+ * Compact horizon section header — big colored badge + horizon
+ * timeframe label, with a thin colored rule below. Keeps the
+ * horizon's identity attached to its first priority card by reserving
+ * enough space for the header + a minimum-height card.
  */
-function renderPriorityCardCol(
+function renderHorizonHeader(doc: jsPDF, yIn: number, h: 'H1' | 'H2' | 'H3', color: string): number {
+  let y = checkY(doc, yIn, 36);
+  setText(doc, color, 24, 'bold', FONT_SERIF);
+  doc.text(h, MARGIN_X, y + 4);
+  setText(doc, INK, 11, 'bold', FONT_SANS);
+  doc.text(tx(`report.results.str.${h.toLowerCase()}`, h), MARGIN_X + 16, y + 1);
+  doc.setDrawColor(color);
+  doc.setLineWidth(0.45);
+  doc.line(MARGIN_X, y + 6, PAGE_W - MARGIN_X, y + 6);
+  return y + 11;
+}
+
+/**
+ * Wide priority card — full content-width row with the title, impact
+ * pill, optional timeframe and action bullets. Uses dotBullets which
+ * paginates naturally on line overflow.
+ */
+function renderPriorityCardWide(
   doc: jsPDF,
-  x: number,
   yIn: number,
-  w: number,
   it: StrategicPriority,
   horizonColor: string,
 ): number {
   const colors = impactColors(it.impact);
   const innerPad = 6;
-  const innerW = w - innerPad * 2;
-  setText(doc, INK, 11.5, 'bold', FONT_SERIF);
-  const titleLines = doc.splitTextToSize(it.title, innerW) as string[];
+  const innerW = CONTENT_W - innerPad * 2;
+  setText(doc, INK, 12, 'bold', FONT_SERIF);
+  const titleLines = doc.splitTextToSize(it.title, innerW - 30) as string[];
   const titleH = titleLines.length * 6;
   let actionsH = 0;
   if (it.actions?.length) {
     const size = 9;
     const leading = size * 0.55;
     for (const a of it.actions) {
-      const lines = doc.splitTextToSize(a, innerW - 4) as string[];
+      const lines = doc.splitTextToSize(a, innerW - 6) as string[];
       actionsH += lines.length * leading + 0.4;
     }
     actionsH += 2;
   }
   const tframeH = it.timeframe ? 5 : 0;
-  const cardH = innerPad + titleH + 5 + tframeH + actionsH + innerPad - 2;
-  const y = checkY(doc, yIn, cardH + 4);
-  card(doc, x, y, w, cardH, { fill: SURFACE_1, stripe: horizonColor });
-
-  // Impact pill in the top-right corner of the card
+  const cardH = innerPad + titleH + tframeH + actionsH + innerPad - 2;
+  const y = checkY(doc, yIn, cardH + 3);
+  card(doc, MARGIN_X, y, CONTENT_W, cardH, { fill: SURFACE_1, stripe: horizonColor });
+  // Impact pill top-right
   const label = impactLabel(it.impact).toUpperCase();
   setText(doc, colors.fg, 6.8, 'bold', FONT_MONO);
   const labelW = doc.getTextWidth(label) + 5;
   doc.setFillColor(colors.bg);
-  doc.roundedRect(x + w - innerPad - labelW, y + innerPad - 2, labelW, 4.2, 1.2, 1.2, 'F');
+  doc.roundedRect(PAGE_W - MARGIN_X - innerPad - labelW, y + innerPad - 2, labelW, 4.2, 1.2, 1.2, 'F');
   setText(doc, colors.fg, 6.8, 'bold', FONT_MONO);
-  doc.text(label, x + w - innerPad - labelW + 2.5, y + innerPad + 1);
-
+  doc.text(label, PAGE_W - MARGIN_X - innerPad - labelW + 2.5, y + innerPad + 1);
   // Title
-  setText(doc, INK, 11.5, 'bold', FONT_SERIF);
-  let ty = y + innerPad + 5;
+  setText(doc, INK, 12, 'bold', FONT_SERIF);
+  let ty = y + innerPad + 4;
   for (const ln of titleLines) {
-    doc.text(ln, x + innerPad + 1, ty);
+    doc.text(ln, MARGIN_X + innerPad + 1, ty);
     ty += 6;
   }
   if (it.timeframe) {
     setText(doc, INK_MUTE, 8.5, 'italic', FONT_SERIF);
-    doc.text(it.timeframe, x + innerPad + 1, ty);
+    doc.text(it.timeframe, MARGIN_X + innerPad + 1, ty);
     ty += 5;
   }
   if (it.actions?.length) {
     ty = dotBullets(doc, ty + 1, it.actions, horizonColor, {
-      indent: x + innerPad + 1,
+      indent: MARGIN_X + innerPad + 1,
       maxWidth: innerW - 2,
       size: 9,
       textColor: INK_SOFT,
     });
   }
-  return y + cardH + 4;
+  return y + cardH + 3;
 }
 
 /* ── Section: Signals & Wildcards ─────────────────────────────────── */
@@ -2485,15 +2437,15 @@ function renderSignalsGrid(doc: jsPDF, yIn: number, signals: WeakSignal[]): numb
 }
 
 function measureWeakSignalCard(doc: jsPDF, s: WeakSignal, w: number): number {
-  const innerPad = 6;
+  const innerPad = 5;
   const innerW = w - innerPad * 2;
-  const titleLines = doc.splitTextToSize(s.title, innerW - 14) as string[];
-  const titleH = titleLines.length * 5.8;
-  const dimH = s.dimension ? 4.5 : 0;
+  const titleLines = doc.splitTextToSize(s.title, innerW - 12) as string[];
+  const titleH = titleLines.length * 5;
+  const dimH = s.dimension ? 4 : 0;
   const descH = s.description
-    ? measureBody(doc, s.description, { size: 9.5, family: FONT_SANS, maxWidth: innerW - 14, leading: 5 })
+    ? measureBody(doc, s.description, { size: 8.5, family: FONT_SANS, maxWidth: innerW - 12, leading: 4.4 })
     : 0;
-  return innerPad + Math.max(titleH, 9) + dimH + descH + innerPad - 2;
+  return innerPad + Math.max(titleH, 8) + dimH + descH + innerPad - 1;
 }
 
 function drawWeakSignalCard(
@@ -2505,38 +2457,38 @@ function drawWeakSignalCard(
   s: WeakSignal,
 ) {
   const colors = dimensionColors(s.dimension);
-  const innerPad = 6;
+  const innerPad = 5;
   const innerW = w - innerPad * 2;
   card(doc, x, y, w, h, { fill: SURFACE_1 });
-  // Letter badge
+  // Letter badge — compact
   const initial = (s.dimension ?? '').trim().charAt(0).toUpperCase() || '•';
   doc.setFillColor(colors.bg);
-  doc.roundedRect(x + innerPad, y + innerPad - 1, 9, 9, 1.5, 1.5, 'F');
-  setText(doc, colors.fg, 9, 'bold', FONT_MONO);
+  doc.roundedRect(x + innerPad, y + innerPad - 1, 8, 8, 1.4, 1.4, 'F');
+  setText(doc, colors.fg, 8.5, 'bold', FONT_MONO);
   const iw = doc.getTextWidth(initial);
-  doc.text(initial, x + innerPad + 4.5 - iw / 2, y + innerPad + 5);
+  doc.text(initial, x + innerPad + 4 - iw / 2, y + innerPad + 4.5);
   // Title
-  setText(doc, INK, 11, 'bold', FONT_SANS);
-  const titleX = x + innerPad + 13;
-  const titleMaxW = innerW - 13;
+  setText(doc, INK, 10, 'bold', FONT_SANS);
+  const titleX = x + innerPad + 11;
+  const titleMaxW = innerW - 11;
   const titleLines = doc.splitTextToSize(s.title, titleMaxW) as string[];
-  let ty = y + innerPad + 5;
+  let ty = y + innerPad + 4.5;
   for (const ln of titleLines) {
     doc.text(ln, titleX, ty);
-    ty += 5.8;
+    ty += 5;
   }
   if (s.dimension) {
-    setText(doc, colors.fg, 7.5, 'bold', FONT_MONO);
+    setText(doc, colors.fg, 7, 'bold', FONT_MONO);
     doc.text(s.dimension.toUpperCase(), titleX, ty);
-    ty += 4.5;
+    ty += 4;
   }
   if (s.description) {
-    body(doc, ty + 1, s.description, {
+    body(doc, ty + 0.5, s.description, {
       indent: titleX,
       maxWidth: titleMaxW,
       color: INK_SOFT,
-      size: 9.5,
-      leading: 5,
+      size: 8.5,
+      leading: 4.4,
       trailingGap: 0,
     });
   }
@@ -2619,41 +2571,42 @@ function renderSources(doc: jsPDF, src: Sources): number {
 function renderSourceList(doc: jsPDF, y: number, list: SourceItem[]): number {
   for (let i = 0; i < list.length; i++) {
     const it = list[i];
-    y = checkY(doc, y, 14);
+    y = checkY(doc, y, 10);
     // Index numeral
-    setText(doc, GOLD, 9, 'bold', FONT_MONO);
+    setText(doc, GOLD, 8, 'bold', FONT_MONO);
     const idx = String(i + 1).padStart(2, '0');
     doc.text(idx, MARGIN_X, y);
-    // Title
-    setText(doc, INK, 10.5, 'bold', FONT_SANS);
-    const titleLines = doc.splitTextToSize(it.title || it.url || '—', CONTENT_W - 14) as string[];
+    // Title — compact
+    setText(doc, INK, 9.5, 'bold', FONT_SANS);
+    const titleLines = doc.splitTextToSize(it.title || it.url || '—', CONTENT_W - 12) as string[];
     let ty = y;
     for (const ln of titleLines) {
-      ty = checkY(doc, ty, 5.5);
-      doc.text(ln, MARGIN_X + 12, ty);
-      ty += 5.5;
+      ty = checkY(doc, ty, 4.5);
+      doc.text(ln, MARGIN_X + 11, ty);
+      ty += 4.5;
     }
     if (it.url) {
-      setText(doc, INK_MUTE, 8.5, 'italic', FONT_MONO);
-      const urlLines = doc.splitTextToSize(it.url, CONTENT_W - 14) as string[];
-      for (const ln of urlLines) {
-        ty = checkY(doc, ty, 4.5);
-        doc.text(ln, MARGIN_X + 12, ty);
-        ty += 4.5;
-      }
+      setText(doc, INK_MUTE, 8, 'italic', FONT_MONO);
+      const urlLines = doc.splitTextToSize(it.url, CONTENT_W - 12) as string[];
+      // Show only the first URL line — long URLs truncate to keep
+      // the source list dense.
+      const ln = urlLines[0] ?? '';
+      ty = checkY(doc, ty, 4);
+      doc.text(ln + (urlLines.length > 1 ? '…' : ''), MARGIN_X + 11, ty);
+      ty += 4;
     }
     if (it.description) {
-      ty = body(doc, ty, it.description, {
-        indent: MARGIN_X + 12,
-        maxWidth: CONTENT_W - 14,
+      ty = body(doc, ty + 0.5, it.description, {
+        indent: MARGIN_X + 11,
+        maxWidth: CONTENT_W - 12,
         color: INK_SOFT,
-        size: 9.5,
+        size: 8.5,
         family: FONT_SANS,
-        leading: 5,
+        leading: 4.4,
         trailingGap: 0,
       });
     }
-    y = ty + 4;
+    y = ty + 2.5;
   }
   return y + 2;
 }
@@ -2714,12 +2667,12 @@ export async function exportReportPdf(report: ReportResponse) {
     renderBriefAndExec(doc, input, result?.executiveSummary);
   }
 
-  // Continue on the same opening-spread page if there's room, else add.
-  if (
-    (input.globalSteep && Object.values(input.globalSteep).some((v) => (v ?? '').trim().length > 0)) ||
-    (input.steep && Object.values(input.steep).some((v) => (v ?? '').trim().length > 0))
-  ) {
-    // Always start STEEP on a fresh page — it's a dense block.
+  // STEEP — only renders if there's actual content (after key
+  // normalisation, which handles both StepGlobal short codes and
+  // StepSteep full-name keys).
+  const gN = normalizeSteepKeys(input.globalSteep);
+  const sN = normalizeSteepKeys(input.steep);
+  if (Object.keys(gN).length > 0 || Object.keys(sN).length > 0) {
     const yStart = addPage(doc);
     drawRunningHead(doc);
     renderSteepInputs(doc, yStart, input);

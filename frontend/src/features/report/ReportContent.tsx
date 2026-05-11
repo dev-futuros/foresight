@@ -29,6 +29,40 @@ export interface InputProjection {
   sectorialSteep?: Partial<GlobalSteep>;
 }
 
+/**
+ * Normalise a STEEP block into the canonical `S | T | E | ENV | P`
+ * shape consumed by the renderer. The wizard's StepGlobal saves with
+ * short codes, but StepSteep (sectorial) saves with the localized
+ * full names (`social`, `technological`, …). This helper accepts
+ * either format so the renderer doesn't need to know which step
+ * produced the data.
+ */
+function normalizeSteepKeys(
+  s: Partial<GlobalSteep> | Record<string, unknown> | undefined,
+): Partial<GlobalSteep> | undefined {
+  if (!s) return s;
+  const src = s as Record<string, unknown>;
+  const pick = (...keys: string[]): string | undefined => {
+    for (const k of keys) {
+      const v = src[k];
+      if (typeof v === 'string' && v.trim().length > 0) return v;
+    }
+    return undefined;
+  };
+  const out: Partial<GlobalSteep> = {};
+  const S = pick('S', 'social', 'Social');
+  const T = pick('T', 'technological', 'Technological', 'tecnológico', 'tecnologico');
+  const E = pick('E', 'economic', 'Economic', 'económico', 'economico');
+  const ENV = pick('ENV', 'environmental', 'Environmental', 'medioambiental');
+  const P = pick('P', 'political', 'Political', 'político', 'politico');
+  if (S) out.S = S;
+  if (T) out.T = T;
+  if (E) out.E = E;
+  if (ENV) out.ENV = ENV;
+  if (P) out.P = P;
+  return out;
+}
+
 /** Shape we read from `report.resultData`. The backend stores JSONB so the
  *  source field is loosely typed; this interface is the projection we
  *  actually render.
@@ -150,9 +184,21 @@ export default function ReportContent({ result, input }: Props) {
   const { t } = useTranslation();
   const tabRowRef = useRef<HTMLDivElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
+  // Normalise both STEEP blocks once so every downstream consumer
+  // (tab availability check + render) sees the canonical key shape.
+  const normalizedInput = useMemo<InputProjection | undefined>(
+    () =>
+      input
+        ? {
+            globalSteep: normalizeSteepKeys(input.globalSteep),
+            sectorialSteep: normalizeSteepKeys(input.sectorialSteep),
+          }
+        : undefined,
+    [input],
+  );
   const visible = useMemo(
-    () => TABS.filter((tb) => tb.available(result, input)),
-    [result, input],
+    () => TABS.filter((tb) => tb.available(result, normalizedInput)),
+    [result, normalizedInput],
   );
   const [active, setActive] = useState<TabKey>(() => visible[0]?.key ?? 'res');
 
@@ -209,7 +255,7 @@ export default function ReportContent({ result, input }: Props) {
           restarts the CSS fade-in animation on .tab-panel cleanly, with
           no need for a transition library. */}
       <div className="tab-panel" key={activeTab.key} ref={panelRef}>
-        {activeTab.render(result, input)}
+        {activeTab.render(result, normalizedInput)}
       </div>
     </div>
   );
