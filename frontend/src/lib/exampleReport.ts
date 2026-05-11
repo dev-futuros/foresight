@@ -9,4 +9,4 @@
  * {@code handleLoadExample} uses it both as the title on the POST and as
  * the key for the reuse-by-title lookup that avoids creating duplicates.
  */
-export const EXAMPLE_REPORT_TITLE = 'Restalia — Foresight 2030';
+export const EXAMPLE_REPORT_TITLE = 'Consultor/a independiente — Foresight 2029';
