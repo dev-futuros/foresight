@@ -238,27 +238,6 @@ export default function StepGlobal({
 
       {showContent && (
         <>
-          <div className="callout">
-            <div className="callout-icon">
-              <svg className="ico" aria-hidden><use href="#i-globe" /></svg>
-            </div>
-            <span className="callout-text">{t('wizard.global.banner')}</span>
-            <button
-              type="button"
-              className="btn btn-ai callout-action"
-              onClick={() => void regenerateAll()}
-              disabled={bulkLoading || !sector.trim()}
-              title={
-                sector.trim()
-                  ? t('wizard.global.regenerateTitle')
-                  : t('wizard.global.regenerateDisabledTitle')
-              }
-            >
-              {bulkLoading ? <span className="btn-ai-spinner" /> : '✦'}{' '}
-              {t('wizard.global.regenerate')}
-            </button>
-          </div>
-
           <div className="steep-grid">
             {FIELD_KEYS.map((key, i) => {
               const isFull = i === FIELD_KEYS.length - 1;
