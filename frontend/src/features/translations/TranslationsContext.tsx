@@ -22,6 +22,11 @@ import type { ExportLanguage } from '../../components/ExportModal';
 export interface TranslationState {
   language: ExportLanguage;
   progress: TranslateProgress | null;
+  /** Whether this translation targets the user's own report or a shared
+   *  example. Kept on the state row so the {@code .finally} handler
+   *  invalidates the right React Query cache without re-deriving it
+   *  from the id. */
+  kind: 'report' | 'example';
 }
 
 interface TranslationsContextValue {
@@ -37,7 +42,11 @@ interface TranslationsContextValue {
    * <p>Idempotent: a second call for a report that's already translating is
    * a no-op.
    */
-  startTranslation: (reportId: string, language: ExportLanguage) => void;
+  startTranslation: (
+    id: string,
+    language: ExportLanguage,
+    kind?: 'report' | 'example',
+  ) => void;
 }
 
 const TranslationsContext = createContext<TranslationsContextValue | null>(null);
@@ -65,29 +74,30 @@ export function TranslationsProvider({ children }: PropsWithChildren) {
   // subtree was listening at that exact moment.
 
   const startTranslation = useCallback(
-    (reportId: string, language: ExportLanguage) => {
+    (id: string, language: ExportLanguage, kind: 'report' | 'example' = 'report') => {
       // Read + write the duplicate guard from inside the setter so we
       // don't have to depend on `translations` in the callback's deps
       // (which would re-create the handler — and break referential
       // stability — on every progress frame).
       let shouldStart = false;
       setTranslations((prev) => {
-        if (prev[reportId]) return prev;
+        if (prev[id]) return prev;
         shouldStart = true;
-        return { ...prev, [reportId]: { language, progress: null } };
+        return { ...prev, [id]: { language, progress: null, kind } };
       });
       if (!shouldStart) return;
 
       const controller = new AbortController();
-      abortRef.current.set(reportId, controller);
+      abortRef.current.set(id, controller);
 
       translateReportStream({
-        id: reportId,
+        id,
         targetLanguage: language,
+        kind,
         onProgress: (p) =>
           setTranslations((prev) =>
-            prev[reportId] && prev[reportId].language === language
-              ? { ...prev, [reportId]: { language, progress: p } }
+            prev[id] && prev[id].language === language
+              ? { ...prev, [id]: { language, progress: p, kind } }
               : prev,
           ),
         signal: controller.signal,
@@ -95,9 +105,11 @@ export function TranslationsProvider({ children }: PropsWithChildren) {
         .then(() => {
           // Backend has just persisted the translation; refresh the list
           // so any visible card flips its chip from "+ EN" to "EN" without
-          // a hard reload. Detail rows get invalidated too in case the
-          // user is sitting on the report page in another tab.
+          // a hard reload. Both query keys are invalidated regardless of
+          // kind so a freshly-translated example shows up in the dashboard
+          // even if the consumer only listened on the reports key.
           queryClient.invalidateQueries({ queryKey: ['reports'] });
+          queryClient.invalidateQueries({ queryKey: ['examples'] });
         })
         .catch((err: unknown) => {
           if ((err as Error)?.name === 'AbortError') return;
@@ -105,10 +117,10 @@ export function TranslationsProvider({ children }: PropsWithChildren) {
           console.error('[translations] stream failed', err);
         })
         .finally(() => {
-          abortRef.current.delete(reportId);
+          abortRef.current.delete(id);
           setTranslations((prev) => {
             const next = { ...prev };
-            delete next[reportId];
+            delete next[id];
             return next;
           });
         });

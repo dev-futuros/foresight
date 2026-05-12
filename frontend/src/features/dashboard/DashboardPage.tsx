@@ -3,6 +3,13 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { useReports, useDeleteReport, useDeleteTranslation } from '../../hooks/useReports';
+import {
+  useExamples,
+  useDeleteExample,
+  useDeleteExampleTranslation,
+  useDemoteExample,
+} from '../../hooks/useExamples';
+import { useIsDev } from '../../hooks/useAuth';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import ExportModal, {
   type ExportFormat,
@@ -10,13 +17,18 @@ import ExportModal, {
 } from '../../components/ExportModal';
 import LoadingOverlay from '../../components/LoadingOverlay';
 import ShareModal from '../../components/ShareModal';
+import PromoteToExampleModal from '../../components/PromoteToExampleModal';
 import '../../components/modal.css';
 import api from '../../lib/api';
 import { exportReportPdf } from '../../lib/exportPdf';
 import { exportReportPpt } from '../../lib/exportPpt';
-import { EXAMPLE_REPORT_TITLE } from '../../lib/exampleReport';
 import { useTranslations } from '../translations/TranslationsContext';
-import type { ReportResponse, ReportStatus } from '../../types/api';
+import type {
+  ExampleSummary,
+  ReportResponse,
+  ReportStatus,
+  ReportSummary,
+} from '../../types/api';
 import './dashboard.css';
 
 /** Supported translation targets — kept in sync with the backend's allow-list. */
@@ -25,15 +37,37 @@ const SUPPORTED_LANGUAGES: readonly ExportLanguage[] = ['es', 'en'] as const;
 /** Action a card might be running. {@code null} when no card is busy. */
 type ExportingState = { id: string; kind: 'pdf' | 'ppt' } | null;
 
+/**
+ * Unified card row — either a user-owned report or a global example.
+ * Both kinds open under {@code /reports/:id} (the viewer falls back to
+ * the example endpoint on 404), so the discriminator only affects
+ * affordance gating: Share is on both; Delete/Promote/Demote depend on
+ * kind + DEV role; translate chips fire either the report or the
+ * example mutation depending on kind.
+ */
+type DashCard =
+  | { kind: 'report'; row: ReportSummary }
+  | { kind: 'example'; row: ExampleSummary };
+
 export default function DashboardPage() {
   const { t, i18n } = useTranslation();
   const { data, isLoading, isError, refetch } = useReports();
+  const examplesQuery = useExamples();
   const deleteReport = useDeleteReport();
   const deleteTranslation = useDeleteTranslation();
+  const deleteExample = useDeleteExample();
+  const deleteExampleTranslation = useDeleteExampleTranslation();
+  const demoteExample = useDemoteExample();
+  const isDev = useIsDev();
   const queryClient = useQueryClient();
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [pendingDeleteExampleId, setPendingDeleteExampleId] = useState<string | null>(null);
+  const [pendingDemoteExampleId, setPendingDemoteExampleId] = useState<string | null>(null);
   const [shareTargetId, setShareTargetId] = useState<string | null>(null);
+  const [shareTargetKind, setShareTargetKind] = useState<'report' | 'example'>('report');
   const [exportTargetId, setExportTargetId] = useState<string | null>(null);
+  const [exportTargetKind, setExportTargetKind] = useState<'report' | 'example'>('report');
+  const [promoteTargetId, setPromoteTargetId] = useState<string | null>(null);
   // Tracks which card (if any) is currently fetching+exporting. We only
   // allow one export at a time so the overlay doesn't get into a tangled
   // race; the UI disables the other export buttons on whichever card is
@@ -62,10 +96,44 @@ export default function DashboardPage() {
     setPendingDeleteId(id);
   }
 
-  function handleShare(e: React.MouseEvent, id: string) {
+  function handleDeleteExample(e: React.MouseEvent, id: string) {
     e.preventDefault();
     e.stopPropagation();
+    setPendingDeleteExampleId(id);
+  }
+
+  function handleShare(e: React.MouseEvent, id: string, kind: 'report' | 'example' = 'report') {
+    e.preventDefault();
+    e.stopPropagation();
+    setShareTargetKind(kind);
     setShareTargetId(id);
+  }
+
+  function handlePromote(e: React.MouseEvent, id: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    setPromoteTargetId(id);
+  }
+
+  function handleDemoteExample(e: React.MouseEvent, id: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    setPendingDemoteExampleId(id);
+  }
+
+  async function confirmDemoteExample() {
+    if (!pendingDemoteExampleId) return;
+    const exampleId = pendingDemoteExampleId;
+    setPendingDemoteExampleId(null);
+    try {
+      // Stay on the dashboard — the mutation's onSuccess invalidates
+      // both lists, so the example card disappears and a new (private)
+      // report card appears in place. The dev can open it if they want.
+      await demoteExample.mutateAsync(exampleId);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('[dashboard] demote failed', err);
+    }
   }
 
   /** Fetch the full report (with resultData), swap in the cached
@@ -77,20 +145,30 @@ export default function DashboardPage() {
    *  <p>{@code language} is guaranteed to be in the report's
    *  availableLanguages set because the modal picker only exposes those
    *  — so the translate call here is always a cache hit. */
-  async function handleExport(id: string, format: ExportFormat, language: ExportLanguage) {
+  async function handleExport(
+    id: string,
+    format: ExportFormat,
+    language: ExportLanguage,
+    kind: 'report' | 'example' = 'report',
+  ) {
     if (exporting) return;
     setExporting({ id, kind: format });
     try {
+      const base = kind === 'example' ? 'examples' : 'reports';
       const baseReport = await queryClient.fetchQuery<ReportResponse>({
-        queryKey: ['reports', id],
+        // Use a dedicated cache key per kind so the React Query cache
+        // doesn't collide between a report id and an example id (rare,
+        // since both are UUIDs, but cheap to guard).
+        queryKey: [base, id, 'detail'],
         queryFn: async () => {
-          const res = await api.get<ReportResponse>(`/reports/${id}`);
+          const res = await api.get<ReportResponse>(`/${base}/${id}`);
           return res.data;
         },
       });
       // Swap to the cached translation when the user picked a
       // non-primary language. /translate is cache-warm so this is a
-      // fast round-trip — no Anthropic call.
+      // fast round-trip — no Anthropic call. Same endpoint shape on
+      // both /reports and /examples.
       const report =
         language === baseReport.primaryLanguage
           ? baseReport
@@ -98,7 +176,7 @@ export default function DashboardPage() {
               const res = await api.post<{
                 inputData: Record<string, unknown>;
                 resultData: Record<string, unknown> | null;
-              }>(`/reports/${id}/translate`, null, { params: { targetLanguage: language } });
+              }>(`/${base}/${id}/translate`, null, { params: { targetLanguage: language } });
               return {
                 ...baseReport,
                 inputData: res.data.inputData,
@@ -124,26 +202,35 @@ export default function DashboardPage() {
     setPendingDeleteId(null);
   }
 
-  // Stats are computed from the loaded page (default size 20). The "total" stat
-  // uses the server-reported totalElements, but completed/in-progress/failed
-  // counts are first-page approximations until pagination is wired up.
-  //
-  // The example card is hoisted to the top of the grid regardless of its
-  // createdAt date — it's the user's "what does a finished report look
-  // like?" anchor and should sit above their own work. The rest of the
-  // list keeps the server-side createdAt-desc order.
-  const reports = useMemo(() => {
-    const all = data?.content ?? [];
-    const example = all.filter((r) => r.title === EXAMPLE_REPORT_TITLE);
-    const rest = all.filter((r) => r.title !== EXAMPLE_REPORT_TITLE);
-    return [...example, ...rest];
-  }, [data?.content]);
-  const total = data?.totalElements ?? 0;
-  const completed = reports.filter((r) => r.status === 'COMPLETED').length;
-  const inProgress = reports.filter((r) => r.status === 'DRAFT' || r.status === 'PROCESSING').length;
-  const failed = reports.filter((r) => r.status === 'FAILED').length;
+  function confirmDeleteExample() {
+    if (pendingDeleteExampleId) deleteExample.mutate(pendingDeleteExampleId);
+    setPendingDeleteExampleId(null);
+  }
 
-  const hasReports = reports.length > 0;
+  // Stats are computed from the loaded page (default size 20) and cover
+  // ONLY the caller's own reports — examples are demonstration content
+  // and shouldn't count toward "completed" or "in progress" totals.
+  const userReports = data?.content ?? [];
+  const exampleRows = examplesQuery.data ?? [];
+
+  // The unified card list — examples first (they're the "what does a
+  // finished foresight report look like?" anchor and benefit from being
+  // above the fold), followed by the user's own reports in
+  // createdAt-desc order. Each row carries its `kind` so the renderer
+  // can switch on affordances and routing without duplicate JSX.
+  const cards = useMemo<DashCard[]>(
+    () => [
+      ...exampleRows.map((row) => ({ kind: 'example' as const, row })),
+      ...userReports.map((row) => ({ kind: 'report' as const, row })),
+    ],
+    [exampleRows, userReports],
+  );
+  const total = data?.totalElements ?? 0;
+  const completed = userReports.filter((r) => r.status === 'COMPLETED').length;
+  const inProgress = userReports.filter((r) => r.status === 'DRAFT' || r.status === 'PROCESSING').length;
+  const failed = userReports.filter((r) => r.status === 'FAILED').length;
+
+  const hasReports = cards.length > 0;
 
   return (
     <div className="dashboard">
@@ -204,24 +291,29 @@ export default function DashboardPage() {
 
         {!isLoading && !isError && hasReports && (
           <div className="db-reports-grid">
-            {reports.map((report) => {
-              const isDraft = report.status === 'DRAFT';
-              const isExample = report.title === EXAMPLE_REPORT_TITLE;
-              // Drafts open the wizard in edit mode so the user lands back
-              // on the step they left off. Completed reports go straight to
-              // the viewer. The example is always a completed report (we
-              // POST inputData + PATCH resultData on creation), so it
-              // follows the COMPLETED path.
-              const target = isDraft ? `/reports/${report.id}/edit` : `/reports/${report.id}`;
-              // Share/export only make sense on reports that have a result.
-              // Drafts are a wizard-in-progress; nothing to share yet.
-              const canExport = !isDraft && report.status !== 'FAILED';
-              const isBusyExporting = exporting?.id === report.id;
+            {cards.map((card) => {
+              const { row } = card;
+              const isExample = card.kind === 'example';
+              const status: ReportStatus = isExample ? 'COMPLETED' : card.row.status;
+              const isDraft = status === 'DRAFT';
+              const title = row.title;
+              const id = row.id;
+              const createdAt = row.createdAt;
+              // Drafts open the wizard in edit mode; everything else goes
+              // straight to the viewer. Examples share the same /reports/:id
+              // route — `useReport` falls back to the examples endpoint on
+              // 404, and the viewer gates write affordances on the
+              // `source` discriminator that fallback returns.
+              const target = isDraft
+                ? `/reports/${id}/edit`
+                : `/reports/${id}`;
+              const canExport = !isDraft && status !== 'FAILED';
+              const isBusyExporting = exporting?.id === id;
               const primaryLanguage =
-                (report.primaryLanguage as ExportLanguage | undefined) ?? 'es';
-              const availableLanguages = ((report.availableLanguages as ExportLanguage[] | undefined) ??
+                (row.primaryLanguage as ExportLanguage | undefined) ?? 'es';
+              const availableLanguages = ((row.availableLanguages as ExportLanguage[] | undefined) ??
                 [primaryLanguage]) as ExportLanguage[];
-              const translation = translations[report.id];
+              const translation = translations[id];
               const isTranslating = !!translation;
               // Determinate progress percentage. The translated envelope
               // is roughly the same length as the source, so
@@ -244,9 +336,14 @@ export default function DashboardPage() {
                       ),
                     )
                   : 0;
+              // Translate chips are only actionable for users who are
+              // allowed to spend Anthropic budget: for examples that
+              // means DEV-only; for the user's own reports, anyone can
+              // (they're spending against their own row).
+              const canActOnTranslations = isExample ? isDev : true;
               return (
                 <Link
-                  key={report.id}
+                  key={id}
                   to={target}
                   className={`db-report-card${isExample ? ' db-r-example' : ''}${
                     isTranslating ? ' db-r-card--translating' : ''
@@ -255,22 +352,21 @@ export default function DashboardPage() {
                   // the user doesn't accidentally leave the page and
                   // lose the visible progress feedback. The stream
                   // itself keeps running because the AbortController is
-                  // refed at the dashboard level (the cleanup effect on
-                  // unmount cancels it), but the UX is to stay put.
+                  // hosted at the AppShell-level TranslationsProvider.
                   onClick={(e) => {
                     if (isTranslating) e.preventDefault();
                   }}
                 >
-                  <div className={`db-r-status ${report.status}`}>
-                    {t(`dashboard.status.${report.status}` as `dashboard.status.${ReportStatus}`)}
+                  <div className={`db-r-status ${status}`}>
+                    {t(`dashboard.status.${status}` as `dashboard.status.${ReportStatus}`)}
                   </div>
                   <div className="db-r-name">
-                    {report.title}
+                    {title}
                     {isExample && (
                       <span className="db-r-badge">{t('dashboard.exampleBadge')}</span>
                     )}
                   </div>
-                  <div className="db-r-date">{formatDate(report.createdAt)}</div>
+                  <div className="db-r-date">{formatDate(createdAt)}</div>
 
                   {canExport && (
                     <div
@@ -294,20 +390,28 @@ export default function DashboardPage() {
                             >
                               {lng.toUpperCase()}
                               {/* Primary language has no delete affordance — it's
-                                  the source of truth for the report, not a
-                                  cached translation. Every other available
-                                  language gets an × that wipes the cached
-                                  payload (the chip then flips back to "+ EN"). */}
-                              {!isPrimary && (
+                                  the source of truth, not a cached translation.
+                                  For examples, only DEVs can delete a
+                                  translation; for the user's own reports it's
+                                  always the owner. */}
+                              {!isPrimary && canActOnTranslations && (
                                 <button
                                   type="button"
                                   className="db-r-lang-chip-x"
                                   onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
-                                    deleteTranslation.mutate({ id: report.id, language: lng });
+                                    if (isExample) {
+                                      deleteExampleTranslation.mutate({ id, language: lng });
+                                    } else {
+                                      deleteTranslation.mutate({ id, language: lng });
+                                    }
                                   }}
-                                  disabled={deleteTranslation.isPending}
+                                  disabled={
+                                    isExample
+                                      ? deleteExampleTranslation.isPending
+                                      : deleteTranslation.isPending
+                                  }
                                   aria-label={t('dashboard.lang.delete', {
                                     defaultValue: 'Delete {{lang}} translation',
                                     lang: lng.toUpperCase(),
@@ -323,6 +427,12 @@ export default function DashboardPage() {
                             </span>
                           );
                         }
+                        // Translate-to button only renders when the user
+                        // is allowed to act on this row's translations
+                        // (DEV on examples, anyone on own reports). For
+                        // non-DEV users looking at examples, the missing
+                        // language simply doesn't appear in the chip row.
+                        if (!canActOnTranslations) return null;
                         return (
                           <button
                             key={lng}
@@ -331,7 +441,7 @@ export default function DashboardPage() {
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              startTranslation(report.id, lng);
+                              startTranslation(id, lng, isExample ? 'example' : 'report');
                             }}
                             disabled={isTranslating}
                             title={t('dashboard.lang.translateTo', {
@@ -346,55 +456,105 @@ export default function DashboardPage() {
                     </div>
                   )}
 
-                  {/* Action row — Export + Share + Delete. Export now
-                      opens a modal (with format + language pickers)
-                      instead of an inline dropdown; same UX as Share. */}
+                  {/* Action row — Export (everyone), Share (own reports
+                      only for V1), Promote-to-Example (DEV on own
+                      reports), Delete (owner on own reports; DEV on
+                      examples). */}
                   <div
                     className="db-r-actions"
                     onMouseDown={(e) => e.stopPropagation()}
                     onClick={(e) => e.stopPropagation()}
                   >
                     {canExport && (
-                      <>
-                        <button
-                          className="db-r-btn"
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setExportTargetId(report.id);
-                          }}
-                          disabled={isBusyExporting}
-                          title={t('dashboard.actions.export')}
-                        >
-                          <svg className="db-r-btn-ico" aria-hidden>
-                            <use href="#i-dl" />
-                          </svg>
-                          {isBusyExporting ? '…' : t('dashboard.actions.export')}
-                        </button>
-                        <button
-                          className="db-r-btn"
-                          type="button"
-                          onClick={(e) => handleShare(e, report.id)}
-                          title={t('dashboard.actions.share')}
-                        >
-                          <svg className="db-r-btn-ico" aria-hidden>
-                            <use href="#i-share" />
-                          </svg>
-                          {t('dashboard.actions.share')}
-                        </button>
-                      </>
+                      <button
+                        className="db-r-btn"
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setExportTargetKind(isExample ? 'example' : 'report');
+                          setExportTargetId(id);
+                        }}
+                        disabled={isBusyExporting}
+                        title={t('dashboard.actions.export')}
+                      >
+                        <svg className="db-r-btn-ico" aria-hidden>
+                          <use href="#i-dl" />
+                        </svg>
+                        {isBusyExporting ? '…' : t('dashboard.actions.export')}
+                      </button>
                     )}
-                    {/* Example card has no delete affordance — it's the
-                        built-in demo and deletion would only be confusing.
-                        The user can still wipe it manually via the API or
-                        the assistant if they really need to. */}
+                    {canExport && (
+                      <button
+                        className="db-r-btn"
+                        type="button"
+                        onClick={(e) =>
+                          handleShare(e, id, isExample ? 'example' : 'report')
+                        }
+                        title={t('dashboard.actions.share')}
+                      >
+                        <svg className="db-r-btn-ico" aria-hidden>
+                          <use href="#i-share" />
+                        </svg>
+                        {t('dashboard.actions.share')}
+                      </button>
+                    )}
+                    {/* Promote-to-Example — DEV only, only on the user's
+                        own completed reports. Examples don't promote
+                        themselves. */}
+                    {canExport && !isExample && isDev && (
+                      <button
+                        className="db-r-btn"
+                        type="button"
+                        onClick={(e) => handlePromote(e, id)}
+                        title={t('dashboard.actions.promote', {
+                          defaultValue: 'Promote to example',
+                        })}
+                      >
+                        ★ {t('dashboard.actions.promote', { defaultValue: 'Example' })}
+                      </button>
+                    )}
+                    {/* Delete: the user's own reports for everyone; for
+                        examples only DEV users. */}
                     {!isExample && (
                       <button
                         className="db-r-btn danger"
                         type="button"
-                        onClick={(e) => handleDelete(e, report.id)}
+                        onClick={(e) => handleDelete(e, id)}
                         title={t('dashboard.deleteTitle')}
+                      >
+                        <svg className="db-r-btn-ico" aria-hidden>
+                          <use href="#i-trash" />
+                        </svg>
+                        {t('dashboard.actions.delete')}
+                      </button>
+                    )}
+                    {/* Demote — DEV-only on examples. Converts the
+                        example back into a private report owned by the
+                        calling dev. Paired with the Promote button on
+                        report cards so the example <> report toggle
+                        feels symmetrical. Iteration loop: ↩ Report,
+                        edit, ★ Example. */}
+                    {isExample && isDev && (
+                      <button
+                        className="db-r-btn"
+                        type="button"
+                        onClick={(e) => handleDemoteExample(e, id)}
+                        title={t('dashboard.actions.demote', {
+                          defaultValue: 'Convert back to a private report',
+                        })}
+                      >
+                        ↩ {t('dashboard.actions.demote', { defaultValue: 'Report' })}
+                      </button>
+                    )}
+                    {isExample && isDev && (
+                      <button
+                        className="db-r-btn danger"
+                        type="button"
+                        onClick={(e) => handleDeleteExample(e, id)}
+                        title={t('dashboard.deleteExampleTitle', {
+                          defaultValue: 'Delete example',
+                        })}
                       >
                         <svg className="db-r-btn-ico" aria-hidden>
                           <use href="#i-trash" />
@@ -462,18 +622,48 @@ export default function DashboardPage() {
         onConfirm={confirmDelete}
         onCancel={() => setPendingDeleteId(null)}
       />
+      <ConfirmDialog
+        open={pendingDeleteExampleId !== null}
+        title={t('modals.deleteExample.title', { defaultValue: 'Delete example' })}
+        description={t('modals.deleteExample.description', {
+          defaultValue:
+            'This action removes the example for every user. This cannot be undone.',
+        })}
+        confirmLabel={t('modals.deleteExample.confirm', { defaultValue: 'Delete example' })}
+        destructive
+        onConfirm={confirmDeleteExample}
+        onCancel={() => setPendingDeleteExampleId(null)}
+      />
+      <ConfirmDialog
+        open={pendingDemoteExampleId !== null}
+        title={t('modals.demoteExample.title', { defaultValue: 'Demote example?' })}
+        description={t('modals.demoteExample.description', {
+          defaultValue:
+            'This converts the example into a private report owned by you. The example will be removed for every user, and any share links pointing at it will stop working. You can re-promote the new report afterwards.',
+        })}
+        confirmLabel={t('modals.demoteExample.confirm', { defaultValue: 'Demote' })}
+        onConfirm={() => void confirmDemoteExample()}
+        onCancel={() => setPendingDemoteExampleId(null)}
+      />
       <ShareModal
         open={shareTargetId !== null}
         reportId={shareTargetId ?? ''}
+        kind={shareTargetKind}
         onClose={() => setShareTargetId(null)}
+      />
+      <PromoteToExampleModal
+        open={promoteTargetId !== null}
+        reportId={promoteTargetId ?? ''}
+        onClose={() => setPromoteTargetId(null)}
       />
       <ExportModal
         open={exportTargetId !== null}
         reportId={exportTargetId ?? ''}
+        kind={exportTargetKind}
         onClose={() => setExportTargetId(null)}
         onExport={(format, language) => {
           if (exportTargetId) {
-            void handleExport(exportTargetId, format, language);
+            void handleExport(exportTargetId, format, language, exportTargetKind);
           }
         }}
       />

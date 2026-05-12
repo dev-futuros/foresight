@@ -3,11 +3,17 @@ import { useTranslation } from 'react-i18next';
 import Modal from './Modal';
 import { useCreateShare } from '../hooks/useShare';
 import { useReport } from '../hooks/useReports';
+import { useExample } from '../hooks/useExamples';
 import { extractApiErrorMessage } from '../lib/apiError';
 
 interface Props {
   open: boolean;
   reportId: string;
+  /** Whether {@code reportId} references a user-owned report or a global
+   *  example. Drives which detail endpoint feeds the language picker and
+   *  which share-mint endpoint the modal hits. Defaults to {@code 'report'}
+   *  so existing callers stay unchanged. */
+  kind?: 'report' | 'example';
   onClose: () => void;
 }
 
@@ -26,41 +32,45 @@ type Language = 'es' | 'en';
  * <p>Each open OR language change creates a NEW token rather than reusing a
  * previous one — matching the demo behaviour.
  */
-export default function ShareModal({ open, reportId, onClose }: Props) {
+export default function ShareModal({ open, reportId, kind = 'report', onClose }: Props) {
   const { t } = useTranslation();
   const createShare = useCreateShare();
-  const reportQuery = useReport(reportId);
+  // Pass an empty id to the disabled query so React Query's `enabled`
+  // gate bails out without firing a request to the wrong endpoint.
+  const reportQuery = useReport(kind === 'report' ? reportId : '');
+  const exampleQuery = useExample(kind === 'example' ? reportId : '');
+  const data = kind === 'example' ? exampleQuery.data : reportQuery.data;
   const [copied, setCopied] = useState(false);
   const [language, setLanguage] = useState<Language>('es');
 
   const availableLanguages = useMemo<Language[]>(() => {
-    const list = (reportQuery.data?.availableLanguages ?? []) as Language[];
+    const list = (data?.availableLanguages ?? []) as Language[];
     return list.length > 0 ? list : ['es'];
-  }, [reportQuery.data]);
+  }, [data]);
 
   const primaryLanguage =
-    (reportQuery.data?.primaryLanguage as Language | undefined) ?? 'es';
+    (data?.primaryLanguage as Language | undefined) ?? 'es';
 
-  // Initial language defaults to the report's primary language once the
+  // Initial language defaults to the source's primary language once the
   // detail row has loaded. Reset on every open.
   useEffect(() => {
-    if (open && reportQuery.data) {
+    if (open && data) {
       setLanguage(primaryLanguage);
     }
-  }, [open, primaryLanguage, reportQuery.data]);
+  }, [open, primaryLanguage, data]);
 
   // Mint (or re-mint) a token whenever the language changes while the
   // modal is open. Translation is guaranteed already-cached because the
   // picker only exposes available languages — share-mint just snapshots
   // the existing translation row.
   useEffect(() => {
-    if (open && reportQuery.data) {
+    if (open && data) {
       setCopied(false);
       createShare.reset();
-      createShare.mutate({ reportId, language });
+      createShare.mutate({ reportId, language, kind });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, reportId, language, reportQuery.data]);
+  }, [open, reportId, language, kind, data]);
 
   async function handleCopy() {
     if (!createShare.data) return;

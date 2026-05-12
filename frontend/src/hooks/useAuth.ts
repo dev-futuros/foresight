@@ -24,6 +24,22 @@ export function useCurrentUser() {
 }
 
 /**
+ * True iff the currently-signed-in user has the {@code DEV} role.
+ *
+ * <p>Used to gate the Promote-to-Example button, the Delete-Example
+ * affordance on dashboard cards, and the translate-example flow. The
+ * backend re-checks every DEV-only endpoint with HTTP 403, so this hook
+ * is just for hiding UI — never for enforcing security.
+ *
+ * <p>Returns {@code false} while the user query is still loading; DEV-
+ * scoped affordances only appear once we're sure the role is DEV.
+ */
+export function useIsDev(): boolean {
+  const { data } = useCurrentUser();
+  return data?.role === 'DEV';
+}
+
+/**
  * Returns a function that signs the user out of Clerk and redirects to the sign-in page.
  * Replaces the previous JWT-based logout that just dropped the token from localStorage.
  *

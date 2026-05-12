@@ -33,12 +33,54 @@ export function useReports(page = 0, size = 20) {
   });
 }
 
+/**
+ * Fetch a single row by id. Tries {@code /api/reports/:id} first; on a
+ * 404 it falls back to {@code /api/examples/:id} so the viewer route can
+ * resolve either kind under a unified {@code /reports/:id} URL.
+ *
+ * <p>The returned object always carries a {@code source} discriminator
+ * — {@code 'report'} (user-owned) or {@code 'example'} (global, read-only
+ * for non-DEVs). Consumers use it to gate write affordances. An
+ * example's payload is shaped to match {@link ReportResponse} so the
+ * report viewer can render it without branching on every field.
+ */
 export function useReport(id: string) {
-  return useQuery<ReportResponse>({
+  return useQuery<ReportResponse & { source: 'report' | 'example' }>({
     queryKey: ['reports', id],
     queryFn: async () => {
-      const res = await api.get<ReportResponse>(`/reports/${id}`);
-      return res.data;
+      try {
+        const res = await api.get<ReportResponse>(`/reports/${id}`);
+        return { ...res.data, source: 'report' as const };
+      } catch (err) {
+        // Fall back to the example endpoint on 404 — the dashboard
+        // links example cards under /reports/:id too, so the viewer
+        // can be a single page that resolves either kind. Anything
+        // other than 404 propagates so the caller can decide.
+        const status = (err as { response?: { status?: number } })?.response?.status;
+        if (status !== 404) throw err;
+        const ex = await api.get<{
+          id: string;
+          title: string;
+          primaryLanguage: 'es' | 'en';
+          availableLanguages: string[];
+          inputData: Record<string, unknown>;
+          resultData: Record<string, unknown> | null;
+          createdAt: string;
+          updatedAt: string;
+        }>(`/examples/${id}`);
+        return {
+          id: ex.data.id,
+          title: ex.data.title,
+          status: 'COMPLETED' as const,
+          inputData: ex.data.inputData,
+          resultData: ex.data.resultData,
+          primaryLanguage: ex.data.primaryLanguage,
+          availableLanguages: ex.data.availableLanguages,
+          createdAt: ex.data.createdAt,
+          updatedAt: ex.data.updatedAt,
+          source: 'example' as const,
+        };
+      }
     },
     enabled: !!id,
   });
@@ -143,6 +185,10 @@ export function useTranslateReport() {
  * Callers that want React Query cache invalidation should still hit
  * the {@code useTranslateReport} mutation; this function is for the
  * progress-bar path where we want to render character-level progress.
+ *
+ * <p>The {@code kind} parameter picks between the per-report and
+ * per-example streaming endpoints — both speak the same SSE protocol
+ * (progress / done) so the consumer is identical.
  */
 export async function translateReportStream(args: {
   id: string;
@@ -150,8 +196,13 @@ export async function translateReportStream(args: {
   force?: boolean;
   onProgress?: (progress: TranslateProgress) => void;
   signal?: AbortSignal;
+  /** Defaults to {@code 'report'} (the per-user translate flow). Pass
+   *  {@code 'example'} for the DEV-side translate-example flow, which
+   *  writes to the shared examples table instead of the caller's report
+   *  row. */
+  kind?: 'report' | 'example';
 }): Promise<TranslatedReport> {
-  const { id, targetLanguage, force = false, onProgress, signal } = args;
+  const { id, targetLanguage, force = false, onProgress, signal, kind = 'report' } = args;
   const token = await getAuthToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -159,8 +210,9 @@ export async function translateReportStream(args: {
   };
   if (token) headers.Authorization = `Bearer ${token}`;
 
+  const base = kind === 'example' ? 'examples' : 'reports';
   const url =
-    `/api/reports/${encodeURIComponent(id)}/translate/stream` +
+    `/api/${base}/${encodeURIComponent(id)}/translate/stream` +
     `?targetLanguage=${encodeURIComponent(targetLanguage)}` +
     `&force=${force ? 'true' : 'false'}`;
 

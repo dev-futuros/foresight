@@ -20,14 +20,18 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Public, immutable snapshot of a {@link com.foresight.backend.report.Report} that lets
- * the owner share a read-only view of the analysis with a third party (typically the end
- * client) without requiring them to log in.
+ * Public, immutable snapshot of either a {@link com.foresight.backend.report.Report} or
+ * a {@link com.foresight.backend.example.Example}, letting the originator share a
+ * read-only view with a third party without requiring them to log in.
  *
- * <p>The snapshot is frozen at creation time: even if the original report is later edited
+ * <p>Exactly ONE of {@link #reportId} / {@link #exampleId} is non-null — enforced by a
+ * CHECK constraint at the DB level (see {@code V9__share_tokens_for_examples.sql}). The
+ * source kind isn't stored explicitly; consumers infer it from whichever column is set.
+ *
+ * <p>The snapshot is frozen at creation time: even if the original source is later edited
  * or deleted, the recipient keeps seeing exactly what was generated when the share link
  * was minted. We copy the title, inputData and resultData as JSONB so the public read path
- * can serve the page without touching the {@code reports} table at all.
+ * can serve the page without touching {@code reports} or {@code examples} at all.
  *
  * <p>Tokens expire after a fixed window (defaults to 7 days). The cleanup of expired rows
  * is intentionally lazy — the public endpoint just returns 404 when {@code expiresAt} is
@@ -46,9 +50,17 @@ public class ShareToken extends BaseEntity {
     @Column(nullable = false, unique = true, length = 64)
     private String token;
 
-    /** UUID of the originating {@link com.foresight.backend.report.Report}. */
-    @Column(name = "report_id", nullable = false)
+    /** UUID of the originating {@link com.foresight.backend.report.Report}, or
+     *  {@code null} when the share was minted from an example (see
+     *  {@link #exampleId}). Exactly one of {@code reportId} / {@code exampleId}
+     *  is populated — enforced by a DB-level CHECK. */
+    @Column(name = "report_id")
     private UUID reportId;
+
+    /** UUID of the originating {@link com.foresight.backend.example.Example},
+     *  or {@code null} when the share was minted from a regular report. */
+    @Column(name = "example_id")
+    private UUID exampleId;
 
     /** UUID of the {@link com.foresight.backend.user.User} who minted this share. */
     @Column(name = "user_id", nullable = false)

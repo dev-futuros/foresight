@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Modal from './Modal';
 import { useReport } from '../hooks/useReports';
+import { useExample } from '../hooks/useExamples';
 
 export type ExportLanguage = 'es' | 'en';
 export type ExportFormat = 'pdf' | 'ppt';
@@ -10,6 +11,12 @@ interface Props {
   open: boolean;
   reportId: string;
   onClose: () => void;
+  /**
+   * Whether {@code reportId} references a user-owned report or a global
+   * example. Drives which detail endpoint feeds the language picker.
+   * Defaults to {@code 'report'} so existing callers keep working.
+   */
+  kind?: 'report' | 'example';
   /**
    * Fires when the user clicks Export. The parent owns the heavy
    * jsPDF / pptxgenjs work and the LoadingOverlay that runs alongside
@@ -32,29 +39,35 @@ interface Props {
  * modal's. Hitting Export with a translation language triggers a
  * cache-hit fetch on the parent side, never an Anthropic round-trip.
  */
-export default function ExportModal({ open, reportId, onClose, onExport }: Props) {
+export default function ExportModal({ open, reportId, kind = 'report', onClose, onExport }: Props) {
   const { t } = useTranslation();
-  const reportQuery = useReport(reportId);
+  // Hooks must be called unconditionally; pass an empty id to the
+  // disabled side so React Query bails out via the `enabled: !!id` gate.
+  const reportQuery = useReport(kind === 'report' ? reportId : '');
+  const exampleQuery = useExample(kind === 'example' ? reportId : '');
+  const data = kind === 'example' ? exampleQuery.data : reportQuery.data;
+  const isLoading = kind === 'example' ? exampleQuery.isLoading : reportQuery.isLoading;
+
   const [format, setFormat] = useState<ExportFormat>('pdf');
   const [language, setLanguage] = useState<ExportLanguage>('es');
 
   const availableLanguages = useMemo<ExportLanguage[]>(() => {
-    const list = (reportQuery.data?.availableLanguages ?? []) as ExportLanguage[];
+    const list = (data?.availableLanguages ?? []) as ExportLanguage[];
     return list.length > 0 ? list : ['es'];
-  }, [reportQuery.data]);
+  }, [data]);
 
   const primaryLanguage =
-    (reportQuery.data?.primaryLanguage as ExportLanguage | undefined) ?? 'es';
+    (data?.primaryLanguage as ExportLanguage | undefined) ?? 'es';
 
-  // Snap the language pick back to the report's primary on every open
+  // Snap the language pick back to the row's primary on every open
   // so reopening the modal doesn't carry over a stale selection from a
-  // previous report row.
+  // previous row.
   useEffect(() => {
-    if (open && reportQuery.data) {
+    if (open && data) {
       setLanguage(primaryLanguage);
       setFormat('pdf');
     }
-  }, [open, primaryLanguage, reportQuery.data]);
+  }, [open, primaryLanguage, data]);
 
   function handleExport() {
     onExport(format, language);
@@ -62,7 +75,6 @@ export default function ExportModal({ open, reportId, onClose, onExport }: Props
   }
 
   const showLangPicker = availableLanguages.length > 1;
-  const isLoading = reportQuery.isLoading;
 
   return (
     <Modal

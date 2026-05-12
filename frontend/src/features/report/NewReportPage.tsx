@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useCreateReport, useReport, useUpdateReport } from '../../hooks/useReports';
-import { useLoadExample } from '../../hooks/useLoadExample';
 import LoadingOverlay from '../../components/LoadingOverlay';
 import Modal from '../../components/Modal';
 import { useCurrentUser } from '../../hooks/useAuth';
@@ -97,7 +96,6 @@ export default function NewReportPage() {
   const navigate = useNavigate();
   const createReport = useCreateReport();
   const updateReport = useUpdateReport();
-  const { loadExample, isLoading: isLoadingExample } = useLoadExample();
   const { data: user } = useCurrentUser();
 
   // Mode detection. The /reports/:id/edit route renders this same component
@@ -203,25 +201,6 @@ export default function NewReportPage() {
     setShowOnboarding(false);
   }, []);
 
-  // Thin wrapper around useLoadExample: persist the "don't show again"
-  // preference (if checked), close the dialog, and delegate the actual
-  // POST+PATCH+navigate dance to the shared hook. Errors are swallowed at
-  // the hook level (logged); we always close the dialog so the user
-  // isn't stuck staring at it.
-  const handleLoadExample = useCallback(
-    async (dontShowAgain: boolean) => {
-      if (dontShowAgain) persistOnboardingDismissed();
-      try {
-        await loadExample();
-      } catch {
-        /* already logged inside the hook */
-      } finally {
-        setShowOnboarding(false);
-      }
-    },
-    [loadExample],
-  );
-
   // Snapshot refs of the four wizard slices. Used by persistDraft so it
   // always sees the latest values without having to depend on them in its
   // useCallback (which would re-create it — and re-fire effects that depend
@@ -280,11 +259,26 @@ export default function NewReportPage() {
   const createReportAsync = createReport.mutateAsync;
   const updateReportAsync = updateReport.mutateAsync;
 
+  // Example mode — the user is exploring a global example through the
+  // wizard. Inputs render exactly like a real report's, but every
+  // would-be persistence path is short-circuited: no autosave, no
+  // create-as-draft, no generate-analysis. The user can freely click
+  // around the steps and edit fields; nothing leaves the page.
+  const isExampleMode = editingReport.data?.source === 'example';
+  const isExampleModeRef = useRef(isExampleMode);
+  isExampleModeRef.current = isExampleMode;
+
   /** Persists a draft snapshot. POST on first call (no id yet), PATCH after.
    *  Fire-and-forget: errors are logged but never block UX — the user can
-   *  keep editing and the next step transition will retry. */
+   *  keep editing and the next step transition will retry.
+   *
+   *  <p>Examples short-circuit before any HTTP call: their content lives
+   *  in the {@code examples} table, not {@code reports}, so a PATCH
+   *  against {@code /api/reports/:id} would 404 and a POST would create
+   *  an unrelated new report. */
   const persistDraft = useCallback(
     async (currentStep: number): Promise<void> => {
+      if (isExampleModeRef.current) return;
       if (!hasMeaningfulContent()) return;
       const title = buildTitle();
       const inputData = buildInputData(currentStep);
@@ -361,13 +355,41 @@ export default function NewReportPage() {
       companyProfile?: Partial<EmpresaData>;
       globalSteep?: Partial<GlobalSteepData>;
       steep?: Partial<SteepData>;
-      horizon?: Partial<HorizonData>;
+      // Horizon historically had a couple of shapes: the canonical
+      // {H1, H2, H3} the wizard saves today, plus lowercase variants
+      // that surface when an example was promoted from a report
+      // generated under an older schema. The normalizer below accepts
+      // both so legacy examples don't render with empty H1/H2/H3 boxes.
+      horizon?: Partial<HorizonData> & Partial<Record<'h1' | 'h2' | 'h3', string>>;
       currentStep?: number;
     };
     if (inputs.companyProfile) setEmpresa({ ...EMPTY_EMPRESA, ...inputs.companyProfile });
     if (inputs.globalSteep) setGlobalData({ ...EMPTY_GLOBAL_STEEP, ...inputs.globalSteep });
     if (inputs.steep) setSteep({ ...EMPTY_STEEP, ...inputs.steep });
-    if (inputs.horizon) setHorizon({ ...EMPTY_HORIZON, ...inputs.horizon });
+    const horizonInput = inputs.horizon ?? {};
+    const normalisedHorizon: HorizonData = {
+      H1: horizonInput.H1 ?? horizonInput.h1 ?? '',
+      H2: horizonInput.H2 ?? horizonInput.h2 ?? '',
+      H3: horizonInput.H3 ?? horizonInput.h3 ?? '',
+    };
+    setHorizon(normalisedHorizon);
+    // Surface a warning in dev if an example lands without horizon
+    // content at all — usually means it was promoted from a report
+    // saved before the wizard captured the H1/H2/H3 free-text inputs.
+    // The DEV can re-promote a newer report to fix it.
+    if (
+        import.meta.env.DEV &&
+        editingReport.data.source === 'example' &&
+        !normalisedHorizon.H1 &&
+        !normalisedHorizon.H2 &&
+        !normalisedHorizon.H3
+    ) {
+      // eslint-disable-next-line no-console
+      console.warn(
+          '[wizard] example %s has no horizon scan inputs — re-promote a newer report to populate H1/H2/H3.',
+          editingReport.data.id,
+      );
+    }
     // Pre-claim the global-steep auto-fetch ref when the loaded report
     // already has STEEP values for its sector. Without this, a user who
     // edits an existing report and clears the Global STEEP fields would
@@ -448,6 +470,13 @@ export default function NewReportPage() {
     : '';
 
   async function handleSubmit() {
+    // Block the analysis pipeline entirely when the user is exploring
+    // an example through the wizard — examples are read-only content,
+    // and a Generate click here would either 404 against /api/reports
+    // or quietly spawn an unrelated new report under the user's account
+    // (depending on whether reportId is set). The Generate button is
+    // disabled in this mode too; this guard is defence in depth.
+    if (isExampleMode) return;
     setGenerateError(null);
     setIsGenerating(true);
     // Reset loader state — research row starts running immediately, the
@@ -649,9 +678,9 @@ export default function NewReportPage() {
   /* ─── Assistant integration ─────────────────────────────────────────
      Publishes the wizard state so the assistant can answer "what's in
      this report?" without the user having to paste it. Also registers
-     the page-scoped commands (setField, runAnalysis, generateGlobalSteep,
-     loadExample) — they live here because their handlers close over the
-     local state setters. */
+     the page-scoped commands (setField, runAnalysis, generateGlobalSteep)
+     — they live here because their handlers close over the local state
+     setters. */
   const setAssistantContext = useSetAssistantContext();
   useEffect(() => {
     setAssistantContext({
@@ -834,22 +863,22 @@ export default function NewReportPage() {
       },
     },
 
-    {
-      name: 'loadExample',
-      mode: 'auto',
-      handler: async () => {
-        // Await the full POST+PATCH+navigate sequence so the assistant's
-        // next turn only fires once the report viewer is actually on
-        // screen, not while the network calls are still in flight.
-        await handleLoadExample(true);
-        return 'Loaded the Restalia example.';
-      },
-    },
   ]);
 
   return (
     <div className="wizard">
       <main className="main">
+        {isExampleMode && !isGenerating && (
+          <div className="wizard-example-banner" role="note">
+            <strong>{t('wizard.exampleMode.title', { defaultValue: 'Viewing example' })}</strong>
+            <span>
+              {t('wizard.exampleMode.desc', {
+                defaultValue:
+                  'You can explore the inputs and navigate between steps. Changes are not saved to the example.',
+              })}
+            </span>
+          </div>
+        )}
         {!isGenerating && (
           <>
             {step === 1 && (
@@ -859,6 +888,7 @@ export default function NewReportPage() {
                 hasGlobalSteep={(['S', 'T', 'E', 'ENV', 'P'] as const).some(
                   (k) => globalData[k].trim().length > 0,
                 )}
+                disableGenerate={isExampleMode}
                 onContinue={() => {
                   // Continue without regenerating. Pre-claim the auto-
                   // fetch ref so step 2 doesn't surprise-trigger a scan
@@ -891,6 +921,7 @@ export default function NewReportPage() {
                 fetchedForRef={globalSteepFetchedForRef}
                 onNext={() => goToStep(3)}
                 onBack={() => goToStep(1)}
+                disableGenerate={isExampleMode}
               />
             )}
             {step === 3 && (
@@ -916,7 +947,10 @@ export default function NewReportPage() {
                 // Only edit-mode reports can have a pre-existing analysis;
                 // a fresh wizard run starts with empty resultData. Drive
                 // the SplitButton's primary action off whether the loaded
-                // report carries any of the section payloads.
+                // report carries any of the section payloads. Examples
+                // always have resultData (the promote flow refuses
+                // un-analysed reports), so this also flips the primary
+                // action to Continue for them.
                 hasReport={
                   editMode &&
                   !!editingReport.data?.resultData &&
@@ -924,8 +958,13 @@ export default function NewReportPage() {
                     (editingReport.data.resultData as Record<string, unknown>) ?? {},
                   ).length > 0
                 }
+                disableGenerate={isExampleMode}
                 onContinueToReport={() => {
-                  const id = reportIdRef.current;
+                  // Examples don't have a separate id from the URL — the
+                  // editingId IS the example id (the /reports/:id viewer
+                  // resolves it via the example fallback). Real reports
+                  // use the persisted reportIdRef.
+                  const id = isExampleMode ? editingId : reportIdRef.current;
                   if (id) navigate(`/reports/${id}`);
                 }}
               />
@@ -937,9 +976,7 @@ export default function NewReportPage() {
       <OnboardingDialog
         open={showOnboarding}
         onClose={handleOnboardingClose}
-        onLoadExample={handleLoadExample}
       />
-      <LoadingOverlay open={isLoadingExample} text={t('modals.loadExample')} />
 
       {/* Analysis loader — full-screen Modal overlay so nothing else on
           the page (topbar, stepper, footer, chat) is interactive while

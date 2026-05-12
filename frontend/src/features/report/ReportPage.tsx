@@ -2,6 +2,8 @@ import { useCallback, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useReport, useTranslateReport } from '../../hooks/useReports';
+import { useDemoteExample, useTranslateExample } from '../../hooks/useExamples';
+import { useIsDev } from '../../hooks/useAuth';
 import { useSetStepper } from '../shell/StepperContext';
 import { exportReportPdf } from '../../lib/exportPdf';
 import { exportReportPpt } from '../../lib/exportPpt';
@@ -11,6 +13,8 @@ import ExportModal, {
 } from '../../components/ExportModal';
 import LoadingOverlay from '../../components/LoadingOverlay';
 import ShareModal from '../../components/ShareModal';
+import PromoteToExampleModal from '../../components/PromoteToExampleModal';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import ReportContent, { type InputProjection, type ResultData } from './ReportContent';
 import '../../components/modal.css';
 import type { ReportResponse, ReportStatus } from '../../types/api';
@@ -28,14 +32,27 @@ export default function ReportPage() {
   const { id } = useParams<{ id: string }>();
   const { data: report, isLoading, isError, refetch } = useReport(id!);
   const translateReport = useTranslateReport();
+  const translateExample = useTranslateExample();
+  const demoteExample = useDemoteExample();
+  const isDev = useIsDev();
   const [exporting, setExporting] = useState<'pdf' | 'ppt' | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [promoteOpen, setPromoteOpen] = useState(false);
+  const [pendingDemote, setPendingDemote] = useState(false);
+
+  const isExample = report?.source === 'example';
 
   // Surface the wizard's 6-step indicator with step 6 ("Resultados") active.
   // Steps 1–4 navigate back into the wizard in edit mode so the user can
   // tweak inputs and regenerate. Step 5 is the analysis loading marker —
   // marked clickable:false because there's no real page behind it.
+  //
+  // For examples the stepper is the same — the wizard route loads the
+  // example via the useReport fallback and renders the inputs in
+  // read-only-ish mode (changes don't persist back to the example).
+  // This lets users explore an example's inputs the same way they'd
+  // explore their own report's inputs.
   const handleStepperSelect = useCallback(
     (n: number) => {
       if (n < 1 || n > 4) return;
@@ -43,9 +60,6 @@ export default function ReportPage() {
     },
     [id, navigate],
   );
-  // Same step list as NewReportPage — the transient "Analysis" loader (n=5)
-  // is omitted from the stepper. n values stay 1-6 so the routing handlers
-  // in handleStepperSelect can keep their 1-4 / 6 checks unchanged.
   const stepperState = useMemo(
     () => ({
       steps: [
@@ -82,25 +96,41 @@ export default function ReportPage() {
   /**
    * Swap the report's payload to the cached translation for the picked
    * language, when it differs from the primary language. The export
-   * picker only exposes languages that are already materialised (driven
-   * by {@code availableLanguages}), so this call is a guaranteed cache
-   * hit on the backend — no Anthropic round-trip, no progress bar
-   * needed. Translation is the dashboard's responsibility now.
+   * picker only exposes already-materialised languages, so this call is
+   * a guaranteed cache hit — no Anthropic round-trip needed. Hits
+   * {@code /api/examples/.../translate} or {@code /api/reports/.../translate}
+   * depending on the source.
    */
   async function resolveReportForLanguage(
     base: ReportResponse,
     language: ExportLanguage,
   ): Promise<ReportResponse> {
     if (language === base.primaryLanguage) return base;
-    const translated = await translateReport.mutateAsync({
-      id: base.id,
-      targetLanguage: language,
-    });
+    const translated = isExample
+      ? await translateExample.mutateAsync({ id: base.id, targetLanguage: language })
+      : await translateReport.mutateAsync({ id: base.id, targetLanguage: language });
     return {
       ...base,
       inputData: translated.inputData as Record<string, unknown>,
       resultData: translated.resultData as Record<string, unknown> | null,
     };
+  }
+
+  async function confirmDemote() {
+    if (!id) return;
+    setPendingDemote(false);
+    try {
+      await demoteExample.mutateAsync(id);
+      // The example was deleted, a new report (same UUID) was created
+      // under the calling DEV's ownership. The cached query was
+      // invalidated; refetching transparently flips `source` to
+      // `'report'` and the page re-renders with the report affordances.
+      // No navigation needed — same URL, new shape.
+      await refetch();
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('[report] demote failed', err);
+    }
   }
 
   if (isLoading) {
@@ -146,7 +176,11 @@ export default function ReportPage() {
       <div className="report-main">
         <header className="report-header">
           <div className="report-heading">
-            <p className="report-eyebrow">{t('report.eyebrow')}</p>
+            <p className="report-eyebrow">
+              {isExample
+                ? t('example.eyebrow', { defaultValue: 'Example' })
+                : t('report.eyebrow')}
+            </p>
             <h1 className="report-main-title">{report.title}</h1>
             <div className="report-meta">
               <span className={`status-badge ${report.status}`}>
@@ -166,6 +200,35 @@ export default function ReportPage() {
             </div>
           </div>
           <div className="report-actions">
+            {/* Promote: DEV only, real reports only. Hidden for examples
+                (which are already promoted) and for non-DEVs (gated at
+                the backend too). */}
+            {isDev && !isExample && (
+              <button
+                type="button"
+                className="btn"
+                onClick={() => setPromoteOpen(true)}
+                disabled={!report.resultData}
+                title={t('dashboard.actions.promote', { defaultValue: 'Promote to example' })}
+              >
+                ★ {t('dashboard.actions.promote', { defaultValue: 'Example' })}
+              </button>
+            )}
+            {/* Demote: DEV only, examples only. Converts back to a
+                private report owned by the calling DEV. Same URL keeps
+                working (the new report inherits the example's UUID).
+                Button label is the destination ("Report") so it pairs
+                visually with the Promote button's "Example" label. */}
+            {isDev && isExample && (
+              <button
+                type="button"
+                className="btn"
+                onClick={() => setPendingDemote(true)}
+                title={t('dashboard.actions.demote', { defaultValue: 'Convert back to a private report' })}
+              >
+                ↩ {t('dashboard.actions.demote', { defaultValue: 'Report' })}
+              </button>
+            )}
             <button
               type="button"
               className="btn"
@@ -214,13 +277,31 @@ export default function ReportPage() {
       <ShareModal
         open={shareOpen}
         reportId={id!}
+        kind={isExample ? 'example' : 'report'}
         onClose={() => setShareOpen(false)}
       />
       <ExportModal
         open={exportOpen}
         reportId={id!}
+        kind={isExample ? 'example' : 'report'}
         onClose={() => setExportOpen(false)}
         onExport={(format, language) => runExport(format, language)}
+      />
+      <PromoteToExampleModal
+        open={promoteOpen}
+        reportId={id!}
+        onClose={() => setPromoteOpen(false)}
+      />
+      <ConfirmDialog
+        open={pendingDemote}
+        title={t('modals.demoteExample.title', { defaultValue: 'Demote example?' })}
+        description={t('modals.demoteExample.description', {
+          defaultValue:
+            'This converts the example into a private report owned by you. The example will be removed for every user, and any share links pointing at it will stop working.',
+        })}
+        confirmLabel={t('modals.demoteExample.confirm', { defaultValue: 'Demote' })}
+        onConfirm={() => void confirmDemote()}
+        onCancel={() => setPendingDemote(false)}
       />
     </div>
   );

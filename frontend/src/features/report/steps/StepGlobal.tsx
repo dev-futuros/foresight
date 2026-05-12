@@ -48,6 +48,16 @@ interface Props {
   fetchedForRef: MutableRefObject<string | null>;
   onNext: () => void;
   onBack: () => void;
+  /**
+   * When true (wizard is loaded against a global example), every AI
+   * round-trip on this step is short-circuited — the auto-fetch effect
+   * won't fire, the assistant {@code generateGlobalSteep} command
+   * resolves to a friendly no-op. The user can still read and edit the
+   * pre-populated dimension textareas locally; changes aren't persisted
+   * either way (NewReportPage's persistDraft also short-circuits in
+   * example mode).
+   */
+  disableGenerate?: boolean;
 }
 
 /** Maps STEEP field keys to (a) the icon-sprite symbol id and (b) the
@@ -73,6 +83,7 @@ export default function StepGlobal({
   fetchedForRef,
   onNext,
   onBack,
+  disableGenerate = false,
 }: Props) {
   const { t } = useTranslation();
   // Initial fetch loads all 5 dimensions and is gated on `bulkLoading` (full-
@@ -217,6 +228,12 @@ export default function StepGlobal({
   }
 
   useEffect(() => {
+    // Examples are read-only — never auto-fetch even if the dimension
+    // textareas happen to be empty. Spending AI budget on content that
+    // won't persist would be wasteful, and the user shouldn't be
+    // surprised by a generation kicking off when they're just
+    // exploring.
+    if (disableGenerate) return;
     if (!hasAny && sector.trim() && fetchedFor.current !== sector) {
       // Claim this sector synchronously BEFORE the async fetch starts. React 18 StrictMode
       // double-mounts effects in dev, so the second pass would otherwise see the ref still
@@ -226,13 +243,18 @@ export default function StepGlobal({
       void fetchAll();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sector]);
+  }, [sector, disableGenerate]);
 
   /** Wipes the textareas, resets the fetched-for guard, and forces a fresh
    *  fetch. Shared by the in-page "Regenerate" button and the assistant
    *  `generateGlobalSteep` command — both need the exact same behaviour so
    *  keeping the logic in one place avoids drift. */
   async function regenerateAll() {
+    // Example mode: refuse silently. The assistant command is wired to
+    // this function regardless of mode; gating here means an assistant
+    // turn that emits generateGlobalSteep on an example doesn't spend
+    // AI budget on read-only content.
+    if (disableGenerate) return;
     // Clear through the parent so the autosave picks up the empty state too.
     onChange({ S: '', T: '', E: '', ENV: '', P: '' });
     // Force the next fetch to fire even though `sector` hasn't changed.

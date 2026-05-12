@@ -28,11 +28,25 @@ const en = {
       description: 'This action cannot be undone.',
       confirm: 'Delete',
     },
+    deleteExample: {
+      title: 'Delete example?',
+      description:
+        'This removes the example for every user. Any share links pointing at it will stop working. This cannot be undone.',
+      confirm: 'Delete example',
+    },
+    demoteExample: {
+      title: 'Demote example?',
+      description:
+        'This converts the example into a private report owned by you. The example will be removed for every user, and any share links pointing at it will stop working. You can re-promote the new report afterwards.',
+      confirm: 'Demote',
+    },
     export: {
       pdf: 'Generating PDF…',
       ppt: 'Generating PowerPoint…',
     },
-    loadExample: 'Creating example report…',
+  },
+  example: {
+    eyebrow: 'Example',
   },
   exportModal: {
     eyebrow: 'Export',
@@ -178,8 +192,6 @@ const en = {
       s6: { title: 'Results', desc: '— full report exportable as PDF, PowerPoint and client report' },
     },
     startBtn: 'Start →',
-    exampleBtn: 'Load example',
-    exampleErr: 'Could not load the example. Please try again.',
     noShow: "Don't show again",
   },
   nav: {
@@ -245,6 +257,10 @@ const en = {
     back: '← Back',
     maximize: 'Maximize for editing',
     minimize: 'Close fullscreen',
+    exampleMode: {
+      title: 'Viewing example',
+      desc: 'You can explore the inputs and navigate between steps. Changes are not saved to the example.',
+    },
     steps: {
       empresa: 'Company',
       global: 'Global',
@@ -394,7 +410,6 @@ const en = {
     reports_one: '{{count}} report',
     reports_other: '{{count}} reports',
     newReport: '+ New report',
-    loadExample: 'Load example',
     savedLabel: 'Saved reports',
     loading: 'Loading reports…',
     errorLoading: 'Could not load reports.',
@@ -413,7 +428,13 @@ const en = {
       export: 'Export',
       pdfMeta: 'Printable PDF',
       pptMeta: 'Editable slides',
+      promote: 'Example',
+      // Paired with `promote: 'Example'` — the dev card toggles between
+      // these two labels depending on whether the row is currently a
+      // report or an example (example <> report).
+      demote: 'Report',
     },
+    deleteExampleTitle: 'Delete example',
     exampleBadge: 'Example',
     exporting: 'Exporting…',
     stat: {

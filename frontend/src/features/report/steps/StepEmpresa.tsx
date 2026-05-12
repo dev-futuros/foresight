@@ -39,6 +39,13 @@ interface Props {
    * on entry. Parent owns the state, this component just emits intent.
    */
   onGenerate: () => void;
+  /**
+   * When true (wizard is loaded against a global example), the
+   * Generate path is omitted entirely — the SplitButton becomes a
+   * plain Continue button. Generating would spend AI budget against
+   * read-only content and the result would not persist.
+   */
+  disableGenerate?: boolean;
 }
 
 const HORIZON_VALUES = ['3', '5', '10'] as const;
@@ -51,6 +58,7 @@ export default function StepEmpresa({
   hasGlobalSteep,
   onContinue,
   onGenerate,
+  disableGenerate = false,
 }: Props) {
   const { t } = useTranslation();
   const valid =
@@ -58,11 +66,13 @@ export default function StepEmpresa({
 
   // Enter-key fallback inside text fields. Always runs the "default" path
   // for the current state (Continue when full, Generate when empty), so
-  // the keyboard shortcut matches the SplitButton's primary slot.
+  // the keyboard shortcut matches the SplitButton's primary slot. In
+  // example mode there's no Generate path at all — fall through to
+  // Continue so Enter still progresses the wizard.
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!valid) return;
-    if (hasGlobalSteep) onContinue();
+    if (hasGlobalSteep || disableGenerate) onContinue();
     else onGenerate();
   }
 
@@ -231,12 +241,19 @@ export default function StepEmpresa({
               if (valid) onGenerate();
             },
           };
+          // Example mode: Generate is omitted entirely. The SplitButton
+          // collapses to a single Continue button (the dropdown is
+          // empty so the chevron doesn't render).
+          const primaryOption = hasGlobalSteep || disableGenerate ? continueOption : generateOption;
+          const altOptions = disableGenerate
+              ? []
+              : [hasGlobalSteep ? generateOption : continueOption];
           return (
             <SplitButton
               disabled={!valid}
               menuAriaLabel={t('wizard.empresa.nextMenuAria')}
-              primary={hasGlobalSteep ? continueOption : generateOption}
-              options={[hasGlobalSteep ? generateOption : continueOption]}
+              primary={primaryOption}
+              options={altOptions}
             />
           );
         })()}

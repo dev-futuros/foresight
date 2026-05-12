@@ -1,6 +1,6 @@
 // TypeScript types mirroring backend DTOs
 
-export type UserRole = 'USER' | 'ADMIN';
+export type UserRole = 'USER' | 'DEV' | 'ADMIN';
 export type ReportStatus = 'DRAFT' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 
 export interface UserResponse {
@@ -56,6 +56,48 @@ export interface TranslatedReport {
   inputData: Record<string, unknown>;
   resultData: Record<string, unknown> | null;
   generatedAt?: string;
+}
+
+/**
+ * Lightweight projection of an example for the dashboard list. Mirrors
+ * {@link ReportSummary} so the same card renderer handles both — status
+ * is always {@code COMPLETED} for examples (the promote flow rejects
+ * sources that haven't generated their analysis).
+ */
+export interface ExampleSummary {
+  id: string;
+  slug: string;
+  title: string;
+  description?: string | null;
+  primaryLanguage: 'es' | 'en';
+  availableLanguages: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Full projection of an example for the read endpoint. */
+export interface ExampleResponse {
+  id: string;
+  slug: string;
+  title: string;
+  description?: string | null;
+  primaryLanguage: 'es' | 'en';
+  availableLanguages: string[];
+  inputData: Record<string, unknown>;
+  resultData: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Body for {@code POST /api/reports/{reportId}/promote-to-example}. */
+export interface PromoteToExampleRequest {
+  /** Required; kebab-case (lowercase, digits, single hyphens). Stable
+   *  upsert key — repeat to overwrite the existing example. */
+  slug: string;
+  /** Optional title override; falls back to the source report's title. */
+  title?: string;
+  /** Optional one-liner shown under the title on the dashboard card. */
+  description?: string;
 }
 
 export interface Page<T> {
