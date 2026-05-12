@@ -36,6 +36,13 @@ interface Props {
    * already been analysed.
    */
   onContinueToReport?: () => void;
+  /**
+   * When true, the Generate action is disabled — used when the wizard
+   * is loaded against a global example (read-only content). The
+   * Continue action stays enabled so the user can still navigate to
+   * the example's viewer.
+   */
+  disableGenerate?: boolean;
 }
 
 /** Cap suggestions defensively — AI is asked for 3–5 but may return more. */
@@ -57,6 +64,7 @@ export default function StepHorizon({
   error,
   hasReport,
   onContinueToReport,
+  disableGenerate = false,
 }: Props) {
   const { t } = useTranslation();
   const [suggestions, setSuggestions] = useState<SuggestionsByKey>({});
@@ -215,13 +223,29 @@ export default function StepHorizon({
               t('wizard.horizon.submit')
             ),
             onClick: onSubmit,
+            // Defence in depth — examples normally end up with Generate
+            // omitted from the options list (see below), so this only
+            // fires in the rare theoretical case where Generate is the
+            // primary action AND disableGenerate is true (an example
+            // without resultData, which the promote flow refuses).
+            disabled: disableGenerate,
           };
+          // Example mode: Generate is omitted entirely (no dropdown when
+          // there's nothing else to pick) so the user can only Continue
+          // back to the viewer. Spending AI budget against read-only
+          // content would only produce throwaway results, and hiding is
+          // a cleaner affordance than a disabled menu item the user has
+          // to discover.
+          const primaryAction = hasReport ? continueOption : generateOption;
+          const altActions = disableGenerate
+              ? (hasReport ? [] : [continueOption])
+              : [hasReport ? generateOption : continueOption];
           return (
             <SplitButton
               disabled={!hasAny || isSubmitting}
               menuAriaLabel={t('wizard.horizon.submitMenuAria')}
-              primary={hasReport ? continueOption : generateOption}
-              options={[hasReport ? generateOption : continueOption]}
+              primary={primaryAction}
+              options={altActions}
             />
           );
         })()}

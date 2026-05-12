@@ -265,9 +265,10 @@
 }
 
 /* The old per-button .btn-share / .btn-export styles are gone — the
-   results header now uses the generic .btn (share trigger) and the
-   shared <ExportMenu> (PDF / PowerPoint dropdown) so the visual
-   treatment matches the demo's results-actions-top exactly. */
+   results header now uses the generic .btn (share trigger) and a
+   single primary "Export" button that opens the shared <ExportModal>
+   (format + language picker) so the visual treatment matches the
+   demo's results-actions-top exactly. */
 
 /* ── Tabs ──────────────────────────────────────────────────── */
 /* Sticks just below the stepper (78px navbar + ~40px stepper ≈ 118px).

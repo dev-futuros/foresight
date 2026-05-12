@@ -69,10 +69,6 @@ public final class AssistantTools {
                                             "description", "Idioma destino: 'es' o 'en'")),
                             "required", List.of("lang"))),
             tool(
-                    "loadExample",
-                    "Carga el caso de ejemplo (Restalia) en el formulario para que el usuario lo explore.",
-                    Map.of("type", "object", "properties", Map.of())),
-            tool(
                     "loadReport",
                     "Carga un informe guardado por su id en el formulario.",
                     Map.of(

@@ -357,6 +357,33 @@
   letter-spacing: 0.06em;
   margin-bottom: 18px;
 }
+.share-lang-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0 14px;
+}
+.share-lang-label {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-mute);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.share-lang-select {
+  background: var(--surface-3);
+  border: 1px solid var(--line-strong);
+  color: var(--ink);
+  border-radius: var(--r-md);
+  padding: 6px 28px 6px 12px;
+  font-family: var(--mono);
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 150ms;
+}
+.share-lang-select:focus { border-color: var(--gold-soft); }
+.share-lang-select:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* ── Fullscreen overlay parts (PDF / export spinner) ───────── */
 .pdf-ov-spinner {

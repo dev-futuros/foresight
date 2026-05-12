@@ -1,46 +1,76 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Modal from './Modal';
 import { useCreateShare } from '../hooks/useShare';
+import { useReport } from '../hooks/useReports';
+import { useExample } from '../hooks/useExamples';
 import { extractApiErrorMessage } from '../lib/apiError';
 
 interface Props {
   open: boolean;
   reportId: string;
+  /** Whether {@code reportId} references a user-owned report or a global
+   *  example. Drives which detail endpoint feeds the language picker and
+   *  which share-mint endpoint the modal hits. Defaults to {@code 'report'}
+   *  so existing callers stay unchanged. */
+  kind?: 'report' | 'example';
   onClose: () => void;
 }
 
+type Language = 'es' | 'en';
+
 /**
  * Modal that mints a fresh public share link for the current report and lets
- * the owner copy it to the clipboard. Mirrors the demo's `share-modal` flow:
+ * the owner copy it to the clipboard.
  *
- * 1. Open → "Generating link…" stage while the POST is in flight.
- * 2. Success → URL field readonly + "Copy" button + 7-day expiry note.
- * 3. Error → inline error box, button to retry.
+ * <p>Translation is no longer triggered from this dialog — the dashboard now
+ * owns the translate workflow and only languages that have already been
+ * materialised show up in the picker here. If only the primary language is
+ * available the picker is hidden entirely. This keeps share-mint snappy:
+ * every call hits a warm cache, no 30-second Anthropic round-trip.
  *
- * Each open creates a NEW token rather than reusing a previous one, matching
- * the demo behaviour. Reusing would require listing existing shares and is
- * out of scope for this iteration.
+ * <p>Each open OR language change creates a NEW token rather than reusing a
+ * previous one — matching the demo behaviour.
  */
-export default function ShareModal({ open, reportId, onClose }: Props) {
+export default function ShareModal({ open, reportId, kind = 'report', onClose }: Props) {
   const { t } = useTranslation();
   const createShare = useCreateShare();
+  // Pass an empty id to the disabled query so React Query's `enabled`
+  // gate bails out without firing a request to the wrong endpoint.
+  const reportQuery = useReport(kind === 'report' ? reportId : '');
+  const exampleQuery = useExample(kind === 'example' ? reportId : '');
+  const data = kind === 'example' ? exampleQuery.data : reportQuery.data;
   const [copied, setCopied] = useState(false);
+  const [language, setLanguage] = useState<Language>('es');
 
-  // Mint a fresh token every time the modal opens. The unconditional reset on
-  // close is what lets the next open start clean — without it the previous URL
-  // would flash for an instant before the new POST completes.
+  const availableLanguages = useMemo<Language[]>(() => {
+    const list = (data?.availableLanguages ?? []) as Language[];
+    return list.length > 0 ? list : ['es'];
+  }, [data]);
+
+  const primaryLanguage =
+    (data?.primaryLanguage as Language | undefined) ?? 'es';
+
+  // Initial language defaults to the source's primary language once the
+  // detail row has loaded. Reset on every open.
   useEffect(() => {
-    if (open) {
+    if (open && data) {
+      setLanguage(primaryLanguage);
+    }
+  }, [open, primaryLanguage, data]);
+
+  // Mint (or re-mint) a token whenever the language changes while the
+  // modal is open. Translation is guaranteed already-cached because the
+  // picker only exposes available languages — share-mint just snapshots
+  // the existing translation row.
+  useEffect(() => {
+    if (open && data) {
       setCopied(false);
       createShare.reset();
-      createShare.mutate(reportId);
+      createShare.mutate({ reportId, language, kind });
     }
-    // We deliberately omit createShare from the dep list — referencing it would
-    // re-fire the mutation on every render. The mutation hook is stable enough
-    // for this single-shot pattern.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, reportId]);
+  }, [open, reportId, language, kind, data]);
 
   async function handleCopy() {
     if (!createShare.data) return;
@@ -59,6 +89,12 @@ export default function ShareModal({ open, reportId, onClose }: Props) {
     ? extractApiErrorMessage(createShare.error, t('share.errorDefault'))
     : null;
 
+  const isMinting = createShare.isPending;
+  // Hide the picker when only one language is available — there's nothing
+  // to pick. The user translates the report from the dashboard first if
+  // they want a different language here.
+  const showPicker = availableLanguages.length > 1;
+
   return (
     <Modal
       open={open}
@@ -69,11 +105,34 @@ export default function ShareModal({ open, reportId, onClose }: Props) {
       <div className="share-eyebrow">{t('share.eyebrow')}</div>
       <h2 className="modal-title">{t('share.title')}</h2>
 
-      {createShare.isPending && (
+      {showPicker && (
+        <div className="share-lang-row">
+          <label htmlFor="share-language" className="share-lang-label">
+            {t('share.language', { defaultValue: 'Language' })}
+          </label>
+          <select
+            id="share-language"
+            className="share-lang-select"
+            value={language}
+            onChange={(e) => setLanguage(e.target.value as Language)}
+            disabled={isMinting}
+          >
+            {availableLanguages.map((lng) => (
+              <option key={lng} value={lng}>
+                {t(`share.lang.${lng}` as 'share.lang.es' | 'share.lang.en', {
+                  defaultValue: lng.toUpperCase(),
+                })}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {isMinting && (
         <div className="share-stage">{t('share.generating')}</div>
       )}
 
-      {createShare.data && (
+      {createShare.data && !isMinting && (
         <>
           <div className="share-url-row">
             <input

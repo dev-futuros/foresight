@@ -28,11 +28,35 @@ const en = {
       description: 'This action cannot be undone.',
       confirm: 'Delete',
     },
+    deleteExample: {
+      title: 'Delete example?',
+      description:
+        'This removes the example for every user. Any share links pointing at it will stop working. This cannot be undone.',
+      confirm: 'Delete example',
+    },
+    demoteExample: {
+      title: 'Demote example?',
+      description:
+        'This converts the example into a private report owned by you. The example will be removed for every user, and any share links pointing at it will stop working. You can re-promote the new report afterwards.',
+      confirm: 'Demote',
+    },
     export: {
       pdf: 'Generating PDF…',
       ppt: 'Generating PowerPoint…',
     },
-    loadExample: 'Creating example report…',
+  },
+  example: {
+    eyebrow: 'Example',
+  },
+  exportModal: {
+    eyebrow: 'Export',
+    title: 'Export report',
+    format: 'Format',
+    formats: {
+      pdf: 'PDF — Printable document',
+      ppt: 'PowerPoint — Editable slides',
+    },
+    action: 'Export',
   },
   chat: {
     title: 'Assistant',
@@ -99,8 +123,7 @@ const en = {
       deleteReport: 'Delete report',
       setField: 'Apply to field',
       shareReport: 'Share report',
-      exportPDF: 'Export PDF',
-      exportPPT: 'Export PowerPoint',
+      exportReport: 'Export report',
     },
     applyAll: '⚡ Apply all',
     applyAllDone: '✓ Applied',
@@ -109,6 +132,26 @@ const en = {
     replaceIn: 'Replace in',
     addTo: 'Add to',
     appliedTo: 'Applied to',
+    failedTo: 'Failed',
+    cmdLabels: {
+      goTo: 'Navigate',
+      goToStep: 'Navigate → step {{step}}',
+      openDashboard: 'Open dashboard',
+      closeDashboard: 'Close dashboard',
+      newReport: 'New report',
+      setLang: 'Change language',
+      loadReport: 'Load report',
+      editReport: 'Edit report',
+      refreshReports: 'Refresh reports',
+      deleteReport: 'Delete report',
+      generateGlobalSteep: 'Generate Global STEEP',
+      runAnalysis: 'Run analysis',
+      wizardNext: 'Next step',
+      wizardBack: 'Previous step',
+      shareReport: 'Share report',
+      exportReport: 'Export report',
+      logout: 'Sign out',
+    },
     fields: {
       'f-name': 'Name',
       'f-sector': 'Sector',
@@ -139,6 +182,8 @@ const en = {
     title: 'Shareable link',
     triggerBtn: 'Share',
     generating: 'Generating link…',
+    language: 'Language',
+    lang: { es: 'Spanish', en: 'English' },
     urlLabel: 'Public URL for the report',
     copy: 'Copy',
     copied: 'Copied!',
@@ -166,8 +211,6 @@ const en = {
       s6: { title: 'Results', desc: '— full report exportable as PDF, PowerPoint and client report' },
     },
     startBtn: 'Start →',
-    exampleBtn: 'Load example',
-    exampleErr: 'Could not load the example. Please try again.',
     noShow: "Don't show again",
   },
   nav: {
@@ -175,6 +218,7 @@ const en = {
     logout: 'Log out',
     menu: 'Open menu',
     dashboard: 'Dashboard',
+    newReport: 'New report',
     brandTitle: 'Start a new report',
     brandTag: 'Foresight Strategy · Powered by AI',
     footerTag: 'Foresight Strategy · Powered by AI',
@@ -233,6 +277,20 @@ const en = {
     back: '← Back',
     maximize: 'Maximize for editing',
     minimize: 'Close fullscreen',
+    exampleMode: {
+      title: 'Viewing example',
+      desc: 'You can explore the inputs and navigate between steps. Changes are not saved to the example.',
+    },
+    saveStatus: {
+      dirty: 'Unsaved changes',
+      saving: 'Saving…',
+      justSaved: 'Saved just now',
+      savedSecondsAgo_one: 'Saved {{count}}s ago',
+      savedSecondsAgo_other: 'Saved {{count}}s ago',
+      savedMinutesAgo_one: 'Saved {{count}}m ago',
+      savedMinutesAgo_other: 'Saved {{count}}m ago',
+      error: 'Save failed — retrying',
+    },
     steps: {
       empresa: 'Company',
       global: 'Global',
@@ -382,7 +440,6 @@ const en = {
     reports_one: '{{count}} report',
     reports_other: '{{count}} reports',
     newReport: '+ New report',
-    loadExample: 'Load example',
     savedLabel: 'Saved reports',
     loading: 'Loading reports…',
     errorLoading: 'Could not load reports.',
@@ -401,7 +458,13 @@ const en = {
       export: 'Export',
       pdfMeta: 'Printable PDF',
       pptMeta: 'Editable slides',
+      promote: 'Example',
+      // Paired with `promote: 'Example'` — the dev card toggles between
+      // these two labels depending on whether the row is currently a
+      // report or an example (example <> report).
+      demote: 'Report',
     },
+    deleteExampleTitle: 'Delete example',
     exampleBadge: 'Example',
     exporting: 'Exporting…',
     stat: {
@@ -415,6 +478,13 @@ const en = {
       PROCESSING: 'Processing',
       COMPLETED: 'Completed',
       FAILED: 'Error',
+    },
+    lang: {
+      primary: 'Primary language',
+      available: 'Translated',
+      translateTo: 'Translate to {{lang}}',
+      translatingTo: 'Translating to {{lang}}…',
+      delete: 'Delete {{lang}} translation',
     },
   },
   reportDensity: {

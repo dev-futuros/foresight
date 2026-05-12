@@ -8,10 +8,6 @@ type Props = {
    *  "don't show again" checkbox was ticked — caller should persist that
    *  to localStorage / backend so the dialog doesn't reappear. */
   onClose: (dontShowAgain: boolean) => void;
-  /** Optional. When provided, a secondary "Load example" button is rendered
-   *  next to the primary action. Caller is responsible for fetching the
-   *  example data + populating the wizard state, then dismissing the dialog. */
-  onLoadExample?: (dontShowAgain: boolean) => void;
 };
 
 const STEP_KEYS = ['s1', 's2', 's3', 's4', 's5', 's6'] as const;
@@ -24,15 +20,12 @@ type StepKey = (typeof STEP_KEYS)[number];
  * "don't show again" checkbox. Per-device persistence is the caller's
  * responsibility (this component just reports the user's checkbox state).
  */
-export default function OnboardingDialog({ open, onClose, onLoadExample }: Props) {
+export default function OnboardingDialog({ open, onClose }: Props) {
   const { t } = useTranslation();
   const [noShow, setNoShow] = useState(false);
 
   function handleClose() {
     onClose(noShow);
-  }
-  function handleLoadExample() {
-    onLoadExample?.(noShow);
   }
 
   return (
@@ -68,15 +61,6 @@ export default function OnboardingDialog({ open, onClose, onLoadExample }: Props
         </ol>
 
         <div className="onboarding-actions">
-          {onLoadExample && (
-            <button
-              type="button"
-              className="modal-btn"
-              onClick={handleLoadExample}
-            >
-              {t('onboarding.exampleBtn')}
-            </button>
-          )}
           <button
             type="button"
             className="modal-btn modal-btn--primary"

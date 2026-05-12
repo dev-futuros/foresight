@@ -1,58 +1,22 @@
-import { useEffect, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useLogout } from '../../hooks/useAuth';
+import { dispatch as dispatchCommand } from '../../lib/commandBus';
+import AppUserButton from '../account/AppUserButton';
 
 /**
- * Sticky top bar — brand on the left, dashboard shortcut + hamburger menu
- * on the right. Account and Logout collapse into the hamburger dropdown
- * to keep the visible action area compact; the dashboard stays inline
- * with an icon since it's the most-used destination.
+ * Sticky top bar — brand on the left, action cluster on the right:
+ * new-report icon (gold) → dashboard icon → user avatar. The avatar
+ * (Clerk's UserButton wrapped via {@link AppUserButton}) opens the modal
+ * that carries "My account", the custom "Preferences" page, and sign
+ * out — replacing the older hamburger dropdown.
+ *
+ * <p>The autosave chip used to live here, but it now sits inline above
+ * the wizard's input form (see {@code wizard-save-row} in
+ * {@code NewReportPage}) so the "I'm typing — am I saved?" relationship
+ * reads spatially next to the fields the user is actually editing.
  */
 export default function TopBar() {
   const { t } = useTranslation();
-  const location = useLocation();
-  const navigate = useNavigate();
-  const logout = useLogout();
-
-  const onDashboard = location.pathname === '/dashboard';
-
-  // Hamburger dropdown state. Closes on outside click, Escape, route
-  // change, and after picking a menu item.
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    function onPointerDown(e: MouseEvent) {
-      const node = menuRef.current;
-      if (node && !node.contains(e.target as Node)) setMenuOpen(false);
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setMenuOpen(false);
-    }
-    document.addEventListener('mousedown', onPointerDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [menuOpen]);
-
-  // Close the menu whenever the route changes — picking any item that
-  // navigates needs the menu closed afterward.
-  useEffect(() => {
-    setMenuOpen(false);
-  }, [location.pathname]);
-
-  function handleAccount() {
-    setMenuOpen(false);
-    navigate('/account');
-  }
-  function handleLogout() {
-    setMenuOpen(false);
-    logout();
-  }
 
   return (
     <header className="topbar">
@@ -65,54 +29,43 @@ export default function TopBar() {
         </Link>
         <div className="topbar-spacer" />
         <div className="topbar-actions">
-          {!onDashboard && (
-            <Link to="/dashboard" className="btn-ghost" title={t('nav.dashboard')}>
-              <svg className="btn-ghost-ico" aria-hidden>
-                <use href="#i-grid" />
-              </svg>
-              {t('nav.dashboard')}
-            </Link>
-          )}
-          <div className="topbar-menu" ref={menuRef}>
-            <button
-              type="button"
-              className="btn-ghost btn-ghost--icon"
-              onClick={() => setMenuOpen((v) => !v)}
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-              aria-label={t('nav.menu')}
-              title={t('nav.menu')}
-            >
-              <svg className="btn-ghost-ico" aria-hidden>
-                <use href="#i-menu" />
-              </svg>
-            </button>
-            {menuOpen && (
-              <div className="topbar-menu-dropdown" role="menu">
-                <button
-                  type="button"
-                  className="topbar-menu-item"
-                  role="menuitem"
-                  onClick={handleAccount}
-                >
-                  <svg className="topbar-menu-ico" aria-hidden>
-                    <use href="#i-user" />
-                  </svg>
-                  {t('nav.myAccount')}
-                </button>
-                <button
-                  type="button"
-                  className="topbar-menu-item"
-                  role="menuitem"
-                  onClick={handleLogout}
-                >
-                  <svg className="topbar-menu-ico" aria-hidden>
-                    <use href="#i-signout" />
-                  </svg>
-                  {t('nav.logout')}
-                </button>
-              </div>
-            )}
+          {/* New report — gold-accented icon. Always visible. Routes
+              through the command bus so the page-scoped override on
+              NewReportPage (which clears every wizard slice in place)
+              wins when the user is already on /reports/new; on every
+              other route the shell-level fallback navigates. Same
+              affordance the chat assistant uses, single source of truth. */}
+          <button
+            type="button"
+            className="btn-ghost btn-ghost--icon"
+            data-tooltip={t('nav.newReport')}
+            data-tooltip-pos="below"
+            aria-label={t('nav.newReport')}
+            onClick={() => {
+              void dispatchCommand('newReport', {});
+            }}
+          >
+            <svg className="btn-ghost-ico" aria-hidden>
+              <use href="#i-newdoc" />
+            </svg>
+          </button>
+          {/* Dashboard — always visible. */}
+          <Link
+            to="/dashboard"
+            className="btn-ghost btn-ghost--icon"
+            data-tooltip={t('nav.dashboard')}
+            data-tooltip-pos="below"
+            aria-label={t('nav.dashboard')}
+          >
+            <svg className="btn-ghost-ico" aria-hidden>
+              <use href="#i-grid" />
+            </svg>
+          </Link>
+          {/* User avatar — opens the Clerk modal (My Account, Security,
+              custom Preferences page, sign out). Replaces the older
+              hamburger dropdown that wrapped the same two destinations. */}
+          <div className="topbar-avatar">
+            <AppUserButton size={28} />
           </div>
         </div>
       </div>

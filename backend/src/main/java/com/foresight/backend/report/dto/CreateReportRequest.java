@@ -11,9 +11,15 @@ import io.swagger.v3.oas.annotations.media.Schema;
 /**
  * Request body for {@code POST /api/reports}.
  *
- * @param title     user-chosen title (max 500 chars)
- * @param inputData arbitrary JSON document capturing the wizard inputs (company profile,
- *                  STEEP factors, horizon signals). Shape is intentionally flexible.
+ * @param title           user-chosen title (max 500 chars)
+ * @param inputData       arbitrary JSON document capturing the wizard inputs (company profile,
+ *                        STEEP factors, horizon signals). Shape is intentionally flexible.
+ * @param primaryLanguage optional ISO-639-1 code identifying the wizard's
+ *                        language ({@code "es"} or {@code "en"}). When
+ *                        omitted, defaults to {@code "es"} server-side
+ *                        (the application's default locale). Read by the
+ *                        translation pipeline as the source language for
+ *                        on-demand translations
  */
 public record CreateReportRequest(
         @Schema(example = "Q3 2026 strategic foresight — European mobility market", maxLength = 500)
@@ -41,4 +47,9 @@ public record CreateReportRequest(
                                 }
                                 """)
                 @NotNull
-                JsonNode inputData) {}
+                JsonNode inputData,
+        @Schema(
+                        description = "Language the wizard used to generate this report. Defaults to \"es\".",
+                        example = "es",
+                        allowableValues = {"es", "en"})
+                String primaryLanguage) {}

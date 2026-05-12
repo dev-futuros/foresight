@@ -597,7 +597,13 @@ function parseJsonText<T>(text: string): T {
   const first = cleaned.indexOf('{');
   const last = cleaned.lastIndexOf('}');
   if (first === -1 || last === -1) {
-    throw new Error('No JSON object found in streamed response');
+    // Surface whatever the model actually wrote (capped) so the user
+    // sees the real reason — most commonly "I cannot complete this
+    // request…", a truncation mid-search, or an empty body when the
+    // max_tokens budget was burned on tool_use rounds.
+    const preview = cleaned.trim().slice(0, 240);
+    const suffix = preview.length === 0 ? ' (empty response)' : ` — got: "${preview}${cleaned.length > 240 ? '…' : ''}"`;
+    throw new Error(`No JSON object found in streamed response${suffix}`);
   }
   const slice = cleaned.slice(first, last + 1);
   try {
@@ -779,4 +785,101 @@ export async function chat(args: {
 }): Promise<ChatResponse> {
   const { data } = await api.post<ChatResponse>('ai/chat', args);
   return data;
+}
+
+/**
+ * Streaming variant of {@link chat}. Posts to {@code /api/ai/chat/stream}
+ * and consumes the SSE flux of {@code {type:'delta', text}} events,
+ * firing {@code onDelta} for each incoming text fragment so the chat
+ * bubble can show the response forming live. Resolves with the full
+ * assembled text once the {@code done} event arrives.
+ *
+ * <p>Mirrors the demo's chat experience — without streaming the user
+ * stares at a typing indicator for 5-15s while Sonnet writes the
+ * response; with streaming the first words appear in &lt;1s and the
+ * rest fill in at the model's generation rate.
+ */
+export async function chatStream(
+  args: {
+    messages: ChatMessage[];
+    context?: string;
+    language: 'es' | 'en';
+  },
+  onDelta: (chunk: string) => void,
+): Promise<{ text: string }> {
+  const token = await getAuthToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'text/event-stream',
+  };
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const res = await fetch('/api/ai/chat/stream', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(args),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(`HTTP ${res.status} ${res.statusText} — ${detail.slice(0, 200)}`);
+  }
+  if (!res.body) throw new Error('Stream response had no body');
+  const ct = res.headers.get('content-type') ?? '';
+  if (!ct.includes('text/event-stream')) {
+    throw new Error(`Expected text/event-stream, got "${ct}"`);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+  let buffer = '';
+  let finalText = '';
+
+  const splitFrame = (b: string): { frame: string; rest: string } | null => {
+    const lflf = b.indexOf('\n\n');
+    const crlflf = b.indexOf('\r\n\r\n');
+    if (lflf === -1 && crlflf === -1) return null;
+    if (crlflf !== -1 && (lflf === -1 || crlflf < lflf)) {
+      return { frame: b.slice(0, crlflf), rest: b.slice(crlflf + 4) };
+    }
+    return { frame: b.slice(0, lflf), rest: b.slice(lflf + 2) };
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let next = splitFrame(buffer);
+    while (next !== null) {
+      const { frame, rest } = next;
+      buffer = rest;
+      const dataLines = frame
+        .split(/\r?\n/)
+        .filter((l) => l.startsWith('data:'))
+        .map((l) => l.slice(5).trimStart());
+      if (dataLines.length === 0) {
+        next = splitFrame(buffer);
+        continue;
+      }
+      let payload: unknown;
+      try {
+        payload = JSON.parse(dataLines.join('\n'));
+      } catch {
+        next = splitFrame(buffer);
+        continue;
+      }
+      const evt = payload as
+        | { type: 'delta'; text: string }
+        | { type: 'done'; text: string };
+      if (evt.type === 'delta') {
+        onDelta(evt.text);
+      } else if (evt.type === 'done') {
+        finalText = evt.text;
+      }
+      next = splitFrame(buffer);
+    }
+  }
+  if (!finalText) {
+    throw new Error('Chat stream closed before final response');
+  }
+  return { text: finalText };
 }

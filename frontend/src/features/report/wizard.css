@@ -22,6 +22,146 @@
   max-width: var(--container);
   margin: 0 auto;
   padding: 36px 24px 80px;
+  /* Anchor for the absolute-positioned .wizard-save-row that floats over
+     the step's eyebrow. */
+  position: relative;
+}
+
+/* Example-mode banner — shown when the wizard route is loaded against
+   a global example via the useReport fallback. The form behaves the
+   same way (all fields editable for navigation purposes); the banner
+   makes it explicit that nothing the user types here will persist. */
+.wizard-example-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 16px;
+  margin: 0 0 24px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line-accent);
+  background: var(--gold-bg);
+}
+.wizard-example-banner strong {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.wizard-example-banner span {
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.45;
+}
+
+/* ── Autosave row above the input form ─────────────────────────
+   Right-aligned strip that floats over the step's eyebrow line
+   ("Step 01 — Context") so the chip sits on the same horizontal
+   band as the step label — without nudging the step's layout up
+   or down. Pairs the relative-time label ("Saved 15s ago" /
+   "Saving…" / "Unsaved changes") with the circular state chip so
+   the indicator is anchored where the user's eyes already are —
+   next to the inputs they're typing into.
+
+   Absolutely positioned relative to {@code .wizard .main}; the
+   {@code top}/{@code right} offsets match that container's padding
+   so the row aligns with the eyebrow's start position. Pointer
+   events are disabled on the wrapper (so the chip doesn't shadow
+   the eyebrow text underneath) and re-enabled on its children for
+   the chip's title tooltip. The chip itself reuses the
+   {@code topbar-save-status} classes so visual tokens (size,
+   palette, spinner animation) stay in one place. */
+.wizard-save-row {
+  position: absolute;
+  top: 36px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 2;
+  pointer-events: none;
+}
+.wizard-save-row > * {
+  pointer-events: auto;
+}
+.wizard-save-label {
+  font-size: 12px;
+  color: var(--ink-mute);
+  font-family: var(--mono);
+  letter-spacing: 0.02em;
+}
+.wizard-save-row--dirty .wizard-save-label {
+  color: var(--gold-soft);
+}
+.wizard-save-row--saving .wizard-save-label {
+  color: var(--gold);
+}
+.wizard-save-row--error .wizard-save-label {
+  color: var(--red);
+}
+
+/* ── Autosave status icon ─────────────────────────────────────
+   Fixed bottom-right circular badge that reflects the
+   keystroke-debounced persistDraft state. State drives the glyph:
+   pencil = unsaved edits, spinner = saving, check = saved, alert
+   triangle = failed. The textual status moves to the title tooltip
+   and a visually-hidden span so screen readers still announce it.
+   Restoring `pointer-events: auto` so the tooltip can fire on hover. */
+.wizard-save-status {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 80;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--ink-soft);
+  box-shadow: 0 6px 18px hsla(0, 0%, 0%, 0.35);
+  transition: border-color 200ms var(--ease), color 200ms var(--ease),
+      background 200ms var(--ease);
+  cursor: help;
+}
+.wizard-save-status--dirty {
+  border-color: var(--line-accent);
+  color: var(--gold-soft);
+}
+.wizard-save-status--saving {
+  border-color: var(--gold-soft);
+  color: var(--gold);
+}
+.wizard-save-status--saved {
+  border-color: var(--line);
+  color: var(--ink-mute);
+}
+.wizard-save-status--error {
+  border-color: hsla(0, 80%, 70%, 0.45);
+  background: hsla(0, 80%, 70%, 0.08);
+  color: var(--red);
+}
+.wizard-save-icon {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.wizard-save-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.7px solid currentColor;
+  border-top-color: transparent;
+  animation: wizard-save-spin 0.9s linear infinite;
+}
+@keyframes wizard-save-spin {
+  to { transform: rotate(360deg); }
 }
 
 /* ── Page header ────────────────────────────────────────────── */
@@ -796,4 +936,10 @@ body.has-maximized {
   .wizard .page-title { font-size: 26px; }
   .wizard .g2,
   .wizard .g3 { grid-template-columns: 1fr; }
+  /* Match the smaller {@code .main} padding so the chip still lines up
+     with the eyebrow on narrow viewports. */
+  .wizard-save-row {
+    top: 24px;
+    right: 16px;
+  }
 }

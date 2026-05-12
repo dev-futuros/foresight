@@ -1,4 +1,5 @@
-import { useParams } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { usePublicShare } from '../../hooks/useShare';
 import ReportContent, {
@@ -26,7 +27,19 @@ type InputData = {
 export default function PublicSharePage() {
   const { t, i18n } = useTranslation();
   const { token } = useParams<{ token: string }>();
+  const [searchParams] = useSearchParams();
   const { data, isLoading, isError } = usePublicShare(token ?? '');
+
+  // The share URL may carry ?lang=es|en (set when the owner created the
+  // share in a non-primary language). Switch the public UI to that
+  // language so the chrome around the report content (section labels,
+  // tab titles, etc.) matches what the recipient is reading.
+  useEffect(() => {
+    const lang = searchParams.get('lang');
+    if (lang && (lang === 'es' || lang === 'en') && lang !== i18n.language) {
+      void i18n.changeLanguage(lang);
+    }
+  }, [searchParams, i18n]);
 
   const formattedDate = data
     ? new Date(data.createdAt).toLocaleDateString(

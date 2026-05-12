@@ -2,14 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useCreateReport, useReport, useUpdateReport } from '../../hooks/useReports';
-import { useLoadExample } from '../../hooks/useLoadExample';
 import LoadingOverlay from '../../components/LoadingOverlay';
 import Modal from '../../components/Modal';
 import { useCurrentUser } from '../../hooks/useAuth';
 import { useSetStepper } from '../shell/StepperContext';
 import {
   analyzeBackcasting,
-  analyzeScan,
   analyzeScenarioPlanning,
   analyzeScenarios,
   analyzeStrategicMap,
@@ -17,6 +15,7 @@ import {
   type SourceItem,
 } from '../../lib/aiClient';
 import { extractApiErrorMessage } from '../../lib/apiError';
+import { notifyAssistant, resetAssistant } from '../../lib/assistantBridge';
 import OnboardingDialog from '../../components/OnboardingDialog';
 import LoadingPanel, {
   type ProgressItem,
@@ -97,7 +96,6 @@ export default function NewReportPage() {
   const navigate = useNavigate();
   const createReport = useCreateReport();
   const updateReport = useUpdateReport();
-  const { loadExample, isLoading: isLoadingExample } = useLoadExample();
   const { data: user } = useCurrentUser();
 
   // Mode detection. The /reports/:id/edit route renders this same component
@@ -129,35 +127,41 @@ export default function NewReportPage() {
   // report is fully built (we navigate away) or the pipeline errors.
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
-  // Per-row status for the analysis loader checklist. Mirrors the demo's
-  // scan-then-reformulate pattern: one up-front "research" row that runs
-  // the web_search-enabled scan, then 5 parallel section rows that
-  // anchor on the shared research bullets. The order here is the visual
-  // order in the loader.
+  // Per-row status for the analysis loader checklist. Matches the
+  // demo's pattern: 5 parallel section rows, each running its own
+  // Opus + web_search call. The earlier "research" row that ran a
+  // single upstream scan was removed because it serialised the
+  // critical path and doubled the wall-clock generation time.
   const [analysisProgress, setAnalysisProgress] = useState<
     Record<
-      'research' | 'summary' | 'scenarios' | 'planning' | 'strategicMap' | 'backcasting',
+      'summary' | 'scenarios' | 'planning' | 'strategicMap' | 'backcasting',
       ProgressItemStatus
     >
   >({
-    research: 'pending',
     summary: 'pending',
     scenarios: 'pending',
     planning: 'pending',
     strategicMap: 'pending',
     backcasting: 'pending',
   });
-  // Live progress counters for the research row (the only call that
-  // touches web_search now). We track BOTH the source count AND the
-  // streamed character count so the row keeps showing forward motion
-  // after web_search stops adding URLs but the model is still writing
-  // out the consolidated research bullets.
-  const [researchSources, setResearchSources] = useState(0);
-  const [researchChars, setResearchChars] = useState(0);
-  // Live character count for each of the 5 section rows — the sections
-  // no longer use web_search, so chars-streamed is the meaningful
-  // progress signal. Updated from each analyzeX onProgress callback.
+  // Live char + source counts for each of the 5 section rows. Each
+  // section now does its own web_search (matching the demo), so we
+  // want both signals in the loader: chars tick as the model writes
+  // its JSON, sources tick as web_search harvests URLs. Updated from
+  // each analyzeX onProgress callback.
   const [sectionChars, setSectionChars] = useState<
+    Record<
+      'summary' | 'scenarios' | 'planning' | 'strategicMap' | 'backcasting',
+      number
+    >
+  >({
+    summary: 0,
+    scenarios: 0,
+    planning: 0,
+    strategicMap: 0,
+    backcasting: 0,
+  });
+  const [sectionSources, setSectionSources] = useState<
     Record<
       'summary' | 'scenarios' | 'planning' | 'strategicMap' | 'backcasting',
       number
@@ -202,25 +206,6 @@ export default function NewReportPage() {
     if (dontShowAgain) persistOnboardingDismissed();
     setShowOnboarding(false);
   }, []);
-
-  // Thin wrapper around useLoadExample: persist the "don't show again"
-  // preference (if checked), close the dialog, and delegate the actual
-  // POST+PATCH+navigate dance to the shared hook. Errors are swallowed at
-  // the hook level (logged); we always close the dialog so the user
-  // isn't stuck staring at it.
-  const handleLoadExample = useCallback(
-    async (dontShowAgain: boolean) => {
-      if (dontShowAgain) persistOnboardingDismissed();
-      try {
-        await loadExample();
-      } catch {
-        /* already logged inside the hook */
-      } finally {
-        setShowOnboarding(false);
-      }
-    },
-    [loadExample],
-  );
 
   // Snapshot refs of the four wizard slices. Used by persistDraft so it
   // always sees the latest values without having to depend on them in its
@@ -280,12 +265,64 @@ export default function NewReportPage() {
   const createReportAsync = createReport.mutateAsync;
   const updateReportAsync = updateReport.mutateAsync;
 
+  // Example mode — the user is exploring a global example through the
+  // wizard. Inputs render exactly like a real report's, but every
+  // would-be persistence path is short-circuited: no autosave, no
+  // create-as-draft, no generate-analysis. The user can freely click
+  // around the steps and edit fields; nothing leaves the page.
+  const isExampleMode = editingReport.data?.source === 'example';
+  const isExampleModeRef = useRef(isExampleMode);
+  isExampleModeRef.current = isExampleMode;
+
+  // ── Autosave state machine ──────────────────────────────────────
+  // The wizard PATCHes the draft on a debounced timer as the user
+  // types. Three knobs:
+  //
+  //   - AUTOSAVE_DEBOUNCE_MS — how long after the last keystroke we
+  //     fire the save. Long enough to coalesce a paragraph of typing
+  //     into one PATCH, short enough that "Saved" lands within a
+  //     reasonable expectation of "I just stopped typing".
+  //   - In-flight guard — if a save is already running when a new one
+  //     wants to fire, we postpone the second one until the first
+  //     resolves. Prevents an older PATCH from racing-and-overwriting
+  //     a newer one (no operational transform, just last-write-wins
+  //     ordering).
+  //   - prefillCompleteRef — initial prefill assigns React state
+  //     which would otherwise look like "user just edited", triggering
+  //     an immediate no-op autosave. The ref flips true once after
+  //     the first prefill effect finishes, so user-driven changes
+  //     thereafter are the only ones the debouncer sees.
+  const AUTOSAVE_DEBOUNCE_MS = 1500;
+  type SaveStatus = 'idle' | 'dirty' | 'saving' | 'saved' | 'error';
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const debounceTimerRef = useRef<number | null>(null);
+  const inflightSaveRef = useRef<boolean>(false);
+  const prefillCompleteRef = useRef<boolean>(!editMode);
+  // Cache the status in a ref so flushAutosave / unmount cleanup can
+  // read it without becoming a render-time dependency.
+  const saveStatusRef = useRef<SaveStatus>(saveStatus);
+  saveStatusRef.current = saveStatus;
+
   /** Persists a draft snapshot. POST on first call (no id yet), PATCH after.
-   *  Fire-and-forget: errors are logged but never block UX — the user can
-   *  keep editing and the next step transition will retry. */
+   *  Drives the autosave status indicator — sets 'saving' before the call,
+   *  'saved' / 'error' after. Examples short-circuit (their content lives
+   *  in the {@code examples} table, not {@code reports}, so a PATCH against
+   *  {@code /api/reports/:id} would 404). */
   const persistDraft = useCallback(
     async (currentStep: number): Promise<void> => {
+      if (isExampleModeRef.current) return;
       if (!hasMeaningfulContent()) return;
+      // Coalesce overlapping saves. If a save is already in flight, mark
+      // the document still-dirty and let the debounced scheduler pick it
+      // up after the current save resolves. Stops the older save from
+      // arriving at the server AFTER a newer one.
+      if (inflightSaveRef.current) {
+        setSaveStatus('dirty');
+        return;
+      }
+      inflightSaveRef.current = true;
+      setSaveStatus('saving');
       const title = buildTitle();
       const inputData = buildInputData(currentStep);
       try {
@@ -299,13 +336,31 @@ export default function NewReportPage() {
           reportIdRef.current = created.id;
           setReportId(created.id);
         }
+        setSaveStatus('saved');
+        setLastSavedAt(new Date());
       } catch (err) {
         // eslint-disable-next-line no-console
         console.error('[autosave] persistDraft failed', err);
+        setSaveStatus('error');
+      } finally {
+        inflightSaveRef.current = false;
       }
     },
     [buildInputData, buildTitle, createReportAsync, updateReportAsync],
   );
+
+  /** Cancel any pending debounce + fire the save immediately. Used on
+   *  step transitions (so Continue still commits in-flight edits) and
+   *  on unmount (so navigating away doesn't drop a pending PATCH). */
+  const flushAutosave = useCallback(async (): Promise<void> => {
+    if (debounceTimerRef.current !== null) {
+      window.clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+    if (saveStatusRef.current === 'dirty') {
+      await persistDraftRef.current(stepRef.current);
+    }
+  }, []);
 
   // Mirror persistDraft into a ref so goToStep can stay stable (deps: []).
   // Without this every render of NewReportPage would yield a new goToStep,
@@ -314,14 +369,31 @@ export default function NewReportPage() {
   const persistDraftRef = useRef(persistDraft);
   persistDraftRef.current = persistDraft;
 
+  // Mirror the active step into a ref so flushAutosave can read it
+  // without taking `step` as a dep (which would re-create flushAutosave
+  // — and every dependent — on every step change).
+  const stepRef = useRef<number>(initialStep);
+  // True once goToStep has been called since mount. Used by the
+  // prefill effect to detect "the user (or assistant) already chose
+  // a step explicitly" — without this flag, a late-arriving
+  // editingReport.data would clobber an explicit goTo(2) with the
+  // saved currentStep (e.g. 3), making the chat-driven navigation
+  // appear to skip steps.
+  const userHasNavigatedRef = useRef<boolean>(false);
+
   const goToStep = useCallback((n: number) => {
+    userHasNavigatedRef.current = true;
     setStep(n);
+    stepRef.current = n;
     setMaxReached((prev) => Math.max(prev, n));
-    // Autosave the snapshot under the *target* step — that's where the
-    // user will resume next time. Don't await: the user moves on while
-    // the request is in flight.
-    void persistDraftRef.current(n);
-  }, []);
+    // Flush any pending autosave so the user's last keystrokes land
+    // under the OLD step before we record the move. The persistDraft
+    // inside flush reads stepRef.current — which we've already
+    // advanced — so the saved currentStep reflects where the user
+    // ended up, while the inputData includes everything they typed
+    // before clicking Continue.
+    void flushAutosave();
+  }, [flushAutosave]);
 
   const language: 'es' | 'en' =
     user?.language === 'en' || i18n.language === 'en' ? 'en' : 'es';
@@ -361,13 +433,41 @@ export default function NewReportPage() {
       companyProfile?: Partial<EmpresaData>;
       globalSteep?: Partial<GlobalSteepData>;
       steep?: Partial<SteepData>;
-      horizon?: Partial<HorizonData>;
+      // Horizon historically had a couple of shapes: the canonical
+      // {H1, H2, H3} the wizard saves today, plus lowercase variants
+      // that surface when an example was promoted from a report
+      // generated under an older schema. The normalizer below accepts
+      // both so legacy examples don't render with empty H1/H2/H3 boxes.
+      horizon?: Partial<HorizonData> & Partial<Record<'h1' | 'h2' | 'h3', string>>;
       currentStep?: number;
     };
     if (inputs.companyProfile) setEmpresa({ ...EMPTY_EMPRESA, ...inputs.companyProfile });
     if (inputs.globalSteep) setGlobalData({ ...EMPTY_GLOBAL_STEEP, ...inputs.globalSteep });
     if (inputs.steep) setSteep({ ...EMPTY_STEEP, ...inputs.steep });
-    if (inputs.horizon) setHorizon({ ...EMPTY_HORIZON, ...inputs.horizon });
+    const horizonInput = inputs.horizon ?? {};
+    const normalisedHorizon: HorizonData = {
+      H1: horizonInput.H1 ?? horizonInput.h1 ?? '',
+      H2: horizonInput.H2 ?? horizonInput.h2 ?? '',
+      H3: horizonInput.H3 ?? horizonInput.h3 ?? '',
+    };
+    setHorizon(normalisedHorizon);
+    // Surface a warning in dev if an example lands without horizon
+    // content at all — usually means it was promoted from a report
+    // saved before the wizard captured the H1/H2/H3 free-text inputs.
+    // The DEV can re-promote a newer report to fix it.
+    if (
+        import.meta.env.DEV &&
+        editingReport.data.source === 'example' &&
+        !normalisedHorizon.H1 &&
+        !normalisedHorizon.H2 &&
+        !normalisedHorizon.H3
+    ) {
+      // eslint-disable-next-line no-console
+      console.warn(
+          '[wizard] example %s has no horizon scan inputs — re-promote a newer report to populate H1/H2/H3.',
+          editingReport.data.id,
+      );
+    }
     // Pre-claim the global-steep auto-fetch ref when the loaded report
     // already has STEEP values for its sector. Without this, a user who
     // edits an existing report and clears the Global STEEP fields would
@@ -383,17 +483,106 @@ export default function NewReportPage() {
     if (loadedSector && hasLoadedGlobalSteep) {
       globalSteepFetchedForRef.current = loadedSector;
     }
-    // Resume on the step the user left off on, unless an explicit ?step=N in
-    // the URL overrides it (initialStep already captured that). The URL
-    // wins so back-nav from the report viewer's stepper still lands on the
-    // step the user clicked, not the auto-saved one.
+    // Resume on the step the user left off on, unless:
+    //   - the URL carries an explicit ?step=N (initialStep already
+    //     captured it; honour the URL over the auto-saved value); OR
+    //   - the user (or the assistant) has already called goToStep
+    //     since the page mounted, which means they explicitly chose
+    //     a step before this prefill landed. Without this guard, a
+    //     late-arriving editingReport.data would clobber an explicit
+    //     goTo(2) with the saved currentStep (e.g. 3), making the
+    //     chat-driven navigation appear to skip a step.
     const fromUrl = searchParams.get('step');
-    if (!fromUrl && typeof inputs.currentStep === 'number') {
+    if (
+        !fromUrl &&
+        !userHasNavigatedRef.current &&
+        typeof inputs.currentStep === 'number'
+    ) {
       const resumeAt = Math.min(Math.max(inputs.currentStep, 1), 4);
       setStep(resumeAt);
+      stepRef.current = resumeAt;
       setMaxReached((prev) => Math.max(prev, resumeAt));
     }
+    // The prefill has just assigned React state; the keystroke-driven
+    // autosave effect below shouldn't treat that as a user edit. Flip
+    // the gate so subsequent user-driven state changes ARE detected.
+    prefillCompleteRef.current = true;
   }, [editMode, editingReport.data, searchParams]);
+
+  // ── Keystroke-debounced autosave ────────────────────────────────
+  // Watches the four user-editable wizard slices. On any change we
+  // mark the document dirty, cancel any pending save, and schedule a
+  // new save after AUTOSAVE_DEBOUNCE_MS of inactivity. Coalesces a
+  // paragraph of fast typing into one PATCH; commits within ~1.5s
+  // after the user pauses.
+  //
+  // Skipped entirely in example mode (read-only content) and during
+  // the initial prefill (which assigns state programmatically). Also
+  // skipped while the analysis pipeline is running so the in-flight
+  // generation can't race with a draft PATCH.
+  useEffect(() => {
+    if (!prefillCompleteRef.current) return;
+    if (isExampleModeRef.current) return;
+    if (isGenerating) return;
+    setSaveStatus('dirty');
+    if (debounceTimerRef.current !== null) {
+      window.clearTimeout(debounceTimerRef.current);
+    }
+    debounceTimerRef.current = window.setTimeout(() => {
+      debounceTimerRef.current = null;
+      void persistDraftRef.current(stepRef.current);
+    }, AUTOSAVE_DEBOUNCE_MS);
+    // No cleanup here — the timer is shared across re-renders and only
+    // gets cancelled by (a) the next change resetting it, (b) goToStep
+    // calling flushAutosave, or (c) the unmount effect below.
+  }, [empresa, globalData, steep, horizon, isGenerating]);
+
+  // Flush any pending debounce on unmount so a half-typed paragraph
+  // doesn't drop when the user navigates away. Also cancels the timer
+  // so an unmounted-component setState warning doesn't fire from a
+  // late callback.
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current !== null) {
+        window.clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+      // Fire one last save synchronously-ish — we await nothing, but
+      // the fetch is queued before the React tree finishes tearing
+      // down. fetch() requests survive unmount.
+      if (saveStatusRef.current === 'dirty' && !isExampleModeRef.current) {
+        void persistDraftRef.current(stepRef.current);
+      }
+    };
+  }, []);
+
+  // beforeunload guard — if the user closes the tab with a dirty
+  // document, the browser prompts the standard "leave / stay" dialog.
+  // We can't reliably issue an authenticated POST from inside
+  // beforeunload (sendBeacon doesn't carry custom Authorization
+  // headers), so the safest UX is to make sure the user notices. In
+  // practice the debounce window is short enough that this almost
+  // never fires.
+  useEffect(() => {
+    function onBeforeUnload(e: BeforeUnloadEvent) {
+      if (saveStatusRef.current === 'dirty' || saveStatusRef.current === 'saving') {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    }
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, []);
+
+  // Tick the "Saved Ns ago" caption every 15s so the relative time
+  // visibly stays current. Only runs while a save has actually
+  // landed; otherwise the indicator's text is computed elsewhere.
+  const [nowTick, setNowTick] = useState(0);
+  useEffect(() => {
+    if (saveStatus !== 'saved') return;
+    const t = window.setInterval(() => setNowTick((n) => n + 1), 15_000);
+    return () => window.clearInterval(t);
+  }, [saveStatus]);
 
   // Step bar shows 5 navigable items — Analysis (step 5 internally) is the
   // transient loader the user lands on while generating, never a real
@@ -448,22 +637,40 @@ export default function NewReportPage() {
     : '';
 
   async function handleSubmit() {
+    // Block the analysis pipeline entirely when the user is exploring
+    // an example through the wizard — examples are read-only content,
+    // and a Generate click here would either 404 against /api/reports
+    // or quietly spawn an unrelated new report under the user's account
+    // (depending on whether reportId is set). The Generate button is
+    // disabled in this mode too; this guard is defence in depth.
+    if (isExampleMode) return;
+    // Drop any pending autosave timer before we start so a debounced
+    // PATCH doesn't race with handleSubmit's explicit persistDraft +
+    // subsequent resultData update. The handleSubmit flow does its
+    // own saves at the right moments.
+    if (debounceTimerRef.current !== null) {
+      window.clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
     setGenerateError(null);
     setIsGenerating(true);
-    // Reset loader state — research row starts running immediately, the
-    // 5 section rows stay pending until research completes (they're
-    // gated on it).
+    // Reset loader state — all 5 sections start running immediately in
+    // parallel (each does its own web_search now, matching the demo).
     setAnalysisProgress({
-      research: 'running',
-      summary: 'pending',
-      scenarios: 'pending',
-      planning: 'pending',
-      strategicMap: 'pending',
-      backcasting: 'pending',
+      summary: 'running',
+      scenarios: 'running',
+      planning: 'running',
+      strategicMap: 'running',
+      backcasting: 'running',
     });
-    setResearchSources(0);
-    setResearchChars(0);
     setSectionChars({
+      summary: 0,
+      scenarios: 0,
+      planning: 0,
+      strategicMap: 0,
+      backcasting: 0,
+    });
+    setSectionSources({
       summary: 0,
       scenarios: 0,
       planning: 0,
@@ -493,57 +700,27 @@ export default function NewReportPage() {
       const targetReportId = reportIdRef.current!;
       const args = { companyProfile: empresa, steep, horizon, language };
 
-      // 2. Up-front research pass. ONE web_search-enabled call gathers
-      //    concrete, dated facts about the sector + challenge; the
-      //    result is then folded into each of the 5 section prompts so
-      //    they all anchor on the same shared bullets. Mirrors the
-      //    Global STEEP scan-then-reformulate pattern and cuts the
-      //    total web_search budget by ~5×. If the scan fails the whole
-      //    generation fails — the user retries.
-      const scan = await analyzeScan(args, (p) => {
-        // Both counters tick during the scan — sources climb while
-        // web_search runs, chars climb while the model is writing out
-        // the research bullets.
-        setResearchSources((prev) => (prev === p.sources ? prev : p.sources));
-        setResearchChars((prev) => (prev === p.chars ? prev : p.chars));
-      })
-        .then((r) => {
-          setAnalysisProgress((p) => ({ ...p, research: 'done' }));
-          return r;
-        })
-        .catch((err) => {
-          setAnalysisProgress((p) => ({ ...p, research: 'error' }));
-          console.error('[analyze:research] failed:', err);
-          throw err;
-        });
-
-      // 3. ALL FIVE analysis calls fire in parallel with the shared
-      //    research context. No web_search inside these — they use the
-      //    bullets from step 2 verbatim. Promise.allSettled means a
-      //    partial failure still produces a report with the sections
-      //    that came back.
-      const argsWithResearch = { ...args, research: scan.research };
+      // ALL FIVE analysis calls fire in parallel — each does its OWN
+      // web_search via the backend (Opus + web_search, matching the
+      // demo). Removed the earlier upstream "research" scan because it
+      // serialised the critical path and doubled the wall-clock
+      // generation time. Promise.allSettled means a partial failure
+      // still produces a report with the sections that came back.
       type SectionKey =
         | 'summary'
         | 'scenarios'
         | 'planning'
         | 'strategicMap'
         | 'backcasting';
-      // Sections no longer use web_search, so chars-streamed is the
-      // meaningful progress signal (sources stays 0 across the board).
-      const onSectionProgress = (key: SectionKey) => (p: { chars: number }) => {
-        setSectionChars((prev) =>
-          prev[key] === p.chars ? prev : { ...prev, [key]: p.chars },
-        );
-      };
-      setAnalysisProgress((p) => ({
-        ...p,
-        summary: 'running',
-        scenarios: 'running',
-        planning: 'running',
-        strategicMap: 'running',
-        backcasting: 'running',
-      }));
+      const onSectionProgress =
+        (key: SectionKey) => (p: { chars: number; sources: number }) => {
+          setSectionChars((prev) =>
+            prev[key] === p.chars ? prev : { ...prev, [key]: p.chars },
+          );
+          setSectionSources((prev) =>
+            prev[key] === p.sources ? prev : { ...prev, [key]: p.sources },
+          );
+        };
 
       // Helper that wraps each section call with its progress-state
       // transitions AND logs the rejection reason. Promise.allSettled
@@ -561,32 +738,27 @@ export default function NewReportPage() {
 
       const [summary, scenarios, planning, strategicMap, backcasting] =
         await Promise.allSettled([
-          analyzeSummary(argsWithResearch, onSectionProgress('summary'))
+          analyzeSummary(args, onSectionProgress('summary'))
             .then(onSectionDone('summary'), onSectionError('summary')),
-          analyzeScenarios(argsWithResearch, onSectionProgress('scenarios'))
+          analyzeScenarios(args, onSectionProgress('scenarios'))
             .then(onSectionDone('scenarios'), onSectionError('scenarios')),
-          analyzeScenarioPlanning(argsWithResearch, onSectionProgress('planning'))
+          analyzeScenarioPlanning(args, onSectionProgress('planning'))
             .then(onSectionDone('planning'), onSectionError('planning')),
-          analyzeStrategicMap(argsWithResearch, onSectionProgress('strategicMap'))
+          analyzeStrategicMap(args, onSectionProgress('strategicMap'))
             .then(onSectionDone('strategicMap'), onSectionError('strategicMap')),
-          analyzeBackcasting(argsWithResearch, onSectionProgress('backcasting'))
+          analyzeBackcasting(args, onSectionProgress('backcasting'))
             .then(onSectionDone('backcasting'), onSectionError('backcasting')),
         ]);
 
-      // 4. Merge the successful sections into a single resultData blob.
-      //    Anything that errored is silently skipped — the renderer's
-      //    tabs handle a missing section with an empty-state.
+      // Merge the successful sections into a single resultData blob.
+      // Anything that errored is silently skipped — the renderer's tabs
+      // handle a missing section with an empty-state.
       //
-      //    Backcasting entries arrive with placeholder `scenarioName` values
-      //    (the prompt has no access to the 3P names produced by the
-      //    scenarios-call sibling). We patch them here so each entry shows
-      //    the matching evocative scenario name — mirrors the merge step
-      //    in the demo's analysis.js.
-      //
-      //    Sources are now sourced entirely from the up-front scan call
-      //    (the 5 sections don't web_search anymore), so we store them
-      //    as the consolidated `report` bucket and skip the per-section
-      //    breakdown that used to be `bySection`.
+      // Backcasting entries arrive with placeholder `scenarioName` values
+      // (the prompt has no access to the 3P names produced by the
+      // scenarios-call sibling). We patch them here so each entry shows
+      // the matching evocative scenario name — mirrors the merge step in
+      // the demo's analysis.js.
       const fullResult: Record<string, unknown> = {};
       const scenarioList =
         scenarios.status === 'fulfilled' ? scenarios.value.result.scenarios ?? [] : [];
@@ -610,26 +782,43 @@ export default function NewReportPage() {
         }));
       }
 
-      // ── Sources from the up-front scan + Step 2 globalSteep scan ──
+      // ── Sources aggregated from each section's web_search citations ──
       // Two buckets are surfaced in the report's Sources tab:
-      //   report      — citations from the analyze/scan call (this run)
+      //   report      — citations harvested across all 5 section calls
+      //                 in this run (each does its own web_search), keyed
+      //                 by section id (A-E) for attribution AND deduped
+      //                 into a flat list for top-line "all sources" UI.
       //   globalSteep — citations from the Step 2 globalSteepScan call,
       //                 captured in transient state when StepGlobal ran
       //                 (may be empty for reports loaded from a saved
       //                 draft where the user never re-ran step 2).
-      // Each bucket is deduped independently — same URL surfacing in
-      // both is rare and worth showing twice with its proper attribution.
-      const hasAnyCitations = scan.citations.length > 0 || globalSteepCitations.length > 0;
+      const sectionCitations: Record<'A' | 'B' | 'C' | 'D' | 'E', SourceItem[]> = {
+        A: summary.status === 'fulfilled' ? summary.value.citations : [],
+        B: scenarios.status === 'fulfilled' ? scenarios.value.citations : [],
+        C: planning.status === 'fulfilled' ? planning.value.citations : [],
+        D: strategicMap.status === 'fulfilled' ? strategicMap.value.citations : [],
+        E: backcasting.status === 'fulfilled' ? backcasting.value.citations : [],
+      };
+      const dedup = (items: SourceItem[]) => {
+        const seen = new Map<string, SourceItem>();
+        for (const c of items) {
+          if (!seen.has(c.url)) seen.set(c.url, c);
+        }
+        return Array.from(seen.values());
+      };
+      const flatReportCitations = dedup([
+        ...sectionCitations.A,
+        ...sectionCitations.B,
+        ...sectionCitations.C,
+        ...sectionCitations.D,
+        ...sectionCitations.E,
+      ]);
+      const hasAnyCitations =
+        flatReportCitations.length > 0 || globalSteepCitations.length > 0;
       if (hasAnyCitations) {
-        const dedup = (items: SourceItem[]) => {
-          const seen = new Map<string, SourceItem>();
-          for (const c of items) {
-            if (!seen.has(c.url)) seen.set(c.url, c);
-          }
-          return Array.from(seen.values());
-        };
         fullResult.sources = {
-          report: dedup(scan.citations),
+          report: flatReportCitations,
+          bySection: sectionCitations,
           globalSteep: dedup(globalSteepCitations),
         };
       }
@@ -640,6 +829,18 @@ export default function NewReportPage() {
       });
       navigate(`/reports/${targetReportId}`);
       // Don't reset isGenerating on success — the unmount handles it.
+      // Nudge the assistant — the user has just landed on the report
+      // viewer and the chat can proactively offer to walk through the
+      // scenarios, explain methodology, or answer questions about the
+      // generated sections. Deferred past the navigate() so the route
+      // change has time to commit and the report viewer's queries can
+      // start populating before the model is woken (the bridge no-ops
+      // if the chat was never opened, so this is safe to always fire).
+      setTimeout(() => {
+        notifyAssistant(
+          '[STATE CHANGE: Full foresight analysis just completed and the user has been navigated to the report viewer. The report includes executive summary, 3P scenarios (Probable/Plausible/Possible), scenario planning, backcasting trajectories, strategic priorities, weak signals, wildcards, key uncertainties, and sources. Offer to walk through the scenarios, explain the methodology, or answer questions about any specific section. Keep it short — 2-3 sentences max. Do NOT emit any <command> tags.]',
+        );
+      }, 50);
     } catch (e) {
       setGenerateError(extractApiErrorMessage(e, t('report.results.errorDefault')));
       setIsGenerating(false);
@@ -649,11 +850,17 @@ export default function NewReportPage() {
   /* ─── Assistant integration ─────────────────────────────────────────
      Publishes the wizard state so the assistant can answer "what's in
      this report?" without the user having to paste it. Also registers
-     the page-scoped commands (setField, runAnalysis, generateGlobalSteep,
-     loadExample) — they live here because their handlers close over the
-     local state setters. */
+     the page-scoped commands (setField, runAnalysis, generateGlobalSteep)
+     — they live here because their handlers close over the local state
+     setters. */
   const setAssistantContext = useSetAssistantContext();
+  // Publish on every relevant state change. No cleanup here — clearing on
+  // dep-change as well as unmount caused a brief render where the chat
+  // saw {ctx: undefined} sandwiched between the old and new publish, and
+  // in StrictMode could leave a stale undefined dangling. The dedicated
+  // unmount-only clear below handles route changes correctly.
   useEffect(() => {
+    const loaded = editingReport.data;
     setAssistantContext({
       currentStep: step,
       maxReached,
@@ -662,9 +869,29 @@ export default function NewReportPage() {
       steep,
       horizon,
       isGenerating,
+      // Edit mode publishes the in-progress report so the assistant
+      // recognises it as the open report — "this report" resolves to
+      // the editing id, same way the read-only viewer publishes it.
+      ...(editingId && loaded
+        ? {
+            viewingReport: {
+              id: editingId,
+              title: loaded.title,
+              status: loaded.status,
+              primaryLanguage: loaded.primaryLanguage,
+              availableLanguages: loaded.availableLanguages ?? [loaded.primaryLanguage],
+              mode: 'edit' as const,
+            },
+          }
+        : {}),
     });
+  }, [
+    setAssistantContext, step, maxReached, empresa, globalData, steep, horizon,
+    isGenerating, editingId, editingReport.data,
+  ]);
+  useEffect(() => {
     return () => setAssistantContext(undefined);
-  }, [setAssistantContext, step, maxReached, empresa, globalData, steep, horizon, isGenerating]);
+  }, [setAssistantContext]);
 
   // Wizard-scoped commands. useCommands snapshots the previous registration
   // for each name on mount and restores it on unmount, so overriding `goTo`
@@ -673,6 +900,12 @@ export default function NewReportPage() {
   useCommands(() => [
     {
       name: 'setField',
+      // Confirm-mode: the chat assistant emits the command inline as a
+      // <command> tag, the renderer surfaces it as a pending chip the user
+      // can click (or batch via Apply All), and only then does this handler
+      // run. The chip's head/preview is rendered from the chat-side lookup
+      // tables; label/preview here are legacy fallbacks for non-chat
+      // callers.
       mode: 'confirm',
       label: (args) => {
         const { id } = args as { id: string };
@@ -834,22 +1067,131 @@ export default function NewReportPage() {
       },
     },
 
+    // Page-scoped newReport override. The shell-level version just calls
+    // navigate('/reports/new') — fine if the user is on a different route,
+    // but a no-op when they're already on the wizard (same URL → no
+    // remount, state survives). This version clears every wizard slice
+    // imperatively so "new report" actually starts from a blank form even
+    // when the user is mid-flow.
     {
-      name: 'loadExample',
+      name: 'newReport',
       mode: 'auto',
-      handler: async () => {
-        // Await the full POST+PATCH+navigate sequence so the assistant's
-        // next turn only fires once the report viewer is actually on
-        // screen, not while the network calls are still in flight.
-        await handleLoadExample(true);
-        return 'Loaded the Restalia example.';
+      handler: () => {
+        setEmpresa(EMPTY_EMPRESA);
+        setGlobalData(EMPTY_GLOBAL_STEEP);
+        setSteep(EMPTY_STEEP);
+        setHorizon(EMPTY_HORIZON);
+        setGlobalSteepCitations([]);
+        setReportId(null);
+        reportIdRef.current = null;
+        setStep(1);
+        stepRef.current = 1;
+        setMaxReached(1);
+        setIsGenerating(false);
+        setGenerateError(null);
+        // Reset the wizard-session refs so guards behave as if this is a
+        // fresh mount: another sector won't be confused with the cleared
+        // one for auto-fetch purposes, and prefill won't reapply if the
+        // user navigates back into edit mode later.
+        globalSteepFetchedForRef.current = null;
+        prefilledFor.current = null;
+        userHasNavigatedRef.current = false;
+        // If the user was on /reports/:id/edit, kick them to /reports/new
+        // so the URL matches the cleared state. No-op when already there.
+        if (editingId) navigate('/reports/new');
+        // Wipe the chat conversation too — the prior brief, scenarios,
+        // and Q&A are about a different report and would confuse the
+        // assistant's "what's the user looking at?" model on the next
+        // turn. The chat re-registers the resetter on mount via the
+        // bridge.
+        resetAssistant();
+        return 'Cleared the form and started a fresh report.';
       },
     },
+
   ]);
+
+  // Status indicator copy — derives from saveStatus + lastSavedAt.
+  // nowTick is a dependency only because we want the relative time
+  // ("Saved 30s ago") to refresh; its value is otherwise unused.
+  const saveStatusLabel = useMemo<string | null>(() => {
+    if (isExampleMode || isGenerating) return null;
+    if (saveStatus === 'idle') return null;
+    if (saveStatus === 'saving') return t('wizard.saveStatus.saving');
+    if (saveStatus === 'dirty') return t('wizard.saveStatus.dirty');
+    if (saveStatus === 'error') return t('wizard.saveStatus.error');
+    if (saveStatus === 'saved' && lastSavedAt) {
+      const seconds = Math.floor((Date.now() - lastSavedAt.getTime()) / 1000);
+      if (seconds < 5) return t('wizard.saveStatus.justSaved');
+      if (seconds < 60) return t('wizard.saveStatus.savedSecondsAgo', { count: seconds });
+      const minutes = Math.floor(seconds / 60);
+      return t('wizard.saveStatus.savedMinutesAgo', { count: minutes });
+    }
+    return null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saveStatus, lastSavedAt, isExampleMode, isGenerating, nowTick, t]);
+
+  // Whether the inline save-row above the form should render at all. The
+  // chip is only meaningful while the wizard's input form is on-screen —
+  // hidden during analysis (the loader takes over) and in example mode
+  // (nothing persists, so a "Saved" hint would be misleading).
+  const showSaveRow =
+    !!saveStatusLabel &&
+    !isGenerating &&
+    !isExampleMode &&
+    (saveStatus === 'dirty' ||
+      saveStatus === 'saving' ||
+      saveStatus === 'saved' ||
+      saveStatus === 'error');
 
   return (
     <div className="wizard">
       <main className="main">
+        {isExampleMode && !isGenerating && (
+          <div className="wizard-example-banner" role="note">
+            <strong>{t('wizard.exampleMode.title', { defaultValue: 'Viewing example' })}</strong>
+            <span>
+              {t('wizard.exampleMode.desc', {
+                defaultValue:
+                  'You can explore the inputs and navigate between steps. Changes are not saved to the example.',
+              })}
+            </span>
+          </div>
+        )}
+        {/* Autosave indicator — right-aligned above the input form. The
+            chip is the same circular badge the topbar used to host; the
+            relative-time label ("Saved 15s ago" / "Saving…" / etc.) sits
+            inline to its left so the row doesn't look empty when collapsed
+            to a single icon. Hidden during analysis and in example mode. */}
+        {showSaveRow && (
+          <div
+            className={`wizard-save-row wizard-save-row--${saveStatus}`}
+            role="status"
+            aria-live="polite"
+          >
+            <span className="wizard-save-label">{saveStatusLabel}</span>
+            <span
+              className={`topbar-save-status topbar-save-status--${saveStatus}`}
+              aria-hidden
+            >
+              {saveStatus === 'saving' ? (
+                <span className="topbar-save-spinner" />
+              ) : (
+                <svg className="topbar-save-ico">
+                  <use
+                    href={
+                      saveStatus === 'saved'
+                        ? '#i-check'
+                        : saveStatus === 'error'
+                          ? '#i-alert'
+                          : '#i-edit'
+                    }
+                  />
+                </svg>
+              )}
+            </span>
+          </div>
+        )}
         {!isGenerating && (
           <>
             {step === 1 && (
@@ -859,6 +1201,7 @@ export default function NewReportPage() {
                 hasGlobalSteep={(['S', 'T', 'E', 'ENV', 'P'] as const).some(
                   (k) => globalData[k].trim().length > 0,
                 )}
+                disableGenerate={isExampleMode}
                 onContinue={() => {
                   // Continue without regenerating. Pre-claim the auto-
                   // fetch ref so step 2 doesn't surprise-trigger a scan
@@ -891,6 +1234,7 @@ export default function NewReportPage() {
                 fetchedForRef={globalSteepFetchedForRef}
                 onNext={() => goToStep(3)}
                 onBack={() => goToStep(1)}
+                disableGenerate={isExampleMode}
               />
             )}
             {step === 3 && (
@@ -916,7 +1260,10 @@ export default function NewReportPage() {
                 // Only edit-mode reports can have a pre-existing analysis;
                 // a fresh wizard run starts with empty resultData. Drive
                 // the SplitButton's primary action off whether the loaded
-                // report carries any of the section payloads.
+                // report carries any of the section payloads. Examples
+                // always have resultData (the promote flow refuses
+                // un-analysed reports), so this also flips the primary
+                // action to Continue for them.
                 hasReport={
                   editMode &&
                   !!editingReport.data?.resultData &&
@@ -924,8 +1271,13 @@ export default function NewReportPage() {
                     (editingReport.data.resultData as Record<string, unknown>) ?? {},
                   ).length > 0
                 }
+                disableGenerate={isExampleMode}
                 onContinueToReport={() => {
-                  const id = reportIdRef.current;
+                  // Examples don't have a separate id from the URL — the
+                  // editingId IS the example id (the /reports/:id viewer
+                  // resolves it via the example fallback). Real reports
+                  // use the persisted reportIdRef.
+                  const id = isExampleMode ? editingId : reportIdRef.current;
                   if (id) navigate(`/reports/${id}`);
                 }}
               />
@@ -937,9 +1289,7 @@ export default function NewReportPage() {
       <OnboardingDialog
         open={showOnboarding}
         onClose={handleOnboardingClose}
-        onLoadExample={handleLoadExample}
       />
-      <LoadingOverlay open={isLoadingExample} text={t('modals.loadExample')} />
 
       {/* Analysis loader — full-screen Modal overlay so nothing else on
           the page (topbar, stepper, footer, chat) is interactive while
@@ -956,40 +1306,34 @@ export default function NewReportPage() {
           running={isGenerating}
           items={[
             {
-              key: 'research',
-              label: t('report.results.progressItems.research'),
-              status: analysisProgress.research,
-              metric: { sources: researchSources, chars: researchChars },
-            },
-            {
               key: 'summary',
               label: t('report.results.progressItems.summary'),
               status: analysisProgress.summary,
-              metric: { chars: sectionChars.summary },
+              metric: { chars: sectionChars.summary, sources: sectionSources.summary },
             },
             {
               key: 'scenarios',
               label: t('report.results.progressItems.scenarios'),
               status: analysisProgress.scenarios,
-              metric: { chars: sectionChars.scenarios },
+              metric: { chars: sectionChars.scenarios, sources: sectionSources.scenarios },
             },
             {
               key: 'planning',
               label: t('report.results.progressItems.scenarioPlanning'),
               status: analysisProgress.planning,
-              metric: { chars: sectionChars.planning },
+              metric: { chars: sectionChars.planning, sources: sectionSources.planning },
             },
             {
               key: 'strategicMap',
               label: t('report.results.progressItems.strategicMap'),
               status: analysisProgress.strategicMap,
-              metric: { chars: sectionChars.strategicMap },
+              metric: { chars: sectionChars.strategicMap, sources: sectionSources.strategicMap },
             },
             {
               key: 'backcasting',
               label: t('report.results.progressItems.backcasting'),
               status: analysisProgress.backcasting,
-              metric: { chars: sectionChars.backcasting },
+              metric: { chars: sectionChars.backcasting, sources: sectionSources.backcasting },
             },
           ] satisfies ProgressItem[]}
         />

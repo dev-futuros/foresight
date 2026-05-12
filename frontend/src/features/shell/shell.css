@@ -21,7 +21,19 @@
    would just hide everything underneath. */
 @media (min-width: 721px) {
   body.chat-open .app-shell {
-    margin-right: 380px;
+    /* Matches the chat panel's width — both read from --chat-w which the
+       chat component owns (defaults to 380px, persisted across sessions
+       via localStorage, dragged by the user via the left-edge handle).
+       Caps at 100vw so on extreme drags the shell doesn't get pushed
+       past the viewport. */
+    margin-right: min(var(--chat-w, 380px), 100vw);
+  }
+  /* Drop the slide-in easing while the user is actively dragging the
+     resize handle. Without this the main content lags behind the chat
+     panel by ~320ms and the resize feels rubbery instead of attached
+     to the cursor. */
+  body.chat-resizing .app-shell {
+    transition: none;
   }
 }
 
@@ -131,6 +143,19 @@ body.app-busy .stepper-item {
   padding: 8px 10px;
   gap: 0;
 }
+/* Gold-accented variant — used by the always-visible "new report"
+   button so it reads as the primary creation affordance in the bar,
+   distinct from the neutral dashboard / menu icons sitting next to it. */
+.btn-ghost.btn-ghost--gold {
+  color: var(--gold);
+  border-color: var(--gold-soft);
+  background: var(--gold-bg);
+}
+.btn-ghost.btn-ghost--gold:hover {
+  color: var(--gold);
+  border-color: var(--gold);
+  background: var(--gold-bg-2);
+}
 .btn-ghost-ico {
   width: 14px;
   height: 14px;
@@ -142,62 +167,77 @@ body.app-busy .stepper-item {
   flex-shrink: 0;
 }
 
-/* ── Topbar hamburger dropdown ─────────────────────────────── */
-.topbar-menu {
-  position: relative;
-  display: inline-block;
-}
-.topbar-menu-dropdown {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  min-width: 200px;
-  background: var(--surface-2);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r-md);
-  padding: 6px;
-  box-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.6),
-    0 1px 0 hsla(0, 0%, 100%, 0.04) inset;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  z-index: 200;
-  animation: topbar-menu-rise 140ms var(--ease);
-}
-@keyframes topbar-menu-rise {
-  from { opacity: 0; transform: translateY(-4px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.topbar-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  border: none;
+/* ── Autosave chip ─────────────────────────────────────────────
+   Status indicator — small dot-sized circle whose colour reflects
+   the current save state (dirty/saving/saved/error). Used by the
+   wizard's inline save row above the input form
+   ({@code .wizard-save-row} in wizard.css). Class name stays
+   {@code topbar-*} for historical reasons — the chip lived in the
+   topbar before being moved next to the inputs. */
+.topbar-save-status {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
   background: transparent;
-  border-radius: var(--r-sm);
-  text-align: left;
-  cursor: pointer;
-  width: 100%;
-  color: var(--ink);
-  font-family: var(--mono);
-  font-size: 12px;
-  letter-spacing: 0.02em;
-  transition: background 140ms var(--ease), color 140ms var(--ease);
+  color: var(--ink-soft);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: help;
+  transition: border-color 200ms var(--ease), color 200ms var(--ease),
+    background 200ms var(--ease);
 }
-.topbar-menu-item:hover {
-  background: var(--surface-3);
+.topbar-save-status--dirty {
+  border-color: var(--line-accent);
+  color: var(--gold-soft);
+}
+.topbar-save-status--saving {
+  border-color: var(--gold-soft);
   color: var(--gold);
 }
-.topbar-menu-ico {
-  width: 14px;
-  height: 14px;
+.topbar-save-status--saved {
+  border-color: var(--line);
+  color: var(--ink-mute);
+}
+.topbar-save-status--error {
+  border-color: hsla(0, 80%, 70%, 0.45);
+  background: hsla(0, 80%, 70%, 0.08);
+  color: var(--red);
+}
+.topbar-save-ico {
+  width: 11px;
+  height: 11px;
   stroke: currentColor;
   fill: none;
-  stroke-width: 1.6;
+  stroke-width: 1.7;
   stroke-linecap: round;
   stroke-linejoin: round;
   flex-shrink: 0;
+}
+.topbar-save-spinner {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  border-top-color: transparent;
+  animation: topbar-save-spin 0.9s linear infinite;
+}
+@keyframes topbar-save-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Topbar user avatar ─────────────────────────────────────
+   Wraps Clerk's <UserButton> in the action row. Clerk owns the avatar
+   sizing (passed via the size prop) and the dropdown positioning;
+   this just provides a 32×32 box so the avatar aligns vertically
+   with the icon buttons next to it. */
+.topbar-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
 }
 
 /* ============================================================

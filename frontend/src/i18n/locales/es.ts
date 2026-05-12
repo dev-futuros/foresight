@@ -28,11 +28,35 @@ const es = {
       description: 'Esta acción no se puede deshacer.',
       confirm: 'Eliminar',
     },
+    deleteExample: {
+      title: '¿Eliminar ejemplo?',
+      description:
+        'Esto elimina el ejemplo para todos los usuarios. Los enlaces compartidos que apunten al ejemplo dejarán de funcionar. No se puede deshacer.',
+      confirm: 'Eliminar ejemplo',
+    },
+    demoteExample: {
+      title: '¿Despromover ejemplo?',
+      description:
+        'Esto convierte el ejemplo en un informe privado de tu propiedad. El ejemplo se eliminará para todos los usuarios y los enlaces compartidos dejarán de funcionar. Podrás volver a promoverlo después si quieres.',
+      confirm: 'Despromover',
+    },
     export: {
       pdf: 'Generando PDF…',
       ppt: 'Generando PowerPoint…',
     },
-    loadExample: 'Creando informe de ejemplo…',
+  },
+  example: {
+    eyebrow: 'Ejemplo',
+  },
+  exportModal: {
+    eyebrow: 'Exportar',
+    title: 'Exportar informe',
+    format: 'Formato',
+    formats: {
+      pdf: 'PDF — Documento imprimible',
+      ppt: 'PowerPoint — Diapositivas editables',
+    },
+    action: 'Exportar',
   },
   chat: {
     title: 'Asistente',
@@ -93,8 +117,7 @@ const es = {
       deleteReport: 'Borrar informe',
       setField: 'Aplicar al campo',
       shareReport: 'Compartir informe',
-      exportPDF: 'Exportar PDF',
-      exportPPT: 'Exportar PowerPoint',
+      exportReport: 'Exportar informe',
     },
     applyAll: '⚡ Aplicar todo',
     applyAllDone: '✓ Aplicado',
@@ -103,6 +126,26 @@ const es = {
     replaceIn: 'Reemplazar en',
     addTo: 'Añadir a',
     appliedTo: 'Aplicado a',
+    failedTo: 'Falló',
+    cmdLabels: {
+      goTo: 'Navegar',
+      goToStep: 'Navegar → paso {{step}}',
+      openDashboard: 'Abrir panel',
+      closeDashboard: 'Cerrar panel',
+      newReport: 'Nuevo informe',
+      setLang: 'Cambiar idioma',
+      loadReport: 'Cargar informe',
+      editReport: 'Editar informe',
+      refreshReports: 'Refrescar lista',
+      deleteReport: 'Eliminar informe',
+      generateGlobalSteep: 'Generar STEEP global',
+      runAnalysis: 'Lanzar análisis',
+      wizardNext: 'Siguiente paso',
+      wizardBack: 'Paso anterior',
+      shareReport: 'Compartir informe',
+      exportReport: 'Exportar informe',
+      logout: 'Cerrar sesión',
+    },
     fields: {
       'f-name': 'Nombre',
       'f-sector': 'Sector',
@@ -133,6 +176,8 @@ const es = {
     title: 'Enlace compartible',
     triggerBtn: 'Compartir',
     generating: 'Generando enlace…',
+    language: 'Idioma',
+    lang: { es: 'Español', en: 'Inglés' },
     urlLabel: 'URL pública del informe',
     copy: 'Copiar',
     copied: '¡Copiado!',
@@ -160,8 +205,6 @@ const es = {
       s6: { title: 'Resultados', desc: '— informe completo exportable en PDF, PowerPoint e informe de cliente' },
     },
     startBtn: 'Empezar →',
-    exampleBtn: 'Cargar ejemplo',
-    exampleErr: 'No se pudo cargar el ejemplo. Inténtalo de nuevo.',
     noShow: 'No mostrar de nuevo',
   },
   nav: {
@@ -169,6 +212,7 @@ const es = {
     logout: 'Cerrar sesión',
     menu: 'Abrir menú',
     dashboard: 'Dashboard',
+    newReport: 'Nuevo informe',
     brandTitle: 'Empezar un nuevo informe',
     brandTag: 'Foresight Strategy · Powered by AI',
     footerTag: 'Foresight Strategy · Powered by AI',
@@ -227,6 +271,20 @@ const es = {
     back: '← Volver',
     maximize: 'Maximizar para edición',
     minimize: 'Cerrar pantalla completa',
+    exampleMode: {
+      title: 'Vista de ejemplo',
+      desc: 'Puedes explorar los inputs y navegar entre los pasos. Los cambios no se guardan en el ejemplo.',
+    },
+    saveStatus: {
+      dirty: 'Cambios sin guardar',
+      saving: 'Guardando…',
+      justSaved: 'Guardado ahora mismo',
+      savedSecondsAgo_one: 'Guardado hace {{count}}s',
+      savedSecondsAgo_other: 'Guardado hace {{count}}s',
+      savedMinutesAgo_one: 'Guardado hace {{count}}m',
+      savedMinutesAgo_other: 'Guardado hace {{count}}m',
+      error: 'Error al guardar — reintentando',
+    },
     steps: {
       empresa: 'Empresa',
       global: 'Global',
@@ -376,7 +434,6 @@ const es = {
     reports_one: '{{count}} informe',
     reports_other: '{{count}} informes',
     newReport: '+ Nuevo informe',
-    loadExample: 'Cargar ejemplo',
     savedLabel: 'Informes guardados',
     loading: 'Cargando informes…',
     errorLoading: 'Error al cargar los informes.',
@@ -395,7 +452,13 @@ const es = {
       export: 'Exportar',
       pdfMeta: 'PDF imprimible',
       pptMeta: 'Diapositivas editables',
+      promote: 'Ejemplo',
+      // Se empareja con `promote: 'Ejemplo'` — la tarjeta de dev alterna
+      // entre estas dos etiquetas según si la fila es actualmente un
+      // informe o un ejemplo (ejemplo <> informe).
+      demote: 'Informe',
     },
+    deleteExampleTitle: 'Eliminar ejemplo',
     exampleBadge: 'Ejemplo',
     exporting: 'Exportando…',
     stat: {
@@ -409,6 +472,13 @@ const es = {
       PROCESSING: 'Procesando',
       COMPLETED: 'Completado',
       FAILED: 'Error',
+    },
+    lang: {
+      primary: 'Idioma principal',
+      available: 'Traducido',
+      translateTo: 'Traducir a {{lang}}',
+      translatingTo: 'Traduciendo a {{lang}}…',
+      delete: 'Eliminar la traducción a {{lang}}',
     },
   },
   reportDensity: {

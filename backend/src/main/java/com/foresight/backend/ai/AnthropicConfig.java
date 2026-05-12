@@ -1,5 +1,6 @@
 package com.foresight.backend.ai;
 
+import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -12,6 +13,7 @@ import io.netty.channel.ChannelOption;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.netty.handler.timeout.WriteTimeoutHandler;
 import reactor.netty.http.client.HttpClient;
+import reactor.netty.resources.ConnectionProvider;
 
 /**
  * Spring configuration for the Anthropic integration.
@@ -42,7 +44,24 @@ public class AnthropicConfig {
         long connectMs = properties.connectTimeout().toMillis();
         long readSeconds = properties.readTimeout().getSeconds();
 
-        HttpClient httpClient = HttpClient.create()
+        // Dedicated connection pool with aggressive idle/lifetime
+        // limits. Without these, reactor-netty's default pool reuses
+        // pooled TCP connections forever — Anthropic's edge silently
+        // closes idle connections after ~60s, and the next request
+        // fails with `PrematureCloseException: Connection prematurely
+        // closed BEFORE response`. The retry layer would then hit the
+        // same stale pool repeatedly. Evicting in the background and
+        // refreshing connections every 5 minutes keeps the pool warm
+        // with verifiable sockets.
+        ConnectionProvider connectionProvider = ConnectionProvider.builder("anthropic")
+                .maxConnections(50)
+                .maxIdleTime(Duration.ofSeconds(30))
+                .maxLifeTime(Duration.ofMinutes(5))
+                .pendingAcquireTimeout(Duration.ofSeconds(60))
+                .evictInBackground(Duration.ofSeconds(30))
+                .build();
+
+        HttpClient httpClient = HttpClient.create(connectionProvider)
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, (int) connectMs)
                 .responseTimeout(properties.readTimeout())
                 .doOnConnected(conn -> conn.addHandlerLast(new ReadTimeoutHandler(readSeconds, TimeUnit.SECONDS))

@@ -172,6 +172,47 @@ public class AnthropicClient {
         return doSendRaw(model, systemPrompt, messages, maxTokens, tools);
     }
 
+    /**
+     * Streaming variant of {@link #sendConversation} — same multi-turn
+     * contract, but yields a SSE flux of Anthropic events instead of
+     * blocking until the response is complete. Used by the chat
+     * assistant so the user sees text appearing word-by-word instead
+     * of waiting 5-15s staring at a typing indicator.
+     */
+    public Flux<ServerSentEvent<String>> streamConversation(
+            String model,
+            String systemPrompt,
+            List<? extends Object> messages,
+            List<Map<String, Object>> tools,
+            int maxTokens) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("model", model);
+        body.put("max_tokens", maxTokens);
+        body.put("system", systemPrompt);
+        body.put("messages", messages);
+        body.put("stream", true);
+        if (tools != null && !tools.isEmpty()) {
+            body.put("tools", tools);
+        }
+
+        return anthropicWebClient
+                .post()
+                .uri("/v1/messages")
+                .accept(MediaType.TEXT_EVENT_STREAM)
+                .bodyValue(body)
+                .retrieve()
+                .bodyToFlux(SSE_STRING)
+                .doOnCancel(() -> log.info("Anthropic chat stream cancelled by downstream subscriber"))
+                .onErrorResume(WebClientResponseException.class, e -> {
+                    log.error("Anthropic chat stream error: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
+                    return Flux.error(new AiException("AI provider error: " + e.getStatusCode()));
+                })
+                .onErrorResume(t -> !(t instanceof AiException), t -> {
+                    log.error("Anthropic chat stream failed: {}", t.getMessage(), t);
+                    return Flux.error(new AiException("AI provider unavailable"));
+                });
+    }
+
     private Mono<JsonNode> doSend(
             String model, String systemPrompt, String userPrompt, int maxTokens,
             List<Map<String, Object>> tools) {
@@ -303,11 +344,23 @@ public class AnthropicClient {
      * </ul>
      */
     private static boolean isRetriable(Throwable t) {
-        if (t instanceof IOException) {
-            return true;
-        }
         if (t instanceof WebClientResponseException wcre) {
             return wcre.getStatusCode().value() >= 500;
+        }
+        // Walk the cause chain — reactor-netty wraps transport-level
+        // failures (PrematureCloseException for stale-pool connections,
+        // IOException for transient network blips) inside Spring's
+        // WebClientRequestException (a RuntimeException), so a direct
+        // `instanceof IOException` check on the top-level fails.
+        Throwable cursor = t;
+        for (int i = 0; cursor != null && i < 8; i++) {
+            if (cursor instanceof IOException) return true;
+            String className = cursor.getClass().getName();
+            // reactor.netty.http.client.PrematureCloseException is a
+            // RuntimeException — recognise it by name so we don't need
+            // a compile-time dependency on the reactor-netty class.
+            if (className.endsWith("PrematureCloseException")) return true;
+            cursor = cursor.getCause();
         }
         return false;
     }

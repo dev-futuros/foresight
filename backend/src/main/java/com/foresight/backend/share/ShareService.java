@@ -10,7 +10,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.foresight.backend.common.exception.NotFoundException;
+import com.foresight.backend.example.Example;
+import com.foresight.backend.example.ExampleService;
 import com.foresight.backend.report.Report;
 import com.foresight.backend.report.ReportService;
 
@@ -44,6 +47,7 @@ public class ShareService {
 
     private final ShareTokenRepository repository;
     private final ReportService reportService;
+    private final ExampleService exampleService;
     private final SecureRandom random = new SecureRandom();
 
     @Value("${app.frontend-url:http://localhost:5173}")
@@ -54,23 +58,102 @@ public class ShareService {
      * new token — re-sharing the same report just produces another row, leaving any
      * previously distributed links alone.
      *
+     * <p>When {@code language} is non-null and differs from the report's
+     * primary language, the share is frozen with the translated copy
+     * instead of the original. Translation is materialised via
+     * {@link ReportService#translate} (which caches per report × language)
+     * so re-sharing the same translated copy is essentially free.
+     *
      * @param reportId report to share
      * @param ownerId  caller; must own the report
+     * @param language ISO-639-1 code for the share language ({@code "es"} or
+     *                 {@code "en"}). When {@code null}, defaults to the
+     *                 report's primary language
      * @return persisted share with the new token already populated
      * @throws NotFoundException if the report does not exist or belongs to another user
      */
     @Transactional
-    public ShareToken createForReport(UUID reportId, UUID ownerId) {
+    public ShareToken createForReport(UUID reportId, UUID ownerId, String language) {
         // ReportService throws NotFoundException when ownership doesn't match — that's
         // the only path the controller needs to translate into a 404 for the caller.
         Report report = reportService.getOwned(reportId, ownerId);
+        String targetLang = (language == null || language.isBlank())
+                ? report.getPrimaryLanguage()
+                : language;
+
+        JsonNode snapshotInput = report.getInputData();
+        JsonNode snapshotResult = report.getResultData();
+        if (!targetLang.equals(report.getPrimaryLanguage())) {
+            // Pull (or materialise) the cached translation for this language.
+            JsonNode translated = reportService.translate(reportId, ownerId, targetLang, false);
+            if (translated != null && translated.isObject()) {
+                if (translated.has("inputData")) snapshotInput = translated.get("inputData");
+                if (translated.has("resultData")) snapshotResult = translated.get("resultData");
+            }
+        }
+
         ShareToken share = ShareToken.builder()
                 .token(generateToken())
                 .reportId(report.getId())
                 .userId(ownerId)
                 .title(report.getTitle())
-                .inputData(report.getInputData())
-                .resultData(report.getResultData())
+                .inputData(snapshotInput)
+                .resultData(snapshotResult)
+                .expiresAt(Instant.now().plus(SHARE_TTL))
+                .build();
+        return repository.save(share);
+    }
+
+    /**
+     * Backwards-compatible overload — shares in the report's primary
+     * language. Existing callers that don't care about translation
+     * don't have to change.
+     */
+    @Transactional
+    public ShareToken createForReport(UUID reportId, UUID ownerId) {
+        return createForReport(reportId, ownerId, null);
+    }
+
+    /**
+     * Mints a fresh share token for an example. Open to any authenticated
+     * user — examples are global, read-only content. The {@code callerRole}
+     * is forwarded to {@link ExampleService#translate} only so a cache-miss
+     * on a non-primary language doesn't accidentally let a non-DEV trigger
+     * a paid translation; the share itself doesn't require DEV.
+     *
+     * @param exampleId  example to share
+     * @param userId     caller (recorded as the share's {@code userId})
+     * @param callerRole caller's role string — used by the translate cache
+     *                   check; non-DEV callers asking for a not-yet-translated
+     *                   language will surface as a 403 instead of triggering
+     *                   the AI round-trip
+     * @param language   ISO-639-1 code, or {@code null} for the example's
+     *                   primary language
+     */
+    @Transactional
+    public ShareToken createForExample(UUID exampleId, UUID userId, String callerRole, String language) {
+        Example example = exampleService.get(exampleId);
+        String targetLang = (language == null || language.isBlank())
+                ? example.getPrimaryLanguage()
+                : language;
+
+        JsonNode snapshotInput = example.getInputData();
+        JsonNode snapshotResult = example.getResultData();
+        if (!targetLang.equals(example.getPrimaryLanguage())) {
+            JsonNode translated = exampleService.translate(exampleId, callerRole, targetLang, false);
+            if (translated != null && translated.isObject()) {
+                if (translated.has("inputData")) snapshotInput = translated.get("inputData");
+                if (translated.has("resultData")) snapshotResult = translated.get("resultData");
+            }
+        }
+
+        ShareToken share = ShareToken.builder()
+                .token(generateToken())
+                .exampleId(example.getId())
+                .userId(userId)
+                .title(example.getTitle())
+                .inputData(snapshotInput)
+                .resultData(snapshotResult)
                 .expiresAt(Instant.now().plus(SHARE_TTL))
                 .build();
         return repository.save(share);
