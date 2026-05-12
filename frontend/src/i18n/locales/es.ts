@@ -212,6 +212,7 @@ const es = {
     logout: 'Cerrar sesión',
     menu: 'Abrir menú',
     dashboard: 'Dashboard',
+    newReport: 'Nuevo informe',
     brandTitle: 'Empezar un nuevo informe',
     brandTag: 'Foresight Strategy · Powered by AI',
     footerTag: 'Foresight Strategy · Powered by AI',

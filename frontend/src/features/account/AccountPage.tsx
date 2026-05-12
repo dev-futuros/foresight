@@ -1,8 +1,8 @@
+import { UserButton, useUser } from '@clerk/react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { UserButton, useUser } from '@clerk/react';
-import { useCurrentUser } from '../../hooks/useAuth';
 import { useUpdateProfile } from '../../hooks/useAccount';
+import { useCurrentUser } from '../../hooks/useAuth';
 import { extractApiErrorMessage } from '../../lib/apiError';
 import './account.css';
 

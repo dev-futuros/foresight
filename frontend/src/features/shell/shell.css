@@ -143,6 +143,19 @@ body.app-busy .stepper-item {
   padding: 8px 10px;
   gap: 0;
 }
+/* Gold-accented variant — used by the always-visible "new report"
+   button so it reads as the primary creation affordance in the bar,
+   distinct from the neutral dashboard / menu icons sitting next to it. */
+.btn-ghost.btn-ghost--gold {
+  color: var(--gold);
+  border-color: var(--gold-soft);
+  background: var(--gold-bg);
+}
+.btn-ghost.btn-ghost--gold:hover {
+  color: var(--gold);
+  border-color: var(--gold);
+  background: var(--gold-bg-2);
+}
 .btn-ghost-ico {
   width: 14px;
   height: 14px;
@@ -152,6 +165,65 @@ body.app-busy .stepper-item {
   stroke-linecap: round;
   stroke-linejoin: round;
   flex-shrink: 0;
+}
+
+/* ── Autosave chip in the topbar ───────────────────────────────
+   Status indicator — small dot-sized circle sitting next to the
+   new-report button so the "you're writing, here's your save state"
+   relationship reads spatially. Smaller than the icon buttons next
+   to it (22×22 vs 32×32) so it reads as a status badge, not another
+   button. Colours shift per state (dirty/saving/saved/error). */
+.topbar-save-status {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-soft);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: help;
+  transition: border-color 200ms var(--ease), color 200ms var(--ease),
+    background 200ms var(--ease);
+}
+.topbar-save-status--dirty {
+  border-color: var(--line-accent);
+  color: var(--gold-soft);
+}
+.topbar-save-status--saving {
+  border-color: var(--gold-soft);
+  color: var(--gold);
+}
+.topbar-save-status--saved {
+  border-color: var(--line);
+  color: var(--ink-mute);
+}
+.topbar-save-status--error {
+  border-color: hsla(0, 80%, 70%, 0.45);
+  background: hsla(0, 80%, 70%, 0.08);
+  color: var(--red);
+}
+.topbar-save-ico {
+  width: 11px;
+  height: 11px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+}
+.topbar-save-spinner {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  border-top-color: transparent;
+  animation: topbar-save-spin 0.9s linear infinite;
+}
+@keyframes topbar-save-spin {
+  to { transform: rotate(360deg); }
 }
 
 /* ── Topbar hamburger dropdown ─────────────────────────────── */

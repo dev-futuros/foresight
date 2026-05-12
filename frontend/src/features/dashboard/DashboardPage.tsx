@@ -240,11 +240,9 @@ export default function DashboardPage() {
             <div className="eyebrow">{t('dashboard.eyebrow')}</div>
             <h1 className="page-title">{t('dashboard.title')}</h1>
           </div>
-          <div className="db-actions">
-            <Link to="/reports/new" className="btn btn-primary">
-              {t('dashboard.newReport')}
-            </Link>
-          </div>
+          {/* New-report button moved to the always-visible topbar (gold
+              new-doc icon). Keeping it here would be a redundant second
+              affordance for the same destination. */}
         </div>
 
         {!isLoading && !isError && (

@@ -6,6 +6,7 @@ import LoadingOverlay from '../../components/LoadingOverlay';
 import Modal from '../../components/Modal';
 import { useCurrentUser } from '../../hooks/useAuth';
 import { useSetStepper } from '../shell/StepperContext';
+import { useSetSaveStatus } from '../shell/SaveStatusContext';
 import {
   analyzeBackcasting,
   analyzeScan,
@@ -1135,6 +1136,35 @@ export default function NewReportPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saveStatus, lastSavedAt, isExampleMode, isGenerating, nowTick, t]);
 
+  // Publish autosave state into the shell so the TopBar can render the
+  // chip inline with its other action icons (previously a fixed-position
+  // badge in the wizard pane). The provider clears on unmount via the
+  // null-publish in the cleanup return — important so navigating away
+  // from the wizard doesn't leave a stale "Saved 12m ago" in the bar.
+  // Named publishSaveStatus to avoid colliding with the local useState
+  // setter `setSaveStatus` declared earlier in this component.
+  const publishSaveStatus = useSetSaveStatus();
+  useEffect(() => {
+    if (!saveStatusLabel) {
+      publishSaveStatus(null);
+      return;
+    }
+    // saveStatus is the underlying state-machine key (dirty/saving/saved/error
+    // /idle); we only publish the four with a visible label. Type-narrow with
+    // a guard so the context shape stays strict.
+    if (
+      saveStatus === 'dirty' ||
+      saveStatus === 'saving' ||
+      saveStatus === 'saved' ||
+      saveStatus === 'error'
+    ) {
+      publishSaveStatus({ status: saveStatus, label: saveStatusLabel });
+    }
+  }, [saveStatus, saveStatusLabel, publishSaveStatus]);
+  useEffect(() => {
+    return () => publishSaveStatus(null);
+  }, [publishSaveStatus]);
+
   return (
     <div className="wizard">
       <main className="main">
@@ -1149,39 +1179,10 @@ export default function NewReportPage() {
             </span>
           </div>
         )}
-        {/* Autosave indicator — small fixed-position icon chip at the
-            bottom right. State drives which glyph appears: pencil for
-            unsaved edits, spinner for in-flight save, check for saved,
-            alert triangle for failure. The descriptive text moves into
-            the title (mouse tooltip) and a visually-hidden span (screen
-            readers / aria-live announcements). Hidden in example mode
-            (nothing persists) and during the analysis pipeline (the
-            loader overlay covers the page). */}
-        {saveStatusLabel && (
-          <div
-            className={`wizard-save-status wizard-save-status--${saveStatus}`}
-            role="status"
-            aria-live="polite"
-            title={saveStatusLabel}
-          >
-            {saveStatus === 'saving' ? (
-              <span className="wizard-save-spinner" aria-hidden />
-            ) : (
-              <svg className="wizard-save-icon" aria-hidden>
-                <use
-                  href={
-                    saveStatus === 'saved'
-                      ? '#i-check'
-                      : saveStatus === 'error'
-                        ? '#i-alert'
-                        : '#i-edit'
-                  }
-                />
-              </svg>
-            )}
-            <span className="visually-hidden">{saveStatusLabel}</span>
-          </div>
-        )}
+        {/* Autosave indicator lives in the topbar now — published via
+            SaveStatusContext from the useEffect above. The same icons +
+            state-colour palette render there as a peer of the dashboard
+            and new-report buttons. */}
         {!isGenerating && (
           <>
             {step === 1 && (

@@ -3,6 +3,7 @@ import TopBar from './TopBar';
 import Stepper from './Stepper';
 import AppFooter from './AppFooter';
 import { StepperProvider, useStepperSlot } from './StepperContext';
+import { SaveStatusProvider } from './SaveStatusContext';
 import { AssistantContextProvider } from '../chat/AssistantContextProvider';
 import AssistantCommands from '../chat/AssistantCommands';
 import ChatAssistant from '../chat/ChatAssistant';
@@ -46,11 +47,13 @@ function ShellInner() {
 export default function AppShell() {
   return (
     <StepperProvider>
-      <AssistantContextProvider>
-        <TranslationsProvider>
-          <ShellInner />
-        </TranslationsProvider>
-      </AssistantContextProvider>
+      <SaveStatusProvider>
+        <AssistantContextProvider>
+          <TranslationsProvider>
+            <ShellInner />
+          </TranslationsProvider>
+        </AssistantContextProvider>
+      </SaveStatusProvider>
     </StepperProvider>
   );
 }
