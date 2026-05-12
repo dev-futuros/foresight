@@ -8,9 +8,12 @@
  *  - a `handler` that does the actual work (navigate, fill a field, etc.)
  *  - an optional `label`/`preview` to render in confirmation chips
  *
- * The chat hook calls {@link dispatch} for every `tool_use` block returned
- * by Anthropic, captures the result (or "user cancelled"), and feeds it back
- * to the model as a `tool_result` block on the next turn.
+ * The chat hook calls {@link dispatch} for every `<command>` tag the
+ * assistant emits inline in its text reply. Auto-mode commands fire
+ * immediately on receipt; confirm-mode is reserved for command sources
+ * outside the chat (kept for future use — the chat itself no longer
+ * surfaces confirm chips since the demo-aligned prompt asks the model
+ * to verbally confirm destructive/expensive actions before emitting them).
  *
  * Commands are typically registered once, near app startup, by a feature
  * that owns the side-effect (router for navigation, form state for setField,

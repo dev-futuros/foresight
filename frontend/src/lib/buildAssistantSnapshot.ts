@@ -2,7 +2,7 @@ import type { EmpresaData } from '../features/report/steps/StepEmpresa';
 import type { GlobalSteepData } from '../features/report/steps/StepGlobal';
 import type { SteepData } from '../features/report/steps/StepSteep';
 import type { HorizonData } from '../features/report/steps/StepHorizon';
-import type { ReportSummary } from '../types/api';
+import type { ExampleSummary, ReportSummary } from '../types/api';
 
 /**
  * Inputs that feed the snapshot. Pass whatever's known; missing pieces become
@@ -28,9 +28,33 @@ export interface AssistantSnapshotInput {
   steep: SteepData;
   horizon: HorizonData;
   /** User's saved reports — surfaced so the assistant can pass an `id` to
-   *  loadReport / editReport / shareReport / exportPDF / exportPPT without
+   *  loadReport / editReport / shareReport / exportReport without
    *  the user loading the report first. */
   reports?: ReportSummary[];
+  /** Global examples (read-only demo reports every user sees). Surfaced
+   *  so the assistant can answer "load the X example" without having to
+   *  ask the user for an id. Loaded via {@code loadReport({id})} — the
+   *  unified /reports/:id route falls back to /examples/:id on 404, so
+   *  one command handles both. */
+  examples?: ExampleSummary[];
+  /** The report the user currently has open in the viewer, when on a
+   *  {@code /reports/:id} route. Tells the assistant that "this report"
+   *  / "the open report" / "export this" resolve to a concrete id without
+   *  the user having to name it. Absent on every other route. */
+  viewingReport?: {
+    id: string;
+    title: string;
+    status: 'DRAFT' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+    /** ISO-639-1 of the report's primary content language. */
+    primaryLanguage: 'es' | 'en';
+    /** Languages the report is materialised in. */
+    availableLanguages: string[];
+    /** Whether the route is the read-only viewer ({@code /reports/:id})
+     *  or the wizard edit mode ({@code /reports/:id/edit}). The latter
+     *  publishes wizard state separately; this flag just lets the
+     *  snapshot disambiguate when describing what the user sees. */
+    mode: 'viewer' | 'edit';
+  };
 }
 
 /**
@@ -41,7 +65,10 @@ export interface AssistantSnapshotInput {
  * from concluding empty fields aren't visible.
  */
 export function buildAssistantSnapshot(input: AssistantSnapshotInput): string {
-  const { language, currentStep, dashboardOpen, empresa, globalSteep, steep, horizon, reports } = input;
+  const {
+    language, currentStep, dashboardOpen, empresa, globalSteep, steep, horizon, reports,
+    examples, viewingReport,
+  } = input;
   const isEn = language === 'en';
   const lines: string[] = [];
 
@@ -124,6 +151,35 @@ export function buildAssistantSnapshot(input: AssistantSnapshotInput): string {
       ? 'PANEL: abierto (el usuario está mirando el panel de informes guardados, NO la vista del paso de arriba)'
       : 'PANEL: cerrado (el usuario está mirando la vista del paso, el panel está oculto)';
   lines.push(dashLineL);
+
+  // ── Currently-open report (viewer or edit mode) ──
+  // When the user is on /reports/:id (viewer) or /reports/:id/edit (wizard
+  // edit), this block tells the assistant which report "this report" / "the
+  // open report" / "export this" resolves to. Drives the share/export
+  // commands' implicit id behaviour: if the user says "export this" while
+  // viewing, the assistant can emit exportReport with no id arg and
+  // the page-scoped handler picks it up from the URL — but the snapshot
+  // text needs to make clear that there IS an open report, otherwise the
+  // model defaults to "no report is open".
+  if (viewingReport) {
+    const modeLabel = isEn
+      ? viewingReport.mode === 'viewer'
+        ? 'viewing the read-only report (Step 6 — Results)'
+        : 'editing the report inputs (wizard edit mode)'
+      : viewingReport.mode === 'viewer'
+        ? 'viendo el informe en modo lectura (Paso 6 — Resultados)'
+        : 'editando los inputs del informe (modo edición del asistente)';
+    const langList = viewingReport.availableLanguages.join(', ') || viewingReport.primaryLanguage;
+    if (isEn) {
+      lines.push('');
+      lines.push(`CURRENTLY OPEN REPORT: id="${viewingReport.id}" — "${viewingReport.title}" (${viewingReport.status}, primary ${viewingReport.primaryLanguage}, available: ${langList})`);
+      lines.push(`The user is ${modeLabel}. References like "this report", "the open report", "the current report", "this one", "export this", "share this" all resolve to id="${viewingReport.id}". For shareReport / exportReport, you can omit the id arg — the page reads the open report from the URL automatically.`);
+    } else {
+      lines.push('');
+      lines.push(`INFORME ABIERTO ACTUALMENTE: id="${viewingReport.id}" — "${viewingReport.title}" (${viewingReport.status}, primario ${viewingReport.primaryLanguage}, disponibles: ${langList})`);
+      lines.push(`El usuario está ${modeLabel}. Referencias como "este informe", "el informe abierto", "el informe actual", "este", "exporta esto", "compártelo" se resuelven a id="${viewingReport.id}". Para shareReport / exportReport puedes omitir el arg id — la página lo lee de la URL automáticamente.`);
+    }
+  }
 
   // Map step → list of field IDs that are visually adjacent to the user
   // right now. Used for resolving "these fields" / "this section" /
@@ -213,11 +269,11 @@ export function buildAssistantSnapshot(input: AssistantSnapshotInput): string {
 
   // ── Saved reports ──
   // Surface so the assistant can pass an `id` to loadReport / editReport /
-  // shareReport / exportPDF / exportPPT without the user loading first.
+  // shareReport / exportReport without the user loading first.
   if (reports && reports.length) {
     const tSaved = isEn
-      ? 'SAVED REPORTS (use these exact ids when calling loadReport, editReport, deleteReport, exportPDF, exportPPT, or shareReport — for export/share commands, passing an id targets that saved report directly without the user having to load it first):'
-      : 'INFORMES GUARDADOS (usa estos ids exactos cuando llames a loadReport, editReport, deleteReport, exportPDF, exportPPT, o shareReport — para los comandos de exportación/compartir, pasar un id apunta a ese informe guardado directamente sin que el usuario tenga que cargarlo primero):';
+      ? 'SAVED REPORTS (use these exact ids when calling loadReport, editReport, deleteReport, exportReport, or shareReport — for export/share commands, passing an id targets that saved report directly without the user having to load it first):'
+      : 'INFORMES GUARDADOS (usa estos ids exactos cuando llames a loadReport, editReport, deleteReport, exportReport, o shareReport — para los comandos de exportación/compartir, pasar un id apunta a ese informe guardado directamente sin que el usuario tenga que cargarlo primero):';
     lines.push('');
     lines.push(tSaved);
     // Cap at 20 most recent so the prompt size stays bounded.
@@ -229,6 +285,25 @@ export function buildAssistantSnapshot(input: AssistantSnapshotInput): string {
     });
   }
 
+  // ── Examples ──
+  // Global demo reports (read-only for non-DEV users) — anyone can load
+  // one to explore the methodology. Surfaced here so the assistant can
+  // resolve "load the bakery example" / "show me a demo" without asking
+  // the user for an id. Examples load via loadReport({id}) — the unified
+  // /reports/:id route falls back to /examples/:id automatically, so a
+  // single command handles both kinds.
+  if (examples && examples.length) {
+    const tEx = isEn
+      ? 'EXAMPLES (global demo reports — load any with loadReport({id}). These are read-only; useful for showing the user what a finished report looks like, or for the user to explore the methodology before building their own):'
+      : 'EJEMPLOS (informes de demostración globales — cárgalos con loadReport({id}). Son de solo lectura; útiles para enseñarle al usuario cómo se ve un informe terminado, o para que el usuario explore la metodología antes de construir el suyo):';
+    lines.push('');
+    lines.push(tEx);
+    examples.slice(0, 20).forEach((e) => {
+      const descPart = e.description ? ` — ${e.description}` : '';
+      lines.push(`- id="${e.id}" — ${e.title}${descPart}`);
+    });
+  }
+
   // ── RIGHT NOW tail ──
   // Restated at the bottom because models pay more attention to text near
   // the most recent user turn. CURRENT STEP appears twice (top of snapshot
@@ -236,19 +311,28 @@ export function buildAssistantSnapshot(input: AssistantSnapshotInput): string {
   // role/rules/examples, the original step header is far up the context
   // window and easy to lose track of.
   const stepLabel = stepLabels[currentStep as 1 | 2 | 3 | 4 | 5 | 6] || `Step ${currentStep}`;
+  const viewingLabel = viewingReport
+    ? isEn
+      ? viewingReport.mode === 'viewer'
+        ? `, viewing report "${viewingReport.title}" (id ${viewingReport.id})`
+        : `, editing report "${viewingReport.title}" (id ${viewingReport.id})`
+      : viewingReport.mode === 'viewer'
+        ? `, viendo el informe "${viewingReport.title}" (id ${viewingReport.id})`
+        : `, editando el informe "${viewingReport.title}" (id ${viewingReport.id})`
+    : '';
   lines.push('');
   if (isEn) {
     lines.push('--- WHERE THE USER IS RIGHT NOW ---');
-    lines.push(`The user is currently on ${stepLabel}.`);
+    lines.push(`The user is currently on ${stepLabel}${viewingLabel}.`);
     lines.push(
-      'Trust this over anything you said in earlier turns — the user has navigated since then. When the user asks "what step am I on?" or refers to "this step" / "this page", anchor to this current step.',
+      'This block is the SOURCE OF TRUTH for the user\'s current location, every turn. The user can navigate at any time using the stepper, the URL bar, or the back/forward buttons — none of those go through the assistant, but they ALL change this block. When the user asks "what step am I on?", "where am I?", or refers to "this step" / "this page" / "this section" / "this report", anchor to the values above. NEVER answer "you\'re on step 1" or "no report is open" by guessing from earlier turns — re-read this block first.',
     );
     lines.push('--- END ---');
   } else {
     lines.push('--- DÓNDE ESTÁ EL USUARIO AHORA MISMO ---');
-    lines.push(`El usuario está actualmente en ${stepLabel}.`);
+    lines.push(`El usuario está actualmente en ${stepLabel}${viewingLabel}.`);
     lines.push(
-      'Confía en ESTE valor por encima de cualquier cosa que dijeras en turnos anteriores — el usuario ha navegado desde entonces. Cuando el usuario pregunta "¿en qué paso estoy?" o se refiere a "este paso" / "esta página", ánclate a este paso actual.',
+      'Este bloque es la FUENTE DE VERDAD sobre dónde está el usuario, en cada turno. El usuario puede navegar en cualquier momento usando el stepper, la barra de URL, o los botones de atrás/adelante — ninguno pasa por el asistente, pero TODOS cambian este bloque. Cuando el usuario pregunte "¿en qué paso estoy?", "¿dónde estoy?", o se refiera a "este paso" / "esta página" / "esta sección" / "este informe", ánclate a los valores de arriba. NUNCA respondas "estás en el paso 1" o "no hay informe abierto" adivinando por turnos anteriores — relee este bloque primero.',
     );
     lines.push('--- FIN ---');
   }

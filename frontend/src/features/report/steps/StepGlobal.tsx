@@ -9,6 +9,7 @@ import {
   type SourceItem,
 } from '../../../lib/aiClient';
 import { extractApiErrorMessage } from '../../../lib/apiError';
+import { notifyAssistant } from '../../../lib/assistantBridge';
 import { useMaximizable } from '../../../components/useMaximizable';
 import LoadingPanel, {
   type ProgressItem,
@@ -205,6 +206,22 @@ export default function StepGlobal({
         }),
       );
       onChange(merged);
+      // Nudge the assistant — once the dimensions are visible, the chat
+      // can proactively offer to walk through them, refine any that feel
+      // off, or move on to step 3. Deferred via setTimeout so React has
+      // time to commit the new globalData, the parent's AssistantContext
+      // useEffect re-runs, and the chat's snapshotRef picks up the new
+      // user-state block BEFORE the API call fires. Without this delay
+      // the model sees stale "(empty)" values for the five dimensions
+      // and gives a confused response. The bridge no-ops when the chat
+      // has never been opened or when a turn is already in flight, so
+      // this is safe to fire unconditionally on every successful
+      // generation.
+      setTimeout(() => {
+        notifyAssistant(
+          '[STATE CHANGE: Global STEEP generation just finished. The five dimensions (Social, Technological, Economic, Environmental, Political) are now populated and visible to the user — check the user-state block in your system prompt for the actual content. Acknowledge it briefly, offer to walk through them, refine any that feel off, or move on to step 3 (Sectorial STEEP). Keep it short — 2-3 sentences max. Do NOT emit any <command> tags.]',
+        );
+      }, 50);
     } catch (e) {
       setError(extractApiErrorMessage(e, t('wizard.global.errorDefault')));
       // Deliberately NOT resetting fetchedFor.current — once auto-fetch

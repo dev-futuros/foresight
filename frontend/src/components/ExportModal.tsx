@@ -24,6 +24,13 @@ interface Props {
    * the user's eyes go straight to the export overlay.
    */
   onExport: (format: ExportFormat, language: ExportLanguage) => void;
+  /** Pre-select a format on open. The user can still change it. Used
+   *  by the assistant when it knows the format but not the language. */
+  initialFormat?: ExportFormat;
+  /** Pre-select a language on open (must be in the report's
+   *  availableLanguages, otherwise it's silently ignored and the
+   *  primary language wins). */
+  initialLanguage?: ExportLanguage;
 }
 
 /**
@@ -39,7 +46,15 @@ interface Props {
  * modal's. Hitting Export with a translation language triggers a
  * cache-hit fetch on the parent side, never an Anthropic round-trip.
  */
-export default function ExportModal({ open, reportId, kind = 'report', onClose, onExport }: Props) {
+export default function ExportModal({
+  open,
+  reportId,
+  kind = 'report',
+  onClose,
+  onExport,
+  initialFormat,
+  initialLanguage,
+}: Props) {
   const { t } = useTranslation();
   // Hooks must be called unconditionally; pass an empty id to the
   // disabled side so React Query bails out via the `enabled: !!id` gate.
@@ -61,13 +76,19 @@ export default function ExportModal({ open, reportId, kind = 'report', onClose, 
 
   // Snap the language pick back to the row's primary on every open
   // so reopening the modal doesn't carry over a stale selection from a
-  // previous row.
+  // previous row. {@code initialFormat} / {@code initialLanguage} let
+  // the assistant pre-fill what it knows; the user can still change
+  // either field before clicking Export.
   useEffect(() => {
     if (open && data) {
-      setLanguage(primaryLanguage);
-      setFormat('pdf');
+      const wantedLang =
+        initialLanguage && availableLanguages.includes(initialLanguage)
+          ? initialLanguage
+          : primaryLanguage;
+      setLanguage(wantedLang);
+      setFormat(initialFormat ?? 'pdf');
     }
-  }, [open, primaryLanguage, data]);
+  }, [open, primaryLanguage, data, initialFormat, initialLanguage, availableLanguages]);
 
   function handleExport() {
     onExport(format, language);

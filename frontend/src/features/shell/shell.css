@@ -21,7 +21,19 @@
    would just hide everything underneath. */
 @media (min-width: 721px) {
   body.chat-open .app-shell {
-    margin-right: 380px;
+    /* Matches the chat panel's width — both read from --chat-w which the
+       chat component owns (defaults to 380px, persisted across sessions
+       via localStorage, dragged by the user via the left-edge handle).
+       Caps at 100vw so on extreme drags the shell doesn't get pushed
+       past the viewport. */
+    margin-right: min(var(--chat-w, 380px), 100vw);
+  }
+  /* Drop the slide-in easing while the user is actively dragging the
+     resize handle. Without this the main content lags behind the chat
+     panel by ~320ms and the resize feels rubbery instead of attached
+     to the cursor. */
+  body.chat-resizing .app-shell {
+    transition: none;
   }
 }
 

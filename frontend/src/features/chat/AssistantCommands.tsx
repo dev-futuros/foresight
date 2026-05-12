@@ -8,6 +8,29 @@ import { useLogout } from '../../hooks/useAuth';
 import api from '../../lib/api';
 
 /**
+ * Resolve the target report id for share/export commands. Prefers an
+ * explicit {@code id} arg from the assistant; falls back to parsing the
+ * current URL ({@code /reports/:id} or {@code /reports/:id/edit}) so the
+ * model doesn't need to pass an id when the user is already viewing a
+ * report. Returns {@code id: undefined} when neither source has one,
+ * letting the caller surface a clear error.
+ *
+ * <p>Reading {@code window.location.pathname} here (rather than threading
+ * the router's location through the command spec) keeps the registration
+ * static — the spec doesn't need to re-register on every route change.
+ */
+function resolveReportIdFromArgsOrUrl(args: unknown): { id: string | undefined } {
+  const fromArgs = (args as { id?: unknown } | undefined)?.id;
+  if (typeof fromArgs === 'string' && fromArgs.length > 0) {
+    return { id: fromArgs };
+  }
+  if (typeof window === 'undefined') return { id: undefined };
+  const m = window.location.pathname.match(/^\/reports\/([^/?#]+)(?:\/edit)?\/?$/);
+  if (m && m[1] !== 'new') return { id: m[1] };
+  return { id: undefined };
+}
+
+/**
  * Default navigation-only `goTo` handler. NewReportPage overrides this with a
  * version that calls goToStep imperatively while the wizard is mounted; on
  * unmount {@link useCommands} restores this version automatically.
@@ -129,57 +152,47 @@ export default function AssistantCommands() {
       },
     },
 
+    // Shell-level share/export fallbacks — used when the user is NOT on a
+    // report viewer (dashboard, account page, etc.) and the model emits
+    // these commands. ReportPage registers page-scoped overrides that
+    // know the currently-open report from the URL, so when the user IS
+    // viewing a report the chip just opens the matching modal.
     {
       name: 'shareReport',
-      mode: 'confirm',
-      label: () => 'Compartir informe',
+      mode: 'auto',
       handler: async (args) => {
-        const { id } = args as { id?: string };
-        // The actual share modal is wired to the report-page button; the
-        // assistant flow simply mints a share token by hitting the same
-        // backend endpoint and reports the URL back to the model.
+        const { id } = resolveReportIdFromArgsOrUrl(args);
         if (!id) {
           throw new Error(
-            'No report id provided. Ask the user which saved report to share, or open a report first.',
+            'No report is open. Ask the user which saved report to share, or open one first.',
           );
         }
         const res = await api.post<{ shareUrl: string; expiresAt: string }>(
           `/reports/${id}/share`,
         );
-        // Invalidate any cached lists so dashboards refresh next time.
         void qc.invalidateQueries({ queryKey: ['reports'] });
         return `Share link: ${res.data.shareUrl} (expires ${res.data.expiresAt}).`;
       },
     },
 
-    // Phase 2 will replace the navigate-to-report passthrough with a
-    // page-scoped override that actually fires the export. For now this is
-    // the same fallback the previous registration used.
+    // Single export command — always surfaces the export dialog. The
+    // assistant doesn't need to (and shouldn't) reason about formats or
+    // languages itself; the user picks both in the modal. ReportPage
+    // registers a page-scoped override that opens the dialog directly
+    // when the user is on a report viewer; this shell fallback navigates
+    // first when the user is on the dashboard / elsewhere.
     {
-      name: 'exportPDF',
-      mode: 'confirm',
-      label: () => 'Exportar PDF',
+      name: 'exportReport',
+      mode: 'auto',
       handler: (args) => {
-        const { id } = args as { id?: string };
+        const { id } = resolveReportIdFromArgsOrUrl(args);
         if (!id) {
-          throw new Error('Open a report first; export needs a target report id.');
+          throw new Error(
+            'No report is open. Open the report you want to export, then ask again.',
+          );
         }
-        navigate(`/reports/${id}?export=pdf`);
-        return 'Opened the report; the user can now click PDF.';
-      },
-    },
-
-    {
-      name: 'exportPPT',
-      mode: 'confirm',
-      label: () => 'Exportar PowerPoint',
-      handler: (args) => {
-        const { id } = args as { id?: string };
-        if (!id) {
-          throw new Error('Open a report first; export needs a target report id.');
-        }
-        navigate(`/reports/${id}?export=ppt`);
-        return 'Opened the report; the user can now click PPT.';
+        navigate(`/reports/${id}?export=1`);
+        return 'Opening the report viewer — the export dialog will surface there.';
       },
     },
 

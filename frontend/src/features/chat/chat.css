@@ -6,115 +6,81 @@
    layer in later.
    ============================================================ */
 
+/* Floating chat trigger — round bubble pinned to the bottom-right corner.
+   Replaces the older side-tab variant. Sized to feel like the standard
+   "open chat" affordance on any modern web app: comfortable click target,
+   gentle drop shadow, gold accent on hover. */
 .chat-edge {
   position: fixed;
-  top: 50%;
-  right: 0;
-  transform: translateY(-50%);
+  bottom: 24px;
+  right: 24px;
   z-index: 9000;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
   background: hsla(240, 8%, 9%, 0.92);
   -webkit-backdrop-filter: blur(12px) saturate(140%);
   backdrop-filter: blur(12px) saturate(140%);
   border: 1px solid var(--line-accent);
-  border-right: none;
-  border-radius: 10px 0 0 10px;
   color: var(--gold);
   cursor: pointer;
-  padding: 14px 12px;
+  padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.35), 0 0 24px hsla(40, 60%, 56%, 0.1);
-  transition: padding-right 180ms ease, color 180ms, background 180ms,
-    border-color 180ms;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4), 0 0 24px hsla(40, 60%, 56%, 0.1);
+  transition: transform 180ms ease, color 180ms, background 180ms,
+    border-color 180ms, box-shadow 180ms ease;
 }
 .chat-edge:hover {
   color: var(--ink);
   background: hsla(240, 8%, 14%, 0.95);
-  padding-right: 16px;
   border-color: var(--gold);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5), 0 0 32px hsla(40, 60%, 56%, 0.18);
+}
+.chat-edge:active {
+  transform: translateY(0);
 }
 
-/* Mini collapse handle — appears on the chat panel's left edge while open.
-   At rest, a small clickable nub. On hover, expands into a chunky chevron
-   tab. The hit area sits flush against the panel's left edge so the user
-   can sweep the cursor onto it. Ported from the staging demo's
-   .chat-collapse pattern. */
-.chat-collapse {
-  position: fixed;
-  top: 50%;
-  right: 0;
-  transform: translateY(-50%);
-  z-index: 9101;
-  background: hsla(240, 8%, 9%, 0.92);
-  -webkit-backdrop-filter: blur(12px) saturate(140%);
-  backdrop-filter: blur(12px) saturate(140%);
-  border: 1px solid var(--line-accent);
-  border-right: none;
-  border-radius: 6px 0 0 6px;
-  color: var(--gold);
-  cursor: pointer;
-  /* Resting size: a thin clickable strip on the panel's left edge. Padding
-     defines the hit area; the SVG is collapsed (width 0) until hover. */
-  padding: 10px 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.35);
-  visibility: hidden;
-  pointer-events: none;
-  /* Slides in lockstep with the panel: 320ms with the same cubic-bezier
-     as .chat-panel's width transition. The visibility delay matches the
-     slide so the handle doesn't appear before the panel reaches its
-     resting width. */
-  transition: right 320ms cubic-bezier(0.32, 0.72, 0.24, 1),
-    padding 180ms ease, color 180ms, background 180ms, border-color 180ms,
-    border-radius 180ms, visibility 0s linear 320ms;
-}
-body.chat-open .chat-collapse {
-  /* The chat panel is min(380px, 100vw). Anchor the handle to the panel's
-     left edge by placing it at `right: 380px` (the desktop panel width).
-     Matches the body.chat-open margin-right in shell.css. */
-  right: 380px;
-  visibility: visible;
-  pointer-events: auto;
-  transition: right 320ms cubic-bezier(0.32, 0.72, 0.24, 1),
-    padding 180ms ease, color 180ms, background 180ms, border-color 180ms,
-    border-radius 180ms, visibility 0s linear 0s;
-}
-.chat-collapse:hover {
+/* Unread state — when wizard-triggered notifications arrive while the
+   panel is closed, the edge button pulses gently in gold so the user
+   notices. Combined with the corner badge below this gives both
+   peripheral and direct cues. */
+.chat-edge.has-unread {
   color: var(--ink);
-  background: hsla(240, 8%, 14%, 0.95);
-  /* Expand the hit area to reveal the icon; right padding adds a small
-     "peek into the panel" feel. */
-  padding: 14px 16px 14px 12px;
   border-color: var(--gold);
-  border-radius: 10px 0 0 10px;
+  animation: chat-edge-pulse 2.4s ease-in-out infinite;
 }
-.chat-collapse svg {
-  width: 0;
-  height: 16px;
-  opacity: 0;
-  stroke: currentColor;
-  fill: none;
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  display: block;
-  transition: width 180ms ease, opacity 140ms ease, transform 180ms ease;
-}
-.chat-collapse:hover svg {
-  width: 16px;
-  opacity: 1;
-  transform: translateX(2px);
-}
-/* Mobile (≤720px): the panel goes full-width, so the collapse handle would
-   sit off-screen. Hide it; users dismiss via the panel's own controls. */
-@media (max-width: 720px) {
-  .chat-collapse {
-    display: none;
+@keyframes chat-edge-pulse {
+  0%, 100% {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4), 0 0 0 0 hsla(40, 80%, 60%, 0.35);
+  }
+  50% {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4), 0 0 0 8px hsla(40, 80%, 60%, 0.15);
   }
 }
+.chat-edge-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--gold);
+  color: #0a0a0a;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
 .chat-edge svg {
   width: 22px;
   height: 22px;
@@ -145,24 +111,74 @@ body.chat-open .chat-collapse {
     border-color 320ms ease, visibility 0s linear 320ms;
 }
 .chat-panel.open {
-  width: min(380px, 100vw);
+  width: min(var(--chat-w, 380px), 100vw);
   visibility: visible;
   border-left-color: var(--line-strong);
   box-shadow: -8px 0 32px rgba(0, 0, 0, 0.5);
   transition: width 320ms cubic-bezier(0.32, 0.72, 0.24, 1),
     border-color 320ms ease, visibility 0s linear 0s;
 }
+/* When the user is dragging the resize handle we suppress the slide
+   transition so the panel tracks the cursor without easing. JS toggles
+   .resizing on .chat-panel for the duration of the drag. */
+.chat-panel.resizing {
+  transition: none;
+}
 /* Lock every direct child of the panel to the full target width during
-   the width animation. Without this, as the panel grows from 0 → 380px
-   the children get a narrow flex-basis on every frame and the text
-   inside re-wraps, looking like the characters are "re-computing" as
-   the panel slides in. With it, the children stay 380px wide and the
-   parent's `overflow: hidden` does the clipping — only the visible
-   slice changes, the inner layout stays put. */
-.chat-panel > * {
-  width: min(380px, 100vw);
-  min-width: min(380px, 100vw);
+   the width animation. Without this, as the panel grows from 0 → its
+   target width the children get a narrow flex-basis on every frame and
+   the text inside re-wraps, looking like the characters are
+   "re-computing" as the panel slides in. With it, children stay at the
+   target width and the parent's overflow:hidden does the clipping. */
+.chat-panel > *:not(.chat-resize) {
+  width: min(var(--chat-w, 380px), 100vw);
+  min-width: min(var(--chat-w, 380px), 100vw);
   flex-shrink: 0;
+}
+
+/* Drag handle on the panel's left edge for horizontal resize. Sits flush
+   against the border so the cursor finds it naturally; a thin column
+   visually, generous hit area for the pointer. Only shown when the
+   panel is open. The width state is owned by ChatAssistant and applied
+   to the document root as `--chat-w`. */
+.chat-resize {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  /* 8px hit area, 1px visual line — the column itself is narrow but the
+     cursor target extends across the full strip thanks to box-sizing. */
+  width: 6px;
+  margin-left: -3px;
+  cursor: ew-resize;
+  z-index: 1;
+  background: transparent;
+  transition: background 150ms ease;
+  /* On wider screens only — at ≤720px the panel goes full-width via the
+     media query below, so resizing makes no sense and the handle hides. */
+}
+.chat-resize::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 32px;
+  border-radius: 2px;
+  background: var(--line-strong);
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+.chat-resize:hover::before,
+.chat-panel.resizing .chat-resize::before {
+  opacity: 0.7;
+  background: var(--gold);
+}
+@media (max-width: 720px) {
+  .chat-resize {
+    display: none;
+  }
 }
 
 .chat-head {
@@ -221,17 +237,11 @@ body.chat-open .chat-collapse {
   color: var(--ink);
   background: var(--line);
 }
-/* Close X is hidden on desktop — the .chat-collapse handle on the panel's
-   left edge is the desktop dismissal. The button is restored to view on
-   mobile (≤720px) via the media query at the bottom of this file, where
-   the collapse handle is hidden because the panel goes full-width. */
+/* Close X in the panel header — always visible, on every screen size.
+   Primary dismissal affordance for the chat panel now that the older
+   left-edge .chat-collapse handle is gone. */
 .chat-head-close {
-  display: none;
-}
-@media (max-width: 720px) {
-  .chat-head-close {
-    display: flex;
-  }
+  display: flex;
 }
 .chat-head-btn svg {
   width: 14px;
@@ -522,6 +532,82 @@ body.chat-open .chat-collapse {
 
 /* (Earlier .chat-activity green-pill style removed — applied chips now
    stay rendered as full .chat-confirm.applied cards instead.) */
+
+/* Container for the auto-executed command chips that follow assistant
+   prose. Spacing between chips matches the demo's stacked layout. */
+.chat-applied-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+/* Red variant of .chat-confirm.applied — used when an auto-dispatched
+   command failed (unknown id, dropdown value mismatch, etc.). */
+.chat-confirm.applied.error,
+.chat-confirm.error {
+  background: hsla(0, 60%, 50%, 0.08);
+  border-color: hsla(0, 60%, 60%, 0.4);
+}
+.chat-confirm.applied.error .chat-confirm-head,
+.chat-confirm.error .chat-confirm-head {
+  color: hsl(0, 70%, 70%);
+}
+.chat-confirm-error {
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: hsl(0, 70%, 75%);
+}
+
+/* Small inline pill for non-setField executed commands (goTo, newReport,
+   runAnalysis, etc.). Compact compared to .chat-confirm because there's
+   no rich preview body to show — just the action name + a tick. */
+.chat-cmd-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-radius: var(--r-sm);
+  border: 1px solid;
+  align-self: flex-start;
+}
+.chat-cmd-pill.chat-cmd-ok {
+  color: var(--green);
+  background: var(--green-bg);
+  border-color: hsla(160, 64%, 67%, 0.4);
+}
+.chat-cmd-pill.chat-cmd-error {
+  color: hsl(0, 70%, 75%);
+  background: hsla(0, 60%, 50%, 0.08);
+  border-color: hsla(0, 60%, 60%, 0.4);
+}
+
+/* Declined chip — user moved on without applying. Muted grey, no hover. */
+.chat-confirm.declined {
+  background: hsla(0, 0%, 100%, 0.02);
+  border-color: hsla(0, 0%, 100%, 0.08);
+  color: var(--ink-mute);
+  cursor: default;
+}
+.chat-confirm.declined:hover {
+  background: hsla(0, 0%, 100%, 0.02);
+  border-color: hsla(0, 0%, 100%, 0.08);
+}
+.chat-confirm.declined .chat-confirm-head {
+  color: var(--ink-mute);
+  text-decoration: line-through;
+}
+
+/* Trailing prose that follows the chip block. Rendered only once all
+   pending chips in the bubble have been resolved — keeps lines like
+   "Ready to move on?" from appearing before the action happens. */
+.chat-bubble-post {
+  margin-top: 10px;
+}
 
 /* "Apply all" button — appears below an assistant message that contains
    2+ pending confirm chips (in practice setField). One-tap shortcut to

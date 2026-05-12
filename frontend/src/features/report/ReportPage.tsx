@@ -1,10 +1,12 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useReport, useTranslateReport } from '../../hooks/useReports';
 import { useDemoteExample, useTranslateExample } from '../../hooks/useExamples';
 import { useIsDev } from '../../hooks/useAuth';
 import { useSetStepper } from '../shell/StepperContext';
+import { useCommands } from '../../lib/useCommands';
+import { useSetAssistantContext } from '../chat/AssistantContextProvider';
 import { exportReportPdf } from '../../lib/exportPdf';
 import { exportReportPpt } from '../../lib/exportPpt';
 import ExportModal, {
@@ -77,6 +79,32 @@ export default function ReportPage() {
   );
   useSetStepper(stepperState);
 
+  // Publish "currently-open report" to the assistant snapshot so the chat
+  // knows about it even when the user navigated here through the UI (not
+  // via an assistant command). Without this the snapshot defaults to
+  // "step 1, empty form" and the assistant tells the user no report is
+  // open. Cleared only on unmount (separate effect below) — clearing on
+  // every dep change instead caused a brief undefined-context render
+  // sandwiched between the old and new publish.
+  const setAssistantContext = useSetAssistantContext();
+  useEffect(() => {
+    if (!report || !id) return;
+    setAssistantContext({
+      currentStep: 6,
+      viewingReport: {
+        id,
+        title: report.title,
+        status: report.status,
+        primaryLanguage: report.primaryLanguage,
+        availableLanguages: report.availableLanguages ?? [report.primaryLanguage],
+        mode: 'viewer',
+      },
+    });
+  }, [setAssistantContext, id, report]);
+  useEffect(() => {
+    return () => setAssistantContext(undefined);
+  }, [setAssistantContext]);
+
   function runExport(kind: ExportFormat, language: ExportLanguage) {
     if (!report) return;
     setExporting(kind);
@@ -92,6 +120,34 @@ export default function ReportPage() {
       }
     }, 0);
   }
+
+  // Page-scoped overrides for the share/export commands. The shell-level
+  // versions fall back to "open the report viewer first" — once we're on
+  // that viewer these versions take over and open the actual modals.
+  useCommands(() => [
+    {
+      name: 'shareReport',
+      mode: 'auto',
+      handler: () => {
+        setShareOpen(true);
+        return 'Opened the share dialog.';
+      },
+    },
+    {
+      // Always opens the picker — assistant doesn't pre-pick format or
+      // language. The user has full control of both selections in the
+      // dialog. Mirrors the header's Export button exactly.
+      name: 'exportReport',
+      mode: 'auto',
+      handler: () => {
+        if (!report) {
+          throw new Error('Report not loaded yet — try again in a moment.');
+        }
+        setExportOpen(true);
+        return 'Opened the export dialog.';
+      },
+    },
+  ]);
 
   /**
    * Swap the report's payload to the cached translation for the picked

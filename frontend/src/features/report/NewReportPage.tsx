@@ -16,6 +16,7 @@ import {
   type SourceItem,
 } from '../../lib/aiClient';
 import { extractApiErrorMessage } from '../../lib/apiError';
+import { notifyAssistant } from '../../lib/assistantBridge';
 import OnboardingDialog from '../../components/OnboardingDialog';
 import LoadingPanel, {
   type ProgressItem,
@@ -367,8 +368,16 @@ export default function NewReportPage() {
   // without taking `step` as a dep (which would re-create flushAutosave
   // — and every dependent — on every step change).
   const stepRef = useRef<number>(initialStep);
+  // True once goToStep has been called since mount. Used by the
+  // prefill effect to detect "the user (or assistant) already chose
+  // a step explicitly" — without this flag, a late-arriving
+  // editingReport.data would clobber an explicit goTo(2) with the
+  // saved currentStep (e.g. 3), making the chat-driven navigation
+  // appear to skip steps.
+  const userHasNavigatedRef = useRef<boolean>(false);
 
   const goToStep = useCallback((n: number) => {
+    userHasNavigatedRef.current = true;
     setStep(n);
     stepRef.current = n;
     setMaxReached((prev) => Math.max(prev, n));
@@ -469,12 +478,21 @@ export default function NewReportPage() {
     if (loadedSector && hasLoadedGlobalSteep) {
       globalSteepFetchedForRef.current = loadedSector;
     }
-    // Resume on the step the user left off on, unless an explicit ?step=N in
-    // the URL overrides it (initialStep already captured that). The URL
-    // wins so back-nav from the report viewer's stepper still lands on the
-    // step the user clicked, not the auto-saved one.
+    // Resume on the step the user left off on, unless:
+    //   - the URL carries an explicit ?step=N (initialStep already
+    //     captured it; honour the URL over the auto-saved value); OR
+    //   - the user (or the assistant) has already called goToStep
+    //     since the page mounted, which means they explicitly chose
+    //     a step before this prefill landed. Without this guard, a
+    //     late-arriving editingReport.data would clobber an explicit
+    //     goTo(2) with the saved currentStep (e.g. 3), making the
+    //     chat-driven navigation appear to skip a step.
     const fromUrl = searchParams.get('step');
-    if (!fromUrl && typeof inputs.currentStep === 'number') {
+    if (
+        !fromUrl &&
+        !userHasNavigatedRef.current &&
+        typeof inputs.currentStep === 'number'
+    ) {
       const resumeAt = Math.min(Math.max(inputs.currentStep, 1), 4);
       setStep(resumeAt);
       stepRef.current = resumeAt;
@@ -821,6 +839,18 @@ export default function NewReportPage() {
       });
       navigate(`/reports/${targetReportId}`);
       // Don't reset isGenerating on success — the unmount handles it.
+      // Nudge the assistant — the user has just landed on the report
+      // viewer and the chat can proactively offer to walk through the
+      // scenarios, explain methodology, or answer questions about the
+      // generated sections. Deferred past the navigate() so the route
+      // change has time to commit and the report viewer's queries can
+      // start populating before the model is woken (the bridge no-ops
+      // if the chat was never opened, so this is safe to always fire).
+      setTimeout(() => {
+        notifyAssistant(
+          '[STATE CHANGE: Full foresight analysis just completed and the user has been navigated to the report viewer. The report includes executive summary, 3P scenarios (Probable/Plausible/Possible), scenario planning, backcasting trajectories, strategic priorities, weak signals, wildcards, key uncertainties, and sources. Offer to walk through the scenarios, explain the methodology, or answer questions about any specific section. Keep it short — 2-3 sentences max. Do NOT emit any <command> tags.]',
+        );
+      }, 50);
     } catch (e) {
       setGenerateError(extractApiErrorMessage(e, t('report.results.errorDefault')));
       setIsGenerating(false);
@@ -834,7 +864,13 @@ export default function NewReportPage() {
      — they live here because their handlers close over the local state
      setters. */
   const setAssistantContext = useSetAssistantContext();
+  // Publish on every relevant state change. No cleanup here — clearing on
+  // dep-change as well as unmount caused a brief render where the chat
+  // saw {ctx: undefined} sandwiched between the old and new publish, and
+  // in StrictMode could leave a stale undefined dangling. The dedicated
+  // unmount-only clear below handles route changes correctly.
   useEffect(() => {
+    const loaded = editingReport.data;
     setAssistantContext({
       currentStep: step,
       maxReached,
@@ -843,9 +879,29 @@ export default function NewReportPage() {
       steep,
       horizon,
       isGenerating,
+      // Edit mode publishes the in-progress report so the assistant
+      // recognises it as the open report — "this report" resolves to
+      // the editing id, same way the read-only viewer publishes it.
+      ...(editingId && loaded
+        ? {
+            viewingReport: {
+              id: editingId,
+              title: loaded.title,
+              status: loaded.status,
+              primaryLanguage: loaded.primaryLanguage,
+              availableLanguages: loaded.availableLanguages ?? [loaded.primaryLanguage],
+              mode: 'edit' as const,
+            },
+          }
+        : {}),
     });
+  }, [
+    setAssistantContext, step, maxReached, empresa, globalData, steep, horizon,
+    isGenerating, editingId, editingReport.data,
+  ]);
+  useEffect(() => {
     return () => setAssistantContext(undefined);
-  }, [setAssistantContext, step, maxReached, empresa, globalData, steep, horizon, isGenerating]);
+  }, [setAssistantContext]);
 
   // Wizard-scoped commands. useCommands snapshots the previous registration
   // for each name on mount and restores it on unmount, so overriding `goTo`
@@ -854,6 +910,12 @@ export default function NewReportPage() {
   useCommands(() => [
     {
       name: 'setField',
+      // Confirm-mode: the chat assistant emits the command inline as a
+      // <command> tag, the renderer surfaces it as a pending chip the user
+      // can click (or batch via Apply All), and only then does this handler
+      // run. The chip's head/preview is rendered from the chat-side lookup
+      // tables; label/preview here are legacy fallbacks for non-chat
+      // callers.
       mode: 'confirm',
       label: (args) => {
         const { id } = args as { id: string };
@@ -1012,6 +1074,42 @@ export default function NewReportPage() {
         }
         goToStep(step - 1);
         return `Moved to step ${step - 1}.`;
+      },
+    },
+
+    // Page-scoped newReport override. The shell-level version just calls
+    // navigate('/reports/new') — fine if the user is on a different route,
+    // but a no-op when they're already on the wizard (same URL → no
+    // remount, state survives). This version clears every wizard slice
+    // imperatively so "new report" actually starts from a blank form even
+    // when the user is mid-flow.
+    {
+      name: 'newReport',
+      mode: 'auto',
+      handler: () => {
+        setEmpresa(EMPTY_EMPRESA);
+        setGlobalData(EMPTY_GLOBAL_STEEP);
+        setSteep(EMPTY_STEEP);
+        setHorizon(EMPTY_HORIZON);
+        setGlobalSteepCitations([]);
+        setReportId(null);
+        reportIdRef.current = null;
+        setStep(1);
+        stepRef.current = 1;
+        setMaxReached(1);
+        setIsGenerating(false);
+        setGenerateError(null);
+        // Reset the wizard-session refs so guards behave as if this is a
+        // fresh mount: another sector won't be confused with the cleared
+        // one for auto-fetch purposes, and prefill won't reapply if the
+        // user navigates back into edit mode later.
+        globalSteepFetchedForRef.current = null;
+        prefilledFor.current = null;
+        userHasNavigatedRef.current = false;
+        // If the user was on /reports/:id/edit, kick them to /reports/new
+        // so the URL matches the cleared state. No-op when already there.
+        if (editingId) navigate('/reports/new');
+        return 'Cleared the form and started a fresh report.';
       },
     },
 

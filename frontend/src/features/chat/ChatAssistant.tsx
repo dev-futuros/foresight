@@ -2,20 +2,24 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import { useChat, type PendingConfirm } from '../../hooks/useChat';
+import {
+  useChat,
+  type ChatMessageView,
+  type PendingCommand,
+} from '../../hooks/useChat';
 import { useAssistantContext } from './AssistantContextProvider';
-import type { ChatContentBlock, ChatMessage } from '../../lib/aiClient';
 import {
   buildAssistantSnapshot,
   type AssistantSnapshotInput,
 } from '../../lib/buildAssistantSnapshot';
 import { dispatch as dispatchCommand } from '../../lib/commandBus';
+import { setAssistantNotifier } from '../../lib/assistantBridge';
 import api from '../../lib/api';
 import type { EmpresaData } from '../report/steps/StepEmpresa';
 import type { GlobalSteepData } from '../report/steps/StepGlobal';
 import type { SteepData } from '../report/steps/StepSteep';
 import type { HorizonData } from '../report/steps/StepHorizon';
-import type { Page, ReportSummary } from '../../types/api';
+import type { ExampleSummary, Page, ReportSummary } from '../../types/api';
 import './chat.css';
 
 /** Field ID → wizard step it lives on. Used by single-chip clicks to pre-
@@ -29,10 +33,7 @@ const STEP_FOR_FIELD_ID: Record<string, number> = {
   'hs-h1': 4, 'hs-h2': 4, 'hs-h3': 4,
 };
 
-/** Lookup table mapping setField field ids to a concise human-readable
- *  label suitable for the chip head. Localised values live in
- *  i18n.chat.fields; this map just bridges the raw ids the model sends
- *  to those translation keys. */
+/** setField field ids → translation key for the human-readable label. */
 const FIELD_NAME_KEY: Record<string, string> = {
   'f-name': 'chat.fields.f-name',
   'f-sector': 'chat.fields.f-sector',
@@ -59,31 +60,13 @@ const FIELD_NAME_KEY: Record<string, string> = {
 };
 
 /** Min character length at which a setField proposal gets a "Show more"
- *  toggle. Below this the preview fits within the 4-line clamp anyway, so
- *  a toggle is meaningless visual noise. Matches the staging demo's
- *  heuristic. */
+ *  toggle. Below this the preview fits within the line-clamp anyway. */
 const PREVIEW_TOGGLE_THRESHOLD = 120;
 
 /** Delay between firing the pre-navigation goTo and resolving the chip.
- *  Long enough for the user to see the destination step flash, short enough
- *  that the apply doesn't feel laggy. Matches the staging demo. */
+ *  Long enough for the user to see the destination step flash. */
 const PRE_NAV_DELAY_MS = 280;
 
-/**
- * Tiny inline-markdown pass ported from the staging demo's
- * {@code renderChatMarkdown}. Supports {@code **bold**}, {@code *italic*}
- * and {@code `code`} — the three markers the assistant's system prompt
- * actually emits. Anything else passes through as escaped plain text.
- *
- * <p>Security: the input is HTML-escaped FIRST, then only the specific
- * markdown patterns are replaced with the corresponding tags. Nothing the
- * LLM (or user) can write reaches the DOM unescaped except for the
- * literal {@code <strong>}, {@code <em>}, {@code <code>} we inject.
- *
- * <p>Line breaks are intentionally not transformed: {@code white-space:
- * pre-wrap} on {@code .chat-bubble-text} already preserves newlines in
- * the source text, so doubling them as {@code <br>} would over-space.
- */
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')
@@ -92,28 +75,27 @@ function escapeHtml(s: string): string {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 }
+
+/** Tiny inline-markdown pass: {@code **bold**}, {@code *italic*},
+ *  {@code `code`}. Anything else passes through as escaped text. */
 function renderInlineMd(text: string): string {
   let h = escapeHtml(text);
-  // Order matters: code first so backticks aren't confused with stars
-  // inside code spans. Bold before italic so `**foo**` doesn't get
-  // partially eaten by the italic rule. The italic lookarounds prevent
-  // a stray `*` from neighbouring bold markup being re-matched.
   h = h.replace(/`([^`]+)`/g, '<code>$1</code>');
   h = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   h = h.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '<em>$1</em>');
   return h;
 }
 
-/** Same shape NewReportPage publishes via setAssistantContext. Other pages
- *  (dashboard, account, report viewer) don't publish today; their fields
- *  default to empty so the snapshot still emits the full field listing
- *  with {@code (empty)} markers. */
 interface PublishedWizardContext {
   currentStep?: number;
   empresa?: EmpresaData;
   globalSteep?: GlobalSteepData;
   steep?: SteepData;
   horizon?: HorizonData;
+  /** Set by the report viewer (and the wizard's edit mode) so the
+   *  assistant can resolve "this report" / "export this" without the
+   *  user naming an id. Absent on every other route. */
+  viewingReport?: AssistantSnapshotInput['viewingReport'];
 }
 
 const EMPTY_EMPRESA: EmpresaData = {
@@ -127,15 +109,15 @@ const EMPTY_STEEP: SteepData = {
 const EMPTY_HORIZON: HorizonData = { H1: '', H2: '', H3: '' };
 
 /**
- * Floating chat assistant. Renders an edge button on the right side of the
- * viewport; clicking opens a side panel with the conversation, an input and
- * any pending confirmation chips waiting on user approval.
+ * Floating chat assistant. Mounted once at the AppShell level; conversation
+ * state is owned by {@link useChat} and reset only on explicit user action.
  *
- * Available throughout the authenticated app — the parent ({@link AppShell})
- * mounts it once. The conversation state is owned by {@link useChat} and
- * reset only on explicit user action (the reset button in the header) or
- * when the assistant context changes hard (handled inside the hook by the
- * consumer; see {@link AssistantContextProvider}).
+ * <p>The assistant emits commands as inline `<command>` tags (one reply can
+ * batch N of them). The renderer surfaces them as pending chips that the
+ * user resolves individually or via Apply All. The prose AFTER the chip
+ * block stays hidden until all pending chips are resolved — keeps lines
+ * like "All set" or "Ready to move to step 2?" from appearing before the
+ * action has actually happened.
  */
 export default function ChatAssistant() {
   const { t, i18n } = useTranslation();
@@ -147,24 +129,37 @@ export default function ChatAssistant() {
     messages,
     pending,
     error,
-    pendingConfirms,
     send,
-    resolveConfirm,
+    notify,
+    resolveCommand,
+    applyAllInMessage,
     reset,
   } = useChat();
 
   const [open, setOpen] = useState(false);
+  // Panel width — owned here, applied to the document root as `--chat-w`
+  // so both .chat-panel and the shell's margin-right read the same value.
+  // Defaults to 380px (matches the original hardcoded width); persists to
+  // localStorage so a user's preferred width survives reloads. Clamped to
+  // the viewport on every change so it never spills off-screen or shrinks
+  // below the readable minimum.
+  const [chatWidth, setChatWidth] = useState<number>(() => {
+    if (typeof window === 'undefined') return 380;
+    const raw = window.localStorage?.getItem('fs_chat_width');
+    const n = raw ? Number.parseInt(raw, 10) : NaN;
+    return Number.isFinite(n) ? n : 380;
+  });
+  const [resizing, setResizing] = useState(false);
+  // Count of assistant messages received while the panel was closed —
+  // shown as a pulse badge on the edge button so wizard-triggered
+  // notifications (e.g. Global STEEP finished generating) don't go
+  // unnoticed when the user has the chat collapsed. Cleared the moment
+  // the user opens the panel.
+  const [unread, setUnread] = useState(0);
   const [draft, setDraft] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const msgsRef = useRef<HTMLDivElement>(null);
 
-  // Saved-reports list — surfaced in the snapshot so the assistant can call
-  // loadReport / editReport / shareReport / exportPDF / exportPPT with an
-  // explicit id without making the user load the report first. Gated on
-  // `open` because the snapshot is only consumed when the user actually
-  // sends a message; firing the request on every shell mount would be
-  // wasteful for users who never open the chat. Shares the same query key
-  // as useReports(0, 20) so the dashboard's existing fetch dedupes for free.
   const { data: reportsPage } = useQuery<Page<ReportSummary>>({
     queryKey: ['reports', 0, 20],
     queryFn: async () => {
@@ -175,11 +170,19 @@ export default function ChatAssistant() {
     },
     enabled: open,
   });
+  // Examples list — same opening trigger as reports. The list is global
+  // (every user sees the same set) so the query key has no per-user
+  // component. Surfaced into the assistant snapshot so the model can
+  // answer "load the bakery example" without asking for an id.
+  const { data: examplesList } = useQuery<ExampleSummary[]>({
+    queryKey: ['examples'],
+    queryFn: async () => {
+      const res = await api.get<ExampleSummary[]>('/examples');
+      return res.data;
+    },
+    enabled: open,
+  });
 
-  // Build the formatted USER STATE block. This is the string the backend
-  // stitches into the system prompt verbatim. Recompute on every render —
-  // it's pure string work over already-derived state, cheap enough that
-  // memoization noise (unstable nested-object deps) isn't worth the win.
   const snapshotInput: AssistantSnapshotInput = {
     language,
     currentStep: ctx?.currentStep ?? 1,
@@ -189,6 +192,8 @@ export default function ChatAssistant() {
     steep: ctx?.steep ?? EMPTY_STEEP,
     horizon: ctx?.horizon ?? EMPTY_HORIZON,
     reports: reportsPage?.content,
+    examples: examplesList,
+    viewingReport: ctx?.viewingReport,
   };
   const snapshot = useMemo(
     () => buildAssistantSnapshot(snapshotInput),
@@ -201,32 +206,136 @@ export default function ChatAssistant() {
       snapshotInput.globalSteep,
       snapshotInput.steep,
       snapshotInput.horizon,
+      snapshotInput.viewingReport,
       reportsPage,
+      examplesList,
     ],
   );
 
-  // Auto-scroll to the latest message every time the conversation grows or
-  // the assistant finishes thinking. Using `scrollHeight` directly (vs
-  // scrollIntoView) avoids the page jumping when the panel is offscreen on
-  // mobile.
+  // Stash the current snapshot + language in a ref so the assistantBridge
+  // handler (registered once on mount) always reads the latest values
+  // without forcing a re-register on every wizard-state change. This lets
+  // the wizard fire a notification at any moment with an up-to-date
+  // user-state block in the system prompt.
+  const snapshotRef = useRef<{ context: string; language: 'es' | 'en' }>({
+    context: snapshot,
+    language,
+  });
+  snapshotRef.current = { context: snapshot, language };
+
+  useEffect(() => {
+    setAssistantNotifier((note) => {
+      void notify(note, snapshotRef.current);
+    });
+    return () => setAssistantNotifier(null);
+  }, [notify]);
+
+  // ── Resize handle: apply width to :root, clamp, persist ──
+  // The CSS reads --chat-w for both the panel width and the shell's
+  // margin-right, so writing it here keeps both in sync without prop-
+  // drilling into shell.css. Min 320px (still readable), max 760px
+  // (twice the default), additionally clamped to the viewport so a
+  // saved width doesn't spill off-screen on a narrow window.
+  const clampWidth = useCallback((w: number) => {
+    if (typeof window === 'undefined') return w;
+    const min = 320;
+    const max = Math.min(760, Math.max(min, window.innerWidth - 320));
+    return Math.min(Math.max(w, min), max);
+  }, []);
+  useEffect(() => {
+    const clamped = clampWidth(chatWidth);
+    document.documentElement.style.setProperty('--chat-w', `${clamped}px`);
+    if (clamped !== chatWidth) setChatWidth(clamped);
+    try {
+      window.localStorage?.setItem('fs_chat_width', String(clamped));
+    } catch {
+      /* private-browsing / storage-disabled — no-op. */
+    }
+  }, [chatWidth, clampWidth]);
+  // Re-clamp on window resize so a previously-saved width that no
+  // longer fits the viewport snaps back into range.
+  useEffect(() => {
+    function onResize() {
+      setChatWidth((w) => clampWidth(w));
+    }
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [clampWidth]);
+
+  // Drag-to-resize. mousedown on the handle attaches mousemove + mouseup
+  // listeners on window so the drag survives the cursor wandering off
+  // the narrow handle column. The panel's width = window.innerWidth -
+  // pointerX (the chat is anchored to the right edge, so moving the
+  // cursor left grows the panel).
+  const startResize = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      setResizing(true);
+      // Lock global selection + cursor while dragging so the pointer
+      // doesn't paint a selection across the main content and the
+      // ew-resize cursor stays consistent even when the pointer
+      // wanders off the narrow handle column. The body class also
+      // tells shell.css to disable its margin-right transition so the
+      // main content tracks the cursor without easing lag.
+      const prevSelect = document.body.style.userSelect;
+      const prevCursor = document.body.style.cursor;
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = 'ew-resize';
+      document.body.classList.add('chat-resizing');
+      function onMove(ev: MouseEvent) {
+        setChatWidth(clampWidth(window.innerWidth - ev.clientX));
+      }
+      function onUp() {
+        setResizing(false);
+        document.body.style.userSelect = prevSelect;
+        document.body.style.cursor = prevCursor;
+        document.body.classList.remove('chat-resizing');
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onUp);
+      }
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+    },
+    [clampWidth],
+  );
+
+  // Track newly-arrived assistant messages while the panel is closed and
+  // surface the count as a badge on the edge button. We watch the length
+  // of visible (non-hidden) messages — every increment while closed means
+  // the assistant has something new to show.
+  const visibleAssistantCount = useMemo(
+    () =>
+      messages.filter(
+        (m) => !m.hidden && m.message.role === 'assistant',
+      ).length,
+    [messages],
+  );
+  const lastSeenAssistantCountRef = useRef(visibleAssistantCount);
+  useEffect(() => {
+    if (open) {
+      setUnread(0);
+      lastSeenAssistantCountRef.current = visibleAssistantCount;
+      return;
+    }
+    const prev = lastSeenAssistantCountRef.current;
+    if (visibleAssistantCount > prev) {
+      setUnread((u) => u + (visibleAssistantCount - prev));
+      lastSeenAssistantCountRef.current = visibleAssistantCount;
+    }
+  }, [visibleAssistantCount, open]);
+
   useEffect(() => {
     if (!open) return;
     const node = msgsRef.current;
     if (node) node.scrollTop = node.scrollHeight;
-  }, [messages, pending, pendingConfirms.length, open]);
+  }, [messages, pending, open]);
 
-  // Refocus the input each time the panel opens or the assistant turn ends —
-  // saves the user a click when typing follow-up questions.
   useEffect(() => {
     if (open && !pending) {
       inputRef.current?.focus();
     }
   }, [open, pending]);
 
-  // Toggle a body-level class while the chat panel is open. shell.css uses
-  // it to push the .app-shell content left by the panel width so the chat
-  // doesn't overlap any of the page underneath — matches the demo's
-  // "push content aside" behaviour rather than the older overlay style.
   useEffect(() => {
     if (open) {
       document.body.classList.add('chat-open');
@@ -239,38 +348,20 @@ export default function ChatAssistant() {
     el.style.height = Math.min(el.scrollHeight, 160) + 'px';
   }
 
-  /**
-   * Picks which {@code chat.suggested.<bucket>} array to render in the
-   * empty-state welcome screen, based on where the user is. Mirrors the
-   * demo's route → bucket mapping but uses semantic bucket names (s1-s4
-   * for the wizard steps, "report" for the viewer, plus "dashboard" /
-   * "account" / "default") so the i18n keys read naturally without
-   * having to memorise step numbers.
-   */
   function suggestionBucket(): string {
     const path = location.pathname;
     if (path === '/dashboard') return 'dashboard';
     if (path === '/account') return 'account';
     if (path.startsWith('/share/')) return 'report';
-    // Wizard routes — /reports/new or /reports/:id/edit. The current
-    // step lives on the published assistant context.
     if (path === '/reports/new' || /^\/reports\/[^/]+\/edit$/.test(path)) {
       const step = ctx?.currentStep ?? 1;
       if (step >= 1 && step <= 4) return `s${step}`;
       return 'default';
     }
-    // Report viewer — /reports/:id (no trailing /edit).
     if (/^\/reports\/[^/]+$/.test(path)) return 'report';
     return 'default';
   }
 
-  /**
-   * Read the suggestion list for the current bucket. i18next's
-   * {@code returnObjects: true} returns the raw array; we defensively
-   * filter to string items so a misconfigured key (or a future
-   * translator who fat-fingers a nested object in) can't crash the
-   * render.
-   */
   const suggestions = useMemo<string[]>(() => {
     const bucket = suggestionBucket();
     const raw = t(`chat.suggested.${bucket}`, {
@@ -292,23 +383,14 @@ export default function ChatAssistant() {
   }
 
   /**
-   * Single-chip approve. When the chip is a setField targeting a field that
-   * lives on a different step than the user is currently on, dispatch goTo
-   * first and pause briefly so the user actually sees the destination
-   * before its value is written. For every other chip (and for setField
-   * targeting the current step), this is just a thin wrapper around
-   * resolveConfirm.
-   *
-   * <p>Note the explicit currentStep readback from ctx — we deliberately
-   * don't capture it in a closure because the user may have navigated
-   * between when the chip was queued and when they clicked it. The
-   * snapshot also has it but ctx is the authoritative live value.
+   * Approve a single chip. For setField chips targeting a different wizard
+   * step than the user is currently on, dispatch goTo first so the user
+   * sees the destination flash before its value is written.
    */
   const handleApproveChip = useCallback(
-    async (toolUseId: string) => {
-      const target = pendingConfirms.find((c) => c.toolUseId === toolUseId);
-      if (target && target.name === 'setField') {
-        const fieldId = (target.input as { id?: unknown }).id;
+    async (messageIdx: number, cmd: PendingCommand) => {
+      if (cmd.name === 'setField') {
+        const fieldId = (cmd.args as { id?: unknown }).id;
         if (typeof fieldId === 'string') {
           const targetStep = STEP_FOR_FIELD_ID[fieldId];
           const currentStep = ctx?.currentStep ?? 0;
@@ -317,17 +399,15 @@ export default function ChatAssistant() {
               await dispatchCommand('goTo', { step: targetStep });
               await new Promise((r) => setTimeout(r, PRE_NAV_DELAY_MS));
             } catch {
-              // goTo can throw on edge cases (e.g. step 5 reached the
-              // wizard's guard). Swallow and proceed — the chip still
-              // applies; worst case the user just doesn't see the
-              // destination flash. Better than blocking the apply.
+              // Swallow goTo failures (e.g. step 5 is blocked); the apply
+              // still proceeds, the user just doesn't see the flash.
             }
           }
         }
       }
-      await resolveConfirm(toolUseId, true);
+      await resolveCommand(messageIdx, cmd.id, true);
     },
-    [pendingConfirms, ctx?.currentStep, resolveConfirm],
+    [ctx?.currentStep, resolveCommand],
   );
 
   return (
@@ -335,7 +415,7 @@ export default function ChatAssistant() {
       {!open && (
         <button
           type="button"
-          className="chat-edge"
+          className={`chat-edge${unread > 0 ? ' has-unread' : ''}`}
           aria-label={t('chat.openAria')}
           title={t('chat.openTitle')}
           onClick={() => setOpen(true)}
@@ -343,15 +423,30 @@ export default function ChatAssistant() {
           <svg viewBox="0 0 24 24" aria-hidden>
             <path d="M21 12a8 8 0 0 1-11.5 7.2L4 21l1.8-5.5A8 8 0 1 1 21 12z" />
           </svg>
+          {unread > 0 && (
+            <span className="chat-edge-badge" aria-hidden>
+              {unread > 9 ? '9+' : unread}
+            </span>
+          )}
         </button>
       )}
 
       <aside
-        className={`chat-panel${open ? ' open' : ''}`}
+        className={`chat-panel${open ? ' open' : ''}${resizing ? ' resizing' : ''}`}
         role="dialog"
         aria-label={t('chat.title')}
         aria-hidden={!open}
       >
+        {/* Drag handle for horizontal resize. Sits on the panel's left
+            edge — pointer becomes ew-resize, mousedown starts the drag.
+            Hidden on mobile (full-width panel) via media query. */}
+        <div
+          className="chat-resize"
+          onMouseDown={startResize}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label={t('chat.resize', { defaultValue: 'Resize chat panel' })}
+        />
         <header className="chat-head">
           <div className="chat-head-icon" aria-hidden>
             <svg viewBox="0 0 24 24">
@@ -372,10 +467,6 @@ export default function ChatAssistant() {
               <path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5" />
             </svg>
           </button>
-          {/* Close X is hidden on desktop — dismissal goes through the
-              .chat-collapse handle on the panel's left edge. On mobile
-              the panel is full-width and the collapse handle is hidden,
-              so this X becomes the primary close affordance. */}
           <button
             type="button"
             className="chat-head-btn chat-head-close"
@@ -390,7 +481,7 @@ export default function ChatAssistant() {
         </header>
 
         <div className="chat-msgs" ref={msgsRef}>
-          {messages.length === 0 && (
+          {messages.filter((m) => !m.hidden).length === 0 && (
             <div className="chat-empty">
               <p>{t('chat.intro')}</p>
               {suggestions.length > 0 && (
@@ -401,12 +492,6 @@ export default function ChatAssistant() {
                       type="button"
                       role="listitem"
                       className="chat-suggest"
-                      // Send the suggestion directly — bypasses the draft
-                      // textarea so the user doesn't have to confirm,
-                      // matching the demo's chip-click → autosend flow.
-                      // Chips disappear once `messages.length > 0` makes
-                      // this whole block conditional, so no manual
-                      // clearing is needed.
                       onClick={() => {
                         if (pending) return;
                         send(q, { context: snapshot, language });
@@ -420,15 +505,18 @@ export default function ChatAssistant() {
               )}
             </div>
           )}
-          {messages.map((m, i) => (
-            <MessageView
-              key={i}
-              message={m}
-              pendingConfirms={pendingConfirms}
-              onApprove={handleApproveChip}
-              onApproveDirect={(id) => resolveConfirm(id, true)}
-            />
-          ))}
+          {messages.map((m, i) =>
+            m.hidden ? null : (
+              <MessageView
+                key={i}
+                view={m}
+                messageIdx={i}
+                ctx={ctx}
+                onApproveChip={handleApproveChip}
+                onApplyAll={applyAllInMessage}
+              />
+            ),
+          )}
           {pending && (
             <div className="chat-msg bot">
               <div className="chat-typing" aria-label={t('chat.typing')}>
@@ -481,259 +569,216 @@ export default function ChatAssistant() {
         </form>
         <div className="chat-foot">{t('chat.disclaimer')}</div>
       </aside>
-
-      {/* Mini collapse handle — sits on the panel's left edge while the chat
-          is open. At rest, a small clickable nub; on hover, expands to show
-          the chevron icon. CSS handles the slide-in animation in lockstep
-          with the panel's width transition. Always rendered (visibility
-          toggles) so the right-position transition can fire. */}
-      <button
-        type="button"
-        className="chat-collapse"
-        onClick={() => setOpen(false)}
-        title={t('chat.close')}
-        aria-label={t('chat.close')}
-        tabIndex={open ? 0 : -1}
-      >
-        <svg viewBox="0 0 24 24" aria-hidden>
-          <path d="M9 6l6 6-6 6" />
-        </svg>
-      </button>
     </>
   );
 }
 
 interface MessageViewProps {
-  message: ChatMessage;
-  pendingConfirms: PendingConfirm[];
-  /** Single-chip approve. Wraps resolveConfirm with the pre-navigation
-   *  step jump for setField on other steps. */
-  onApprove: (toolUseId: string) => void | Promise<void>;
-  /** Bypasses pre-navigation. Used by the Apply-all button — firing chips
-   *  in DOM order while ping-ponging across steps would be jarring. The
-   *  Promise-returning shape lets the apply-all loop {@code await} each
-   *  resolution sequentially. */
-  onApproveDirect: (toolUseId: string) => Promise<void>;
+  view: ChatMessageView;
+  messageIdx: number;
+  /** Current wizard context — read by chips that compute state-aware
+   *  labels (e.g. goTo to step 2 says "Generate Global STEEP" when the
+   *  GS fields are empty, "Navigate to step 2" otherwise). */
+  ctx: PublishedWizardContext | undefined;
+  onApproveChip: (messageIdx: number, cmd: PendingCommand) => void | Promise<void>;
+  onApplyAll: (messageIdx: number) => void | Promise<void>;
 }
 
 type ApplyAllState = 'idle' | 'running' | 'done';
 
 /**
- * Renders one assistant or user turn. Plain string content is shown as a
- * speech bubble. Block arrays are walked: text → bubble, tool_use →
- * confirmation chip (when pending) or activity entry (when already resolved),
- * tool_result → suppressed (the next assistant turn already spoke about it).
+ * Renders one assistant or user turn. User content goes in a plain bubble.
  *
- * <p>When this message's assistant turn produced 2+ confirm chips that are
- * still pending, an "Apply all" button is rendered after the last block.
- * It fires every pending chip in DOM order, sequentially. The button is
- * locked to a "done" state once clicked so the bubble doesn't lose the
- * affordance the moment chips start resolving.
+ * <p>Assistant turns with parsed commands render the pre-chip prose first,
+ * then the chips themselves (each clickable to approve), then an Apply All
+ * button when 2+ chips are still pending, and finally — only once nothing
+ * is pending — the post-chip prose.
  */
-function MessageView({
-  message,
-  pendingConfirms,
-  onApprove,
-  onApproveDirect,
-}: MessageViewProps) {
+function MessageView({ view, messageIdx, ctx, onApproveChip, onApplyAll }: MessageViewProps) {
   const { t } = useTranslation();
   const [applyAllState, setApplyAllState] = useState<ApplyAllState>('idle');
+  const { message, commands, segments } = view;
 
   if (typeof message.content === 'string') {
     const isBot = message.role !== 'user';
     return (
       <div className={`chat-msg ${isBot ? 'bot' : 'user'}`}>
         {isBot ? (
-          // Assistant string content (rare path — most assistant turns
-          // come as block arrays). Render through the tiny markdown pass
-          // so any **bold**/`code`/*italic* still works.
           <div
             className="chat-bubble-text"
             dangerouslySetInnerHTML={{ __html: renderInlineMd(message.content) }}
           />
         ) : (
-          // User content — auto-escaped by React, no markdown.
           <div className="chat-bubble-text">{message.content}</div>
         )}
       </div>
     );
   }
 
-  // Walk this message's blocks once to find the tool_use ids that are
-  // still awaiting user approval (excluding chips already in the
-  // applied=true state). Used both for the apply-all visibility check
-  // and as the click-time iteration order (DOM order).
-  const blocks = message.content;
-  const pendingIdsInBubble: string[] = [];
-  for (const b of blocks) {
-    if (
-      b.type === 'tool_use' &&
-      b.id &&
-      pendingConfirms.some((c) => c.toolUseId === b.id && !c.applied)
-    ) {
-      pendingIdsInBubble.push(b.id);
-    }
-  }
-  const showApplyAll = applyAllState !== 'idle' || pendingIdsInBubble.length >= 2;
+  // Block-array assistant turn. We split prose into pre/post around the
+  // chip block; commands are the parsed-out tags awaiting the user.
+  const pre = segments?.pre ?? '';
+  const post = segments?.post ?? '';
+  const hasCommands = !!commands && commands.length > 0;
+  const pendingCount = commands?.filter((c) => c.status === 'pending').length ?? 0;
+  const allResolved = hasCommands && pendingCount === 0;
+  const showApplyAll = applyAllState !== 'idle' || pendingCount >= 2;
 
   async function handleApplyAll() {
     if (applyAllState !== 'idle') return;
-    // Snapshot the id list NOW — pendingConfirms shrinks as each one
-    // resolves, so re-deriving it per iteration would skip everything
-    // after the first.
-    const ids = pendingIdsInBubble.slice();
     setApplyAllState('running');
-    for (const id of ids) {
-      // Apply-all uses the direct path (no pre-navigation). Sequential
-      // because the chips are intentionally being applied as a batch
-      // and parallel firing would let later ones race ahead of earlier
-      // ones in the conversation history.
-      await onApproveDirect(id);
-    }
+    await onApplyAll(messageIdx);
     setApplyAllState('done');
   }
 
   return (
     <div className={`chat-msg ${message.role === 'user' ? 'user' : 'bot'}`}>
-      {blocks.map((block, i) => (
-        <BlockView
-          key={i}
-          block={block}
-          pendingConfirms={pendingConfirms}
-          onApprove={onApprove}
+      {pre && (
+        <div
+          className="chat-bubble-text"
+          dangerouslySetInnerHTML={{ __html: renderInlineMd(pre) }}
         />
-      ))}
+      )}
+      {hasCommands && (
+        <div className="chat-applied-list">
+          {commands!.map((cmd) => (
+            <CommandChip
+              key={cmd.id}
+              cmd={cmd}
+              ctx={ctx}
+              onApprove={() => onApproveChip(messageIdx, cmd)}
+            />
+          ))}
+        </div>
+      )}
       {showApplyAll && (
         <button
           type="button"
-          className={`chat-apply-all${applyAllState === 'done' ? ' done' : ''}`}
+          className={`chat-apply-all${applyAllState === 'done' || allResolved ? ' done' : ''}`}
           onClick={handleApplyAll}
-          disabled={applyAllState !== 'idle'}
+          disabled={applyAllState !== 'idle' || pendingCount === 0}
         >
-          {applyAllState === 'done' ? t('chat.applyAllDone') : t('chat.applyAll')}
+          {applyAllState === 'done' || allResolved
+            ? t('chat.applyAllDone')
+            : t('chat.applyAll')}
         </button>
+      )}
+      {allResolved && post && (
+        <div
+          className="chat-bubble-text chat-bubble-post"
+          dangerouslySetInnerHTML={{ __html: renderInlineMd(post) }}
+        />
       )}
     </div>
   );
 }
 
-function BlockView({
-  block,
-  pendingConfirms,
-  onApprove,
-}: {
-  block: ChatContentBlock;
-  pendingConfirms: PendingConfirm[];
-  onApprove: (toolUseId: string) => void;
-}) {
-  if (block.type === 'text' && block.text) {
-    // Assistant prose — render the demo's tiny markdown subset. Safe:
-    // renderInlineMd escapes first, then only injects <strong>, <em>,
-    // <code> from matching markdown patterns.
-    return (
-      <div
-        className="chat-bubble-text"
-        dangerouslySetInnerHTML={{ __html: renderInlineMd(block.text) }}
-      />
-    );
-  }
-  if (block.type === 'tool_use' && block.id && block.name) {
-    const pending = pendingConfirms.find((c) => c.toolUseId === block.id);
-    if (pending) {
-      return (
-        <ConfirmChip
-          toolUseId={block.id}
-          pending={pending}
-          onApprove={onApprove}
-        />
-      );
-    }
-    // No matching pending → the chip was either declined (silently
-    // dropped on next message) or this is from before the applied-flag
-    // refactor. Render nothing rather than a stale tag.
-    return null;
-  }
-  // tool_result and unknown types are silent — the next assistant text
-  // turn already speaks to them, and rendering raw JSON adds noise.
-  return null;
-}
-
 /**
- * Single confirm chip with collapsible preview. Preview is clamped to 4
- * lines via CSS by default; if the proposed value is long enough to plausibly
- * overflow the clamp, a Show more / Show less toggle is rendered.
+ * One chip per parsed `<command>` tag. Renders as a clickable confirm card
+ * while pending; transitions to green "applied", red "error", or muted
+ * "declined" once resolved. The whole card is the click target — there's
+ * no separate confirm button.
  *
- * <p>The char-length threshold ({@link PREVIEW_TOGGLE_THRESHOLD}) is a
- * heuristic — short single-line text fits inside the clamp regardless, and
- * very long text always exceeds it. Borderline cases (e.g. 110 chars with
- * many newlines) miss the toggle, which is acceptable because the user can
- * still read the visible portion and the chip's approve action doesn't
- * depend on having seen every character.
+ * <p>Some chip labels are state-aware: goTo(step:2) reads "Generate Global
+ * STEEP" when the GS fields are empty (because navigating there auto-runs
+ * generation) and "Navigate to step 2" otherwise. Mirrors the wizard's
+ * SplitButton primary-action logic so users see the same label in both
+ * places.
  */
-function ConfirmChip({
-  toolUseId,
-  pending,
+function CommandChip({
+  cmd,
+  ctx,
   onApprove,
 }: {
-  toolUseId: string;
-  pending: PendingConfirm;
-  onApprove: (toolUseId: string) => void;
+  cmd: PendingCommand;
+  ctx: PublishedWizardContext | undefined;
+  onApprove: () => void | Promise<void>;
 }) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
-  const showToggle = !!pending.preview && pending.preview.length >= PREVIEW_TOGGLE_THRESHOLD;
-  const applied = !!pending.applied;
 
-  /** Head text — for setField chips, render "REPLACE IN: <field>" /
-   *  "ADD TO: <field>" / "APPLIED TO: <field>" using human-readable
-   *  field names from {@link FIELD_NAME_KEY}. For other commands, fall
-   *  back to the spec-provided label (covers runAnalysis, delete, etc.).
-   *  The pending state's verb depends on the setField mode arg so the
-   *  chip shows what's actually about to happen. */
+  const isSetField = cmd.name === 'setField';
+  const args = cmd.args as { id?: string; mode?: string; value?: string };
+  const fieldId = args.id ?? '';
+  const fieldKey = isSetField ? FIELD_NAME_KEY[fieldId] : undefined;
+  const fieldName = fieldKey ? t(fieldKey) : fieldId;
+  const preview = isSetField ? args.value ?? '' : '';
+  const showToggle = preview.length >= PREVIEW_TOGGLE_THRESHOLD;
+
+  const stateClass =
+    cmd.status === 'applied'
+      ? ' applied'
+      : cmd.status === 'error'
+        ? ' applied error'
+        : cmd.status === 'declined'
+          ? ' declined'
+          : '';
+  const clickable = cmd.status === 'pending';
+
   const headText = (() => {
-    if (pending.name === 'setField') {
-      const input = pending.input as { id?: string; mode?: string } | undefined;
-      const fieldId = input?.id ?? '';
-      const fieldKey = FIELD_NAME_KEY[fieldId];
-      const fieldName = fieldKey ? t(fieldKey) : fieldId;
-      const verb = applied
-        ? t('chat.appliedTo')
-        : input?.mode === 'add'
-          ? t('chat.addTo')
-          : t('chat.replaceIn');
+    if (isSetField) {
+      const verb =
+        cmd.status === 'applied'
+          ? t('chat.appliedTo')
+          : cmd.status === 'error'
+            ? t('chat.failedTo', { defaultValue: 'Failed' })
+            : cmd.status === 'declined'
+              ? t('chat.appliedTo')
+              : args.mode === 'add'
+                ? t('chat.addTo')
+                : t('chat.replaceIn');
       return `${verb}: ${fieldName}`;
     }
-    return pending.label;
+    // State-aware override for goTo(step:2): when the Global STEEP fields
+    // are empty, navigating there will auto-trigger generation, so the
+    // chip surfaces that — matching the wizard's SplitButton primary
+    // label. With data already present it's just navigation.
+    if (cmd.name === 'goTo') {
+      const goArgs = cmd.args as { step?: number };
+      if (goArgs.step === 2) {
+        const gs = ctx?.globalSteep;
+        const hasGs = !!gs && (
+          (gs.S?.trim() ?? '') !== '' ||
+          (gs.T?.trim() ?? '') !== '' ||
+          (gs.E?.trim() ?? '') !== '' ||
+          (gs.ENV?.trim() ?? '') !== '' ||
+          (gs.P?.trim() ?? '') !== ''
+        );
+        if (!hasGs) return t('chat.cmdLabels.generateGlobalSteep');
+      }
+      // Other steps: append step number for clarity ("Navigate to step 4").
+      if (typeof goArgs.step === 'number') {
+        return t('chat.cmdLabels.goToStep', {
+          step: goArgs.step,
+          defaultValue: `${t('chat.cmdLabels.goTo')} → ${goArgs.step}`,
+        });
+      }
+    }
+    const labelKey = `chat.cmdLabels.${cmd.name}`;
+    return t(labelKey, { defaultValue: cmd.name });
   })();
 
-  /** The chip body itself is the click target — clicking ANYWHERE on
-   *  the chip (head, preview area, even whitespace) approves the
-   *  action. Once applied, the chip is "spent" — further clicks are
-   *  no-ops (the chip stays visible in green-applied state). */
-  function handleChipClick() {
-    if (applied) return;
-    onApprove(toolUseId);
+  function handleClick() {
+    if (!clickable) return;
+    void onApprove();
   }
-  function handleChipKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
-    if (applied) return;
+  function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (!clickable) return;
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      onApprove(toolUseId);
+      void onApprove();
     }
   }
 
   return (
-    // Plain div + role=button (not <button>) so the nested "Show more"
-    // <button> doesn't produce invalid button-in-button HTML. Keyboard
-    // accessibility is restored via tabIndex + Enter/Space handlers.
     <div
-      className={`chat-confirm${expanded ? ' expanded' : ''}${applied ? ' applied' : ''}`}
-      role={applied ? undefined : 'button'}
-      tabIndex={applied ? -1 : 0}
-      onClick={handleChipClick}
-      onKeyDown={handleChipKeyDown}
+      className={`chat-confirm${stateClass}${expanded ? ' expanded' : ''}`}
+      role={clickable ? 'button' : undefined}
+      tabIndex={clickable ? 0 : -1}
+      onClick={handleClick}
+      onKeyDown={handleKeyDown}
       aria-label={headText}
-      aria-disabled={applied || undefined}
+      aria-disabled={!clickable || undefined}
     >
       <div className="chat-confirm-head">
         <svg className="chat-confirm-head-ico" aria-hidden>
@@ -741,9 +786,9 @@ function ConfirmChip({
         </svg>
         <span>{headText}</span>
       </div>
-      {pending.preview && (
+      {preview && (
         <div className={`chat-confirm-preview${expanded ? ' expanded' : ''}`}>
-          {pending.preview}
+          {preview}
         </div>
       )}
       {showToggle && (
@@ -752,19 +797,18 @@ function ConfirmChip({
             type="button"
             className="chat-confirm-toggle"
             onClick={(e) => {
-              // Don't bubble — toggling the preview shouldn't fire the
-              // outer chip's apply handler.
               e.stopPropagation();
               setExpanded((v) => !v);
             }}
-            // Match Enter/Space to its own toggle action so keyboard
-            // users don't accidentally apply the chip.
             onKeyDown={(e) => e.stopPropagation()}
           >
             <span className="caret" aria-hidden>▾</span>
             {expanded ? t('chat.showLess') : t('chat.showMore')}
           </button>
         </div>
+      )}
+      {cmd.status === 'error' && cmd.error && (
+        <div className="chat-confirm-error">{cmd.error}</div>
       )}
     </div>
   );
