@@ -255,6 +255,16 @@ const es = {
       title: 'Vista de ejemplo',
       desc: 'Puedes explorar los inputs y navegar entre los pasos. Los cambios no se guardan en el ejemplo.',
     },
+    saveStatus: {
+      dirty: 'Cambios sin guardar',
+      saving: 'Guardando…',
+      justSaved: 'Guardado ahora mismo',
+      savedSecondsAgo_one: 'Guardado hace {{count}}s',
+      savedSecondsAgo_other: 'Guardado hace {{count}}s',
+      savedMinutesAgo_one: 'Guardado hace {{count}}m',
+      savedMinutesAgo_other: 'Guardado hace {{count}}m',
+      error: 'Error al guardar — reintentando',
+    },
     steps: {
       empresa: 'Empresa',
       global: 'Global',

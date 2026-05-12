@@ -268,18 +268,55 @@ export default function NewReportPage() {
   const isExampleModeRef = useRef(isExampleMode);
   isExampleModeRef.current = isExampleMode;
 
+  // ── Autosave state machine ──────────────────────────────────────
+  // The wizard PATCHes the draft on a debounced timer as the user
+  // types. Three knobs:
+  //
+  //   - AUTOSAVE_DEBOUNCE_MS — how long after the last keystroke we
+  //     fire the save. Long enough to coalesce a paragraph of typing
+  //     into one PATCH, short enough that "Saved" lands within a
+  //     reasonable expectation of "I just stopped typing".
+  //   - In-flight guard — if a save is already running when a new one
+  //     wants to fire, we postpone the second one until the first
+  //     resolves. Prevents an older PATCH from racing-and-overwriting
+  //     a newer one (no operational transform, just last-write-wins
+  //     ordering).
+  //   - prefillCompleteRef — initial prefill assigns React state
+  //     which would otherwise look like "user just edited", triggering
+  //     an immediate no-op autosave. The ref flips true once after
+  //     the first prefill effect finishes, so user-driven changes
+  //     thereafter are the only ones the debouncer sees.
+  const AUTOSAVE_DEBOUNCE_MS = 1500;
+  type SaveStatus = 'idle' | 'dirty' | 'saving' | 'saved' | 'error';
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const debounceTimerRef = useRef<number | null>(null);
+  const inflightSaveRef = useRef<boolean>(false);
+  const prefillCompleteRef = useRef<boolean>(!editMode);
+  // Cache the status in a ref so flushAutosave / unmount cleanup can
+  // read it without becoming a render-time dependency.
+  const saveStatusRef = useRef<SaveStatus>(saveStatus);
+  saveStatusRef.current = saveStatus;
+
   /** Persists a draft snapshot. POST on first call (no id yet), PATCH after.
-   *  Fire-and-forget: errors are logged but never block UX — the user can
-   *  keep editing and the next step transition will retry.
-   *
-   *  <p>Examples short-circuit before any HTTP call: their content lives
-   *  in the {@code examples} table, not {@code reports}, so a PATCH
-   *  against {@code /api/reports/:id} would 404 and a POST would create
-   *  an unrelated new report. */
+   *  Drives the autosave status indicator — sets 'saving' before the call,
+   *  'saved' / 'error' after. Examples short-circuit (their content lives
+   *  in the {@code examples} table, not {@code reports}, so a PATCH against
+   *  {@code /api/reports/:id} would 404). */
   const persistDraft = useCallback(
     async (currentStep: number): Promise<void> => {
       if (isExampleModeRef.current) return;
       if (!hasMeaningfulContent()) return;
+      // Coalesce overlapping saves. If a save is already in flight, mark
+      // the document still-dirty and let the debounced scheduler pick it
+      // up after the current save resolves. Stops the older save from
+      // arriving at the server AFTER a newer one.
+      if (inflightSaveRef.current) {
+        setSaveStatus('dirty');
+        return;
+      }
+      inflightSaveRef.current = true;
+      setSaveStatus('saving');
       const title = buildTitle();
       const inputData = buildInputData(currentStep);
       try {
@@ -293,13 +330,31 @@ export default function NewReportPage() {
           reportIdRef.current = created.id;
           setReportId(created.id);
         }
+        setSaveStatus('saved');
+        setLastSavedAt(new Date());
       } catch (err) {
         // eslint-disable-next-line no-console
         console.error('[autosave] persistDraft failed', err);
+        setSaveStatus('error');
+      } finally {
+        inflightSaveRef.current = false;
       }
     },
     [buildInputData, buildTitle, createReportAsync, updateReportAsync],
   );
+
+  /** Cancel any pending debounce + fire the save immediately. Used on
+   *  step transitions (so Continue still commits in-flight edits) and
+   *  on unmount (so navigating away doesn't drop a pending PATCH). */
+  const flushAutosave = useCallback(async (): Promise<void> => {
+    if (debounceTimerRef.current !== null) {
+      window.clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+    if (saveStatusRef.current === 'dirty') {
+      await persistDraftRef.current(stepRef.current);
+    }
+  }, []);
 
   // Mirror persistDraft into a ref so goToStep can stay stable (deps: []).
   // Without this every render of NewReportPage would yield a new goToStep,
@@ -308,14 +363,23 @@ export default function NewReportPage() {
   const persistDraftRef = useRef(persistDraft);
   persistDraftRef.current = persistDraft;
 
+  // Mirror the active step into a ref so flushAutosave can read it
+  // without taking `step` as a dep (which would re-create flushAutosave
+  // — and every dependent — on every step change).
+  const stepRef = useRef<number>(initialStep);
+
   const goToStep = useCallback((n: number) => {
     setStep(n);
+    stepRef.current = n;
     setMaxReached((prev) => Math.max(prev, n));
-    // Autosave the snapshot under the *target* step — that's where the
-    // user will resume next time. Don't await: the user moves on while
-    // the request is in flight.
-    void persistDraftRef.current(n);
-  }, []);
+    // Flush any pending autosave so the user's last keystrokes land
+    // under the OLD step before we record the move. The persistDraft
+    // inside flush reads stepRef.current — which we've already
+    // advanced — so the saved currentStep reflects where the user
+    // ended up, while the inputData includes everything they typed
+    // before clicking Continue.
+    void flushAutosave();
+  }, [flushAutosave]);
 
   const language: 'es' | 'en' =
     user?.language === 'en' || i18n.language === 'en' ? 'en' : 'es';
@@ -413,9 +477,89 @@ export default function NewReportPage() {
     if (!fromUrl && typeof inputs.currentStep === 'number') {
       const resumeAt = Math.min(Math.max(inputs.currentStep, 1), 4);
       setStep(resumeAt);
+      stepRef.current = resumeAt;
       setMaxReached((prev) => Math.max(prev, resumeAt));
     }
+    // The prefill has just assigned React state; the keystroke-driven
+    // autosave effect below shouldn't treat that as a user edit. Flip
+    // the gate so subsequent user-driven state changes ARE detected.
+    prefillCompleteRef.current = true;
   }, [editMode, editingReport.data, searchParams]);
+
+  // ── Keystroke-debounced autosave ────────────────────────────────
+  // Watches the four user-editable wizard slices. On any change we
+  // mark the document dirty, cancel any pending save, and schedule a
+  // new save after AUTOSAVE_DEBOUNCE_MS of inactivity. Coalesces a
+  // paragraph of fast typing into one PATCH; commits within ~1.5s
+  // after the user pauses.
+  //
+  // Skipped entirely in example mode (read-only content) and during
+  // the initial prefill (which assigns state programmatically). Also
+  // skipped while the analysis pipeline is running so the in-flight
+  // generation can't race with a draft PATCH.
+  useEffect(() => {
+    if (!prefillCompleteRef.current) return;
+    if (isExampleModeRef.current) return;
+    if (isGenerating) return;
+    setSaveStatus('dirty');
+    if (debounceTimerRef.current !== null) {
+      window.clearTimeout(debounceTimerRef.current);
+    }
+    debounceTimerRef.current = window.setTimeout(() => {
+      debounceTimerRef.current = null;
+      void persistDraftRef.current(stepRef.current);
+    }, AUTOSAVE_DEBOUNCE_MS);
+    // No cleanup here — the timer is shared across re-renders and only
+    // gets cancelled by (a) the next change resetting it, (b) goToStep
+    // calling flushAutosave, or (c) the unmount effect below.
+  }, [empresa, globalData, steep, horizon, isGenerating]);
+
+  // Flush any pending debounce on unmount so a half-typed paragraph
+  // doesn't drop when the user navigates away. Also cancels the timer
+  // so an unmounted-component setState warning doesn't fire from a
+  // late callback.
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current !== null) {
+        window.clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+      // Fire one last save synchronously-ish — we await nothing, but
+      // the fetch is queued before the React tree finishes tearing
+      // down. fetch() requests survive unmount.
+      if (saveStatusRef.current === 'dirty' && !isExampleModeRef.current) {
+        void persistDraftRef.current(stepRef.current);
+      }
+    };
+  }, []);
+
+  // beforeunload guard — if the user closes the tab with a dirty
+  // document, the browser prompts the standard "leave / stay" dialog.
+  // We can't reliably issue an authenticated POST from inside
+  // beforeunload (sendBeacon doesn't carry custom Authorization
+  // headers), so the safest UX is to make sure the user notices. In
+  // practice the debounce window is short enough that this almost
+  // never fires.
+  useEffect(() => {
+    function onBeforeUnload(e: BeforeUnloadEvent) {
+      if (saveStatusRef.current === 'dirty' || saveStatusRef.current === 'saving') {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    }
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, []);
+
+  // Tick the "Saved Ns ago" caption every 15s so the relative time
+  // visibly stays current. Only runs while a save has actually
+  // landed; otherwise the indicator's text is computed elsewhere.
+  const [nowTick, setNowTick] = useState(0);
+  useEffect(() => {
+    if (saveStatus !== 'saved') return;
+    const t = window.setInterval(() => setNowTick((n) => n + 1), 15_000);
+    return () => window.clearInterval(t);
+  }, [saveStatus]);
 
   // Step bar shows 5 navigable items — Analysis (step 5 internally) is the
   // transient loader the user lands on while generating, never a real
@@ -477,6 +621,14 @@ export default function NewReportPage() {
     // (depending on whether reportId is set). The Generate button is
     // disabled in this mode too; this guard is defence in depth.
     if (isExampleMode) return;
+    // Drop any pending autosave timer before we start so a debounced
+    // PATCH doesn't race with handleSubmit's explicit persistDraft +
+    // subsequent resultData update. The handleSubmit flow does its
+    // own saves at the right moments.
+    if (debounceTimerRef.current !== null) {
+      window.clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
     setGenerateError(null);
     setIsGenerating(true);
     // Reset loader state — research row starts running immediately, the
@@ -865,6 +1017,26 @@ export default function NewReportPage() {
 
   ]);
 
+  // Status indicator copy — derives from saveStatus + lastSavedAt.
+  // nowTick is a dependency only because we want the relative time
+  // ("Saved 30s ago") to refresh; its value is otherwise unused.
+  const saveStatusLabel = useMemo<string | null>(() => {
+    if (isExampleMode || isGenerating) return null;
+    if (saveStatus === 'idle') return null;
+    if (saveStatus === 'saving') return t('wizard.saveStatus.saving');
+    if (saveStatus === 'dirty') return t('wizard.saveStatus.dirty');
+    if (saveStatus === 'error') return t('wizard.saveStatus.error');
+    if (saveStatus === 'saved' && lastSavedAt) {
+      const seconds = Math.floor((Date.now() - lastSavedAt.getTime()) / 1000);
+      if (seconds < 5) return t('wizard.saveStatus.justSaved');
+      if (seconds < 60) return t('wizard.saveStatus.savedSecondsAgo', { count: seconds });
+      const minutes = Math.floor(seconds / 60);
+      return t('wizard.saveStatus.savedMinutesAgo', { count: minutes });
+    }
+    return null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saveStatus, lastSavedAt, isExampleMode, isGenerating, nowTick, t]);
+
   return (
     <div className="wizard">
       <main className="main">
@@ -877,6 +1049,39 @@ export default function NewReportPage() {
                   'You can explore the inputs and navigate between steps. Changes are not saved to the example.',
               })}
             </span>
+          </div>
+        )}
+        {/* Autosave indicator — small fixed-position icon chip at the
+            bottom right. State drives which glyph appears: pencil for
+            unsaved edits, spinner for in-flight save, check for saved,
+            alert triangle for failure. The descriptive text moves into
+            the title (mouse tooltip) and a visually-hidden span (screen
+            readers / aria-live announcements). Hidden in example mode
+            (nothing persists) and during the analysis pipeline (the
+            loader overlay covers the page). */}
+        {saveStatusLabel && (
+          <div
+            className={`wizard-save-status wizard-save-status--${saveStatus}`}
+            role="status"
+            aria-live="polite"
+            title={saveStatusLabel}
+          >
+            {saveStatus === 'saving' ? (
+              <span className="wizard-save-spinner" aria-hidden />
+            ) : (
+              <svg className="wizard-save-icon" aria-hidden>
+                <use
+                  href={
+                    saveStatus === 'saved'
+                      ? '#i-check'
+                      : saveStatus === 'error'
+                        ? '#i-alert'
+                        : '#i-edit'
+                  }
+                />
+              </svg>
+            )}
+            <span className="visually-hidden">{saveStatusLabel}</span>
           </div>
         )}
         {!isGenerating && (

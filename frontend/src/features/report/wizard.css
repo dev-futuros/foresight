@@ -51,6 +51,70 @@
   line-height: 1.45;
 }
 
+/* ── Autosave status icon ─────────────────────────────────────
+   Fixed bottom-right circular badge that reflects the
+   keystroke-debounced persistDraft state. State drives the glyph:
+   pencil = unsaved edits, spinner = saving, check = saved, alert
+   triangle = failed. The textual status moves to the title tooltip
+   and a visually-hidden span so screen readers still announce it.
+   Restoring `pointer-events: auto` so the tooltip can fire on hover. */
+.wizard-save-status {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 80;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--ink-soft);
+  box-shadow: 0 6px 18px hsla(0, 0%, 0%, 0.35);
+  transition: border-color 200ms var(--ease), color 200ms var(--ease),
+      background 200ms var(--ease);
+  cursor: help;
+}
+.wizard-save-status--dirty {
+  border-color: var(--line-accent);
+  color: var(--gold-soft);
+}
+.wizard-save-status--saving {
+  border-color: var(--gold-soft);
+  color: var(--gold);
+}
+.wizard-save-status--saved {
+  border-color: var(--line);
+  color: var(--ink-mute);
+}
+.wizard-save-status--error {
+  border-color: hsla(0, 80%, 70%, 0.45);
+  background: hsla(0, 80%, 70%, 0.08);
+  color: var(--red);
+}
+.wizard-save-icon {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.wizard-save-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.7px solid currentColor;
+  border-top-color: transparent;
+  animation: wizard-save-spin 0.9s linear infinite;
+}
+@keyframes wizard-save-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* ── Page header ────────────────────────────────────────────── */
 .wizard .page-header { margin-bottom: 28px; }
 .wizard .eyebrow {

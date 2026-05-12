@@ -261,6 +261,16 @@ const en = {
       title: 'Viewing example',
       desc: 'You can explore the inputs and navigate between steps. Changes are not saved to the example.',
     },
+    saveStatus: {
+      dirty: 'Unsaved changes',
+      saving: 'Saving…',
+      justSaved: 'Saved just now',
+      savedSecondsAgo_one: 'Saved {{count}}s ago',
+      savedSecondsAgo_other: 'Saved {{count}}s ago',
+      savedMinutesAgo_one: 'Saved {{count}}m ago',
+      savedMinutesAgo_other: 'Saved {{count}}m ago',
+      error: 'Save failed — retrying',
+    },
     steps: {
       empresa: 'Company',
       global: 'Global',
