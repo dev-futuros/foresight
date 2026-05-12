@@ -6,7 +6,6 @@ import LoadingOverlay from '../../components/LoadingOverlay';
 import Modal from '../../components/Modal';
 import { useCurrentUser } from '../../hooks/useAuth';
 import { useSetStepper } from '../shell/StepperContext';
-import { useSetSaveStatus } from '../shell/SaveStatusContext';
 import {
   analyzeBackcasting,
   analyzeScenarioPlanning,
@@ -1132,34 +1131,18 @@ export default function NewReportPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saveStatus, lastSavedAt, isExampleMode, isGenerating, nowTick, t]);
 
-  // Publish autosave state into the shell so the TopBar can render the
-  // chip inline with its other action icons (previously a fixed-position
-  // badge in the wizard pane). The provider clears on unmount via the
-  // null-publish in the cleanup return — important so navigating away
-  // from the wizard doesn't leave a stale "Saved 12m ago" in the bar.
-  // Named publishSaveStatus to avoid colliding with the local useState
-  // setter `setSaveStatus` declared earlier in this component.
-  const publishSaveStatus = useSetSaveStatus();
-  useEffect(() => {
-    if (!saveStatusLabel) {
-      publishSaveStatus(null);
-      return;
-    }
-    // saveStatus is the underlying state-machine key (dirty/saving/saved/error
-    // /idle); we only publish the four with a visible label. Type-narrow with
-    // a guard so the context shape stays strict.
-    if (
-      saveStatus === 'dirty' ||
+  // Whether the inline save-row above the form should render at all. The
+  // chip is only meaningful while the wizard's input form is on-screen —
+  // hidden during analysis (the loader takes over) and in example mode
+  // (nothing persists, so a "Saved" hint would be misleading).
+  const showSaveRow =
+    !!saveStatusLabel &&
+    !isGenerating &&
+    !isExampleMode &&
+    (saveStatus === 'dirty' ||
       saveStatus === 'saving' ||
       saveStatus === 'saved' ||
-      saveStatus === 'error'
-    ) {
-      publishSaveStatus({ status: saveStatus, label: saveStatusLabel });
-    }
-  }, [saveStatus, saveStatusLabel, publishSaveStatus]);
-  useEffect(() => {
-    return () => publishSaveStatus(null);
-  }, [publishSaveStatus]);
+      saveStatus === 'error');
 
   return (
     <div className="wizard">
@@ -1175,10 +1158,40 @@ export default function NewReportPage() {
             </span>
           </div>
         )}
-        {/* Autosave indicator lives in the topbar now — published via
-            SaveStatusContext from the useEffect above. The same icons +
-            state-colour palette render there as a peer of the dashboard
-            and new-report buttons. */}
+        {/* Autosave indicator — right-aligned above the input form. The
+            chip is the same circular badge the topbar used to host; the
+            relative-time label ("Saved 15s ago" / "Saving…" / etc.) sits
+            inline to its left so the row doesn't look empty when collapsed
+            to a single icon. Hidden during analysis and in example mode. */}
+        {showSaveRow && (
+          <div
+            className={`wizard-save-row wizard-save-row--${saveStatus}`}
+            role="status"
+            aria-live="polite"
+          >
+            <span className="wizard-save-label">{saveStatusLabel}</span>
+            <span
+              className={`topbar-save-status topbar-save-status--${saveStatus}`}
+              aria-hidden
+            >
+              {saveStatus === 'saving' ? (
+                <span className="topbar-save-spinner" />
+              ) : (
+                <svg className="topbar-save-ico">
+                  <use
+                    href={
+                      saveStatus === 'saved'
+                        ? '#i-check'
+                        : saveStatus === 'error'
+                          ? '#i-alert'
+                          : '#i-edit'
+                    }
+                  />
+                </svg>
+              )}
+            </span>
+          </div>
+        )}
         {!isGenerating && (
           <>
             {step === 1 && (
