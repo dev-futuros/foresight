@@ -203,4 +203,16 @@ public class AiController {
     public Mono<JsonNode> chat(@Valid @RequestBody ChatRequest request) {
         return aiService.chat(request);
     }
+
+    /**
+     * Streaming variant of {@code /chat}. Emits an SSE flux of
+     * {@code {"type":"delta","text":"…"}} events as the model generates,
+     * then a final {@code {"type":"done","text":"…"}} carrying the
+     * full assembled response. Used by the chat panel so the user sees
+     * text appearing word-by-word; matches the demo's chat UX.
+     */
+    @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<JsonNode>> chatStream(@Valid @RequestBody ChatRequest request) {
+        return wrapSse(aiService.chatStream(request));
+    }
 }

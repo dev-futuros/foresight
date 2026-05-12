@@ -7,6 +7,7 @@ import { useIsDev } from '../../hooks/useAuth';
 import { useSetStepper } from '../shell/StepperContext';
 import { useCommands } from '../../lib/useCommands';
 import { useSetAssistantContext } from '../chat/AssistantContextProvider';
+import type { ReportResultSnapshot } from '../../lib/buildAssistantSnapshot';
 import { exportReportPdf } from '../../lib/exportPdf';
 import { exportReportPpt } from '../../lib/exportPpt';
 import ExportModal, {
@@ -23,9 +24,27 @@ import type { ReportResponse, ReportStatus } from '../../types/api';
 import './report.css';
 
 type InputData = {
-  companyProfile?: { name?: string; sector?: string; horizon?: string; challenge?: string };
-  globalSteep?: Record<string, string>;
-  steep?: Record<string, string>;
+  companyProfile?: {
+    name?: string;
+    sector?: string;
+    size?: string;
+    horizon?: string;
+    market?: string;
+    challenge?: string;
+    strengths?: string;
+    consultantName?: string;
+    consultantCompany?: string;
+    title?: string;
+  };
+  globalSteep?: Partial<Record<'S' | 'T' | 'E' | 'ENV' | 'P', string>>;
+  steep?: Partial<{
+    social: string;
+    technological: string;
+    economic: string;
+    environmental: string;
+    political: string;
+  }>;
+  horizon?: Partial<Record<'H1' | 'H2' | 'H3' | 'h1' | 'h2' | 'h3', string>>;
 };
 
 export default function ReportPage() {
@@ -89,8 +108,53 @@ export default function ReportPage() {
   const setAssistantContext = useSetAssistantContext();
   useEffect(() => {
     if (!report || !id) return;
+    // Project the report's inputData back into the wizard shapes the
+    // snapshot builder expects, so the COMPANY / GLOBAL STEEP / SECTORIAL
+    // / HORIZON blocks reflect the open report instead of the (empty)
+    // wizard defaults. Without this the assistant sees a blank form even
+    // when the user is staring at a fully-generated report.
+    const inp = (report.inputData ?? {}) as InputData;
+    const cp = inp.companyProfile ?? {};
+    const empresa = {
+      name: cp.name ?? '',
+      sector: cp.sector ?? '',
+      size: cp.size ?? '',
+      horizon: cp.horizon ?? '',
+      market: cp.market ?? '',
+      challenge: cp.challenge ?? '',
+      strengths: cp.strengths ?? '',
+      consultantName: cp.consultantName ?? '',
+      consultantCompany: cp.consultantCompany ?? '',
+      title: cp.title ?? '',
+    };
+    const gs = inp.globalSteep ?? {};
+    const globalSteep = {
+      S: gs.S ?? '',
+      T: gs.T ?? '',
+      E: gs.E ?? '',
+      ENV: gs.ENV ?? '',
+      P: gs.P ?? '',
+    };
+    const st = inp.steep ?? {};
+    const steep = {
+      social: st.social ?? '',
+      technological: st.technological ?? '',
+      economic: st.economic ?? '',
+      environmental: st.environmental ?? '',
+      political: st.political ?? '',
+    };
+    const hz = inp.horizon ?? {};
+    const horizon = {
+      H1: hz.H1 ?? hz.h1 ?? '',
+      H2: hz.H2 ?? hz.h2 ?? '',
+      H3: hz.H3 ?? hz.h3 ?? '',
+    };
     setAssistantContext({
       currentStep: 6,
+      empresa,
+      globalSteep,
+      steep,
+      horizon,
       viewingReport: {
         id,
         title: report.title,
@@ -99,6 +163,7 @@ export default function ReportPage() {
         availableLanguages: report.availableLanguages ?? [report.primaryLanguage],
         mode: 'viewer',
       },
+      reportResult: (report.resultData ?? undefined) as ReportResultSnapshot | undefined,
     });
   }, [setAssistantContext, id, report]);
   useEffect(() => {

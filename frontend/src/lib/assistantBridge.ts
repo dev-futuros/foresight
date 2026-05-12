@@ -22,8 +22,10 @@
  */
 
 export type AssistantNotifier = (note: string) => void;
+export type AssistantResetter = () => void;
 
 let current: AssistantNotifier | null = null;
+let currentReset: AssistantResetter | null = null;
 
 /** Register (or unregister with {@code null}) the chat's handler. Called
  *  from the chat component's mount effect. */
@@ -36,4 +38,20 @@ export function setAssistantNotifier(notifier: AssistantNotifier | null): void {
  *  Drops silently when no handler is registered. */
 export function notifyAssistant(note: string): void {
   current?.(note);
+}
+
+/** Register the chat's reset handler. Paired with {@link resetAssistant}
+ *  below — called from the chat component's mount effect alongside the
+ *  notifier. */
+export function setAssistantResetter(resetter: AssistantResetter | null): void {
+  currentReset = resetter;
+}
+
+/** Wizard-side trigger to wipe the conversation. Called from the
+ *  newReport command handler so a fresh report starts with a fresh
+ *  chat — the previous report's brief, scenarios, and Q&A are no
+ *  longer relevant to the new one. Drops silently when no handler is
+ *  registered (e.g. chat hasn't been mounted yet). */
+export function resetAssistant(): void {
+  currentReset?.();
 }

@@ -2,7 +2,32 @@ import type { EmpresaData } from '../features/report/steps/StepEmpresa';
 import type { GlobalSteepData } from '../features/report/steps/StepGlobal';
 import type { SteepData } from '../features/report/steps/StepSteep';
 import type { HorizonData } from '../features/report/steps/StepHorizon';
+import type {
+  Backcasting,
+  KeyUncertainty,
+  Scenario,
+  ScenarioPlanning,
+  StrategicMap,
+  WeakSignal,
+  Wildcard,
+} from './aiClient';
 import type { ExampleSummary, ReportSummary } from '../types/api';
+
+/**
+ * Loosely-typed projection of a report's {@code resultData} — the same shape
+ * {@code ReportContent.ResultData} consumes. Duplicated here (not imported)
+ * to avoid pulling a feature module into the snapshot builder.
+ */
+export interface ReportResultSnapshot {
+  executiveSummary?: string;
+  scenarios?: Scenario[];
+  weakSignals?: WeakSignal[];
+  wildcards?: Wildcard[];
+  keyUncertainties?: KeyUncertainty[];
+  scenarioPlanning?: ScenarioPlanning;
+  backcasting?: Backcasting;
+  strategicMap?: StrategicMap;
+}
 
 /**
  * Inputs that feed the snapshot. Pass whatever's known; missing pieces become
@@ -55,6 +80,11 @@ export interface AssistantSnapshotInput {
      *  snapshot disambiguate when describing what the user sees. */
     mode: 'viewer' | 'edit';
   };
+  /** Generated content of the currently-open report, summarised into a
+   *  compact prompt block so the assistant can answer "what does this
+   *  report say about X?" without the user having to copy-paste. Only
+   *  populated when viewingReport is set and the report has resultData. */
+  reportResult?: ReportResultSnapshot;
 }
 
 /**
@@ -67,7 +97,7 @@ export interface AssistantSnapshotInput {
 export function buildAssistantSnapshot(input: AssistantSnapshotInput): string {
   const {
     language, currentStep, dashboardOpen, empresa, globalSteep, steep, horizon, reports,
-    examples, viewingReport,
+    examples, viewingReport, reportResult,
   } = input;
   const isEn = language === 'en';
   const lines: string[] = [];
@@ -302,6 +332,116 @@ export function buildAssistantSnapshot(input: AssistantSnapshotInput): string {
       const descPart = e.description ? ` — ${e.description}` : '';
       lines.push(`- id="${e.id}" — ${e.title}${descPart}`);
     });
+  }
+
+  // ── Generated report contents ──
+  // When the user has a report open, surface the model's actual output so
+  // the assistant can answer questions about "this report" without the
+  // user pasting sections back in. We summarise rather than dumping the
+  // full payload to keep the prompt size bounded — long prose fields get
+  // truncated to a soft limit, lists cap at their natural counts (3
+  // scenarios, ~5 signals/wildcards, etc.).
+  if (viewingReport && reportResult) {
+    const r = reportResult;
+    const trunc = (s: string | undefined, n: number) => {
+      if (!s) return '';
+      const t = s.trim();
+      return t.length > n ? t.slice(0, n).trimEnd() + '…' : t;
+    };
+
+    const tHdr = isEn
+      ? '\nREPORT CONTENTS (generated output for the open report — quote / summarise from this when the user asks "what does this report say about X?" / "summarise scenario 2" / similar):'
+      : '\nCONTENIDOS DEL INFORME (output generado del informe abierto — cita o resume de aquí cuando el usuario pregunte "qué dice el informe sobre X" / "resúmeme el escenario 2" / similar):';
+    lines.push(tHdr);
+
+    if (r.executiveSummary) {
+      lines.push(isEn ? '\nExecutive summary:' : '\nResumen ejecutivo:');
+      lines.push(trunc(r.executiveSummary, 1200));
+    }
+
+    if (r.scenarios && r.scenarios.length) {
+      lines.push(isEn ? '\nScenarios (3P):' : '\nEscenarios (3P):');
+      r.scenarios.forEach((s, i) => {
+        const name = s.name || s.title || `#${i + 1}`;
+        const prob = s.probability ? ` — ${s.probability}` : '';
+        const typ = s.type ? ` [${s.type}]` : '';
+        lines.push(`- ${name}${typ}${prob}: ${trunc(s.description, 400)}`);
+        if (s.opportunities && s.opportunities.length) {
+          lines.push(`  ${isEn ? 'opportunities' : 'oportunidades'}: ${s.opportunities.map((o) => trunc(o, 120)).join(' | ')}`);
+        }
+        if (s.threats && s.threats.length) {
+          lines.push(`  ${isEn ? 'threats' : 'amenazas'}: ${s.threats.map((o) => trunc(o, 120)).join(' | ')}`);
+        }
+      });
+    }
+
+    if (r.keyUncertainties && r.keyUncertainties.length) {
+      lines.push(isEn ? '\nKey uncertainties:' : '\nIncertidumbres clave:');
+      r.keyUncertainties.forEach((u) =>
+        lines.push(`- ${u.name}: ${trunc(u.description, 220)}`),
+      );
+    }
+
+    if (r.weakSignals && r.weakSignals.length) {
+      lines.push(isEn ? '\nWeak signals:' : '\nSeñales débiles:');
+      r.weakSignals.forEach((s) =>
+        lines.push(`- [${s.dimension}] ${s.title}: ${trunc(s.description, 220)}`),
+      );
+    }
+
+    if (r.wildcards && r.wildcards.length) {
+      lines.push(isEn ? '\nWildcards:' : '\nWildcards:');
+      r.wildcards.forEach((w) =>
+        lines.push(`- ${w.title}: ${trunc(w.description, 220)}`),
+      );
+    }
+
+    const sp = r.scenarioPlanning;
+    if (sp && (sp.intro || sp.drivingForces?.length || sp.axes?.length || sp.scenarioLogics?.length)) {
+      lines.push(isEn ? '\nScenario planning:' : '\nPlanificación de escenarios:');
+      if (sp.intro) lines.push(trunc(sp.intro, 400));
+      if (sp.drivingForces?.length) {
+        lines.push(isEn ? 'Driving forces (ranked):' : 'Fuerzas motrices (ranked):');
+        sp.drivingForces.forEach((d) =>
+          lines.push(`  ${d.rank}. ${d.title} (impact ${d.impactScore}): ${trunc(d.description, 180)}`),
+        );
+      }
+      if (sp.axes?.length) {
+        lines.push(isEn ? 'Uncertainty axes:' : 'Ejes de incertidumbre:');
+        sp.axes.forEach((a) =>
+          lines.push(`  - ${a.label}: ${a.poleLow} ↔ ${a.poleHigh}. ${trunc(a.rationale, 180)}`),
+        );
+      }
+      if (sp.scenarioLogics?.length) {
+        lines.push(isEn ? 'Scenario logics:' : 'Lógicas de escenario:');
+        sp.scenarioLogics.forEach((l) =>
+          lines.push(`  - ${l.name}: ${trunc(l.logic, 220)}`),
+        );
+      }
+    }
+
+    if (r.backcasting && r.backcasting.length) {
+      lines.push(isEn ? '\nBackcasting trajectories:' : '\nTrayectorias de backcasting:');
+      r.backcasting.forEach((b) => {
+        lines.push(`- ${b.scenarioName} [${b.scenarioType}]: ${trunc(b.visionStatement, 240)}`);
+        if (b.startingPoint) lines.push(`  ${isEn ? 'start' : 'inicio'}: ${trunc(b.startingPoint, 180)}`);
+        if (b.milestones?.length) {
+          b.milestones.forEach((m) =>
+            lines.push(`  · ${m.year} — ${m.title}: ${trunc(m.description, 160)}`),
+          );
+        }
+      });
+    }
+
+    if (r.strategicMap && r.strategicMap.length) {
+      lines.push(isEn ? '\nStrategic priorities:' : '\nPrioridades estratégicas:');
+      r.strategicMap.forEach((p) => {
+        lines.push(`- [${p.horizon} · ${p.timeframe}] ${p.title} (impact: ${p.impact})`);
+        if (p.actions?.length) {
+          lines.push(`  ${isEn ? 'actions' : 'acciones'}: ${p.actions.map((a) => trunc(a, 120)).join(' | ')}`);
+        }
+      });
+    }
   }
 
   // ── RIGHT NOW tail ──

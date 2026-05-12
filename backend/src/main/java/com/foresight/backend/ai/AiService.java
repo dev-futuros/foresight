@@ -72,10 +72,17 @@ public class AiService {
             current facts about the global environment (geopolitical events, commodity prices,
             regulation, technology, climate, social trends) RELEVANT TO THE REQUESTED SECTOR.
 
-            Prioritise facts from the last 12 months. Each item should be a single dated bullet
+            Prioritise facts from the last 12 months. Each item is a single dated bullet
             ("2025-Q3: ...", "Oct 2025: ...", "this year: ..."). NO prose, NO interpretation,
-            NO scenario writing — just the raw observable facts. Downstream calls will turn
-            these bullets into prose.
+            NO scenario writing — just the raw observable facts. Downstream calls turn these
+            bullets into prose.
+
+            LENGTH — CRITICAL:
+            Each bullet is ONE short sentence, 15-25 words. NO compound sentences, NO embedded
+            statistics lists, NO "with X% saying Y and Z% saying W" stacking. Keep one fact per
+            bullet. Aim for 4-6 bullets per dimension (max 6 — fewer is better than verbose).
+            The whole JSON response should be well under 1000 tokens; if you find yourself
+            writing a long sentence, split it into two bullets or drop the second clause.
 
             ============================================================
             CRITICAL OUTPUT FORMAT — read this twice before responding:
@@ -242,6 +249,13 @@ public class AiService {
             Scanning, Scenario Planning (Shell/GBN method) and Backcasting. Follow a funnel
             approach: global environment → sector → company.
 
+            RESEARCH — use the web_search tool BEFORE writing. Search for concrete, current
+            facts about the company's sector, the strategic challenge, weak signals, and
+            disruptive forces — recent regulation, market events, technology shifts, demographic
+            and macro trends. Prefer facts from the last 18 months with dates and named entities.
+            Ground every weakSignal and wildcard in something verifiable, not from training-data
+            memory alone. Run 3-5 search rounds before producing the JSON.
+
             TASK — Generate the strategic landscape reading: executive summary, the most
             critical uncertainties, weak signals across STEEP dimensions, and disruptive
             wildcards. Wildcards must derive from H3 signals and disruptive global factors.
@@ -278,6 +292,13 @@ public class AiService {
             You are an expert strategic foresight consultant. Apply the 3P framework (Probable
             / Plausible / Possible) anchored in STEEP and Horizon Scanning. Follow a funnel
             approach: global environment → sector → company.
+
+            RESEARCH — use the web_search tool BEFORE writing. Search for concrete, current
+            facts that ground the three scenarios: recent sector developments, technology
+            shifts, regulation, demographic changes, geopolitical factors. Prefer facts from
+            the last 18 months with dates and named entities. The scenarios should feel
+            anchored to real-world current trajectories, not generic strategy-textbook
+            archetypes. Run 3-5 search rounds before producing the JSON.
 
             TASK — Generate the 3P scenarios. H1 signals reinforce the Probable, H2 the
             Plausible, H3 the Possible. Probabilities are NOT fixed ranges — derive them from
@@ -324,6 +345,12 @@ public class AiService {
             You are an expert strategic foresight consultant in the GBN scenario-planning
             method. Follow a funnel approach: global environment → sector → company.
 
+            RESEARCH — use the web_search tool BEFORE writing. Search for the actual current
+            driving forces in the company's sector: real regulatory shifts, real technology
+            adoption curves, real macro-economic and geopolitical pressures. The drivingForces
+            list should reflect what's actually moving the sector now, not generic Porter-style
+            categories. Run 3-5 search rounds before producing the JSON.
+
             TASK — Generate the scenario planning structure. Identify the 4 most influential
             driving forces connecting global macro with the sector. Define 2 critical
             uncertainty axes that structure the futures space. Explain the narrative logic of
@@ -359,6 +386,12 @@ public class AiService {
             """
             You are an expert strategic foresight consultant specialised in backcasting.
             Follow a funnel approach: global environment → sector → company.
+
+            RESEARCH — use the web_search tool BEFORE writing. Search for the sector's current
+            trajectory and the concrete milestones, infrastructure, regulation, or technology
+            shifts that would mark each step of the path. Backcasting feels grounded when its
+            milestones reference real ongoing initiatives, not invented checkpoints. Run 3-5
+            search rounds before producing the JSON.
 
             TASK — Generate backcasting trajectories for the three 3P scenarios (Probable,
             Plausible, Possible). For each, start from the final state at the horizon year and
@@ -399,6 +432,12 @@ public class AiService {
             """
             You are an expert strategic foresight consultant. Follow a funnel approach:
             global environment → sector → company.
+
+            RESEARCH — use the web_search tool BEFORE writing. Search for current sector
+            playbooks, real moves competitors and incumbents are making, regulatory
+            deadlines, technology adoption timelines. The strategic priorities should be
+            anchored to what's actually happening in the field, not generic strategy-textbook
+            actions. Run 3-5 search rounds before producing the JSON.
 
             TASK — Generate 6 strategic priorities, 2 per horizon (H1 short-term, H2
             mid-term, H3 long-term). Each priority must have a clear title, an impact rating
@@ -519,6 +558,9 @@ public class AiService {
             - Put the <command> tags themselves in the middle.
             - Put any "All set, ready to move on?" / "Now we can do X" / next-step framing AFTER the <command> tags — these lines only appear once the user has actually applied.
             Sentences that assume the action already happened ("Done, the field is set", "All filled in", "Now that the brief is in") MUST come after the commands, never before.
+
+            FIELD-NAME VOCABULARY — CRITICAL:
+            The user-state block below labels each field as "id (Human Name)" — e.g. "f-name (Name)", "f-challenge (Strategic challenge)", "hs-h3 (Horizon H3)". When you reference a field in PROSE (anywhere in your reply that isn't inside a <command> tag), ALWAYS use the Human Name in parentheses. NEVER use the bare id ("f-name", "f-sector", "gs-s", "hs-h3", etc.) in user-facing text. The user has no idea what "f-challenge" means; they see "Strategic challenge" on the form. Same applies to listing what changed: say "trimmed Strategic challenge", not "trimmed f-challenge". The ids are ONLY for the `id` argument inside <command name="setField"> tags.
 
             TENSE RULES FOR PROSE AFTER <command> TAGS — CRITICAL:
             The user reads the trailing prose AFTER they have applied the chips — by the time they see it, the action HAS HAPPENED. So:
@@ -704,6 +746,9 @@ public class AiService {
             - Pon las propias etiquetas <command> en el medio.
             - Pon cualquier "Listo, ¿seguimos?" / "Ya podemos hacer X" / encuadre de siguientes pasos DESPUÉS de las etiquetas <command> — esas líneas solo aparecen cuando el usuario ha pulsado aplicar.
             Las frases que dan por hecha la acción ("Hecho, el campo está fijado", "Todo rellenado", "Ahora que tenemos el brief") DEBEN ir después de los comandos, nunca antes.
+
+            VOCABULARIO DE NOMBRES DE CAMPO — CRÍTICO:
+            El bloque de estado del usuario más abajo etiqueta cada campo como "id (Nombre humano)" — ej. "f-name (Nombre)", "f-challenge (Reto estratégico)", "hs-h3 (Horizon H3)". Cuando te refieras a un campo en PROSA (en cualquier parte de tu respuesta que no esté dentro de una etiqueta <command>), USA SIEMPRE el Nombre humano entre paréntesis. NUNCA uses el id pelado ("f-name", "f-sector", "gs-s", "hs-h3", etc.) en texto dirigido al usuario. El usuario no sabe qué significa "f-challenge"; ve "Reto estratégico" en el formulario. Lo mismo aplica al listar cambios: di "recortado el Reto estratégico", no "recortado f-challenge". Los ids son SOLO para el argumento `id` dentro de etiquetas <command name="setField">.
 
             REGLAS DE TIEMPO VERBAL PARA LA PROSA DESPUÉS DE <command> — CRÍTICO:
             El usuario lee la prosa final DESPUÉS de haber aplicado los chips — cuando la ve, la acción YA HA OCURRIDO. Por eso:
@@ -1064,24 +1109,25 @@ public class AiService {
     /**
      * Phase-A of the parallel-5 analysis flow — streamed. Emits SSE
      * progress events as the model writes, then a final {@code done}
-     * event with the full text. No web_search at this layer: the shared
-     * research bullets from {@link #analyzeScanStream} are folded into
-     * the user prompt instead.
+     * event with the full text.
      *
-     * <p>Sonnet tier — the 5 parallel section calls don't do their own
-     * search (the upstream scan handles all grounding via Opus), so
-     * Sonnet hits the right cost/quality point for high-throughput
-     * structured JSON generation under a shared research context.
+     * <p>Opus + web_search. Mirrors the demo's analysis pattern: each
+     * of the 5 sections runs in parallel and does its own grounding
+     * via web search. The earlier "single upfront scan then 5 cheap
+     * Sonnet reformulations" pattern saved tokens but serialised the
+     * critical path — wall-clock doubled. Each section paying its own
+     * search budget restores the original ~1-minute generation while
+     * staying parallel.
      */
     public Flux<JsonNode> analyzeSummaryStream(AnalyzeRequest request) {
-        return streamUpstream(anthropicClient.streamMessage(
-                properties.sonnet(), ANALYZE_SUMMARY_SYSTEM, analyzePrompt(request), 8000));
+        return streamUpstream(anthropicClient.streamMessageWithWebSearch(
+                properties.opus(), ANALYZE_SUMMARY_SYSTEM, analyzePrompt(request), 8000));
     }
 
-    /** Phase-B — streamed 3P scenarios. Anchored on shared research bullets. Sonnet tier. */
+    /** Phase-B — streamed 3P scenarios. Opus + web_search (parallel with the rest). */
     public Flux<JsonNode> analyzeScenariosStream(AnalyzeRequest request) {
-        return streamUpstream(anthropicClient.streamMessage(
-                properties.sonnet(), ANALYZE_SCENARIOS_SYSTEM, analyzePrompt(request), 8000));
+        return streamUpstream(anthropicClient.streamMessageWithWebSearch(
+                properties.opus(), ANALYZE_SCENARIOS_SYSTEM, analyzePrompt(request), 8000));
     }
 
     /** Shared user-turn prompt for the analyze section calls and the
@@ -1106,22 +1152,23 @@ public class AiService {
                         researchBlock(request.research()));
     }
 
-    /** Section-C — streamed scenario planning structure. Sonnet tier (no web_search at this layer). */
+    /** Section-C — streamed scenario planning structure. Opus + web_search,
+     *  runs in parallel with the other section calls (matches demo). */
     public Flux<JsonNode> scenarioPlanningStream(AnalyzeContextRequest request) {
-        return streamUpstream(anthropicClient.streamMessage(
-                properties.sonnet(), SCENARIO_PLANNING_SYSTEM, contextPrompt(request), 8000));
+        return streamUpstream(anthropicClient.streamMessageWithWebSearch(
+                properties.opus(), SCENARIO_PLANNING_SYSTEM, contextPrompt(request), 8000));
     }
 
-    /** Section-E — streamed backcasting trajectories. Sonnet tier. */
+    /** Section-E — streamed backcasting trajectories. Opus + web_search. */
     public Flux<JsonNode> backcastingStream(AnalyzeContextRequest request) {
-        return streamUpstream(anthropicClient.streamMessage(
-                properties.sonnet(), BACKCASTING_SYSTEM, contextPrompt(request), 8000));
+        return streamUpstream(anthropicClient.streamMessageWithWebSearch(
+                properties.opus(), BACKCASTING_SYSTEM, contextPrompt(request), 8000));
     }
 
-    /** Section-D — streamed strategic priorities by horizon. Sonnet tier. */
+    /** Section-D — streamed strategic priorities by horizon. Opus + web_search. */
     public Flux<JsonNode> strategicMapStream(AnalyzeContextRequest request) {
-        return streamUpstream(anthropicClient.streamMessage(
-                properties.sonnet(), STRATEGIC_MAP_SYSTEM, contextPrompt(request), 8000));
+        return streamUpstream(anthropicClient.streamMessageWithWebSearch(
+                properties.opus(), STRATEGIC_MAP_SYSTEM, contextPrompt(request), 8000));
     }
 
     /**
@@ -1155,21 +1202,23 @@ public class AiService {
                         langInstruction(request.language()),
                         request.sector(),
                         java.time.Year.now().getValue());
-        // max_tokens=4000 — web_search tool_use rounds count against the
-        // same budget as the final text answer, and each search emits a
-        // chunky tool_result. We were originally at 2000, which left
-        // Sonnet out of budget by the time it tried to emit the JSON
-        // envelope. 4000 mirrors analyzeScanStream and is plenty for
-        // ~30 dated bullets plus a few search rounds.
+        // max_tokens=2500 — between the demo's tight 1500 and our
+        // earlier-too-loose 4000. The bullet-length constraint in
+        // GLOBAL_STEEP_SCAN_SYSTEM keeps actual output well under 1000
+        // tokens, but web_search tool_use rounds also count against
+        // this budget, and a single overlong bullet from the model can
+        // truncate the whole JSON envelope if we cap too tight. 2500
+        // gives ~5 search rounds + a generous prose budget while still
+        // shaving the wall-clock vs the original 4000 setting.
         //
         // We can't use the assistant-prefill JSON-coercion trick here
         // because prefilling disables tool use for the response and
         // we need web_search to fire. The system prompt instead leans
-        // on very emphatic "no preamble, no markdown, JSON only" wording
-        // — see GLOBAL_STEEP_SCAN_SYSTEM.
+        // on very emphatic "no preamble, no markdown, JSON only" +
+        // explicit bullet-length wording — see GLOBAL_STEEP_SCAN_SYSTEM.
         return streamUpstream(
                 anthropicClient.streamMessageWithWebSearch(
-                        properties.sonnet(), GLOBAL_STEEP_SCAN_SYSTEM, prompt, 4000));
+                        properties.sonnet(), GLOBAL_STEEP_SCAN_SYSTEM, prompt, 2500));
     }
 
     /**
@@ -1656,9 +1705,97 @@ public class AiService {
         // then stop" tendency Sonnet exhibits and lets the model batch N
         // commands in a single text response. Frontend parses the tags
         // out and dispatches them auto.
+        //
+        // max_tokens=1500 matches the demo's chat budget. Most chat
+        // turns produce 200-700 tokens of response (intro + a few
+        // commands + short closing line); 4096 was over-provisioned and
+        // gave the model permission to ramble, slowing perceived
+        // response time. History is bounded to the most recent 20 turns
+        // here so long-running sessions don't keep paying input-token
+        // tax on early conversation that's no longer relevant — Clerk's
+        // / Anthropic's per-request charges scale with input length.
+        List<? extends Object> bounded = boundHistory(request.messages(), 20);
         return anthropicClient
-                .sendConversation(properties.sonnet(), systemPrompt, request.messages(), List.of(), 4096)
+                .sendConversation(properties.sonnet(), systemPrompt, bounded, List.of(), 1500)
                 .map(AiResponseSanitizer::sanitize);
+    }
+
+    /**
+     * Streaming variant of {@link #chat} — emits a flux of
+     * {@code text-delta} progress events and a final {@code done} event
+     * carrying the full text. Frontend consumes the SSE and shows the
+     * response forming live, matching the demo's chat UX (which streams
+     * Sonnet's response so the user sees text appearing word-by-word
+     * instead of waiting 5-15s staring at a typing indicator).
+     *
+     * <p>Event shape:
+     * <ul>
+     *   <li>{@code {"type":"delta","text":"<new chars>"}} — incremental
+     *       text fragment to append to the in-progress message bubble.
+     *       Throttled at the upstream and never aggregated, so the
+     *       frontend can naively concatenate.</li>
+     *   <li>{@code {"type":"done","text":"<full text>"}} — final
+     *       complete response. Frontend parses {@code <command>} tags
+     *       at this point and dispatches them.</li>
+     * </ul>
+     */
+    public Flux<JsonNode> chatStream(ChatRequest request) {
+        String snapshot = (request.context() == null || request.context().isBlank())
+                ? "(no snapshot available — user has not opened the wizard yet)"
+                : request.context();
+        String template = "en".equals(lang(request.language())) ? CHAT_SYSTEM_EN : CHAT_SYSTEM_ES;
+        String systemPrompt = template.formatted(snapshot);
+        List<? extends Object> bounded = boundHistory(request.messages(), 20);
+
+        Flux<ServerSentEvent<String>> upstream = anthropicClient.streamConversation(
+                properties.sonnet(), systemPrompt, bounded, List.of(), 1500);
+
+        StringBuilder accText = new StringBuilder();
+
+        Flux<JsonNode> deltaFlux = upstream.concatMap(sse -> {
+            String data = sse.data();
+            if (data == null) return Flux.empty();
+            JsonNode payload;
+            try {
+                payload = objectMapper.readTree(data);
+            } catch (Exception e) {
+                return Flux.empty();
+            }
+            String type = sse.event();
+            if (type == null || type.isBlank()) {
+                type = payload.path("type").asText("");
+            }
+            if (!"content_block_delta".equals(type)) return Flux.empty();
+            JsonNode delta = payload.path("delta");
+            if (!"text_delta".equals(delta.path("type").asText())) return Flux.empty();
+            String chunk = delta.path("text").asText("");
+            if (chunk.isEmpty()) return Flux.empty();
+            accText.append(chunk);
+            ObjectNode out = objectMapper.createObjectNode();
+            out.put("type", "delta");
+            out.put("text", chunk);
+            return Flux.just((JsonNode) out);
+        });
+
+        Flux<JsonNode> doneFlux = Flux.defer(() -> {
+            ObjectNode done = objectMapper.createObjectNode();
+            done.put("type", "done");
+            done.put("text", accText.toString());
+            return Flux.just((JsonNode) done);
+        });
+
+        return deltaFlux.concatWith(doneFlux);
+    }
+
+    /** Keep only the most recent {@code maxMessages} entries. Always
+     *  preserves the alternation pattern Anthropic expects (no trailing
+     *  assistant — the API call wouldn't make sense). Trims from the
+     *  front, since the most recent turns are the most contextually
+     *  relevant. */
+    private static List<? extends Object> boundHistory(
+            List<? extends Object> messages, int maxMessages) {
+        if (messages == null || messages.size() <= maxMessages) return messages;
+        return messages.subList(messages.size() - maxMessages, messages.size());
     }
 
     /**

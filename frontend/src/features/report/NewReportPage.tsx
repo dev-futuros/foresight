@@ -9,7 +9,6 @@ import { useSetStepper } from '../shell/StepperContext';
 import { useSetSaveStatus } from '../shell/SaveStatusContext';
 import {
   analyzeBackcasting,
-  analyzeScan,
   analyzeScenarioPlanning,
   analyzeScenarios,
   analyzeStrategicMap,
@@ -17,7 +16,7 @@ import {
   type SourceItem,
 } from '../../lib/aiClient';
 import { extractApiErrorMessage } from '../../lib/apiError';
-import { notifyAssistant } from '../../lib/assistantBridge';
+import { notifyAssistant, resetAssistant } from '../../lib/assistantBridge';
 import OnboardingDialog from '../../components/OnboardingDialog';
 import LoadingPanel, {
   type ProgressItem,
@@ -129,35 +128,41 @@ export default function NewReportPage() {
   // report is fully built (we navigate away) or the pipeline errors.
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
-  // Per-row status for the analysis loader checklist. Mirrors the demo's
-  // scan-then-reformulate pattern: one up-front "research" row that runs
-  // the web_search-enabled scan, then 5 parallel section rows that
-  // anchor on the shared research bullets. The order here is the visual
-  // order in the loader.
+  // Per-row status for the analysis loader checklist. Matches the
+  // demo's pattern: 5 parallel section rows, each running its own
+  // Opus + web_search call. The earlier "research" row that ran a
+  // single upstream scan was removed because it serialised the
+  // critical path and doubled the wall-clock generation time.
   const [analysisProgress, setAnalysisProgress] = useState<
     Record<
-      'research' | 'summary' | 'scenarios' | 'planning' | 'strategicMap' | 'backcasting',
+      'summary' | 'scenarios' | 'planning' | 'strategicMap' | 'backcasting',
       ProgressItemStatus
     >
   >({
-    research: 'pending',
     summary: 'pending',
     scenarios: 'pending',
     planning: 'pending',
     strategicMap: 'pending',
     backcasting: 'pending',
   });
-  // Live progress counters for the research row (the only call that
-  // touches web_search now). We track BOTH the source count AND the
-  // streamed character count so the row keeps showing forward motion
-  // after web_search stops adding URLs but the model is still writing
-  // out the consolidated research bullets.
-  const [researchSources, setResearchSources] = useState(0);
-  const [researchChars, setResearchChars] = useState(0);
-  // Live character count for each of the 5 section rows — the sections
-  // no longer use web_search, so chars-streamed is the meaningful
-  // progress signal. Updated from each analyzeX onProgress callback.
+  // Live char + source counts for each of the 5 section rows. Each
+  // section now does its own web_search (matching the demo), so we
+  // want both signals in the loader: chars tick as the model writes
+  // its JSON, sources tick as web_search harvests URLs. Updated from
+  // each analyzeX onProgress callback.
   const [sectionChars, setSectionChars] = useState<
+    Record<
+      'summary' | 'scenarios' | 'planning' | 'strategicMap' | 'backcasting',
+      number
+    >
+  >({
+    summary: 0,
+    scenarios: 0,
+    planning: 0,
+    strategicMap: 0,
+    backcasting: 0,
+  });
+  const [sectionSources, setSectionSources] = useState<
     Record<
       'summary' | 'scenarios' | 'planning' | 'strategicMap' | 'backcasting',
       number
@@ -650,20 +655,23 @@ export default function NewReportPage() {
     }
     setGenerateError(null);
     setIsGenerating(true);
-    // Reset loader state — research row starts running immediately, the
-    // 5 section rows stay pending until research completes (they're
-    // gated on it).
+    // Reset loader state — all 5 sections start running immediately in
+    // parallel (each does its own web_search now, matching the demo).
     setAnalysisProgress({
-      research: 'running',
-      summary: 'pending',
-      scenarios: 'pending',
-      planning: 'pending',
-      strategicMap: 'pending',
-      backcasting: 'pending',
+      summary: 'running',
+      scenarios: 'running',
+      planning: 'running',
+      strategicMap: 'running',
+      backcasting: 'running',
     });
-    setResearchSources(0);
-    setResearchChars(0);
     setSectionChars({
+      summary: 0,
+      scenarios: 0,
+      planning: 0,
+      strategicMap: 0,
+      backcasting: 0,
+    });
+    setSectionSources({
       summary: 0,
       scenarios: 0,
       planning: 0,
@@ -693,57 +701,27 @@ export default function NewReportPage() {
       const targetReportId = reportIdRef.current!;
       const args = { companyProfile: empresa, steep, horizon, language };
 
-      // 2. Up-front research pass. ONE web_search-enabled call gathers
-      //    concrete, dated facts about the sector + challenge; the
-      //    result is then folded into each of the 5 section prompts so
-      //    they all anchor on the same shared bullets. Mirrors the
-      //    Global STEEP scan-then-reformulate pattern and cuts the
-      //    total web_search budget by ~5×. If the scan fails the whole
-      //    generation fails — the user retries.
-      const scan = await analyzeScan(args, (p) => {
-        // Both counters tick during the scan — sources climb while
-        // web_search runs, chars climb while the model is writing out
-        // the research bullets.
-        setResearchSources((prev) => (prev === p.sources ? prev : p.sources));
-        setResearchChars((prev) => (prev === p.chars ? prev : p.chars));
-      })
-        .then((r) => {
-          setAnalysisProgress((p) => ({ ...p, research: 'done' }));
-          return r;
-        })
-        .catch((err) => {
-          setAnalysisProgress((p) => ({ ...p, research: 'error' }));
-          console.error('[analyze:research] failed:', err);
-          throw err;
-        });
-
-      // 3. ALL FIVE analysis calls fire in parallel with the shared
-      //    research context. No web_search inside these — they use the
-      //    bullets from step 2 verbatim. Promise.allSettled means a
-      //    partial failure still produces a report with the sections
-      //    that came back.
-      const argsWithResearch = { ...args, research: scan.research };
+      // ALL FIVE analysis calls fire in parallel — each does its OWN
+      // web_search via the backend (Opus + web_search, matching the
+      // demo). Removed the earlier upstream "research" scan because it
+      // serialised the critical path and doubled the wall-clock
+      // generation time. Promise.allSettled means a partial failure
+      // still produces a report with the sections that came back.
       type SectionKey =
         | 'summary'
         | 'scenarios'
         | 'planning'
         | 'strategicMap'
         | 'backcasting';
-      // Sections no longer use web_search, so chars-streamed is the
-      // meaningful progress signal (sources stays 0 across the board).
-      const onSectionProgress = (key: SectionKey) => (p: { chars: number }) => {
-        setSectionChars((prev) =>
-          prev[key] === p.chars ? prev : { ...prev, [key]: p.chars },
-        );
-      };
-      setAnalysisProgress((p) => ({
-        ...p,
-        summary: 'running',
-        scenarios: 'running',
-        planning: 'running',
-        strategicMap: 'running',
-        backcasting: 'running',
-      }));
+      const onSectionProgress =
+        (key: SectionKey) => (p: { chars: number; sources: number }) => {
+          setSectionChars((prev) =>
+            prev[key] === p.chars ? prev : { ...prev, [key]: p.chars },
+          );
+          setSectionSources((prev) =>
+            prev[key] === p.sources ? prev : { ...prev, [key]: p.sources },
+          );
+        };
 
       // Helper that wraps each section call with its progress-state
       // transitions AND logs the rejection reason. Promise.allSettled
@@ -761,32 +739,27 @@ export default function NewReportPage() {
 
       const [summary, scenarios, planning, strategicMap, backcasting] =
         await Promise.allSettled([
-          analyzeSummary(argsWithResearch, onSectionProgress('summary'))
+          analyzeSummary(args, onSectionProgress('summary'))
             .then(onSectionDone('summary'), onSectionError('summary')),
-          analyzeScenarios(argsWithResearch, onSectionProgress('scenarios'))
+          analyzeScenarios(args, onSectionProgress('scenarios'))
             .then(onSectionDone('scenarios'), onSectionError('scenarios')),
-          analyzeScenarioPlanning(argsWithResearch, onSectionProgress('planning'))
+          analyzeScenarioPlanning(args, onSectionProgress('planning'))
             .then(onSectionDone('planning'), onSectionError('planning')),
-          analyzeStrategicMap(argsWithResearch, onSectionProgress('strategicMap'))
+          analyzeStrategicMap(args, onSectionProgress('strategicMap'))
             .then(onSectionDone('strategicMap'), onSectionError('strategicMap')),
-          analyzeBackcasting(argsWithResearch, onSectionProgress('backcasting'))
+          analyzeBackcasting(args, onSectionProgress('backcasting'))
             .then(onSectionDone('backcasting'), onSectionError('backcasting')),
         ]);
 
-      // 4. Merge the successful sections into a single resultData blob.
-      //    Anything that errored is silently skipped — the renderer's
-      //    tabs handle a missing section with an empty-state.
+      // Merge the successful sections into a single resultData blob.
+      // Anything that errored is silently skipped — the renderer's tabs
+      // handle a missing section with an empty-state.
       //
-      //    Backcasting entries arrive with placeholder `scenarioName` values
-      //    (the prompt has no access to the 3P names produced by the
-      //    scenarios-call sibling). We patch them here so each entry shows
-      //    the matching evocative scenario name — mirrors the merge step
-      //    in the demo's analysis.js.
-      //
-      //    Sources are now sourced entirely from the up-front scan call
-      //    (the 5 sections don't web_search anymore), so we store them
-      //    as the consolidated `report` bucket and skip the per-section
-      //    breakdown that used to be `bySection`.
+      // Backcasting entries arrive with placeholder `scenarioName` values
+      // (the prompt has no access to the 3P names produced by the
+      // scenarios-call sibling). We patch them here so each entry shows
+      // the matching evocative scenario name — mirrors the merge step in
+      // the demo's analysis.js.
       const fullResult: Record<string, unknown> = {};
       const scenarioList =
         scenarios.status === 'fulfilled' ? scenarios.value.result.scenarios ?? [] : [];
@@ -810,26 +783,43 @@ export default function NewReportPage() {
         }));
       }
 
-      // ── Sources from the up-front scan + Step 2 globalSteep scan ──
+      // ── Sources aggregated from each section's web_search citations ──
       // Two buckets are surfaced in the report's Sources tab:
-      //   report      — citations from the analyze/scan call (this run)
+      //   report      — citations harvested across all 5 section calls
+      //                 in this run (each does its own web_search), keyed
+      //                 by section id (A-E) for attribution AND deduped
+      //                 into a flat list for top-line "all sources" UI.
       //   globalSteep — citations from the Step 2 globalSteepScan call,
       //                 captured in transient state when StepGlobal ran
       //                 (may be empty for reports loaded from a saved
       //                 draft where the user never re-ran step 2).
-      // Each bucket is deduped independently — same URL surfacing in
-      // both is rare and worth showing twice with its proper attribution.
-      const hasAnyCitations = scan.citations.length > 0 || globalSteepCitations.length > 0;
+      const sectionCitations: Record<'A' | 'B' | 'C' | 'D' | 'E', SourceItem[]> = {
+        A: summary.status === 'fulfilled' ? summary.value.citations : [],
+        B: scenarios.status === 'fulfilled' ? scenarios.value.citations : [],
+        C: planning.status === 'fulfilled' ? planning.value.citations : [],
+        D: strategicMap.status === 'fulfilled' ? strategicMap.value.citations : [],
+        E: backcasting.status === 'fulfilled' ? backcasting.value.citations : [],
+      };
+      const dedup = (items: SourceItem[]) => {
+        const seen = new Map<string, SourceItem>();
+        for (const c of items) {
+          if (!seen.has(c.url)) seen.set(c.url, c);
+        }
+        return Array.from(seen.values());
+      };
+      const flatReportCitations = dedup([
+        ...sectionCitations.A,
+        ...sectionCitations.B,
+        ...sectionCitations.C,
+        ...sectionCitations.D,
+        ...sectionCitations.E,
+      ]);
+      const hasAnyCitations =
+        flatReportCitations.length > 0 || globalSteepCitations.length > 0;
       if (hasAnyCitations) {
-        const dedup = (items: SourceItem[]) => {
-          const seen = new Map<string, SourceItem>();
-          for (const c of items) {
-            if (!seen.has(c.url)) seen.set(c.url, c);
-          }
-          return Array.from(seen.values());
-        };
         fullResult.sources = {
-          report: dedup(scan.citations),
+          report: flatReportCitations,
+          bySection: sectionCitations,
           globalSteep: dedup(globalSteepCitations),
         };
       }
@@ -1110,6 +1100,12 @@ export default function NewReportPage() {
         // If the user was on /reports/:id/edit, kick them to /reports/new
         // so the URL matches the cleared state. No-op when already there.
         if (editingId) navigate('/reports/new');
+        // Wipe the chat conversation too — the prior brief, scenarios,
+        // and Q&A are about a different report and would confuse the
+        // assistant's "what's the user looking at?" model on the next
+        // turn. The chat re-registers the resetter on mount via the
+        // bridge.
+        resetAssistant();
         return 'Cleared the form and started a fresh report.';
       },
     },
@@ -1297,40 +1293,34 @@ export default function NewReportPage() {
           running={isGenerating}
           items={[
             {
-              key: 'research',
-              label: t('report.results.progressItems.research'),
-              status: analysisProgress.research,
-              metric: { sources: researchSources, chars: researchChars },
-            },
-            {
               key: 'summary',
               label: t('report.results.progressItems.summary'),
               status: analysisProgress.summary,
-              metric: { chars: sectionChars.summary },
+              metric: { chars: sectionChars.summary, sources: sectionSources.summary },
             },
             {
               key: 'scenarios',
               label: t('report.results.progressItems.scenarios'),
               status: analysisProgress.scenarios,
-              metric: { chars: sectionChars.scenarios },
+              metric: { chars: sectionChars.scenarios, sources: sectionSources.scenarios },
             },
             {
               key: 'planning',
               label: t('report.results.progressItems.scenarioPlanning'),
               status: analysisProgress.planning,
-              metric: { chars: sectionChars.planning },
+              metric: { chars: sectionChars.planning, sources: sectionSources.planning },
             },
             {
               key: 'strategicMap',
               label: t('report.results.progressItems.strategicMap'),
               status: analysisProgress.strategicMap,
-              metric: { chars: sectionChars.strategicMap },
+              metric: { chars: sectionChars.strategicMap, sources: sectionSources.strategicMap },
             },
             {
               key: 'backcasting',
               label: t('report.results.progressItems.backcasting'),
               status: analysisProgress.backcasting,
-              metric: { chars: sectionChars.backcasting },
+              metric: { chars: sectionChars.backcasting, sources: sectionSources.backcasting },
             },
           ] satisfies ProgressItem[]}
         />

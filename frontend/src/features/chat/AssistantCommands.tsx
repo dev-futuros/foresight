@@ -5,6 +5,7 @@ import { type CommandSpec } from '../../lib/commandBus';
 import { useCommands } from '../../lib/useCommands';
 import { useDeleteReport } from '../../hooks/useReports';
 import { useLogout } from '../../hooks/useAuth';
+import { resetAssistant } from '../../lib/assistantBridge';
 import api from '../../lib/api';
 
 /**
@@ -100,10 +101,18 @@ export default function AssistantCommands() {
     },
 
     {
+      // Auto-mode — the model is prompted to ask the user verbally before
+      // emitting when an in-progress wizard or open report would be lost.
       name: 'newReport',
       mode: 'auto',
       handler: () => {
         navigate('/reports/new');
+        // Wipe the chat too — the previous brief / scenarios / Q&A
+        // aren't relevant to the new blank report. NewReportPage's
+        // page-scoped override does the same; this shell-level path
+        // covers the case where the user kicks off a new report from a
+        // non-wizard route (dashboard, account, share view).
+        resetAssistant();
         return 'Started a new blank report.';
       },
     },
@@ -118,12 +127,18 @@ export default function AssistantCommands() {
       },
     },
 
+    // Auto-mode — the model asks verbally before switching reports when an
+    // in-progress wizard or different open report would be lost.
     {
       name: 'loadReport',
       mode: 'auto',
       handler: (args) => {
         const { id } = args as { id: string };
         navigate(`/reports/${id}`);
+        // Reset the chat's API context — the previous brief's Q&A is
+        // about a different report and would confuse the assistant on
+        // subsequent turns. Visible message history stays on screen.
+        resetAssistant();
         return `Loaded report ${id}.`;
       },
     },
@@ -137,6 +152,8 @@ export default function AssistantCommands() {
       handler: (args) => {
         const { id } = args as { id: string };
         navigate(`/reports/${id}/edit`);
+        // Same context-reset rationale as loadReport.
+        resetAssistant();
         return `Opened report ${id} for editing.`;
       },
     },

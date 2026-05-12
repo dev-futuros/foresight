@@ -172,6 +172,47 @@ public class AnthropicClient {
         return doSendRaw(model, systemPrompt, messages, maxTokens, tools);
     }
 
+    /**
+     * Streaming variant of {@link #sendConversation} — same multi-turn
+     * contract, but yields a SSE flux of Anthropic events instead of
+     * blocking until the response is complete. Used by the chat
+     * assistant so the user sees text appearing word-by-word instead
+     * of waiting 5-15s staring at a typing indicator.
+     */
+    public Flux<ServerSentEvent<String>> streamConversation(
+            String model,
+            String systemPrompt,
+            List<? extends Object> messages,
+            List<Map<String, Object>> tools,
+            int maxTokens) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("model", model);
+        body.put("max_tokens", maxTokens);
+        body.put("system", systemPrompt);
+        body.put("messages", messages);
+        body.put("stream", true);
+        if (tools != null && !tools.isEmpty()) {
+            body.put("tools", tools);
+        }
+
+        return anthropicWebClient
+                .post()
+                .uri("/v1/messages")
+                .accept(MediaType.TEXT_EVENT_STREAM)
+                .bodyValue(body)
+                .retrieve()
+                .bodyToFlux(SSE_STRING)
+                .doOnCancel(() -> log.info("Anthropic chat stream cancelled by downstream subscriber"))
+                .onErrorResume(WebClientResponseException.class, e -> {
+                    log.error("Anthropic chat stream error: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
+                    return Flux.error(new AiException("AI provider error: " + e.getStatusCode()));
+                })
+                .onErrorResume(t -> !(t instanceof AiException), t -> {
+                    log.error("Anthropic chat stream failed: {}", t.getMessage(), t);
+                    return Flux.error(new AiException("AI provider unavailable"));
+                });
+    }
+
     private Mono<JsonNode> doSend(
             String model, String systemPrompt, String userPrompt, int maxTokens,
             List<Map<String, Object>> tools) {

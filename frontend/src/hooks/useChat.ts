@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { chat, type ChatMessage } from '../lib/aiClient';
+import { chatStream, type ChatMessage } from '../lib/aiClient';
 import { dispatch, get as getCommandSpec } from '../lib/commandBus';
 
 /**
@@ -68,25 +68,45 @@ interface ParsedAssistantText {
 }
 
 /**
+ * Hide any unclosed `<command…` at the END of the text so streaming
+ * deltas don't flash a partial tag into view before the closing
+ * `</command>` arrives. Same defensive trick the demo uses in
+ * `renderChatMarkdown`. Safe on complete text: a fully-closed tag has
+ * its closing index after its opening, so the function is a no-op
+ * once the stream finishes.
+ */
+function stripUnclosedTailTag(text: string): string {
+  const openIdx = text.lastIndexOf('<command');
+  const closeIdx = text.lastIndexOf('</command>');
+  if (openIdx !== -1 && openIdx > closeIdx) {
+    return text.slice(0, openIdx);
+  }
+  return text;
+}
+
+/**
  * Pull every `<command name="…">{…}</command>` out of an assistant text and
  * return them in document order alongside the prose split into pre/post
  * halves around the chip block. Commands come back as {@code status:
  * 'pending'} — nothing dispatches here.
  */
 function parseAssistantText(text: string): ParsedAssistantText {
+  // Strip any unclosed tail tag before scanning — keeps partial tags
+  // from leaking into the visible pre/post prose during streaming.
+  const cleaned = stripUnclosedTailTag(text);
   const matches: RegExpExecArray[] = [];
   COMMAND_TAG_RE.lastIndex = 0;
   let m: RegExpExecArray | null;
-  while ((m = COMMAND_TAG_RE.exec(text)) !== null) {
+  while ((m = COMMAND_TAG_RE.exec(cleaned)) !== null) {
     matches.push(m);
   }
   if (matches.length === 0) {
-    return { pre: text.trim(), post: '', commands: [] };
+    return { pre: cleaned.trim(), post: '', commands: [] };
   }
   const first = matches[0];
   const last = matches[matches.length - 1];
-  const pre = text.slice(0, first.index).trim();
-  const post = text.slice(last.index + last[0].length).trim();
+  const pre = cleaned.slice(0, first.index).trim();
+  const post = cleaned.slice(last.index + last[0].length).trim();
   const commands: PendingCommand[] = matches.map((mm) => {
     const name = mm[1].trim();
     const body = (mm[2] ?? '').trim();
@@ -135,6 +155,14 @@ export function useChat() {
   messagesRef.current = messages;
   const pendingRef = useRef(false);
   pendingRef.current = pending;
+  // Index into `messages` marking the start of the current API-facing
+  // conversation. Messages at index < apiCursor are visible in the
+  // chat UI but excluded from outgoing API requests. Bumped to the
+  // current message count by {@link resetContext} when the wizard
+  // starts a new report or loads a different one — the previous
+  // brief's Q&A stays on screen for context but the model gets a
+  // clean slate so it doesn't keep reasoning about the old report.
+  const apiCursorRef = useRef(0);
   // Failure / decline notes accumulate here between turns and fold into
   // the FRONT of the API copy of the user's next message. Done this way
   // (rather than as a standalone synthetic user message) because Anthropic
@@ -151,7 +179,11 @@ export function useChat() {
       try {
         const notes = pendingFailureNotesRef.current;
         pendingFailureNotesRef.current = [];
-        const apiMessages = history.map((m) => m.message);
+        // Only send messages from the current context boundary onward.
+        // Pre-boundary messages remain visible in the UI (they're part of
+        // `messages`) but the API gets a clean slate after a newReport /
+        // loadReport — see {@link resetContext}.
+        const apiMessages = history.slice(apiCursorRef.current).map((m) => m.message);
         if (notes.length > 0 && apiMessages.length > 0) {
           const last = apiMessages[apiMessages.length - 1];
           if (last.role === 'user' && typeof last.content === 'string') {
@@ -161,23 +193,59 @@ export function useChat() {
             };
           }
         }
-        const resp = await chat({
-          messages: apiMessages,
-          context: ctxRef.current.context,
-          language: ctxRef.current.language,
-        });
-        const assistantMsg: ChatMessage = { role: 'assistant', content: resp.content };
-        const text = resp.content
-          .filter((b) => b.type === 'text' && typeof b.text === 'string')
-          .map((b) => b.text!)
-          .join('');
-        const { pre, post, commands } = parseAssistantText(text);
-        // Auto-mode commands dispatch inline, before the chip is shown to
-        // the user — they're "do it" actions like navigation that don't
-        // need a confirmation step (registered via commandBus with
-        // `mode: 'auto'`). Confirm-mode commands stay pending until the
-        // user clicks. Mixed batches work too: navigation auto-applies
-        // while setField suggestions wait for Apply All.
+
+        // Streaming chat — append a placeholder assistant message
+        // immediately, then update its text content as each SSE delta
+        // arrives. The user sees the response forming live instead of
+        // waiting for the whole reply to arrive. <command> tags can't
+        // be parsed mid-stream (the tag might be split across deltas),
+        // so we parse them once at the end. Pre/post text segments are
+        // shown unparsed during streaming — fine because they'll just
+        // contain prose, not chip placeholders.
+        let accText = '';
+        const placeholderMessage: ChatMessage = {
+          role: 'assistant',
+          content: [{ type: 'text', text: '' }],
+        };
+        const placeholderView: ChatMessageView = {
+          message: placeholderMessage,
+          segments: { pre: '', post: '' },
+        };
+        const baseHistory = [...history, placeholderView];
+        setMessages(baseHistory);
+        await chatStream(
+          {
+            messages: apiMessages,
+            context: ctxRef.current.context,
+            language: ctxRef.current.language,
+          },
+          (chunk) => {
+            accText += chunk;
+            // Re-parse on every delta so the user sees commands appear
+            // as soon as Clerk emits the closing </command>. Cheap —
+            // the parser is regex-based and 1500 tokens is small.
+            const { pre, post, commands: parsedCommands } = parseAssistantText(accText);
+            setMessages((prev) => {
+              const next = prev.slice();
+              const last = next[next.length - 1];
+              if (!last) return prev;
+              next[next.length - 1] = {
+                ...last,
+                message: {
+                  role: 'assistant',
+                  content: [{ type: 'text', text: accText }],
+                },
+                segments: { pre, post },
+                commands: parsedCommands.length > 0 ? parsedCommands : undefined,
+              };
+              return next;
+            });
+          },
+        );
+
+        // Final parse on the assembled text. Auto-mode commands dispatch
+        // here — confirm-mode chips stay pending for the user to click.
+        const { pre, post, commands } = parseAssistantText(accText);
         for (const cmd of commands) {
           if (cmd.status !== 'pending') continue;
           const spec = getCommandSpec(cmd.name);
@@ -193,19 +261,28 @@ export function useChat() {
             );
           }
         }
-        // Always set segments — MessageView reads pre/post from here for
-        // block-array assistant turns. Forgetting to set it when commands
-        // is empty made command-less replies (e.g. responses to
-        // [STATE CHANGE] notifications) render as empty bubbles.
-        const view: ChatMessageView = {
-          message: assistantMsg,
-          segments: { pre, post },
+        const assistantMsg: ChatMessage = {
+          role: 'assistant',
+          content: [{ type: 'text', text: accText }],
         };
-        if (commands.length > 0) {
-          view.commands = commands;
-        }
-        setMessages([...history, view]);
+        setMessages((prev) => {
+          const next = prev.slice();
+          next[next.length - 1] = {
+            message: assistantMsg,
+            segments: { pre, post },
+            commands: commands.length > 0 ? commands : undefined,
+          };
+          return next;
+        });
       } catch (e) {
+        // Drop the in-progress placeholder so the error doesn't sit
+        // under an empty assistant bubble.
+        setMessages((prev) => {
+          if (prev.length === 0) return prev;
+          const last = prev[prev.length - 1];
+          if (last.message.role === 'assistant') return prev.slice(0, -1);
+          return prev;
+        });
         setError(e instanceof Error ? e.message : 'Chat error');
       } finally {
         setPending(false);
@@ -357,6 +434,23 @@ export function useChat() {
     setPending(false);
     setError(null);
     pendingFailureNotesRef.current = [];
+    apiCursorRef.current = 0;
+  }, []);
+
+  /**
+   * Reset only the API-facing conversation context — visible message
+   * history stays on screen. Called from the wizard when the user
+   * starts a new report or loads a different one: the previous
+   * brief's Q&A is no longer relevant to the new content, but wiping
+   * the chat entirely would be jarring. This pushes the apiCursor
+   * forward to the current end-of-messages, so subsequent runLoop
+   * calls only include post-reset turns. Pending failure / decline
+   * notes for the old context are dropped too — they referenced
+   * commands the model no longer "remembers".
+   */
+  const resetContext = useCallback(() => {
+    apiCursorRef.current = messagesRef.current.length;
+    pendingFailureNotesRef.current = [];
   }, []);
 
   return {
@@ -368,13 +462,15 @@ export function useChat() {
     resolveCommand,
     applyAllInMessage,
     reset,
+    resetContext,
   };
 }
 
 /** Exposed for the renderer so it can strip tags out of assistant text
  *  blocks before display. Kept here so the parser logic lives in one
- *  place. */
+ *  place. Also drops any unclosed tail `<command…` so streaming
+ *  partials don't flash a half-typed tag into the bubble. */
 export function stripCommandTags(text: string): string {
-  return text.replace(COMMAND_TAG_RE, '').trim();
+  return stripUnclosedTailTag(text).replace(COMMAND_TAG_RE, '').trim();
 }
 

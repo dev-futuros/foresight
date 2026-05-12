@@ -13,7 +13,7 @@ import {
   type AssistantSnapshotInput,
 } from '../../lib/buildAssistantSnapshot';
 import { dispatch as dispatchCommand } from '../../lib/commandBus';
-import { setAssistantNotifier } from '../../lib/assistantBridge';
+import { setAssistantNotifier, setAssistantResetter } from '../../lib/assistantBridge';
 import api from '../../lib/api';
 import type { EmpresaData } from '../report/steps/StepEmpresa';
 import type { GlobalSteepData } from '../report/steps/StepGlobal';
@@ -96,6 +96,9 @@ interface PublishedWizardContext {
    *  assistant can resolve "this report" / "export this" without the
    *  user naming an id. Absent on every other route. */
   viewingReport?: AssistantSnapshotInput['viewingReport'];
+  /** Set by the report viewer alongside viewingReport so the snapshot
+   *  can surface the generated content. */
+  reportResult?: AssistantSnapshotInput['reportResult'];
 }
 
 const EMPTY_EMPRESA: EmpresaData = {
@@ -134,6 +137,7 @@ export default function ChatAssistant() {
     resolveCommand,
     applyAllInMessage,
     reset,
+    resetContext,
   } = useChat();
 
   const [open, setOpen] = useState(false);
@@ -194,6 +198,7 @@ export default function ChatAssistant() {
     reports: reportsPage?.content,
     examples: examplesList,
     viewingReport: ctx?.viewingReport,
+    reportResult: ctx?.reportResult,
   };
   const snapshot = useMemo(
     () => buildAssistantSnapshot(snapshotInput),
@@ -207,6 +212,7 @@ export default function ChatAssistant() {
       snapshotInput.steep,
       snapshotInput.horizon,
       snapshotInput.viewingReport,
+      snapshotInput.reportResult,
       reportsPage,
       examplesList,
     ],
@@ -229,6 +235,39 @@ export default function ChatAssistant() {
     });
     return () => setAssistantNotifier(null);
   }, [notify]);
+
+  // When the user starts a new report (or loads a different one), the
+  // chat's API context should reset so the assistant doesn't keep
+  // reasoning about the previous brief. Visible message history STAYS
+  // on screen — wiping it entirely would be jarring; the user might
+  // want to scroll back and reread the prior conversation. resetContext
+  // just bumps the cursor so future API calls only include post-reset
+  // turns.
+  useEffect(() => {
+    setAssistantResetter(() => {
+      resetContext();
+    });
+    return () => setAssistantResetter(null);
+  }, [resetContext]);
+
+  // Catch cross-report transitions that bypass the chat command bus
+  // (clicking a dashboard card, browser back/forward, deep link). The
+  // newReport/loadReport handlers call resetAssistant() explicitly, but
+  // UI navigation doesn't — so we watch viewingReport.id and reset on
+  // transitions BETWEEN defined ids (A → B). A → undefined is left
+  // alone: the user may be just popping out to the dashboard and we
+  // don't want to wipe context for that.
+  const prevReportIdRef = useRef<string | undefined>(undefined);
+  const currentReportId = ctx?.viewingReport?.id;
+  useEffect(() => {
+    const prev = prevReportIdRef.current;
+    if (prev && currentReportId && prev !== currentReportId) {
+      resetContext();
+    }
+    if (currentReportId) {
+      prevReportIdRef.current = currentReportId;
+    }
+  }, [currentReportId, resetContext]);
 
   // ── Resize handle: apply width to :root, clamp, persist ──
   // The CSS reads --chat-w for both the panel width and the shell's
