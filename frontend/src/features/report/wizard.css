@@ -22,6 +22,9 @@
   max-width: var(--container);
   margin: 0 auto;
   padding: 36px 24px 80px;
+  /* Anchor for the absolute-positioned .wizard-save-row that floats over
+     the step's eyebrow. */
+  position: relative;
 }
 
 /* Example-mode banner — shown when the wizard route is loaded against
@@ -49,6 +52,52 @@
   font-size: 13px;
   color: var(--ink-soft);
   line-height: 1.45;
+}
+
+/* ── Autosave row above the input form ─────────────────────────
+   Right-aligned strip that floats over the step's eyebrow line
+   ("Step 01 — Context") so the chip sits on the same horizontal
+   band as the step label — without nudging the step's layout up
+   or down. Pairs the relative-time label ("Saved 15s ago" /
+   "Saving…" / "Unsaved changes") with the circular state chip so
+   the indicator is anchored where the user's eyes already are —
+   next to the inputs they're typing into.
+
+   Absolutely positioned relative to {@code .wizard .main}; the
+   {@code top}/{@code right} offsets match that container's padding
+   so the row aligns with the eyebrow's start position. Pointer
+   events are disabled on the wrapper (so the chip doesn't shadow
+   the eyebrow text underneath) and re-enabled on its children for
+   the chip's title tooltip. The chip itself reuses the
+   {@code topbar-save-status} classes so visual tokens (size,
+   palette, spinner animation) stay in one place. */
+.wizard-save-row {
+  position: absolute;
+  top: 36px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 2;
+  pointer-events: none;
+}
+.wizard-save-row > * {
+  pointer-events: auto;
+}
+.wizard-save-label {
+  font-size: 12px;
+  color: var(--ink-mute);
+  font-family: var(--mono);
+  letter-spacing: 0.02em;
+}
+.wizard-save-row--dirty .wizard-save-label {
+  color: var(--gold-soft);
+}
+.wizard-save-row--saving .wizard-save-label {
+  color: var(--gold);
+}
+.wizard-save-row--error .wizard-save-label {
+  color: var(--red);
 }
 
 /* ── Autosave status icon ─────────────────────────────────────
@@ -887,4 +936,10 @@ body.has-maximized {
   .wizard .page-title { font-size: 26px; }
   .wizard .g2,
   .wizard .g3 { grid-template-columns: 1fr; }
+  /* Match the smaller {@code .main} padding so the chip still lines up
+     with the eyebrow on narrow viewports. */
+  .wizard-save-row {
+    top: 24px;
+    right: 16px;
+  }
 }

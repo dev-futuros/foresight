@@ -455,7 +455,8 @@ export default function ChatAssistant() {
           type="button"
           className={`chat-edge${unread > 0 ? ' has-unread' : ''}`}
           aria-label={t('chat.openAria')}
-          title={t('chat.openTitle')}
+          data-tooltip={t('chat.openTitle')}
+          data-tooltip-align="right"
           onClick={() => setOpen(true)}
         >
           <svg viewBox="0 0 24 24" aria-hidden>
@@ -498,7 +499,8 @@ export default function ChatAssistant() {
             type="button"
             className="chat-head-btn"
             onClick={reset}
-            title={t('chat.reset')}
+            data-tooltip={t('chat.reset')}
+            data-tooltip-pos="below"
             aria-label={t('chat.reset')}
           >
             <svg viewBox="0 0 24 24" aria-hidden>
@@ -509,7 +511,9 @@ export default function ChatAssistant() {
             type="button"
             className="chat-head-btn chat-head-close"
             onClick={() => setOpen(false)}
-            title={t('chat.close')}
+            data-tooltip={t('chat.close')}
+            data-tooltip-pos="below"
+            data-tooltip-align="right"
             aria-label={t('chat.close')}
           >
             <svg viewBox="0 0 24 24" aria-hidden>

@@ -167,12 +167,13 @@ body.app-busy .stepper-item {
   flex-shrink: 0;
 }
 
-/* ── Autosave chip in the topbar ───────────────────────────────
-   Status indicator — small dot-sized circle sitting next to the
-   new-report button so the "you're writing, here's your save state"
-   relationship reads spatially. Smaller than the icon buttons next
-   to it (22×22 vs 32×32) so it reads as a status badge, not another
-   button. Colours shift per state (dirty/saving/saved/error). */
+/* ── Autosave chip ─────────────────────────────────────────────
+   Status indicator — small dot-sized circle whose colour reflects
+   the current save state (dirty/saving/saved/error). Used by the
+   wizard's inline save row above the input form
+   ({@code .wizard-save-row} in wizard.css). Class name stays
+   {@code topbar-*} for historical reasons — the chip lived in the
+   topbar before being moved next to the inputs. */
 .topbar-save-status {
   width: 22px;
   height: 22px;
