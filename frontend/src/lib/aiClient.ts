@@ -597,7 +597,13 @@ function parseJsonText<T>(text: string): T {
   const first = cleaned.indexOf('{');
   const last = cleaned.lastIndexOf('}');
   if (first === -1 || last === -1) {
-    throw new Error('No JSON object found in streamed response');
+    // Surface whatever the model actually wrote (capped) so the user
+    // sees the real reason — most commonly "I cannot complete this
+    // request…", a truncation mid-search, or an empty body when the
+    // max_tokens budget was burned on tool_use rounds.
+    const preview = cleaned.trim().slice(0, 240);
+    const suffix = preview.length === 0 ? ' (empty response)' : ` — got: "${preview}${cleaned.length > 240 ? '…' : ''}"`;
+    throw new Error(`No JSON object found in streamed response${suffix}`);
   }
   const slice = cleaned.slice(first, last + 1);
   try {

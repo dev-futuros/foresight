@@ -76,11 +76,30 @@ public class AiService {
             NO scenario writing — just the raw observable facts. Downstream calls will turn
             these bullets into prose.
 
-            Respond ONLY with a JSON object — no preamble, no backticks — exactly:
-            {"S":"...","T":"...","E":"...","ENV":"...","P":"..."}
-            where each value is a newline-separated list of 4-6 dated bullets for that dimension.
-            S = social, T = technological, E = economic, ENV = environmental, P = political.
-            Respond in the requested language.
+            ============================================================
+            CRITICAL OUTPUT FORMAT — read this twice before responding:
+            ============================================================
+            Your ENTIRE final response must be a single JSON object. The
+            FIRST character of your final response MUST be "{" and the LAST
+            character MUST be "}". Do NOT write any preamble. Do NOT write
+            any closing remarks. Do NOT use markdown headers (### , ## , ** ,
+            etc). Do NOT wrap the JSON in code fences (```). Do NOT introduce
+            the response with phrases like "Here is" or "Based on my
+            research". If your response begins with anything other than "{"
+            you have failed the task.
+
+            The JSON shape is EXACTLY:
+              {"S":"...","T":"...","E":"...","ENV":"...","P":"..."}
+
+            where each value is a single string containing 4-6 dated bullets
+            joined by "\\n" (literal newline-escape inside the JSON string).
+            S = social, T = technological, E = economic, ENV = environmental,
+            P = political. Keys are exact and unquoted-after-the-colon (no
+            spelled-out names). Respond in the requested language inside the
+            string values; the keys stay in English.
+
+            Example of a correctly-shaped value (compressed):
+              "S":"2025-Q3: <fact>\\n2025-Q4: <fact>\\n2026-Q1: <fact>"
             """;
 
     /**
@@ -822,7 +841,9 @@ public class AiService {
                         request.sector(),
                         java.time.Year.now().getValue());
         return anthropicClient
-                .sendMessageWithWebSearch(properties.sonnet(), GLOBAL_STEEP_SCAN_SYSTEM, prompt, 2000)
+                // 4000 to match globalSteepScanStream — web_search tool
+                // rounds share the budget with the final JSON answer.
+                .sendMessageWithWebSearch(properties.sonnet(), GLOBAL_STEEP_SCAN_SYSTEM, prompt, 4000)
                 .map(AiResponseSanitizer::sanitize);
     }
 
@@ -1019,8 +1040,21 @@ public class AiService {
                         langInstruction(request.language()),
                         request.sector(),
                         java.time.Year.now().getValue());
+        // max_tokens=4000 — web_search tool_use rounds count against the
+        // same budget as the final text answer, and each search emits a
+        // chunky tool_result. We were originally at 2000, which left
+        // Sonnet out of budget by the time it tried to emit the JSON
+        // envelope. 4000 mirrors analyzeScanStream and is plenty for
+        // ~30 dated bullets plus a few search rounds.
+        //
+        // We can't use the assistant-prefill JSON-coercion trick here
+        // because prefilling disables tool use for the response and
+        // we need web_search to fire. The system prompt instead leans
+        // on very emphatic "no preamble, no markdown, JSON only" wording
+        // — see GLOBAL_STEEP_SCAN_SYSTEM.
         return streamUpstream(
-                anthropicClient.streamMessageWithWebSearch(properties.sonnet(), GLOBAL_STEEP_SCAN_SYSTEM, prompt, 2000));
+                anthropicClient.streamMessageWithWebSearch(
+                        properties.sonnet(), GLOBAL_STEEP_SCAN_SYSTEM, prompt, 4000));
     }
 
     /**

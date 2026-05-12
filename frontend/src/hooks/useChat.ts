@@ -188,28 +188,46 @@ export function useChat() {
       if (!trimmed) return;
       ctxRef.current = snapshot;
 
-      // If there are unresolved (un-applied) confirm chips from the
-      // previous assistant turn, auto-decline them so the new user
-      // message doesn't violate Anthropic's tool_use/tool_result
-      // pairing. The chip UI no longer exposes a decline button —
-      // clicking the chip is the only explicit action — so "user moved
-      // on without clicking" needs to be turned into a tool_result here.
-      // Applied chips are skipped (their tool_results were already
-      // flushed by resolveConfirm) and kept in the array so they stay
-      // visible in their green applied state.
-      const unresolved = pendingConfirms.filter((c) => !c.applied);
-      if (unresolved.length > 0) {
-        const declineBlocks: ChatContentBlock[] = unresolved.map((c) => ({
+      // The previous assistant turn may have left behind tool_use blocks
+      // that don't yet have matching tool_result blocks — they're either
+      // sitting in `pendingResultsRef.current` (auto-tool results + any
+      // confirm chips the user clicked that didn't reach the flush
+      // threshold) or still waiting on a user click (un-applied confirm
+      // chips). Anthropic rejects the next request with 400 if ANY
+      // tool_use from the previous assistant turn isn't paired with a
+      // tool_result in the new user turn, so we walk the last assistant
+      // message, gather every tool_use id, and synthesize results for
+      // ids that aren't already covered by the buffer.
+      const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant');
+      const expectedIds: string[] =
+        lastAssistant && Array.isArray(lastAssistant.content)
+          ? lastAssistant.content
+              .filter(
+                (b): b is ChatContentBlock & { id: string } =>
+                  b.type === 'tool_use' && typeof b.id === 'string',
+              )
+              .map((b) => b.id)
+          : [];
+      const bufferedResults = [...pendingResultsRef.current];
+      const bufferedIds = new Set(
+        bufferedResults
+          .map((b) => b.tool_use_id)
+          .filter((id): id is string => typeof id === 'string'),
+      );
+      const declineBlocks: ChatContentBlock[] = expectedIds
+        .filter((id) => !bufferedIds.has(id))
+        .map((id) => ({
           type: 'tool_result',
-          tool_use_id: c.toolUseId,
+          tool_use_id: id,
           content: 'User did not click this action; treating as declined.',
         }));
+      if (bufferedResults.length > 0 || declineBlocks.length > 0) {
         const userMsg: ChatMessage = {
           role: 'user',
-          content: [...declineBlocks, { type: 'text', text: trimmed }],
+          content: [...bufferedResults, ...declineBlocks, { type: 'text', text: trimmed }],
         };
-        // Drop only the now-declined chips; keep the applied ones so
-        // they remain rendered in their green state in the conversation.
+        // Drop only the un-applied chips; keep the applied ones so they
+        // remain rendered in their green state in the conversation.
         setPendingConfirms((prev) => prev.filter((c) => c.applied));
         pendingResultsRef.current = [];
         expectedResultsRef.current = 0;
@@ -229,7 +247,7 @@ export function useChat() {
         return next;
       });
     },
-    [pendingConfirms, runLoop],
+    [messages, runLoop],
   );
 
   /** Resolve a queued confirm chip. Pushes its tool_result into the same
