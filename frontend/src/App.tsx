@@ -9,7 +9,6 @@ import ProtectedRoute from './components/ProtectedRoute';
 import DashboardPage from './features/dashboard/DashboardPage';
 import NewReportPage from './features/report/NewReportPage';
 import ReportPage from './features/report/ReportPage';
-import AccountPage from './features/account/AccountPage';
 import PrivacyPage from './features/privacy/PrivacyPage';
 import PublicSharePage from './features/publicShare/PublicSharePage';
 import AuthLayout from './features/auth/AuthLayout';
@@ -58,7 +57,6 @@ function AppRoutes() {
         <Route path="/reports/new" element={<NewReportPage />} />
         <Route path="/reports/:id/edit" element={<NewReportPage />} />
         <Route path="/reports/:id" element={<ReportPage />} />
-        <Route path="/account" element={<AccountPage />} />
       </Route>
       {/* Unknown / bare paths land on the new-report wizard so a freshly
           loaded app shows the onboarding dialog instead of the dashboard.

@@ -351,7 +351,6 @@ export default function ChatAssistant() {
   function suggestionBucket(): string {
     const path = location.pathname;
     if (path === '/dashboard') return 'dashboard';
-    if (path === '/account') return 'account';
     if (path.startsWith('/share/')) return 'report';
     if (path === '/reports/new' || /^\/reports\/[^/]+\/edit$/.test(path)) {
       const step = ctx?.currentStep ?? 1;

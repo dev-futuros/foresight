@@ -1,60 +1,21 @@
-import { useEffect, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useLogout } from '../../hooks/useAuth';
 import { useSaveStatus } from './SaveStatusContext';
 import { dispatch as dispatchCommand } from '../../lib/commandBus';
+import AppUserButton from '../account/AppUserButton';
 
 /**
- * Sticky top bar — brand on the left, dashboard shortcut + hamburger menu
- * on the right. Account and Logout collapse into the hamburger dropdown
- * to keep the visible action area compact; the dashboard stays inline
- * with an icon since it's the most-used destination.
+ * Sticky top bar — brand on the left, action cluster on the right:
+ * autosave chip (when a wizard is publishing state) → new-report icon
+ * (gold) → dashboard icon → user avatar. The avatar (Clerk's
+ * UserButton wrapped via {@link AppUserButton}) opens the modal that
+ * carries "My account", the custom "Preferences" page, and sign out —
+ * replacing the older hamburger dropdown.
  */
 export default function TopBar() {
   const { t } = useTranslation();
-  const location = useLocation();
-  const navigate = useNavigate();
-  const logout = useLogout();
 
   const saveStatus = useSaveStatus();
-
-  // Hamburger dropdown state. Closes on outside click, Escape, route
-  // change, and after picking a menu item.
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    function onPointerDown(e: MouseEvent) {
-      const node = menuRef.current;
-      if (node && !node.contains(e.target as Node)) setMenuOpen(false);
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setMenuOpen(false);
-    }
-    document.addEventListener('mousedown', onPointerDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [menuOpen]);
-
-  // Close the menu whenever the route changes — picking any item that
-  // navigates needs the menu closed afterward.
-  useEffect(() => {
-    setMenuOpen(false);
-  }, [location.pathname]);
-
-  function handleAccount() {
-    setMenuOpen(false);
-    navigate('/account');
-  }
-  function handleLogout() {
-    setMenuOpen(false);
-    logout();
-  }
 
   return (
     <header className="topbar">
@@ -70,7 +31,7 @@ export default function TopBar() {
           {/* Autosave chip + new-report button form a paired cluster: the
               chip sits right next to the new-doc icon so the "you are
               writing, and it's being saved" relationship reads spatially.
-              Smaller than the icon buttons (24×24 vs 32×32) so it reads
+              Smaller than the icon buttons (22×22 vs 32×32) so it reads
               as a status indicator rather than another action.
               Only rendered while a wizard page is mounted and publishing
               state. */}
@@ -129,46 +90,11 @@ export default function TopBar() {
               <use href="#i-grid" />
             </svg>
           </Link>
-          <div className="topbar-menu" ref={menuRef}>
-            <button
-              type="button"
-              className="btn-ghost btn-ghost--icon"
-              onClick={() => setMenuOpen((v) => !v)}
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-              aria-label={t('nav.menu')}
-              title={t('nav.menu')}
-            >
-              <svg className="btn-ghost-ico" aria-hidden>
-                <use href="#i-menu" />
-              </svg>
-            </button>
-            {menuOpen && (
-              <div className="topbar-menu-dropdown" role="menu">
-                <button
-                  type="button"
-                  className="topbar-menu-item"
-                  role="menuitem"
-                  onClick={handleAccount}
-                >
-                  <svg className="topbar-menu-ico" aria-hidden>
-                    <use href="#i-user" />
-                  </svg>
-                  {t('nav.myAccount')}
-                </button>
-                <button
-                  type="button"
-                  className="topbar-menu-item"
-                  role="menuitem"
-                  onClick={handleLogout}
-                >
-                  <svg className="topbar-menu-ico" aria-hidden>
-                    <use href="#i-signout" />
-                  </svg>
-                  {t('nav.logout')}
-                </button>
-              </div>
-            )}
+          {/* User avatar — opens the Clerk modal (My Account, Security,
+              custom Preferences page, sign out). Replaces the older
+              hamburger dropdown that wrapped the same two destinations. */}
+          <div className="topbar-avatar">
+            <AppUserButton size={28} />
           </div>
         </div>
       </div>
