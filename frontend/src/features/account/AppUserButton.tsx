@@ -1,6 +1,7 @@
 import { UserButton } from '@clerk/react';
 import { useTranslation } from 'react-i18next';
 import ClerkPreferencesPage from './ClerkPreferencesPage';
+import { userButtonAppearance } from './userButtonAppearance';
 
 interface Props {
   /** Pixel size of the avatar. Topbar uses ~28; forwarded to Clerk via
@@ -20,7 +21,12 @@ export default function AppUserButton({ size = 28 }: Props) {
   return (
     <UserButton
       appearance={{
+        ...userButtonAppearance,
         elements: {
+          ...userButtonAppearance.elements,
+          // Avatar box sizing is per-instance — merged on top of the
+          // shared element-class map so the topbar can render a tight
+          // 28px avatar while a future hero use could pass 120px.
           avatarBox: { width: size, height: size },
         },
       }}

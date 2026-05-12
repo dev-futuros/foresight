@@ -77,3 +77,336 @@
   background: var(--red-bg);
   border: 1px solid hsla(0, 80%, 70%, 0.30);
 }
+
+/* ============================================================
+   CLERK <UserButton> + <UserProfile> OVERRIDES
+   Element keys are mapped to these classes via
+   features/account/userButtonAppearance.ts. Pattern mirrors the
+   auth-screen overrides in features/auth/auth.css: we own visual
+   chrome; Clerk owns the markup and behaviour. !important is the
+   norm because Clerk inlines styles derived from `variables` that
+   we want to override.
+   ============================================================ */
+
+/* ── Avatar trigger in the topbar ─────────────────────────── */
+.cl-up-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50% !important;
+  outline: none !important;
+  transition: box-shadow 180ms var(--ease);
+}
+.cl-up-trigger:focus-visible {
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--gold-soft) !important;
+}
+.cl-up-avatar {
+  border-radius: 50% !important;
+  border: 1px solid var(--line);
+  transition: border-color 180ms var(--ease), box-shadow 180ms var(--ease);
+}
+.cl-up-trigger:hover .cl-up-avatar {
+  border-color: var(--gold);
+  box-shadow: 0 0 16px hsla(40, 60%, 56%, 0.18);
+}
+
+/* ── Avatar popover (dropdown when avatar clicked) ─────────── */
+.cl-up-popover {
+  background: linear-gradient(180deg, var(--surface-1), var(--surface-2)) !important;
+  border: 1px solid var(--line-strong) !important;
+  border-radius: var(--r-md) !important;
+  box-shadow:
+    0 1px 0 hsla(0, 0%, 100%, 0.04) inset,
+    0 24px 48px -16px rgba(0, 0, 0, 0.6),
+    0 0 60px hsla(40, 60%, 56%, 0.04) !important;
+  padding: 6px !important;
+  min-width: 240px !important;
+}
+.cl-up-popover-main {
+  padding: 8px !important;
+}
+.cl-up-popover-footer {
+  border-top: 1px solid var(--line) !important;
+  padding-top: 6px !important;
+  margin-top: 4px !important;
+}
+.cl-up-popover-actions {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.cl-up-popover-action {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  width: 100% !important;
+  padding: 9px 10px !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: var(--r-sm) !important;
+  color: var(--ink) !important;
+  font-family: var(--mono) !important;
+  font-size: 12px !important;
+  letter-spacing: 0.02em !important;
+  text-align: left !important;
+  cursor: pointer !important;
+  transition: background 140ms var(--ease), color 140ms var(--ease) !important;
+}
+.cl-up-popover-action:hover {
+  background: var(--surface-3) !important;
+  color: var(--gold) !important;
+}
+.cl-up-popover-action--signout {
+  color: var(--ink-soft) !important;
+  border-top: 1px solid var(--line) !important;
+  margin-top: 4px !important;
+  padding-top: 11px !important;
+  border-radius: 0 0 var(--r-sm) var(--r-sm) !important;
+}
+.cl-up-popover-action--signout:hover {
+  background: hsla(0, 80%, 70%, 0.05) !important;
+  color: var(--red) !important;
+}
+.cl-up-popover-action-ico {
+  width: 16px !important;
+  height: 16px !important;
+  flex-shrink: 0 !important;
+  color: var(--ink-mute) !important;
+}
+.cl-up-popover-action:hover .cl-up-popover-action-ico {
+  color: currentColor !important;
+}
+
+/* ── Identity preview (in popover header + modal header) ──── */
+.cl-up-preview {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 10px !important;
+  margin-bottom: 4px !important;
+}
+.cl-up-preview-avatar {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 50% !important;
+  border: 1px solid var(--line) !important;
+  flex-shrink: 0 !important;
+}
+.cl-up-preview-text {
+  display: flex !important;
+  flex-direction: column !important;
+  min-width: 0 !important;
+}
+.cl-up-preview-name {
+  font-family: var(--sans) !important;
+  font-size: 13px !important;
+  color: var(--ink) !important;
+  font-weight: 500 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+.cl-up-preview-sub {
+  font-family: var(--mono) !important;
+  font-size: 10.5px !important;
+  color: var(--ink-mute) !important;
+  letter-spacing: 0.04em !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* ── Modal chrome (UserProfile pages) ──────────────────────── */
+.cl-up-modal-backdrop {
+  background: hsla(240, 12%, 4%, 0.7) !important;
+  -webkit-backdrop-filter: blur(8px) saturate(120%) !important;
+  backdrop-filter: blur(8px) saturate(120%) !important;
+}
+.cl-up-modal-content {
+  /* Clerk's outer modal scroll container — strip its own background so
+     the .cl-up-card chrome below is what reads as the panel. */
+  background: transparent !important;
+  padding: 24px !important;
+}
+.cl-up-root,
+.cl-up-card,
+.cl-up-card-box {
+  background: linear-gradient(180deg, var(--surface-1), var(--surface-2)) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 18px !important;
+  box-shadow:
+    0 1px 0 hsla(0, 0%, 100%, 0.04) inset,
+    0 24px 48px -16px rgba(0, 0, 0, 0.5),
+    0 0 80px hsla(40, 60%, 56%, 0.04) !important;
+  overflow: hidden !important;
+}
+
+/* ── Left rail navigation ──────────────────────────────────── */
+.cl-up-navbar {
+  background: hsla(240, 8%, 4%, 0.4) !important;
+  border-right: 1px solid var(--line) !important;
+  padding: 24px 14px !important;
+}
+.cl-up-navbar-buttons {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+}
+.cl-up-navbar-btn {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 9px 12px !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: var(--r-sm) !important;
+  color: var(--ink-soft) !important;
+  font-family: var(--mono) !important;
+  font-size: 11.5px !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  text-align: left !important;
+  cursor: pointer !important;
+  transition: background 140ms var(--ease), color 140ms var(--ease) !important;
+}
+.cl-up-navbar-btn:hover {
+  background: var(--surface-3) !important;
+  color: var(--ink) !important;
+}
+.cl-up-navbar-btn[data-active='true'],
+.cl-up-navbar-btn[aria-current='page'] {
+  background: var(--gold-bg) !important;
+  color: var(--gold) !important;
+}
+
+/* ── Page content (right pane) ─────────────────────────────── */
+.cl-up-page-scroll {
+  padding: 28px 32px !important;
+}
+.cl-up-page-header {
+  margin-bottom: 22px !important;
+  padding-bottom: 16px !important;
+  border-bottom: 1px solid var(--line) !important;
+}
+.cl-up-page-title {
+  font-family: var(--serif) !important;
+  font-weight: 400 !important;
+  font-size: 22px !important;
+  line-height: 1.2 !important;
+  color: var(--ink) !important;
+  margin: 0 0 4px !important;
+}
+.cl-up-page-subtitle {
+  font-family: var(--sans) !important;
+  font-size: 13px !important;
+  color: var(--ink-soft) !important;
+  line-height: 1.5 !important;
+  margin: 0 !important;
+}
+
+/* Breadcrumbs (visible on nested pages e.g. "Add an email address") */
+.cl-up-breadcrumbs {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  font-family: var(--mono) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  color: var(--ink-mute) !important;
+  margin-bottom: 12px !important;
+}
+.cl-up-breadcrumbs-item {
+  color: var(--ink-mute) !important;
+  text-decoration: none !important;
+  transition: color 140ms var(--ease) !important;
+}
+.cl-up-breadcrumbs-item:hover {
+  color: var(--gold) !important;
+}
+.cl-up-breadcrumbs-divider {
+  color: var(--ink-mute) !important;
+  opacity: 0.5 !important;
+}
+
+/* ── Built-in profile sections (email, password, 2FA, …) ──── */
+.cl-up-section {
+  padding: 18px 0 !important;
+  border-bottom: 1px solid var(--line) !important;
+}
+.cl-up-section:last-child {
+  border-bottom: none !important;
+}
+.cl-up-section-title {
+  margin-bottom: 10px !important;
+}
+.cl-up-section-title-text {
+  font-family: var(--mono) !important;
+  font-size: 10.5px !important;
+  letter-spacing: 0.16em !important;
+  text-transform: uppercase !important;
+  color: var(--ink-mute) !important;
+}
+.cl-up-section-subtitle {
+  font-family: var(--sans) !important;
+  font-size: 12.5px !important;
+  color: var(--ink-soft) !important;
+  margin-bottom: 8px !important;
+  line-height: 1.5 !important;
+}
+.cl-up-section-content {
+  font-family: var(--sans) !important;
+  font-size: 13.5px !important;
+  color: var(--ink) !important;
+}
+.cl-up-section-item {
+  padding: 8px 0 !important;
+  border-bottom: 1px dashed var(--line) !important;
+}
+.cl-up-section-item:last-child {
+  border-bottom: none !important;
+}
+.cl-up-section-action {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 6px 10px !important;
+  background: transparent !important;
+  border: 1px solid var(--line) !important;
+  border-radius: var(--r-sm) !important;
+  color: var(--ink-soft) !important;
+  font-family: var(--mono) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.04em !important;
+  cursor: pointer !important;
+  transition: border-color 150ms, color 150ms, background 150ms !important;
+}
+.cl-up-section-action:hover {
+  color: var(--gold) !important;
+  border-color: var(--line-accent) !important;
+  background: var(--gold-bg) !important;
+}
+
+/* Accordion trigger (Clerk uses it on multi-step settings) */
+.cl-up-accordion-trigger {
+  background: transparent !important;
+  border: 1px solid var(--line) !important;
+  border-radius: var(--r-sm) !important;
+  color: var(--ink) !important;
+  padding: 10px 12px !important;
+  font-family: var(--sans) !important;
+  font-size: 13px !important;
+  cursor: pointer !important;
+  transition: border-color 150ms, background 150ms !important;
+}
+.cl-up-accordion-trigger:hover {
+  border-color: var(--line-strong) !important;
+  background: var(--surface-3) !important;
+}
+
+/* ── Override: in-modal Clerk card chrome (auth.css strips this for
+   sign-in/up; we want it KEPT for the profile modal, but the auth
+   rules use .cl-card / .cl-card-box which our appearance map sends
+   to .cl-up-card / .cl-up-card-box — so no conflict.) ─────── */

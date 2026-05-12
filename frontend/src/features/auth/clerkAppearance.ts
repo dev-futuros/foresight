@@ -13,22 +13,31 @@
  *
  * Element classes (cl-*) are styled in features/auth/auth.css.
  */
+/**
+ * Shared palette + typography tokens for every Clerk component we mount
+ * (SignIn / SignUp / UserButton / UserProfile). Lifted into its own
+ * export so the user-profile modal in {@code AppUserButton} can reuse the
+ * exact same colours and fonts as the auth screens — keeps the visual
+ * language consistent across the gateway and in-app surfaces.
+ */
+export const clerkVariables = {
+  colorPrimary: '#d4a853',
+  colorBackground: 'transparent',
+  colorText: '#f0ece4',
+  colorTextSecondary: '#b8b3aa',
+  colorInputBackground: '#1a1a22',
+  colorInputText: '#f0ece4',
+  colorDanger: '#fb8e8e',
+  colorSuccess: '#6ee7b7',
+  colorWarning: '#fbb77b',
+  fontFamily: "'DM Sans', system-ui, -apple-system, sans-serif",
+  fontFamilyButtons: "'DM Sans', system-ui, -apple-system, sans-serif",
+  fontSize: '14px',
+  borderRadius: '10px',
+};
+
 export const clerkAppearance = {
-  variables: {
-    colorPrimary: '#d4a853',
-    colorBackground: 'transparent',
-    colorText: '#f0ece4',
-    colorTextSecondary: '#b8b3aa',
-    colorInputBackground: '#1a1a22',
-    colorInputText: '#f0ece4',
-    colorDanger: '#fb8e8e',
-    colorSuccess: '#6ee7b7',
-    colorWarning: '#fbb77b',
-    fontFamily: "'DM Sans', system-ui, -apple-system, sans-serif",
-    fontFamilyButtons: "'DM Sans', system-ui, -apple-system, sans-serif",
-    fontSize: '14px',
-    borderRadius: '10px',
-  },
+  variables: clerkVariables,
   elements: {
     rootBox: 'cl-root',
     card: 'cl-card',
