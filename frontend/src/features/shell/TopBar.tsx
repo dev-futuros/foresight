@@ -68,7 +68,7 @@ export default function TopBar() {
               affordance the chat assistant uses, single source of truth. */}
           <button
             type="button"
-            className="btn-ghost btn-ghost--icon btn-ghost--gold"
+            className="btn-ghost btn-ghost--icon"
             title={t('nav.newReport')}
             aria-label={t('nav.newReport')}
             onClick={() => {

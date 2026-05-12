@@ -2,6 +2,11 @@ import { UserButton } from '@clerk/react';
 import { useTranslation } from 'react-i18next';
 import ClerkPreferencesPage from './ClerkPreferencesPage';
 import { userButtonAppearance } from './userButtonAppearance';
+// Styles for both the popover (cl-up-*) and the in-modal Preferences
+// page body (.clerk-custom-page). Imported here because this is the
+// single entry point for everything Clerk-modal-related in the app —
+// the old AccountPage that used to import this file is gone.
+import './account.css';
 
 interface Props {
   /** Pixel size of the avatar. Topbar uses ~28; forwarded to Clerk via

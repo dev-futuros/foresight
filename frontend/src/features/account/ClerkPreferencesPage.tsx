@@ -88,7 +88,11 @@ export default function ClerkPreferencesPage() {
         </div>
         {msg && <p className={`account-msg account-msg--${msg.type}`}>{msg.text}</p>}
         <div className="account-actions">
-          <button type="submit" className="btn btn-primary" disabled={updateProfile.isPending}>
+          <button
+            type="submit"
+            className="cl-up-btn-primary"
+            disabled={updateProfile.isPending}
+          >
             {updateProfile.isPending
               ? t('account.preferences.saving')
               : t('account.preferences.save')}

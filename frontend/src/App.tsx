@@ -12,8 +12,9 @@ import ReportPage from './features/report/ReportPage';
 import PrivacyPage from './features/privacy/PrivacyPage';
 import PublicSharePage from './features/publicShare/PublicSharePage';
 import AuthLayout from './features/auth/AuthLayout';
-import { clerkAppearance } from './features/auth/clerkAppearance';
+import { clerkAppearance, clerkVariables } from './features/auth/clerkAppearance';
 import { clerkLocalization } from './features/auth/clerkLocalization';
+import { userButtonAppearance } from './features/account/userButtonAppearance';
 import AppShell from './features/shell/AppShell';
 import { useLanguageSync } from './hooks/useLanguageSync';
 import './features/auth/auth.css';
@@ -83,6 +84,30 @@ export default function App() {
       publishableKey={PUBLISHABLE_KEY}
       afterSignOutUrl="/sign-in"
       localization={localization}
+      // Global appearance with the shared palette + the userProfile
+      // sub-config from userButtonAppearance. Setting it at the provider
+      // level (not just on the UserButton instance) ensures Clerk's
+      // portal-rendered UserProfile modal — which is opened from the
+      // UserButton but mounted outside the component subtree — still
+      // picks up our element classes. SignIn/SignUp keep their own
+      // appearance prop, which overrides this on a per-instance basis.
+      //
+      // userVerification is the step-up reverification flow (rendered
+      // when a sensitive action requires re-auth — e.g. adding an
+      // email). Same modal shape as UserProfile, same element keys, so
+      // we reuse the same element map. Without this scope the OTP /
+      // header / card / button fall back to Clerk defaults.
+      appearance={{
+        variables: clerkVariables,
+        // Top-level `elements` apply globally to every Clerk component
+        // rendered in this provider — including ones that aren't
+        // exposed via a per-component scope (e.g. userVerification,
+        // the step-up reverification flow). SignIn/SignUp pass their
+        // own per-instance appearance, which overrides this at the
+        // instance level, so the auth screens are unaffected.
+        elements: userButtonAppearance.userProfile.elements,
+        userProfile: userButtonAppearance.userProfile,
+      }}
     >
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
