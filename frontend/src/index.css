@@ -203,3 +203,107 @@ textarea::-webkit-scrollbar-thumb:hover { background: var(--ink-mute); }
   color: var(--ink-mute);
   letter-spacing: 0.1em;
 }
+
+/* ============================================================
+   TOOLTIPS
+
+   CSS-only styled tooltip applied via {@code data-tooltip="..."}.
+   Replaces native browser title="" pop-ups (which can't be
+   styled) with a dark bubble matching the rest of the design
+   tokens — mono caps, gold-tinged border, dark fill. Show on
+   hover and on keyboard focus so it works for both pointer and
+   keyboard users.
+
+   Important: pair {@code data-tooltip} with {@code aria-label} on
+   interactive elements so screen readers still get the same
+   text (the tooltip is presentational only — it's not exposed to
+   AT via the data attribute).
+
+   Placement is "above the element" by default. Add
+   {@code data-tooltip-pos="below"} to flip when the element sits
+   near the top of the viewport (e.g. topbar items).
+   ============================================================ */
+[data-tooltip] {
+  position: relative;
+}
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%) translateY(2px);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 9px;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 1000;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  transition: opacity 140ms var(--ease), transform 140ms var(--ease);
+}
+[data-tooltip]::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 3px);
+  width: 0;
+  height: 0;
+  border: 5px solid transparent;
+  border-top-color: var(--line);
+  transform: translateX(-50%) translateY(2px);
+  pointer-events: none;
+  opacity: 0;
+  z-index: 1000;
+  transition: opacity 140ms var(--ease), transform 140ms var(--ease);
+}
+[data-tooltip]:hover::after,
+[data-tooltip]:hover::before,
+[data-tooltip]:focus-visible::after,
+[data-tooltip]:focus-visible::before {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  transition-delay: 120ms;
+}
+
+/* Below-the-element variant: flip the bubble + arrow downward for
+   triggers that live near the top of the viewport (topbar icons),
+   where an above-tooltip would otherwise hang off the page. */
+[data-tooltip-pos='below']::after {
+  bottom: auto;
+  top: calc(100% + 8px);
+}
+[data-tooltip-pos='below']::before {
+  bottom: auto;
+  top: calc(100% + 3px);
+  border-top-color: transparent;
+  border-bottom-color: var(--line);
+}
+
+/* Right-aligned variant — anchors to the element's right edge so
+   the bubble doesn't overflow past the viewport on items in the
+   right gutter (e.g. the topbar avatar). */
+[data-tooltip-align='right']::after {
+  left: auto;
+  right: 0;
+  transform: translateY(2px);
+}
+[data-tooltip-align='right']::before {
+  left: auto;
+  right: 14px;
+  transform: translateY(2px);
+}
+[data-tooltip-align='right']:hover::after,
+[data-tooltip-align='right']:focus-visible::after {
+  transform: translateY(0);
+}
+[data-tooltip-align='right']:hover::before,
+[data-tooltip-align='right']:focus-visible::before {
+  transform: translateY(0);
+}

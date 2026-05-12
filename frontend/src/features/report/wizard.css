@@ -22,6 +22,9 @@
   max-width: var(--container);
   margin: 0 auto;
   padding: 36px 24px 80px;
+  /* Anchor for the absolute-positioned .wizard-save-row that floats over
+     the step's eyebrow. */
+  position: relative;
 }
 
 /* Example-mode banner — shown when the wizard route is loaded against
@@ -49,6 +52,58 @@
   font-size: 13px;
   color: var(--ink-soft);
   line-height: 1.45;
+}
+
+/* ── Autosave row above the input form ─────────────────────────
+   Right-aligned strip that floats over the step's eyebrow line
+   ("Step 01 — Context") so the chip sits on the same horizontal
+   band as the step label — without nudging the step's layout up
+   or down. Pairs the relative-time label ("Saved 15s ago" /
+   "Saving…" / "Unsaved changes") with the circular state chip so
+   the indicator is anchored where the user's eyes already are —
+   next to the inputs they're typing into.
+
+   Absolutely positioned relative to {@code .wizard .main}; the
+   {@code top}/{@code right} offsets match that container's padding
+   so the row aligns with the eyebrow's start position. Pointer
+   events are disabled on the wrapper (so the chip doesn't shadow
+   the eyebrow text underneath) and re-enabled on its children for
+   the chip's title tooltip. The chip itself reuses the
+   {@code topbar-save-status} classes so visual tokens (size,
+   palette, spinner animation) stay in one place. */
+.wizard-save-row {
+  position: absolute;
+  /* Floats over the right gutter at roughly the baseline of the page
+     description's last line — far enough down that the chip sits just
+     above the input card, lined up with the bottom of "Define the
+     organisational context…". Approximate because the description
+     height isn't fixed (single vs. two-line wrap varies by step and
+     language), but tuned for the common two-line case. */
+  top: 128px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 2;
+  pointer-events: none;
+}
+.wizard-save-row > * {
+  pointer-events: auto;
+}
+.wizard-save-label {
+  font-size: 12px;
+  color: var(--ink-mute);
+  font-family: var(--mono);
+  letter-spacing: 0.02em;
+}
+.wizard-save-row--dirty .wizard-save-label {
+  color: var(--gold-soft);
+}
+.wizard-save-row--saving .wizard-save-label {
+  color: var(--gold);
+}
+.wizard-save-row--error .wizard-save-label {
+  color: var(--red);
 }
 
 /* ── Autosave status icon ─────────────────────────────────────
@@ -887,4 +942,12 @@ body.has-maximized {
   .wizard .page-title { font-size: 26px; }
   .wizard .g2,
   .wizard .g3 { grid-template-columns: 1fr; }
+  /* Smaller {@code .main} padding + smaller title shrink the header
+     stack on narrow viewports; the description usually wraps to more
+     lines, but the chip-above-card position still reads cleanly when
+     the chip sits just above where the card starts. */
+  .wizard-save-row {
+    top: 110px;
+    right: 16px;
+  }
 }
