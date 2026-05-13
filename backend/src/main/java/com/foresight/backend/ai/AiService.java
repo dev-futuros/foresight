@@ -1,10 +1,14 @@
 package com.foresight.backend.ai;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.springframework.http.codec.ServerSentEvent;
@@ -1442,52 +1446,183 @@ public class AiService {
     public Mono<JsonNode> translateReport(
             JsonNode inputData, JsonNode resultData, String targetLanguage) {
         String target = lang(targetLanguage);
-        ObjectNode envelope = objectMapper.createObjectNode();
-        if (inputData != null) envelope.set("inputData", inputData);
         // Strip sources before the translation call — they are URLs and
         // already-cited source titles in their language of origin and
         // we'll splice them back into the response unchanged.
         JsonNode strippedResult = stripSources(resultData);
-        if (strippedResult != null) envelope.set("resultData", strippedResult);
-
-        String envelopeJson;
-        try {
-            envelopeJson = objectMapper.writeValueAsString(envelope);
-        } catch (Exception e) {
-            return Mono.error(new AiException("Failed to serialise report for translation"));
+        List<TranslationChunk> chunks = buildTranslationChunks(inputData, strippedResult);
+        if (chunks.isEmpty()) {
+            // Nothing to translate — return an empty envelope so callers
+            // don't crash on a missing key. Sources still re-attached.
+            ObjectNode envelope = objectMapper.createObjectNode();
+            return Mono.just(reattachSources(envelope, resultData));
         }
 
-        String userPrompt = (target.equals("en")
+        // Fan out N chunks in parallel. Each is its own Haiku call with a
+        // much smaller payload and much smaller token budget, so the
+        // wall-clock is set by the slowest chunk rather than the sum of
+        // all of them. For a typical report this turns a ~60s serial
+        // translation into ~15s, capped by the largest single chunk
+        // (usually scenarios or backcasting).
+        //
+        // Per-chunk max_tokens=12000 — generous headroom above the
+        // ~3-5K tokens a single section produces, so a verbose chunk
+        // never truncates mid-JSON.
+        long fanOutStart = System.currentTimeMillis();
+        log.info(
+                "[translate] fan-out → {} chunks, totalInputChars={}",
+                chunks.size(),
+                chunks.stream().mapToInt(c -> c.envelopeJson().length()).sum());
+        List<Mono<Map.Entry<String, JsonNode>>> chunkMonos = new ArrayList<>(chunks.size());
+        for (TranslationChunk chunk : chunks) {
+            long chunkInputChars = chunk.envelopeJson().length();
+            chunkMonos.add(Mono.defer(() -> {
+                        long subscribeAt = System.currentTimeMillis();
+                        log.info(
+                                "[translate]  chunk {} subscribed ({}ms after fan-out, {} chars in)",
+                                chunk.key(),
+                                subscribeAt - fanOutStart,
+                                chunkInputChars);
+                        return streamMessageToText(
+                                        anthropicClient.streamMessage(
+                                                properties.haiku(),
+                                                TRANSLATE_SYSTEM,
+                                                translateUserPrompt(target, chunk.envelopeJson()),
+                                                12000))
+                                .map(this::parseTranslationJson)
+                                .map(parsed -> (Map.Entry<String, JsonNode>) Map.entry(chunk.key(), parsed))
+                                .doOnSuccess(e -> log.info(
+                                        "[translate]  chunk {} done ({}ms wall-clock)",
+                                        chunk.key(),
+                                        System.currentTimeMillis() - subscribeAt));
+                    }));
+        }
+        return Flux.merge(chunkMonos)
+                .collectMap(Map.Entry::getKey, Map.Entry::getValue)
+                .doOnSuccess(m -> log.info(
+                        "[translate] all {} chunks complete ({}ms total wall-clock)",
+                        chunks.size(),
+                        System.currentTimeMillis() - fanOutStart))
+                .map(resultByKey -> assembleTranslatedEnvelope(chunks, resultByKey))
+                .map(translated -> reattachSources(translated, resultData));
+    }
+
+    /**
+     * Standard translation user-prompt prefix. Same wording for both
+     * directions, parameterised on the target language.
+     */
+    private static String translateUserPrompt(String target, String envelopeJson) {
+        return (target.equals("en")
                         ? "Target language: ENGLISH. Translate the following foresight report "
                                 + "envelope into English following the strict rules above.\n\n"
                         : "Idioma destino: ESPAÑOL. Traduce el siguiente sobre de informe de "
                                 + "foresight al español siguiendo las reglas estrictas anteriores.\n\n")
                 + envelopeJson;
+    }
 
-        // Translation streams the response over SSE rather than
-        // posting non-stream and waiting for a single ~30s response.
-        // The non-streaming path was failing with
-        // PrematureCloseException — Anthropic's edge closes idle-like
-        // connections when the model is still generating and no bytes
-        // have left the server. Streaming keeps the channel alive
-        // because Anthropic emits keep-alive deltas as the response
-        // builds. Same pattern the analyze section calls use
-        // reliably, which is the proof-point.
-        //
-        // Haiku is the right tier for a pure-transform task — fast,
-        // cheap, and adequate quality (Sonnet's reasoning isn't
-        // needed for translation).
-        //
-        // max_tokens=24000: the translated payload is roughly the same
-        // size as the source, so a 30KB JSON in → 30KB JSON out ≈
-        // ~9-10K tokens. We need significant headroom above that so a
-        // verbose translation never truncates mid-JSON (which fails
-        // the downstream parse).
-        return streamMessageToText(
-                        anthropicClient.streamMessage(
-                                properties.haiku(), TRANSLATE_SYSTEM, userPrompt, 24000))
-                .map(this::parseTranslationJson)
-                .map(translated -> reattachSources(translated, resultData));
+    /**
+     * One unit of parallel translation work.
+     *
+     * <p>{@code key} identifies WHERE the chunk's translated content goes
+     * when we reassemble — {@code "inputData"} for the wizard inputs,
+     * {@code "resultData.<topLevelKey>"} for each top-level field of
+     * resultData (executiveSummary, scenarios, scenarioPlanning, etc.).
+     *
+     * <p>{@code envelopeJson} is the source JSON sent to Anthropic. The
+     * envelope is a single-key object — e.g. {@code {"scenarios":[…]}} —
+     * so the translator's output round-trips through the same
+     * {@link #parseTranslationJson} path as the legacy whole-document
+     * flow.
+     */
+    private record TranslationChunk(String key, String envelopeJson) {}
+
+    /**
+     * Split the source report into parallel-translatable chunks.
+     *
+     * <p>{@code inputData} (when present) becomes one chunk; each
+     * top-level key of {@code resultData} becomes another. Empty or
+     * missing slices are skipped so we don't pay for translating
+     * "(empty)" envelopes.
+     *
+     * <p>Why split by top-level resultData key: the sections were
+     * already produced by independent analyze calls and reference each
+     * other only via short pinned tokens (scenario type names like
+     * "Probable" / "Plausible" / "Posible") that the TRANSLATE_SYSTEM
+     * prompt explicitly pins. Scenario *display names* in
+     * {@code scenarioPlanning.scenarioLogics} and {@code backcasting}
+     * are placeholders patched on the frontend from {@code scenarios}
+     * — they don't need to match the source-language names. So per-key
+     * splits are safe.
+     */
+    private List<TranslationChunk> buildTranslationChunks(
+            JsonNode inputData, JsonNode strippedResult) {
+        List<TranslationChunk> chunks = new ArrayList<>();
+        addChunk(chunks, "inputData", inputData);
+        if (strippedResult != null && strippedResult.isObject()) {
+            strippedResult.fields().forEachRemaining(e -> {
+                ObjectNode sub = objectMapper.createObjectNode();
+                sub.set(e.getKey(), e.getValue());
+                addChunk(chunks, "resultData." + e.getKey(), sub);
+            });
+        }
+        return chunks;
+    }
+
+    private void addChunk(List<TranslationChunk> chunks, String key, JsonNode payload) {
+        if (payload == null || payload.isNull()) return;
+        if (payload.isObject() && payload.size() == 0) return;
+        if (payload.isArray() && payload.size() == 0) return;
+        try {
+            // For inputData, wrap in {"inputData": ...} so the translator's
+            // output keeps the original key. For per-section chunks the
+            // wrap is already done by the caller — store the payload as-is.
+            JsonNode envelope = key.equals("inputData")
+                    ? wrapSingleKey("inputData", payload)
+                    : payload;
+            chunks.add(new TranslationChunk(key, objectMapper.writeValueAsString(envelope)));
+        } catch (Exception e) {
+            log.warn("Failed to serialise translation chunk {} — skipping", key, e);
+        }
+    }
+
+    private JsonNode wrapSingleKey(String key, JsonNode value) {
+        ObjectNode out = objectMapper.createObjectNode();
+        out.set(key, value);
+        return out;
+    }
+
+    /**
+     * Re-glue the per-chunk translated JSON back into a single envelope
+     * with the original shape. Each chunk's parsed JSON is a single-key
+     * object whose key matches the chunk's key suffix (e.g. the
+     * {@code "resultData.scenarios"} chunk parses to
+     * {@code {"scenarios": [...]}}); we pull that single value out and
+     * place it under the matching key in the assembled
+     * {@code inputData} / {@code resultData} objects.
+     */
+    private JsonNode assembleTranslatedEnvelope(
+            List<TranslationChunk> chunks, Map<String, JsonNode> resultByKey) {
+        ObjectNode envelope = objectMapper.createObjectNode();
+        ObjectNode resultData = null;
+        for (TranslationChunk chunk : chunks) {
+            JsonNode chunkResult = resultByKey.get(chunk.key());
+            if (chunkResult == null || !chunkResult.isObject()) continue;
+            if (chunk.key().equals("inputData")) {
+                JsonNode inner = chunkResult.path("inputData");
+                if (!inner.isMissingNode()) envelope.set("inputData", inner);
+            } else {
+                // chunk.key() == "resultData.<section>"; the parsed JSON
+                // is {"<section>": <value>}. Extract the value and slot
+                // it under resultData.<section>.
+                String section = chunk.key().substring("resultData.".length());
+                JsonNode value = chunkResult.path(section);
+                if (value.isMissingNode()) continue;
+                if (resultData == null) resultData = objectMapper.createObjectNode();
+                resultData.set(section, value);
+            }
+        }
+        if (resultData != null) envelope.set("resultData", resultData);
+        return envelope;
     }
 
     /**
@@ -1547,66 +1682,134 @@ public class AiService {
     public Flux<JsonNode> translateReportStream(
             JsonNode inputData, JsonNode resultData, String targetLanguage) {
         String target = lang(targetLanguage);
-        ObjectNode envelope = objectMapper.createObjectNode();
-        if (inputData != null) envelope.set("inputData", inputData);
         JsonNode strippedResult = stripSources(resultData);
-        if (strippedResult != null) envelope.set("resultData", strippedResult);
-
-        String envelopeJson;
-        try {
-            envelopeJson = objectMapper.writeValueAsString(envelope);
-        } catch (Exception e) {
-            return Flux.error(new AiException("Failed to serialise report for translation"));
+        List<TranslationChunk> chunks = buildTranslationChunks(inputData, strippedResult);
+        if (chunks.isEmpty()) {
+            // Nothing to translate — emit a single done immediately so
+            // the SSE channel terminates cleanly.
+            ObjectNode done = objectMapper.createObjectNode();
+            done.put("type", "done");
+            done.put("generatedAt", java.time.Instant.now().toString());
+            return Flux.just((JsonNode) done);
         }
-        final int inputChars = envelopeJson.length();
 
-        String userPrompt = (target.equals("en")
-                        ? "Target language: ENGLISH. Translate the following foresight report "
-                                + "envelope into English following the strict rules above.\n\n"
-                        : "Idioma destino: ESPAÑOL. Traduce el siguiente sobre de informe de "
-                                + "foresight al español siguiendo las reglas estrictas anteriores.\n\n")
-                + envelopeJson;
+        // Total input across all chunks, used as the denominator for the
+        // frontend's determinate progress bar.
+        final int inputChars = chunks.stream().mapToInt(c -> c.envelopeJson().length()).sum();
 
-        Flux<ServerSentEvent<String>> upstream = anthropicClient.streamMessage(
-                properties.haiku(), TRANSLATE_SYSTEM, userPrompt, 24000);
-
-        StringBuilder acc = new StringBuilder();
+        // Per-chunk state: running output byte count + final parsed JSON.
+        // ConcurrentHashMap because the per-chunk Fluxes run on whatever
+        // Reactor scheduler the WebClient pool assigns; merge means events
+        // can interleave from multiple threads.
+        Map<String, AtomicInteger> outputBytesByKey = new ConcurrentHashMap<>();
+        Map<String, JsonNode> resultByKey = new ConcurrentHashMap<>();
+        // LinkedHashMap to preserve the per-chunk error if any chunk
+        // fails — the first error is what the doneFlux surfaces.
+        Map<String, Throwable> errorByKey = new LinkedHashMap<>();
         AtomicLong lastEmit = new AtomicLong(0L);
 
-        Flux<JsonNode> progressFlux = upstream.concatMap(sse -> {
-            String data = sse.data();
-            if (data == null) return Flux.empty();
-            JsonNode payload;
-            try {
-                payload = objectMapper.readTree(data);
-            } catch (Exception e) {
-                return Flux.empty();
-            }
-            String type = sse.event();
-            if (type == null || type.isBlank()) {
-                type = payload.path("type").asText("");
-            }
-            if (!"content_block_delta".equals(type)) return Flux.empty();
-            JsonNode delta = payload.path("delta");
-            if (!"text_delta".equals(delta.path("type").asText())) return Flux.empty();
-            acc.append(delta.path("text").asText());
-            // Throttle progress to ~5/s so an SSE-chatty stream doesn't
-            // spam the frontend's render loop. Same cadence as the
-            // analyze section progress events.
-            long now = System.currentTimeMillis();
-            if (now - lastEmit.get() < 200) return Flux.empty();
-            lastEmit.set(now);
-            return Flux.just(translateProgressEvent(inputChars, acc.length()));
-        });
+        // Per-chunk Flux<Object> — emits one marker per text_delta event
+        // (so the merged progress aggregator can react), updates the
+        // chunk's byte counter as deltas arrive, and parses + stores the
+        // final JSON when the upstream completes. Errors are caught here
+        // and recorded so the parallel siblings don't get cancelled — we
+        // want a best-effort assembly that ships what it could translate.
+        long fanOutStart = System.currentTimeMillis();
+        log.info(
+                "[translate-stream] fan-out → {} chunks, totalInputChars={}",
+                chunks.size(),
+                inputChars);
+        List<Flux<Object>> chunkFluxes = new ArrayList<>(chunks.size());
+        for (TranslationChunk chunk : chunks) {
+            outputBytesByKey.put(chunk.key(), new AtomicInteger(0));
+            StringBuilder acc = new StringBuilder();
+            long[] subscribeAt = new long[1];
+            Flux<Object> events = anthropicClient.streamMessage(
+                            properties.haiku(),
+                            TRANSLATE_SYSTEM,
+                            translateUserPrompt(target, chunk.envelopeJson()),
+                            12000)
+                    .doOnSubscribe(s -> {
+                        subscribeAt[0] = System.currentTimeMillis();
+                        log.info(
+                                "[translate-stream]  chunk {} subscribed ({}ms after fan-out, {} chars in)",
+                                chunk.key(),
+                                subscribeAt[0] - fanOutStart,
+                                chunk.envelopeJson().length());
+                    })
+                    .doOnComplete(() -> log.info(
+                            "[translate-stream]  chunk {} done ({}ms wall-clock, {} chars out)",
+                            chunk.key(),
+                            System.currentTimeMillis() - subscribeAt[0],
+                            acc.length()))
+                    .<Object>concatMap(sse -> {
+                        String data = sse.data();
+                        if (data == null) return Flux.empty();
+                        JsonNode payload;
+                        try {
+                            payload = objectMapper.readTree(data);
+                        } catch (Exception e) {
+                            return Flux.empty();
+                        }
+                        String type = sse.event();
+                        if (type == null || type.isBlank()) {
+                            type = payload.path("type").asText("");
+                        }
+                        if (!"content_block_delta".equals(type)) return Flux.empty();
+                        JsonNode delta = payload.path("delta");
+                        if (!"text_delta".equals(delta.path("type").asText())) return Flux.empty();
+                        acc.append(delta.path("text").asText());
+                        outputBytesByKey.get(chunk.key()).set(acc.length());
+                        return Flux.just((Object) Boolean.TRUE);
+                    })
+                    .concatWith(Mono.fromRunnable(() -> {
+                        try {
+                            resultByKey.put(chunk.key(), parseTranslationJson(acc.toString()));
+                        } catch (Throwable t) {
+                            synchronized (errorByKey) {
+                                errorByKey.put(chunk.key(), t);
+                            }
+                            log.error("Translation chunk {} failed: {}", chunk.key(), t.getMessage());
+                        }
+                    }))
+                    .onErrorResume(err -> {
+                        // Network / upstream errors land here. Record and
+                        // continue so the other chunks aren't cancelled.
+                        synchronized (errorByKey) {
+                            errorByKey.put(chunk.key(), err);
+                        }
+                        log.error("Translation chunk {} stream errored: {}", chunk.key(), err.getMessage());
+                        return Mono.empty();
+                    });
+            chunkFluxes.add(events);
+        }
+
+        Flux<JsonNode> progressFlux = Flux.merge(chunkFluxes)
+                .concatMap(unused -> {
+                    long now = System.currentTimeMillis();
+                    if (now - lastEmit.get() < 200) return Flux.<JsonNode>empty();
+                    lastEmit.set(now);
+                    int total = outputBytesByKey.values()
+                            .stream()
+                            .mapToInt(AtomicInteger::get)
+                            .sum();
+                    return Flux.just(translateProgressEvent(inputChars, total));
+                });
 
         Flux<JsonNode> doneFlux = Flux.defer(() -> {
-            JsonNode parsed;
-            try {
-                parsed = parseTranslationJson(acc.toString());
-            } catch (AiException e) {
-                return Flux.error(e);
+            // If every chunk failed, surface a single AiException so the
+            // frontend renders an error state instead of an empty
+            // translation. Partial failures are OK — the assembled
+            // envelope just omits the failed sections, and the frontend's
+            // tab availability check naturally hides them.
+            if (resultByKey.isEmpty() && !errorByKey.isEmpty()) {
+                Throwable first = errorByKey.values().iterator().next();
+                return Flux.error(first instanceof AiException
+                        ? first
+                        : new AiException("Translation failed: " + first.getMessage()));
             }
-            JsonNode complete = reattachSources(parsed, resultData);
+            JsonNode assembled = assembleTranslatedEnvelope(chunks, resultByKey);
+            JsonNode complete = reattachSources(assembled, resultData);
             ObjectNode done = objectMapper.createObjectNode();
             done.put("type", "done");
             if (complete != null && complete.has("inputData")) {
