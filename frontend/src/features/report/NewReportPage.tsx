@@ -264,6 +264,17 @@ export default function NewReportPage() {
   const createReportAsync = createReport.mutateAsync;
   const updateReportAsync = updateReport.mutateAsync;
 
+  // Mirror of the user's effective language into a ref so persistDraft
+  // (declared a few lines below and built with `useCallback`) can read
+  // the freshest value without re-creating on every language change.
+  // We need this on report CREATION specifically — the language that's
+  // active when the user first commits a draft becomes the report's
+  // permanent `primaryLanguage`, which downstream UI (dashboard chips,
+  // translation buttons) labels as "the authored language". The value
+  // is computed lower in the component and written into the ref on
+  // every render via the assignment after the `language` const.
+  const languageRef = useRef<'es' | 'en'>('es');
+
   // Example mode — the user is exploring a global example through the
   // wizard. Inputs render exactly like a real report's, but every
   // would-be persistence path is short-circuited: no autosave, no
@@ -331,7 +342,15 @@ export default function NewReportPage() {
             body: { title, inputData },
           });
         } else {
-          const created = await createReportAsync({ title, inputData });
+          // Stamp the report's primaryLanguage at creation time with the
+          // user's effective language. Dashboard chips read this back
+          // to label the "authored language" — without it, every
+          // report defaults to ES regardless of UI locale.
+          const created = await createReportAsync({
+            title,
+            inputData,
+            primaryLanguage: languageRef.current,
+          });
           reportIdRef.current = created.id;
           setReportId(created.id);
         }
@@ -396,6 +415,9 @@ export default function NewReportPage() {
 
   const language: 'es' | 'en' =
     user?.language === 'en' || i18n.language === 'en' ? 'en' : 'es';
+  // Keep the ref in sync so persistDraft (which captured an older
+  // closure scope) always reads today's value.
+  languageRef.current = language;
 
   const [empresa, setEmpresa] = useState<EmpresaData>(EMPTY_EMPRESA);
   const [globalData, setGlobalData] = useState<GlobalSteepData>(EMPTY_GLOBAL_STEEP);
@@ -692,6 +714,9 @@ export default function NewReportPage() {
         const created = await createReport.mutateAsync({
           title: buildTitle(),
           inputData: buildInputData(4),
+          // Same primaryLanguage stamping as the autosave create — see
+          // the persistDraft branch above for the rationale.
+          primaryLanguage: language,
         });
         reportIdRef.current = created.id;
         setReportId(created.id);
