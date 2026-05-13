@@ -10,6 +10,13 @@ export default defineConfig({
       '/api': {
         target: process.env.VITE_API_URL ?? 'http://localhost:8080',
         changeOrigin: true,
+        // Disable upstream connection pooling. With pooling on, an
+        // active SSE pins one socket open for the full stream
+        // duration; subsequent requests over the same pooled
+        // connection wait until that socket frees up — which mostly
+        // looks like "the second translation never starts". `agent:
+        // false` forces a fresh upstream socket per request.
+        agent: false,
       },
     },
   },
@@ -32,6 +39,13 @@ export default defineConfig({
       '/api': {
         target: process.env.VITE_API_URL ?? 'http://localhost:8080',
         changeOrigin: true,
+        // Disable upstream connection pooling. With pooling on, an
+        // active SSE pins one socket open for the full stream
+        // duration; subsequent requests over the same pooled
+        // connection wait until that socket frees up — which mostly
+        // looks like "the second translation never starts". `agent:
+        // false` forces a fresh upstream socket per request.
+        agent: false,
       },
     },
   },
