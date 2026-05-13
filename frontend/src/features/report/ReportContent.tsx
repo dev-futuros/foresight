@@ -227,9 +227,29 @@ export default function ReportContent({ result, input }: Props) {
       const panel = panelRef.current;
       if (!row || !panel) return;
       const stickyTop = parseFloat(getComputedStyle(row).top) || 0;
+      const rowRect = row.getBoundingClientRect();
+      // The tab row is "pinned" when its top edge has reached the
+      // sticky offset (or is below it in the rare overscroll case).
+      // While the row is still in its natural position further down
+      // the page, the user is at/near the report header — yanking
+      // them down on a tab click feels jarring and breaks the natural
+      // reading order. Bail out; just swap the panel and let the user
+      // keep their scroll position. Once the row is pinned (user is
+      // already deep in panel content), tab switches reset to the
+      // start of the newly selected panel.
+      const isPinned = rowRect.top <= stickyTop + 1;
+      if (!isPinned) return;
       const rowH = row.offsetHeight;
+      // Visual breathing room between the pinned tab row and the
+      // start of the new panel — without it the panel content butts
+      // up against the row and the eye doesn't get a moment to
+      // register the section change.
+      const breathingRoom = 16;
       const panelDocTop = window.scrollY + panel.getBoundingClientRect().top;
-      const targetY = Math.max(0, panelDocTop - stickyTop - rowH);
+      const targetY = Math.max(
+        0,
+        panelDocTop - stickyTop - rowH - breathingRoom,
+      );
       window.scrollTo({ top: targetY, behavior: 'smooth' });
     });
   }

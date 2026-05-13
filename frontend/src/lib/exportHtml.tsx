@@ -111,9 +111,19 @@ function injectReportData(
     /<title>[\s\S]*?<\/title>/i,
     `<title>${escapeHtml(report.title)}</title>`,
   );
-  // Inject the data tags right after <head> opens — before any other
-  // <head> child — so they're parsed before the snapshot bundle runs.
-  return withTitle.replace(/<head>/i, `<head>\n    ${dataTag}\n    ${langTag}`);
+  // Inject the data tags right before </head> closes — NOT at the
+  // start of <head>. The browser's encoding-detection algorithm only
+  // scans the first ~1024 bytes for a <meta charset> declaration; the
+  // serialized report payload runs into the hundreds of kilobytes, so
+  // placing data tags up top pushes <meta charset="UTF-8"> past that
+  // detection window and the document falls back to Latin-1 — em-
+  // dashes (`—`) render as the mojibake `â€"`, accents become garbled,
+  // etc. Trailing injection keeps the charset meta tag near byte 0
+  // where the parser actually looks for it. The snapshot bundle is a
+  // {@code type="module"} script that defers until DOMContentLoaded,
+  // so the data tags being last-in-head is functionally identical to
+  // first-in-head from the entry's perspective.
+  return withTitle.replace(/<\/head>/i, `    ${dataTag}\n    ${langTag}\n  </head>`);
 }
 
 /* ── Public entry point ──────────────────────────────────────────── */

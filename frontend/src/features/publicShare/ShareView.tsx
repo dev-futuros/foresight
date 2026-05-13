@@ -67,21 +67,28 @@ export default function ShareView({ report }: Props): ReactElement {
 
       <main className="public-share-main report-page">
         <div className="report-main">
+          {/* .report-heading wrapper matches ReportPage's structure so
+              .report-header's flex children stack vertically inside it
+              rather than space-between'ing horizontally. The share view
+              has no .report-actions sibling, but the wrapper still
+              earns the same vertical-stack layout. */}
           <header className="report-header">
-            <p className="report-eyebrow">{t('share.public.eyebrow')}</p>
-            <h1 className="report-main-title">{report.title}</h1>
-            <div className="report-meta">
-              <span className="report-meta-item">
-                {t('report.meta.created', { date: formattedDate })}
-              </span>
-              {cp.horizon && (
+            <div className="report-heading">
+              <p className="report-eyebrow">{t('share.public.eyebrow')}</p>
+              <h1 className="report-main-title">{report.title}</h1>
+              <div className="report-meta">
                 <span className="report-meta-item">
-                  {t('report.meta.horizon', { value: cp.horizon })}
+                  {t('report.meta.created', { date: formattedDate })}
                 </span>
-              )}
-              {cp.sector && (
-                <span className="report-meta-item">· {cp.sector}</span>
-              )}
+                {cp.horizon && (
+                  <span className="report-meta-item">
+                    {t('report.meta.horizon', { value: cp.horizon })}
+                  </span>
+                )}
+                {cp.sector && (
+                  <span className="report-meta-item">· {cp.sector}</span>
+                )}
+              </div>
             </div>
           </header>
           {report.resultData && (
