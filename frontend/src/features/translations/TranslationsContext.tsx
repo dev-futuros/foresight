@@ -29,6 +29,23 @@ export interface TranslationState {
   kind: 'report' | 'example';
 }
 
+/**
+ * Optional callbacks the caller wires into a translation. Fire-and-forget by
+ * default; pass these when you want to react to the terminal state without
+ * subscribing to the {@link TranslationState} map (e.g. "translate, then
+ * navigate the user to the report in that language" on the dashboard).
+ *
+ * <p>{@code onSuccess} fires once the backend has persisted the translation
+ * AND the React Query cache has been invalidated, so any subsequent fetch
+ * will see the freshly-translated payload.
+ *
+ * <p>{@code onError} fires on stream failure (excluding deliberate abort).
+ */
+export interface TranslationCallbacks {
+  onSuccess?: () => void;
+  onError?: (err: unknown) => void;
+}
+
 interface TranslationsContextValue {
   /** Snapshot of in-flight translations, keyed by report id. */
   translations: Record<string, TranslationState>;
@@ -40,12 +57,13 @@ interface TranslationsContextValue {
    * fresh chip once it lands).
    *
    * <p>Idempotent: a second call for a report that's already translating is
-   * a no-op.
+   * a no-op (the original callbacks remain in force; new ones are dropped).
    */
   startTranslation: (
     id: string,
     language: ExportLanguage,
     kind?: 'report' | 'example',
+    callbacks?: TranslationCallbacks,
   ) => void;
 }
 
@@ -74,7 +92,12 @@ export function TranslationsProvider({ children }: PropsWithChildren) {
   // subtree was listening at that exact moment.
 
   const startTranslation = useCallback(
-    (id: string, language: ExportLanguage, kind: 'report' | 'example' = 'report') => {
+    (
+      id: string,
+      language: ExportLanguage,
+      kind: 'report' | 'example' = 'report',
+      callbacks?: TranslationCallbacks,
+    ) => {
       // Read + write the duplicate guard from inside the setter so we
       // don't have to depend on `translations` in the callback's deps
       // (which would re-create the handler — and break referential
@@ -110,11 +133,16 @@ export function TranslationsProvider({ children }: PropsWithChildren) {
           // even if the consumer only listened on the reports key.
           queryClient.invalidateQueries({ queryKey: ['reports'] });
           queryClient.invalidateQueries({ queryKey: ['examples'] });
+          // Run AFTER the cache invalidation so the success callback can
+          // navigate to / refetch the freshly-translated payload without
+          // racing the still-stale data.
+          callbacks?.onSuccess?.();
         })
         .catch((err: unknown) => {
           if ((err as Error)?.name === 'AbortError') return;
           // eslint-disable-next-line no-console
           console.error('[translations] stream failed', err);
+          callbacks?.onError?.(err);
         })
         .finally(() => {
           abortRef.current.delete(id);

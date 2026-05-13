@@ -223,23 +223,68 @@
   margin-bottom: 10px;
 }
 .db-r-lang-chip {
+  appearance: none;
   font-family: var(--mono);
   font-size: 9.5px;
   letter-spacing: 0.08em;
   padding: 2px 7px;
   border-radius: var(--r-pill);
-  border: 1px solid var(--line);
-  color: var(--ink-mute);
-  background: transparent;
+  /* Both primary AND cached-translation chips share the gold treatment
+     now — they're functionally identical (click → open in that
+     language), so they read identically. The "not yet translated" state
+     keeps its dashed-muted look via .db-r-lang-translate below. */
+  border: 1px solid var(--line-accent);
+  background: var(--gold-bg);
+  color: var(--gold);
   text-transform: uppercase;
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  cursor: pointer;
+  transition: border-color 140ms var(--ease), color 140ms var(--ease),
+    background 140ms var(--ease), box-shadow 140ms var(--ease);
 }
+.db-r-lang-chip:hover {
+  border-color: var(--gold-soft);
+  background: var(--gold-bg-2);
+  color: var(--gold);
+}
+.db-r-lang-chip:focus-visible {
+  outline: 2px solid var(--gold-soft);
+  outline-offset: 2px;
+}
+/* Kept as an explicit modifier in case future affordances need to
+   distinguish primary from translated (e.g. a small badge); for now
+   it's a no-op on top of the base chip style. */
 .db-r-lang-chip--primary {
   border-color: var(--line-accent);
   background: var(--gold-bg);
   color: var(--gold);
+}
+/* 2-second flash applied to a chip whose translation just landed. The
+   animation pulses a gold halo via box-shadow + border-color so the
+   newly-actionable chip catches the eye without flashing in a way that
+   would feel like an error state. Class is removed after the timer
+   elapses (see DashboardPage's recentlyTranslated tracker). */
+@keyframes db-r-lang-chip-flash {
+  0%   { box-shadow: 0 0 0 0 hsla(40, 60%, 56%, 0.55); border-color: var(--gold); }
+  60%  { box-shadow: 0 0 0 8px hsla(40, 60%, 56%, 0); border-color: var(--gold); }
+  100% { box-shadow: 0 0 0 0 hsla(40, 60%, 56%, 0); border-color: var(--line-accent); }
+}
+.db-r-lang-chip--flash {
+  animation: db-r-lang-chip-flash 2s var(--ease) 1;
+}
+/* Suppress the chip's own "View in EN" tooltip while the × is being
+   hovered — otherwise the user sees two tooltips stacked. The ×'s
+   own data-tooltip takes over, which is the relevant one for that
+   pointer location. Uses :has() (Chrome 105+, Safari 15.4+, Firefox
+   121+), which lines up with our supported browser baseline. */
+.db-r-lang-chip:has(.db-r-lang-chip-x:hover)::after,
+.db-r-lang-chip:has(.db-r-lang-chip-x:hover)::before,
+.db-r-lang-chip:has(.db-r-lang-chip-x:focus-visible)::after,
+.db-r-lang-chip:has(.db-r-lang-chip-x:focus-visible)::before {
+  opacity: 0;
+  transition-delay: 0s;
 }
 /* × delete affordance inside a non-primary chip. Subtle until hover so it
    doesn't visually compete with the language label, but easy to hit. */

@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { useReports, useDeleteReport, useDeleteTranslation } from '../../hooks/useReports';
@@ -80,8 +80,95 @@ export default function DashboardPage() {
   // already in place) when they come back. The provider owns the
   // AbortControllers too; nothing here cancels them on unmount.
   const { translations, startTranslation } = useTranslations();
+  const navigate = useNavigate();
 
   const dateLocale = i18n.language === 'en' ? 'en-GB' : 'es-ES';
+
+  // ── Recently-translated flash tracker ─────────────────────────
+  // When a translation completes (i.e. an entry in `translations`
+  // transitions from in-flight to absent), we mark its (reportId, lang)
+  // pair as "recently translated" for 2 seconds. The chip render
+  // attaches the flash CSS class while the entry is in this set, so
+  // the user gets a brief gold pulse on the now-actionable chip — a
+  // visual hand-off from "translating" to "ready to click".
+  //
+  // Stored as a Set of "id:lang" keys for cheap lookup. A timeout
+  // schedules the entry's removal on the React event loop.
+  const [recentlyTranslated, setRecentlyTranslated] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const prevTranslationsRef = useRef<typeof translations>({});
+  useEffect(() => {
+    const prev = prevTranslationsRef.current;
+    for (const id of Object.keys(prev)) {
+      const had = prev[id];
+      const has = translations[id];
+      if (had && !has) {
+        // Transition: in-flight → absent. Translation completed (or
+        // errored; we can't tell from here, but a brief flash on a
+        // failed translation is harmless — the chip won't appear if
+        // the language wasn't actually added to availableLanguages).
+        const key = `${id}:${had.language}`;
+        setRecentlyTranslated((s) => {
+          const next = new Set(s);
+          next.add(key);
+          return next;
+        });
+        window.setTimeout(() => {
+          setRecentlyTranslated((s) => {
+            if (!s.has(key)) return s;
+            const next = new Set(s);
+            next.delete(key);
+            return next;
+          });
+        }, 2000);
+      }
+    }
+    prevTranslationsRef.current = translations;
+  }, [translations]);
+
+  /**
+   * Build the report-viewer URL for a card + chosen language. Primary
+   * language opens without a query param (cleaner URLs for the common
+   * case); non-primary languages add {@code ?lang=XX} which the viewer
+   * picks up to swap the rendered payload to the cached translation.
+   */
+  function viewerPath(id: string, lang: ExportLanguage, primary: ExportLanguage): string {
+    return lang === primary ? `/reports/${id}` : `/reports/${id}?lang=${lang}`;
+  }
+
+  /**
+   * Chip click handler. Two-step flow with intentional separation:
+   *
+   * <ul>
+   *   <li>Cached chip (gold) → navigate to the report in that language
+   *       immediately. The chip means "open in this language" once a
+   *       translation exists.</li>
+   *   <li>"+ EN" chip (untranslated) → kick off the translation stream
+   *       and return. The user stays on the dashboard, sees the
+   *       progress bar on the card, then watches the chip flip from
+   *       "+ EN" to a freshly-pulsing gold "EN". They click the now-
+   *       actionable chip to open the translation when ready.</li>
+   * </ul>
+   *
+   * Auto-navigating after translation would skip the chip flash and
+   * leave users confused about whether the translation actually
+   * completed — better to surface the completion explicitly and let
+   * them make the second click.
+   */
+  function handleChipView(
+    id: string,
+    lang: ExportLanguage,
+    primary: ExportLanguage,
+    isAvailable: boolean,
+    kind: 'report' | 'example',
+  ) {
+    if (isAvailable) {
+      navigate(viewerPath(id, lang, primary));
+      return;
+    }
+    startTranslation(id, lang, kind);
+  }
 
   function formatDate(iso: string) {
     return new Date(iso).toLocaleDateString(dateLocale, {
@@ -378,25 +465,63 @@ export default function DashboardPage() {
                         const isAvailable = availableLanguages.includes(lng);
                         const isPrimary = lng === primaryLanguage;
                         if (isAvailable) {
+                          // Chip IS the language switch. Click → open
+                          // the report in that language. The small
+                          // delete-translation × stays for non-primary
+                          // chips, behind {@code stopPropagation} so it
+                          // doesn't double-fire the view navigation —
+                          // but it's visually de-emphasised so the
+                          // chip body remains the obvious target.
+                          const flashKey = `${id}:${lng}`;
+                          const justTranslated = recentlyTranslated.has(flashKey);
                           return (
-                            <span
+                            <button
                               key={lng}
-                              className={`db-r-lang-chip${isPrimary ? ' db-r-lang-chip--primary' : ''}`}
-                              title={
-                                isPrimary
-                                  ? t('dashboard.lang.primary', { defaultValue: 'Primary language' })
-                                  : t('dashboard.lang.available', { defaultValue: 'Translated' })
+                              type="button"
+                              className={
+                                'db-r-lang-chip' +
+                                (isPrimary ? ' db-r-lang-chip--primary' : '') +
+                                (justTranslated ? ' db-r-lang-chip--flash' : '')
                               }
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleChipView(
+                                  id,
+                                  lng,
+                                  primaryLanguage,
+                                  true,
+                                  isExample ? 'example' : 'report',
+                                );
+                              }}
+                              // Styled tooltip via the global
+                              // [data-tooltip] CSS in index.css. Position
+                              // below the chip — chips sit near the
+                              // bottom of the card so an above-tooltip
+                              // would crash into the meta line.
+                              data-tooltip={t('dashboard.lang.view', {
+                                defaultValue: 'View in {{lang}}',
+                                lang: lng.toUpperCase(),
+                              })}
+                              data-tooltip-pos="below"
+                              aria-label={t('dashboard.lang.view', {
+                                defaultValue: 'View in {{lang}}',
+                                lang: lng.toUpperCase(),
+                              })}
                             >
-                              {lng.toUpperCase()}
-                              {/* Primary language has no delete affordance — it's
-                                  the source of truth, not a cached translation.
-                                  For examples, only DEVs can delete a
-                                  translation; for the user's own reports it's
-                                  always the owner. */}
+                              <span className="db-r-lang-chip-label">
+                                {lng.toUpperCase()}
+                              </span>
+                              {/* Primary language has no delete
+                                  affordance — it's the source of
+                                  truth, not a cached translation. For
+                                  examples only DEVs may delete a
+                                  translation; for the user's own
+                                  reports it's always the owner. */}
                               {!isPrimary && canActOnTranslations && (
-                                <button
-                                  type="button"
+                                <span
+                                  role="button"
+                                  tabIndex={0}
                                   className="db-r-lang-chip-x"
                                   onClick={(e) => {
                                     e.preventDefault();
@@ -407,24 +532,38 @@ export default function DashboardPage() {
                                       deleteTranslation.mutate({ id, language: lng });
                                     }
                                   }}
-                                  disabled={
-                                    isExample
-                                      ? deleteExampleTranslation.isPending
-                                      : deleteTranslation.isPending
-                                  }
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      if (isExample) {
+                                        deleteExampleTranslation.mutate({ id, language: lng });
+                                      } else {
+                                        deleteTranslation.mutate({ id, language: lng });
+                                      }
+                                    }
+                                  }}
                                   aria-label={t('dashboard.lang.delete', {
                                     defaultValue: 'Delete {{lang}} translation',
                                     lang: lng.toUpperCase(),
                                   })}
-                                  title={t('dashboard.lang.delete', {
+                                  // Styled tooltip — same system as the
+                                  // chip body. A {@code :has(.x:hover)}
+                                  // CSS rule on the chip suppresses the
+                                  // parent's "View in EN" tooltip while
+                                  // the × is hovered, so only one bubble
+                                  // shows at a time instead of stacking
+                                  // a native + styled pair.
+                                  data-tooltip={t('dashboard.lang.delete', {
                                     defaultValue: 'Delete {{lang}} translation',
                                     lang: lng.toUpperCase(),
                                   })}
+                                  data-tooltip-pos="below"
                                 >
                                   ×
-                                </button>
+                                </span>
                               )}
-                            </span>
+                            </button>
                           );
                         }
                         // Translate-to button only renders when the user
@@ -441,13 +580,20 @@ export default function DashboardPage() {
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              startTranslation(id, lng, isExample ? 'example' : 'report');
+                              handleChipView(
+                                id,
+                                lng,
+                                primaryLanguage,
+                                false,
+                                isExample ? 'example' : 'report',
+                              );
                             }}
                             disabled={isTranslating}
-                            title={t('dashboard.lang.translateTo', {
+                            data-tooltip={t('dashboard.lang.translateTo', {
                               defaultValue: 'Translate to {{lang}}',
                               lang: lng.toUpperCase(),
                             })}
+                            data-tooltip-pos="below"
                           >
                             + {lng.toUpperCase()}
                           </button>

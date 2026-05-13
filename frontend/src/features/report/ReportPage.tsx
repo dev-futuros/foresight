@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useQuery } from '@tanstack/react-query';
+import api from '../../lib/api';
 import { useReport, useTranslateReport } from '../../hooks/useReports';
 import { useDemoteExample, useTranslateExample } from '../../hooks/useExamples';
 import { useIsDev } from '../../hooks/useAuth';
@@ -62,6 +64,113 @@ export default function ReportPage() {
   const [exportOpen, setExportOpen] = useState(false);
   const [promoteOpen, setPromoteOpen] = useState(false);
   const [pendingDemote, setPendingDemote] = useState(false);
+
+  // ── In-viewer language switcher ───────────────────────────────────
+  // Resolution order for the language the user is currently reading in:
+  //   1. {@code ?lang=XX} in the URL (explicit, beats everything — the
+  //      switcher pill writes this; the dashboard chips do too).
+  //   2. {@code localStorage["report-lang:<id>"]} (per-report
+  //      preference — remembers the last language the user chose for
+  //      THIS report across navigation).
+  //   3. The report's primary language (the authored fallback).
+  //
+  // Writing the URL is what triggers the payload swap; we mirror that
+  // write into localStorage so navigating away and back doesn't reset
+  // the choice. Per-report keys (not a single global preference) keep
+  // each report's "I'm reading this one in EN" memory independent.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const langParam = searchParams.get('lang');
+  const requestedLang: ExportLanguage | null =
+    langParam === 'es' || langParam === 'en' ? langParam : null;
+  const primaryLang = (report?.primaryLanguage as ExportLanguage | undefined) ?? 'es';
+  const availableLangs = (report?.availableLanguages as ExportLanguage[] | undefined) ?? [
+    primaryLang,
+  ];
+
+  // Stored preference. Read once via {@code useState} initialiser so we
+  // don't slam {@code localStorage} on every render. Updated via
+  // {@code useEffect} below when the URL param changes.
+  const storageKey = id ? `report-lang:${id}` : null;
+  const [storedLang, setStoredLang] = useState<ExportLanguage | null>(() => {
+    if (typeof window === 'undefined' || !storageKey) return null;
+    try {
+      const v = window.localStorage.getItem(storageKey);
+      return v === 'es' || v === 'en' ? v : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const activeLang: ExportLanguage = (() => {
+    if (requestedLang && availableLangs.includes(requestedLang)) return requestedLang;
+    if (storedLang && availableLangs.includes(storedLang)) return storedLang;
+    return primaryLang;
+  })();
+
+  /**
+   * Write the user's chosen language to localStorage AND the URL.
+   * Called from the switcher pill. We persist every explicit choice —
+   * including primary — so toggling back to primary actually clears
+   * any older stored preference. Without this, a user who reads in EN,
+   * comes back, sees EN, and clicks ES to switch would still see EN
+   * on their next visit (the URL-only path leaves localStorage on
+   * EN).
+   */
+  function chooseLanguage(lng: ExportLanguage) {
+    const next = new URLSearchParams(searchParams);
+    if (lng === primaryLang) next.delete('lang');
+    else next.set('lang', lng);
+    setSearchParams(next, { replace: true });
+    if (storageKey && typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem(storageKey, lng);
+        setStoredLang(lng);
+      } catch {
+        /* private-browsing / storage-disabled — no-op. */
+      }
+    }
+  }
+
+  // Mirror URL-driven changes (e.g. arriving at /reports/:id?lang=en
+  // from a dashboard chip click, or from a shared link) into
+  // localStorage too, so the preference survives subsequent navigation
+  // without the user having to touch the switcher.
+  useEffect(() => {
+    if (!storageKey || typeof window === 'undefined') return;
+    if (requestedLang && availableLangs.includes(requestedLang)) {
+      try {
+        window.localStorage.setItem(storageKey, requestedLang);
+        setStoredLang(requestedLang);
+      } catch {
+        /* private-browsing / storage-disabled — no-op. */
+      }
+    }
+  }, [storageKey, requestedLang, availableLangs]);
+  const needsTranslationFetch = report != null && activeLang !== primaryLang;
+  // React Query handles per-(id × lang) caching for us: switching back
+  // to a previously-fetched language is instant. The endpoint is
+  // server-side cache-warm so even a "first fetch" round-trip is fast.
+  const translationQuery = useQuery<{
+    inputData: Record<string, unknown>;
+    resultData: Record<string, unknown> | null;
+  }>({
+    queryKey: [
+      report?.source === 'example' ? 'examples' : 'reports',
+      id,
+      'translation',
+      activeLang,
+    ],
+    queryFn: async () => {
+      const base = report?.source === 'example' ? 'examples' : 'reports';
+      const res = await api.post<{
+        inputData: Record<string, unknown>;
+        resultData: Record<string, unknown> | null;
+      }>(`/${base}/${id}/translate`, null, { params: { targetLanguage: activeLang } });
+      return res.data;
+    },
+    enabled: needsTranslationFetch,
+    staleTime: Infinity,
+  });
 
   const isExample = report?.source === 'example';
 
@@ -278,8 +387,23 @@ export default function ReportPage() {
     );
   }
 
-  const input = report.inputData as InputData;
-  const result = report.resultData as ResultData | null;
+  // Pick the payload to render: the report's authored payload when
+  // viewing in primary language, OR the cached translation when ?lang
+  // points at a non-primary, already-available language. When the
+  // translation is still loading we fall back to the primary payload
+  // briefly so the page stays populated instead of flashing empty
+  // tabs — the swap happens once the fetch resolves.
+  const translatedPayload = translationQuery.data;
+  const input = (
+    needsTranslationFetch && translatedPayload
+      ? translatedPayload.inputData
+      : report.inputData
+  ) as InputData;
+  const result = (
+    needsTranslationFetch && translatedPayload
+      ? translatedPayload.resultData
+      : report.resultData
+  ) as ResultData | null;
   // `inputData.steep` is the sectorial STEEP captured in step 3 (the
   // wizard stores it under the bare `steep` key, not `sectorialSteep`).
   // Surface it to ReportContent under the demo-aligned name so the
@@ -324,6 +448,37 @@ export default function ReportPage() {
               )}
               {input?.companyProfile?.sector && (
                 <span className="report-meta-item">· {input.companyProfile.sector}</span>
+              )}
+              {/* Language switcher — segmented pill listing every
+                  cached translation. Only renders when ≥2 languages
+                  are available (no point showing a one-option toggle).
+                  Click writes {@code ?lang=XX} to the URL, the
+                  translation query above swaps the rendered payload.
+                  Disabled while the translation is loading so the
+                  user doesn't pile clicks during the swap. */}
+              {availableLangs.length > 1 && (
+                <span
+                  className="report-lang-switch"
+                  role="tablist"
+                  aria-label={t('report.lang.switcherAria', { defaultValue: 'View in language' })}
+                >
+                  {availableLangs.map((lng) => {
+                    const isActive = lng === activeLang;
+                    return (
+                      <button
+                        key={lng}
+                        type="button"
+                        role="tab"
+                        aria-selected={isActive}
+                        className={`report-lang-switch-btn${isActive ? ' active' : ''}`}
+                        disabled={translationQuery.isFetching && !isActive}
+                        onClick={() => chooseLanguage(lng)}
+                      >
+                        {lng.toUpperCase()}
+                      </button>
+                    );
+                  })}
+                </span>
               )}
             </div>
           </div>
@@ -418,6 +573,11 @@ export default function ReportPage() {
         open={exportOpen}
         reportId={id!}
         kind={isExample ? 'example' : 'report'}
+        // Pre-select the language the user is currently viewing so the
+        // export defaults to what's on screen — they can still change
+        // it in the modal, but the common case ("export what I'm
+        // reading") becomes a one-click flow.
+        initialLanguage={activeLang}
         onClose={() => setExportOpen(false)}
         onExport={(format, language) => runExport(format, language)}
       />

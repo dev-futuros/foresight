@@ -479,7 +479,9 @@ const es = {
       primary: 'Idioma principal',
       available: 'Traducido',
       translateTo: 'Traducir a {{lang}}',
+      translateAndView: 'Traducir a {{lang}} y abrir',
       translatingTo: 'Traduciendo a {{lang}}…',
+      view: 'Ver en {{lang}}',
       delete: 'Eliminar la traducción a {{lang}}',
     },
   },
@@ -496,6 +498,9 @@ const es = {
     notFound: 'Informe no encontrado.',
     errorLoading: 'No se pudo cargar el informe.',
     draftUntitled: 'Borrador sin título',
+    lang: {
+      switcherAria: 'Ver informe en otro idioma',
+    },
     tabs: {
       inputs: 'INPUTS',
       results: 'RESULTADOS',

@@ -485,7 +485,9 @@ const en = {
       primary: 'Primary language',
       available: 'Translated',
       translateTo: 'Translate to {{lang}}',
+      translateAndView: 'Translate to {{lang}} and open',
       translatingTo: 'Translating to {{lang}}…',
+      view: 'View in {{lang}}',
       delete: 'Delete {{lang}} translation',
     },
   },
@@ -502,6 +504,9 @@ const en = {
     notFound: 'Report not found.',
     errorLoading: 'Could not load the report.',
     draftUntitled: 'Untitled draft',
+    lang: {
+      switcherAria: 'View report in language',
+    },
     tabs: {
       inputs: 'INPUTS',
       results: 'RESULTS',
