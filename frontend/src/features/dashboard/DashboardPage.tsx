@@ -22,6 +22,7 @@ import '../../components/modal.css';
 import api from '../../lib/api';
 import { exportReportPdf } from '../../lib/exportPdf';
 import { exportReportPpt } from '../../lib/exportPpt';
+import { exportReportHtml } from '../../lib/exportHtml';
 import { useTranslations } from '../translations/TranslationsContext';
 import type {
   ExampleSummary,
@@ -35,7 +36,7 @@ import './dashboard.css';
 const SUPPORTED_LANGUAGES: readonly ExportLanguage[] = ['es', 'en'] as const;
 
 /** Action a card might be running. {@code null} when no card is busy. */
-type ExportingState = { id: string; kind: 'pdf' | 'ppt' } | null;
+type ExportingState = { id: string; kind: ExportFormat } | null;
 
 /**
  * Unified card row — either a user-owned report or a global example.
@@ -188,7 +189,8 @@ export default function DashboardPage() {
       // export pattern.
       await new Promise((r) => setTimeout(r, 0));
       if (format === 'pdf') await exportReportPdf(report, language);
-      else exportReportPpt(report);
+      else if (format === 'ppt') exportReportPpt(report);
+      else await exportReportHtml(report, language);
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('[dashboard] export failed', err);
@@ -672,7 +674,9 @@ export default function DashboardPage() {
             ? t('modals.export.pdf')
             : exporting?.kind === 'ppt'
               ? t('modals.export.ppt')
-              : t('dashboard.exporting')
+              : exporting?.kind === 'html'
+                ? t('modals.export.html', { defaultValue: 'Building standalone HTML…' })
+                : t('dashboard.exporting')
         }
       />
     </div>

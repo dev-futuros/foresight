@@ -1,0 +1,26 @@
+# Default: let Git auto-handle line endings, normalising to LF in the repo
+# and to the platform default in the working tree.
+* text=auto
+
+# Files that MUST keep LF endings regardless of platform — shell scripts
+# and Dockerfiles are read by Linux/Alpine containers where a stray \r
+# in the shebang turns into "no such file or directory" on exec. The
+# `eol=lf` directive forces LF in the working tree on checkout, even on
+# Windows with `core.autocrlf=true`.
+*.sh         text eol=lf
+Dockerfile   text eol=lf
+Dockerfile.* text eol=lf
+docker-entrypoint.sh text eol=lf
+
+# Treat known binary types as binary so Git doesn't try to munge them.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.pdf binary
+*.zip binary

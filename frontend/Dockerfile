@@ -29,8 +29,14 @@ COPY . .
 RUN npm run build
 
 # Entrypoint dispatcher — branches on FRONTEND_MODE.
+# `sed -i 's/\r$//'` strips any stray CRLF the file may have picked up
+# on a Windows host. .gitattributes pins this to LF in the repo, but
+# the sed pass means a careless editor can't break the image build
+# either — the shebang is parsed by the kernel and a trailing \r turns
+# `#!/bin/sh` into a request for an interpreter that doesn't exist.
 COPY docker-entrypoint.sh /usr/local/bin/foresight-entrypoint
-RUN chmod +x /usr/local/bin/foresight-entrypoint
+RUN sed -i 's/\r$//' /usr/local/bin/foresight-entrypoint \
+ && chmod +x /usr/local/bin/foresight-entrypoint
 
 # Both ports are exposed; the active one depends on FRONTEND_MODE.
 EXPOSE 5173 4173

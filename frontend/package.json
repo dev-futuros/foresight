@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && vite build --config vite.snapshot.config.ts",
+    "build:snapshot": "vite build --config vite.snapshot.config.ts",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
@@ -42,6 +43,7 @@
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.58.2",
     "vite": "^8.0.9",
+    "vite-plugin-singlefile": "^2.3.3",
     "vitest": "^4.1.5"
   }
 }

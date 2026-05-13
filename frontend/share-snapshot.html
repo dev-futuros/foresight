@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Futuros — Foresight Strategy</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&family=Playfair+Display:ital,wght@0,400;0,500;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <!--
+      Standalone snapshot host page. Built as a separate Vite entry via
+      `npm run build:snapshot`, then inlined into a single file by
+      vite-plugin-singlefile so the output ships every byte of JS + CSS
+      directly in the HTML.
+
+      Runtime contract: the HTML export inserts a
+      <script id="report-data" type="application/json"> tag carrying the
+      serialized report into <head> before the main <script>. The entry
+      module (src/share-snapshot.tsx) reads from it on mount.
+    -->
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/share-snapshot.tsx"></script>
+  </body>
+</html>

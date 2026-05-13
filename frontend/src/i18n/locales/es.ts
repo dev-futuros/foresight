@@ -43,6 +43,7 @@ const es = {
     export: {
       pdf: 'Generando PDF…',
       ppt: 'Generando PowerPoint…',
+      html: 'Generando HTML…',
     },
   },
   example: {
@@ -55,6 +56,7 @@ const es = {
     formats: {
       pdf: 'PDF — Documento imprimible',
       ppt: 'PowerPoint — Diapositivas editables',
+      html: 'HTML — Página autónoma (DEV)',
     },
     action: 'Exportar',
   },

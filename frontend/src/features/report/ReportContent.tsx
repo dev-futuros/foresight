@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 import type {
   Backcasting,
@@ -93,7 +93,7 @@ interface TabDef {
   key: TabKey;
   labelKey: string;
   available: (r: ResultData, input?: InputProjection) => boolean;
-  render: (r: ResultData, input?: InputProjection) => JSX.Element | null;
+  render: (r: ResultData, input?: InputProjection) => ReactElement | null;
 }
 
 /** Tab definitions in display order. `available` decides whether a tab is

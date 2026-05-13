@@ -152,7 +152,12 @@ async function ensureFonts(doc: jsPDF): Promise<void> {
   }
   if (fontState === 'loading' && fontPromise) {
     await fontPromise;
-    if (fontState === 'ready') registerCachedFonts(doc);
+    // TS narrows `fontState` to 'loading' from the outer check and
+    // doesn't track the mutation that happens inside fontPromise. The
+    // cast re-broadens the type so the runtime check survives.
+    if ((fontState as 'idle' | 'loading' | 'ready') === 'ready') {
+      registerCachedFonts(doc);
+    }
     return;
   }
   fontState = 'loading';
@@ -432,14 +437,6 @@ function bar(doc: jsPDF, x: number, y: number, w: number, pct: number, color: st
 function dot(doc: jsPDF, x: number, y: number, color: string, size = 1.4) {
   doc.setFillColor(color);
   doc.circle(x, y, size / 2, 'F');
-}
-
-function rule(doc: jsPDF, y: number, color = LINE_STRONG, width = 0.25): number {
-  y = checkY(doc, y, 4);
-  doc.setDrawColor(color);
-  doc.setLineWidth(width);
-  doc.line(MARGIN_X, y, PAGE_W - MARGIN_X, y);
-  return y + 4;
 }
 
 function dotBullets(

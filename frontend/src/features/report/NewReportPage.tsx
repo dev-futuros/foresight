@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useCreateReport, useReport, useUpdateReport } from '../../hooks/useReports';
-import LoadingOverlay from '../../components/LoadingOverlay';
 import Modal from '../../components/Modal';
 import { useCurrentUser } from '../../hooks/useAuth';
 import { useSetStepper } from '../shell/StepperContext';
@@ -726,11 +725,15 @@ export default function NewReportPage() {
       // transitions AND logs the rejection reason. Promise.allSettled
       // swallows individual rejections silently otherwise — the loader
       // row turns red but the actual error message never surfaces.
-      const onSectionDone = (key: SectionKey) => (r: unknown) => {
+      // Generic so the result type flows through `.then` unchanged —
+      // otherwise Promise.allSettled's `value` collapses to `unknown`
+      // and every downstream `summary.value.result` access becomes a
+      // type error.
+      const onSectionDone = <T,>(key: SectionKey) => (r: T): T => {
         setAnalysisProgress((p) => ({ ...p, [key]: 'done' }));
         return r;
       };
-      const onSectionError = (key: SectionKey) => (err: unknown) => {
+      const onSectionError = (key: SectionKey) => (err: unknown): never => {
         setAnalysisProgress((p) => ({ ...p, [key]: 'error' }));
         console.error(`[analyze:${key}] failed:`, err);
         throw err;

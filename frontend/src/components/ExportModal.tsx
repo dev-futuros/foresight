@@ -3,9 +3,16 @@ import { useTranslation } from 'react-i18next';
 import Modal from './Modal';
 import { useReport } from '../hooks/useReports';
 import { useExample } from '../hooks/useExamples';
+import { useIsDev } from '../hooks/useAuth';
 
 export type ExportLanguage = 'es' | 'en';
-export type ExportFormat = 'pdf' | 'ppt';
+/**
+ * The {@code 'html'} option is gated to DEV users in the picker UI
+ * (see {@link useIsDev}); the type stays open so the exporter can be
+ * wired without conditional generic juggling. Callers that aren't DEV
+ * will simply never receive {@code 'html'} from the modal.
+ */
+export type ExportFormat = 'pdf' | 'ppt' | 'html';
 
 interface Props {
   open: boolean;
@@ -56,6 +63,9 @@ export default function ExportModal({
   initialLanguage,
 }: Props) {
   const { t } = useTranslation();
+  // DEV-only HTML export — the picker hides the option for non-DEVs so a
+  // production user never accidentally downloads a standalone HTML page.
+  const isDev = useIsDev();
   // Hooks must be called unconditionally; pass an empty id to the
   // disabled side so React Query bails out via the `enabled: !!id` gate.
   const reportQuery = useReport(kind === 'report' ? reportId : '');
@@ -86,9 +96,14 @@ export default function ExportModal({
           ? initialLanguage
           : primaryLanguage;
       setLanguage(wantedLang);
-      setFormat(initialFormat ?? 'pdf');
+      // Clamp the format to what the user is allowed to pick — non-DEV
+      // users can't select HTML even if it was passed via initialFormat
+      // (the option isn't rendered, so a stale 'html' would leave the
+      // <select> showing an empty value).
+      const wantedFormat = initialFormat ?? 'pdf';
+      setFormat(wantedFormat === 'html' && !isDev ? 'pdf' : wantedFormat);
     }
-  }, [open, primaryLanguage, data, initialFormat, initialLanguage, availableLanguages]);
+  }, [open, primaryLanguage, data, initialFormat, initialLanguage, availableLanguages, isDev]);
 
   function handleExport() {
     onExport(format, language);
@@ -128,6 +143,17 @@ export default function ExportModal({
           <option value="ppt">
             {t('exportModal.formats.ppt', { defaultValue: 'PowerPoint — Editable slides' })}
           </option>
+          {/* DEV-only standalone HTML — single self-contained file with
+              every section inlined. Useful for inspecting the full
+              payload outside the in-app viewer or sharing with someone
+              who doesn't have a Futuros account. */}
+          {isDev && (
+            <option value="html">
+              {t('exportModal.formats.html', {
+                defaultValue: 'HTML — Standalone web page (DEV)',
+              })}
+            </option>
+          )}
         </select>
       </div>
 

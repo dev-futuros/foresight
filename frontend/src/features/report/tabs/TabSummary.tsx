@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { GlobalSteepDimension, KeyUncertainty } from '../../../lib/aiClient';
 import type { InputProjection, ResultData } from '../ReportContent';
@@ -282,7 +282,7 @@ function steepDimensionLabelKey(k: GlobalSteepDimension): string {
   }
 }
 
-function valueOrDash(v: string | undefined): JSX.Element {
+function valueOrDash(v: string | undefined): ReactElement {
   const text = (v ?? '').trim();
   if (!text) return <span className="steep-echo-empty">—</span>;
   return <>{text}</>;

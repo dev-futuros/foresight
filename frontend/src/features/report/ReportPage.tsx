@@ -10,6 +10,7 @@ import { useSetAssistantContext } from '../chat/AssistantContextProvider';
 import type { ReportResultSnapshot } from '../../lib/buildAssistantSnapshot';
 import { exportReportPdf } from '../../lib/exportPdf';
 import { exportReportPpt } from '../../lib/exportPpt';
+import { exportReportHtml } from '../../lib/exportHtml';
 import ExportModal, {
   type ExportFormat,
   type ExportLanguage,
@@ -56,7 +57,7 @@ export default function ReportPage() {
   const translateExample = useTranslateExample();
   const demoteExample = useDemoteExample();
   const isDev = useIsDev();
-  const [exporting, setExporting] = useState<'pdf' | 'ppt' | null>(null);
+  const [exporting, setExporting] = useState<ExportFormat | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [promoteOpen, setPromoteOpen] = useState(false);
@@ -179,7 +180,8 @@ export default function ReportPage() {
       try {
         const exportReport = await resolveReportForLanguage(report, language);
         if (kind === 'pdf') await exportReportPdf(exportReport, language);
-        else exportReportPpt(exportReport);
+        else if (kind === 'ppt') exportReportPpt(exportReport);
+        else await exportReportHtml(exportReport, language);
       } finally {
         setExporting(null);
       }
@@ -284,7 +286,12 @@ export default function ReportPage() {
   // Summary tab's STEEP echo block reads from a single typed projection.
   const inputProjection: InputProjection = {
     globalSteep: input?.globalSteep,
-    sectorialSteep: input?.steep,
+    // `input.steep` uses the wizard's localised key names
+    // ({@code social}/{@code technological}/…); ReportContent's
+    // {@code normalizeSteepKeys} accepts either shape at runtime, but
+    // the static types only allow the canonical {@code S}/{@code T}/…
+    // form. Cast to bridge the gap.
+    sectorialSteep: input?.steep as InputProjection['sectorialSteep'],
   };
 
   const formattedDate = new Date(report.createdAt).toLocaleDateString(
@@ -393,7 +400,13 @@ export default function ReportPage() {
 
       <LoadingOverlay
         open={exporting !== null}
-        text={exporting === 'pdf' ? t('modals.export.pdf') : t('modals.export.ppt')}
+        text={
+          exporting === 'pdf'
+            ? t('modals.export.pdf')
+            : exporting === 'html'
+              ? t('modals.export.html', { defaultValue: 'Building standalone HTML…' })
+              : t('modals.export.ppt')
+        }
       />
       <ShareModal
         open={shareOpen}
