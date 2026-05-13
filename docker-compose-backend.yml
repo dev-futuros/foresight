@@ -2,17 +2,17 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: foresight_db
+      POSTGRES_DB: ${DB_NAME:-foresight_db}
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     networks:
       - foresight
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER} -d foresight_db" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME:-foresight_db}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -23,9 +23,17 @@ services:
     environment:
       # Picks the application-<profile>.properties from the env file (e.g. SPRING_PROFILES_ACTIVE=local).
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-}
-      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/foresight_db
+      # Spring datasource URL composes the in-network db hostname (`db`,
+      # the compose service name — kept fixed so the backend doesn't
+      # have to know where db lives) with the db port + name from env.
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${DB_NAME:-foresight_db}
       SPRING_DATASOURCE_USERNAME: ${DB_USER}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      # Embedded Tomcat port. Defaults to 8080; override via SERVER_PORT
+      # in the .env file if you need to dodge a host conflict. The
+      # `ports` mapping below also reads SERVER_PORT so the host-side
+      # port matches what Spring binds to.
+      SERVER_PORT: ${SERVER_PORT:-8080}
       # Clerk — issuer/JWKS for session JWT validation, webhook signing secret for the
       # /api/webhooks/clerk endpoint, and the Backend API secret used to fetch the user's
       # name on first sign-in. Defaults in application.properties keep the app bootable
@@ -45,11 +53,15 @@ services:
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       DEBUG_PORT: ${DEBUG_PORT:-5005}
+      # JDWP debug agent binds to the same DEBUG_PORT exposed in the
+      # port mapping below. Quoting the substitution inside the heredoc
+      # so a missing DEBUG_PORT doesn't silently produce `address=*:`
+      # (which the JVM would reject at boot).
       JAVA_TOOL_OPTIONS: >
-        -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
+        -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:${DEBUG_PORT:-5005}
     ports:
-      - "8080:8080"
-      - "5005:5005"
+      - "${SERVER_PORT:-8080}:${SERVER_PORT:-8080}"
+      - "${DEBUG_PORT:-5005}:${DEBUG_PORT:-5005}"
     networks:
       - foresight
     depends_on:
@@ -64,7 +76,7 @@ services:
   #   environment:
   #     SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
   #   ports:
-  #     - "9000:9000"
+  #     - "${SONARQUBE_PORT:-9000}:9000"
   #   networks:
   #     - foresight
   #   volumes:
