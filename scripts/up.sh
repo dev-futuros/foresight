@@ -2,9 +2,14 @@
 # Bring the whole stack up using a specific environment file.
 #
 # Usage:
-#   ./scripts/up.sh local         → reads .env.local
-#   ./scripts/up.sh dev           → reads .env.dev
-#   ./scripts/up.sh local -d      → detached mode
+#   ./scripts/up.sh local           → reads .env.local   (FRONTEND_MODE=dev, port 5173)
+#   ./scripts/up.sh preview         → reads .env.preview (FRONTEND_MODE=preview, port 4173)
+#   ./scripts/up.sh dev             → reads .env.dev
+#   ./scripts/up.sh local -d        → detached mode (-d passed straight to docker compose)
+#
+# The frontend container's mode (vite dev vs vite preview) is selected
+# at runtime by FRONTEND_MODE in the chosen env file; see
+# .env.example for the full set of frontend-related variables.
 
 set -euo pipefail
 
@@ -26,4 +31,8 @@ fi
 
 cd "$repo_root"
 echo "Starting stack with $env_file"
-docker compose --env-file "$env_file" up "$@"
+docker compose \
+  -f docker-compose-backend.yml \
+  -f docker-compose-frontend.yml \
+  --env-file "$env_file" \
+  up "$@"

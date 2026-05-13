@@ -4,10 +4,19 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: foresight-frontend
+    # Port is driven by FRONTEND_MODE: 5173 for dev (Vite dev server),
+    # 4173 for preview (Vite preview serving dist/). Set FRONTEND_PORT
+    # in the stack-level .env.<profile> file alongside FRONTEND_MODE.
     ports:
-      - "5173:5173"
+      - "${FRONTEND_PORT:-5173}:${FRONTEND_PORT:-5173}"
     environment:
-      NODE_ENV: development
+      # `development` for HMR + readable error overlays, `production` for
+      # the preview path so the build picks up production-only optimisations.
+      NODE_ENV: ${FRONTEND_NODE_ENV:-development}
+      # Selects dev vs preview inside the entrypoint script.
+      FRONTEND_MODE: ${FRONTEND_MODE:-dev}
+      # Backend reachable on the foresight network. Vite's dev/preview
+      # proxies forward /api/* here.
       VITE_API_URL: http://backend:8080
       VITE_ALLOWED_HOSTS: all
       # Vite reads VITE_CLERK_PUBLISHABLE_KEY from the bind-mounted
@@ -20,7 +29,9 @@ services:
       # events don't propagate, so polling is needed for HMR to pick up edits.
       CHOKIDAR_USEPOLLING: "true"
     volumes:
-      # Bind-mount source so host edits hot-reload inside the container.
+      # Bind-mount source so host edits hot-reload inside the container in
+      # dev mode. In preview mode the entrypoint re-runs `npm run build`
+      # so dist/ on the bind mount reflects the current source.
       - ./frontend:/app
       # Named volume preserves the image's installed node_modules so the
       # bind mount above doesn't shadow them with the (empty) host dir.

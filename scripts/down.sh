@@ -20,4 +20,8 @@ if [[ ! -f "$env_file" ]]; then
 fi
 
 cd "$repo_root"
-docker compose --env-file "$env_file" down "$@"
+docker compose \
+  -f docker-compose-backend.yml \
+  -f docker-compose-frontend.yml \
+  --env-file "$env_file" \
+  down "$@"
