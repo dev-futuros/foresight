@@ -243,6 +243,32 @@ public class AiService {
      * the tabs — the React app's existing flat-string shape is a strict
      * subset and is replaced here.
      */
+    /**
+     * Shared output-discipline directive appended to every analyze section
+     * prompt. Failures observed in production were almost always the
+     * model burning its token budget on preamble ("I'll research current
+     * facts about…", "Now let me search for…") and inter-search
+     * narration without ever reaching the closing JSON. This block tells
+     * the model explicitly: search silently, the entire response is the
+     * JSON object, do not narrate. Empirically reduces "No JSON object
+     * found in streamed response" failures to near zero.
+     */
+    private static final String OUTPUT_DISCIPLINE =
+            """
+
+            OUTPUT DISCIPLINE — STRICT:
+            - Your ENTIRE textual response must be the JSON object. The first character
+              you emit must be '{'. The last character must be '}'.
+            - Do NOT narrate your search plan. Do not write "I'll research...",
+              "Now let me search for...", "Based on these searches...", or any other
+              preamble or commentary. Use the web_search tool freely, but emit no text
+              between tool calls or before producing the JSON.
+            - Do NOT wrap the JSON in markdown fences (```json ... ```), and do not
+              include trailing commentary after the closing brace.
+            - If you need to think through structure, do so silently — your visible
+              output is the JSON object and nothing else.
+            """;
+
     private static final String ANALYZE_SUMMARY_SYSTEM =
             """
             You are an expert strategic foresight consultant with mastery of STEEP, Horizon
@@ -275,7 +301,7 @@ public class AiService {
               "Social", "Tecnológico", "Económico", "Medioambiental", "Político". English:
               "Social", "Technological", "Economic", "Environmental", "Political".
             - Respond in the requested language.
-            """;
+            """ + OUTPUT_DISCIPLINE;
 
     /**
      * Phase-B system prompt for the parallel-5 analysis flow — the 3P
@@ -327,7 +353,7 @@ public class AiService {
             - firstMove: single concrete sentence.
             - No extra top-level keys, no prose outside JSON.
             - Respond in the requested language.
-            """;
+            """ + OUTPUT_DISCIPLINE;
 
     /**
      * Section-C system prompt — scenario planning structure: an intro, 4
@@ -367,7 +393,7 @@ public class AiService {
             - scenarioLogics: exactly 3 entries in the order Probable / Plausible / Possible. Use
               "Posible" (Spanish) for the third when responding in Spanish.
             - Respond in the requested language.
-            """;
+            """ + OUTPUT_DISCIPLINE;
 
     /**
      * Section-E system prompt — backcasting trajectories.
@@ -414,7 +440,7 @@ public class AiService {
             - The 'year' field uses the exact calendar-year strings provided in the user prompt.
             - Each milestone: 2-3 actions, short verb phrases.
             - Respond in the requested language.
-            """;
+            """ + OUTPUT_DISCIPLINE;
 
     /**
      * Section-D system prompt — 6 strategic priorities (2 per H1/H2/H3
@@ -458,7 +484,7 @@ public class AiService {
               language's units, e.g. "meses" / "años" or "months" / "years").
             - actions: 2-3 short verb phrases per priority.
             - Respond in the requested language.
-            """;
+            """ + OUTPUT_DISCIPLINE;
 
     /**
      * System prompt template for the chat assistant. The user's language and the
@@ -1121,13 +1147,13 @@ public class AiService {
      */
     public Flux<JsonNode> analyzeSummaryStream(AnalyzeRequest request) {
         return streamUpstream(anthropicClient.streamMessageWithWebSearch(
-                properties.opus(), ANALYZE_SUMMARY_SYSTEM, analyzePrompt(request), 8000));
+                properties.opus(), ANALYZE_SUMMARY_SYSTEM, analyzePrompt(request), 12000));
     }
 
     /** Phase-B — streamed 3P scenarios. Opus + web_search (parallel with the rest). */
     public Flux<JsonNode> analyzeScenariosStream(AnalyzeRequest request) {
         return streamUpstream(anthropicClient.streamMessageWithWebSearch(
-                properties.opus(), ANALYZE_SCENARIOS_SYSTEM, analyzePrompt(request), 8000));
+                properties.opus(), ANALYZE_SCENARIOS_SYSTEM, analyzePrompt(request), 12000));
     }
 
     /** Shared user-turn prompt for the analyze section calls and the
@@ -1156,19 +1182,19 @@ public class AiService {
      *  runs in parallel with the other section calls (matches demo). */
     public Flux<JsonNode> scenarioPlanningStream(AnalyzeContextRequest request) {
         return streamUpstream(anthropicClient.streamMessageWithWebSearch(
-                properties.opus(), SCENARIO_PLANNING_SYSTEM, contextPrompt(request), 8000));
+                properties.opus(), SCENARIO_PLANNING_SYSTEM, contextPrompt(request), 12000));
     }
 
     /** Section-E — streamed backcasting trajectories. Opus + web_search. */
     public Flux<JsonNode> backcastingStream(AnalyzeContextRequest request) {
         return streamUpstream(anthropicClient.streamMessageWithWebSearch(
-                properties.opus(), BACKCASTING_SYSTEM, contextPrompt(request), 8000));
+                properties.opus(), BACKCASTING_SYSTEM, contextPrompt(request), 12000));
     }
 
     /** Section-D — streamed strategic priorities by horizon. Opus + web_search. */
     public Flux<JsonNode> strategicMapStream(AnalyzeContextRequest request) {
         return streamUpstream(anthropicClient.streamMessageWithWebSearch(
-                properties.opus(), STRATEGIC_MAP_SYSTEM, contextPrompt(request), 8000));
+                properties.opus(), STRATEGIC_MAP_SYSTEM, contextPrompt(request), 12000));
     }
 
     /**
