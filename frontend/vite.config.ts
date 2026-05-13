@@ -18,9 +18,15 @@ export default defineConfig({
   // binds to 127.0.0.1 only, so port mappings from the container to the
   // host can't reach it. The proxy mirrors the dev server's so the
   // built SPA can still call the backend at {@code /api/*} the same way.
+  //
+  // Port is read from FRONTEND_PORT so it tracks whatever the deploy
+  // target injects: 4173 locally (via .env.preview), Railway's
+  // dynamically-assigned $PORT in production (via .env.railway), or
+  // any custom port a future profile sets. Falls back to 4173 so a
+  // bare `npm run preview` still works.
   preview: {
     host: '0.0.0.0',
-    port: 4173,
+    port: Number(process.env.FRONTEND_PORT) || 4173,
     allowedHosts: true,
     proxy: {
       '/api': {
