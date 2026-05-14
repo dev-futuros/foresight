@@ -2036,51 +2036,86 @@ public class AiService {
      * </ul>
      */
     public Flux<JsonNode> chatStream(ChatRequest request) {
-        String snapshot = (request.context() == null || request.context().isBlank())
-                ? "(no snapshot available — user has not opened the wizard yet)"
-                : request.context();
-        String template = "en".equals(lang(request.language())) ? CHAT_SYSTEM_EN : CHAT_SYSTEM_ES;
-        String systemPrompt = template.formatted(snapshot);
-        List<? extends Object> bounded = boundHistory(request.messages(), 20);
-
-        Flux<ServerSentEvent<String>> upstream = anthropicClient.streamConversation(
-                properties.sonnet(), systemPrompt, bounded, List.of(), 1500);
-
-        StringBuilder accText = new StringBuilder();
-
-        Flux<JsonNode> deltaFlux = upstream.concatMap(sse -> {
-            String data = sse.data();
-            if (data == null) return Flux.empty();
-            JsonNode payload;
+        // All synchronous prep (snapshot fallback, system-prompt formatting,
+        // history bounding) is wrapped in Flux.defer + try/catch so that any
+        // throwable here surfaces as an AiException flowing through the
+        // reactive chain. Without this, a sync RuntimeException at the top
+        // of the method (e.g. UnknownFormatConversionException from
+        // template.formatted, an NPE from a malformed messages list) would
+        // bypass GlobalExceptionHandler entirely on the SSE path and result
+        // in a silent 500 with empty body — extremely hard to debug. With
+        // this, the same failure becomes a logged AiException → 502 with a
+        // proper error body.
+        return Flux.defer(() -> {
+            final String systemPrompt;
+            final List<? extends Object> bounded;
             try {
-                payload = objectMapper.readTree(data);
-            } catch (Exception e) {
-                return Flux.empty();
+                String snapshot = (request.context() == null || request.context().isBlank())
+                        ? "(no snapshot available — user has not opened the wizard yet)"
+                        : request.context();
+                String template = "en".equals(lang(request.language())) ? CHAT_SYSTEM_EN : CHAT_SYSTEM_ES;
+                systemPrompt = template.formatted(snapshot);
+                bounded = boundHistory(request.messages(), 20);
+                log.info("chatStream entry: lang={} ctxChars={} msgCount={}",
+                        lang(request.language()),
+                        snapshot.length(),
+                        bounded == null ? 0 : bounded.size());
+            } catch (Throwable t) {
+                log.error("chatStream synchronous prep failed: {}", t.getMessage(), t);
+                return Flux.error(new AiException(
+                        "Chat preparation failed: " + t.getClass().getSimpleName()
+                                + (t.getMessage() == null ? "" : (" — " + t.getMessage()))));
             }
-            String type = sse.event();
-            if (type == null || type.isBlank()) {
-                type = payload.path("type").asText("");
-            }
-            if (!"content_block_delta".equals(type)) return Flux.empty();
-            JsonNode delta = payload.path("delta");
-            if (!"text_delta".equals(delta.path("type").asText())) return Flux.empty();
-            String chunk = delta.path("text").asText("");
-            if (chunk.isEmpty()) return Flux.empty();
-            accText.append(chunk);
-            ObjectNode out = objectMapper.createObjectNode();
-            out.put("type", "delta");
-            out.put("text", chunk);
-            return Flux.just((JsonNode) out);
-        });
 
-        Flux<JsonNode> doneFlux = Flux.defer(() -> {
-            ObjectNode done = objectMapper.createObjectNode();
-            done.put("type", "done");
-            done.put("text", accText.toString());
-            return Flux.just((JsonNode) done);
-        });
+            Flux<ServerSentEvent<String>> upstream = anthropicClient.streamConversation(
+                    properties.sonnet(), systemPrompt, bounded, List.of(), 1500);
 
-        return deltaFlux.concatWith(doneFlux);
+            StringBuilder accText = new StringBuilder();
+
+            Flux<JsonNode> deltaFlux = upstream.concatMap(sse -> {
+                String data = sse.data();
+                if (data == null) return Flux.empty();
+                JsonNode payload;
+                try {
+                    payload = objectMapper.readTree(data);
+                } catch (Exception e) {
+                    return Flux.empty();
+                }
+                String type = sse.event();
+                if (type == null || type.isBlank()) {
+                    type = payload.path("type").asText("");
+                }
+                if (!"content_block_delta".equals(type)) return Flux.empty();
+                JsonNode delta = payload.path("delta");
+                if (!"text_delta".equals(delta.path("type").asText())) return Flux.empty();
+                String chunk = delta.path("text").asText("");
+                if (chunk.isEmpty()) return Flux.empty();
+                accText.append(chunk);
+                ObjectNode out = objectMapper.createObjectNode();
+                out.put("type", "delta");
+                out.put("text", chunk);
+                return Flux.just((JsonNode) out);
+            });
+
+            Flux<JsonNode> doneFlux = Flux.defer(() -> {
+                ObjectNode done = objectMapper.createObjectNode();
+                done.put("type", "done");
+                done.put("text", accText.toString());
+                return Flux.just((JsonNode) done);
+            });
+
+            // Last-ditch: convert any unexpected throwable that escapes the
+            // streamConversation onErrorResume handlers into a logged
+            // AiException, so it still routes through the 502 mapper rather
+            // than producing the silent empty 500 we've been chasing.
+            return deltaFlux.concatWith(doneFlux)
+                    .onErrorResume(t -> !(t instanceof AiException), t -> {
+                        log.error("chatStream pipeline error: {}", t.getMessage(), t);
+                        return Flux.error(new AiException(
+                                "Chat stream failed: " + t.getClass().getSimpleName()
+                                        + (t.getMessage() == null ? "" : (" — " + t.getMessage()))));
+                    });
+        });
     }
 
     /** Keep only the most recent {@code maxMessages} entries. Always
