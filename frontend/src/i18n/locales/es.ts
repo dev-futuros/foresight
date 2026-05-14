@@ -58,6 +58,7 @@ const es = {
       ppt: 'PowerPoint — Diapositivas editables',
       html: 'HTML — Página autónoma (DEV)',
     },
+    htmlDefaultLanguage: 'Idioma por defecto',
     action: 'Exportar',
   },
   chat: {
@@ -179,6 +180,8 @@ const es = {
     triggerBtn: 'Compartir',
     generating: 'Generando enlace…',
     language: 'Idioma',
+    includeLanguages: 'Idiomas a incluir',
+    defaultLanguage: 'Idioma por defecto',
     lang: { es: 'Español', en: 'Inglés' },
     urlLabel: 'URL pública del informe',
     copy: 'Copiar',

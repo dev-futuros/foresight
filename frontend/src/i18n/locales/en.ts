@@ -58,6 +58,7 @@ const en = {
       ppt: 'PowerPoint — Editable slides',
       html: 'HTML — Standalone web page (DEV)',
     },
+    htmlDefaultLanguage: 'Default language',
     action: 'Export',
   },
   chat: {
@@ -185,6 +186,8 @@ const en = {
     triggerBtn: 'Share',
     generating: 'Generating link…',
     language: 'Language',
+    includeLanguages: 'Include languages',
+    defaultLanguage: 'Default language',
     lang: { es: 'Spanish', en: 'English' },
     urlLabel: 'Public URL for the report',
     copy: 'Copy',

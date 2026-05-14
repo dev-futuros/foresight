@@ -124,10 +124,28 @@ export interface CreateShareResponse {
   expiresAt: string;
 }
 
-export interface PublicShareResponse {
-  title: string;
+/**
+ * A frozen per-language snapshot inside a share token's translations map.
+ * Mirrors {@code share.translations.<lang>} from the backend — same shape
+ * as the equivalent block on a {@link ReportResponse}.
+ */
+export interface SharedTranslationEntry {
   inputData: Record<string, unknown>;
   resultData: Record<string, unknown> | null;
+  generatedAt?: string;
+}
+
+export interface PublicShareResponse {
+  title: string;
+  /** ISO-639-1 of the language carried in {@code inputData}/{@code resultData}. */
+  primaryLanguage: 'es' | 'en';
+  /** Union of {@code primaryLanguage} and the keys of {@code translations}, primary first. */
+  availableLanguages: ('es' | 'en')[];
+  inputData: Record<string, unknown>;
+  resultData: Record<string, unknown> | null;
+  /** Cached translations frozen at share creation. {@code null} on
+   *  legacy (pre-V10) single-language shares. */
+  translations: Record<string, SharedTranslationEntry> | null;
   createdAt: string;
   expiresAt: string;
 }
