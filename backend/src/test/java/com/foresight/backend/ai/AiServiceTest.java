@@ -21,7 +21,9 @@ import com.foresight.backend.ai.dto.AnalyzeRequest;
 import com.foresight.backend.ai.dto.GlobalSteepRequest;
 import com.foresight.backend.ai.dto.HorizonSuggestRequest;
 import com.foresight.backend.ai.dto.SteepSuggestRequest;
+import com.foresight.backend.analytics.LlmCapture;
 
+import java.util.Optional;
 import reactor.core.publisher.Mono;
 
 @ExtendWith(MockitoExtension.class)
@@ -54,7 +56,10 @@ class AiServiceTest {
                 Duration.ofSeconds(60),
                 3,
                 Duration.ofSeconds(5));
-        aiService = new AiService(anthropicClient, MAPPER, props);
+        // No-op LlmCapture wired with an empty Optional so $ai_generation events are
+        // simply skipped — the AI flow shape is what's under test here, not analytics.
+        LlmCapture llmCapture = new LlmCapture(Optional.empty());
+        aiService = new AiService(anthropicClient, MAPPER, props, llmCapture);
     }
 
     @Test

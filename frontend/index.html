@@ -19,6 +19,63 @@
       href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&family=Playfair+Display:ital,wght@0,400;0,500;1,400&display=swap"
       rel="stylesheet"
     />
+
+    <!--
+      PostHog analytics — current snippet from posthog.com/docs (2026-01-30 defaults).
+      Project key + host are baked at build time via Vite's HTML env substitution so
+      we don't ship one analytics project across dev / preview / prod. To turn
+      analytics off in a given environment, leave VITE_POSTHOG_KEY blank — the
+      init below short-circuits and posthog.* calls become no-ops via the stub
+      installed below.
+
+      `opt_out_capturing_by_default: true` means nothing is captured until the
+      CookieConsent component calls posthog.opt_in_capturing() after the user
+      accepts. The snippet stubs window.posthog before array.js arrives so calls
+      issued early queue and replay once the real SDK is loaded.
+
+      Session recording is on (explicitly requested for this project). PostHog's
+      defaults mask <input>s and password fields — DO NOT lower these without
+      reviewing the privacy impact.
+    -->
+    <script>
+      (function () {
+        var key = '%VITE_POSTHOG_KEY%';
+        var host = '%VITE_POSTHOG_HOST%' || 'https://eu.i.posthog.com';
+        // Vite leaves the literal percent-wrapped token in place when the var
+        // is unset (and warns about it at build time). Treat that and an empty
+        // string the same — disable PostHog by skipping init.
+        if (!key || key.indexOf('%') === 0) {
+          window.posthog = {
+            __disabled: true,
+            capture: function () {},
+            identify: function () {},
+            reset: function () {},
+            opt_in_capturing: function () {},
+            opt_out_capturing: function () {},
+            has_opted_in_capturing: function () { return false; },
+            has_opted_out_capturing: function () { return false; }
+          };
+          return;
+        }
+        !function(t,e){var o,n,p,r;e.__SV||(window.posthog && window.posthog.__loaded)||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init os ds Ie us vs ss ls capture calculateEventProperties register register_once register_for_session unregister unregister_for_session ws getFeatureFlag getFeatureFlagPayload getFeatureFlagResult isFeatureEnabled reloadFeatureFlags updateFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSurveysLoaded onSessionId getSurveys getActiveMatchingSurveys renderSurvey displaySurvey cancelPendingSurvey canRenderSurvey canRenderSurveyAsync identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException startExceptionAutocapture stopExceptionAutocapture loadToolbar get_property getSessionProperty bs ps createPersonProfile setInternalOrTestUser ys es $s opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing get_explicit_consent_status is_capturing clear_opt_in_out_capturing cs debug M gs getPageViewId captureTraceFeedback captureTraceMetric Qr".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+        posthog.init(key, {
+          api_host: host,
+          defaults: '2026-01-30',
+          person_profiles: 'identified_only',
+          opt_out_capturing_by_default: true,
+          disable_session_recording: false,
+          loaded: function (ph) {
+            try {
+              console.log('[posthog] loaded', {
+                distinct_id: ph.get_distinct_id(),
+                opted_in: ph.has_opted_in_capturing(),
+                opted_out: ph.has_opted_out_capturing()
+              });
+            } catch (e) {}
+          }
+        });
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
