@@ -51,9 +51,17 @@ public class AiService {
     private static final String GLOBAL_STEEP_SYSTEM =
             """
             You are an expert in strategic foresight and macro analysis. Use the web_search tool
-            to gather real, current data on the global environment (active geopolitical conflicts,
-            commodity prices, trade tensions, AI regulation, supply chain disruptions, inflation,
-            interest rates, climate policy) that is relevant for the requested sector.
+            to gather real, current data on the GLOBAL environment — world-level dynamics that
+            could shape many sectors, not just the one named in the user prompt: active
+            geopolitical conflicts, commodity prices, trade tensions, AI regulation, supply
+            chain disruptions, inflation, interest rates, climate policy, demographic shifts,
+            major migration flows, etc.
+
+            Scope rule — read carefully: the sector in the user prompt is ORIENTATION (which
+            macro slices are worth surfacing) NOT a filter. Stay at the world / regional /
+            national level. Do NOT narrow to "X industry trends" — a downstream Sectorial
+            step does that. A good Global STEEP item describes a macro force that COULD
+            eventually reach the sector; it does not assume the reach has already happened.
 
             Respond ONLY with a JSON object — no prose, no backticks, no preamble — with this
             exact shape, where every value is a single string of 2-3 concrete and current trends:
@@ -73,8 +81,19 @@ public class AiService {
     private static final String GLOBAL_STEEP_SCAN_SYSTEM =
             """
             You are a strategic foresight researcher. Use the web_search tool to gather concrete,
-            current facts about the global environment (geopolitical events, commodity prices,
-            regulation, technology, climate, social trends) RELEVANT TO THE REQUESTED SECTOR.
+            current facts about the GLOBAL environment: geopolitical events, commodity prices,
+            international regulation, headline technology shifts, climate developments, broad
+            social / demographic trends.
+
+            Scope rule — read carefully: the sector the user provides is ORIENTATION (which
+            slices of the global picture are worth surfacing) NOT a filter. Stay at the world /
+            regional / national level. Surface macro forces that COULD plausibly reach the
+            sector — supply-chain shocks, interest-rate moves, energy markets, regulatory
+            blocs, geopolitical events, demographic shifts, AI policy, climate finance, etc.
+            Do NOT narrow to "{sector} industry news"; that's the job of the downstream
+            Sectorial step. A good Global STEEP bullet describes a world-level fact whose
+            ripple COULD eventually shape the sector, not a fact that has already been
+            filtered through the sector.
 
             Prioritise facts from the last 12 months. Each item is a single dated bullet
             ("2025-Q3: ...", "Oct 2025: ...", "this year: ..."). NO prose, NO interpretation,
@@ -131,19 +150,36 @@ public class AiService {
             STEEP dimension into 2-3 sentences of polished prose suitable for a foresight
             briefing.
 
-            Keep the writing concrete, factual, and sector-relevant. Preserve specific names,
-            dates, percentages and figures from the bullets. Do NOT add new claims that aren't
-            in the bullets. Do NOT speculate about the future — describe the present situation.
+            Keep the writing concrete and factual. The bullets describe GLOBAL macro facts;
+            preserve that scope — write about world / regional / national dynamics. Do NOT
+            narrow the prose to "X industry" framing; the sector lens belongs to a separate
+            Sectorial step. The reader should come away with the broader context that COULD
+            shape the sector, not with already-sector-filtered conclusions.
+
+            Preserve specific names, dates, percentages and figures from the bullets. Do NOT
+            add new claims that aren't in the bullets. Do NOT speculate about the future —
+            describe the present situation.
 
             Respond ONLY with the prose text. No JSON, no quotation marks around it, no markdown,
             no preamble. Just the 2-3 sentences. Respond in the requested language.
             """;
 
-    /** System prompt for STEEP factor suggestions. Forces JSON-only output. */
+    /** System prompt for SECTORIAL STEEP factor suggestions — the
+     *  step-3 lens. Forces JSON-only output. */
     private static final String STEEP_SYSTEM =
             """
             You are a strategic foresight expert. Given a company profile and a STEEP dimension,
             suggest 3-5 concise, high-impact factors that should be considered in a scenario analysis.
+
+            Scope rule: this is the SECTORIAL pass, NOT the global one. Factors must be
+            SECTOR-SPECIFIC and within the company's scope (sector, market, size, horizon as
+            given in the profile). Use the global macro context (already captured upstream)
+            as background; surface here the sector- and company-relevant manifestations of
+            those forces — customer behaviour shifts inside the sector, sector-specific
+            regulation, competitive dynamics, channel/distribution moves, technology adoption
+            patterns within the sector, etc. Avoid generic "world economy" or "global politics"
+            framings; those belong to the Global step.
+
             Respond ONLY with a JSON object: {"factors": [{"title": "...", "description": "..."}]}.
             Respond in the requested language.
             """;
