@@ -177,6 +177,19 @@
       <artifactId>anthropic-java</artifactId>
       <version>2.27.0</version>
     </dependency>
+
+    <!--
+				PostHog server SDK: fires LLM-observability ($ai_generation) events and
+				custom analytics from the backend, where we have the full Anthropic
+				payload (model, usage, citations, latency) without exposing the API key
+				to the browser. Distinct ID = the authenticated user's Clerk id so events
+				correlate with frontend pageviews/UI events captured by posthog-js.
+			-->
+    <dependency>
+      <groupId>com.posthog</groupId>
+      <artifactId>posthog-server</artifactId>
+      <version>2.5.1</version>
+    </dependency>
   </dependencies>
 
   <build>
