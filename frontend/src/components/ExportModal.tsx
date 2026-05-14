@@ -5,7 +5,7 @@ import { useReport } from '../hooks/useReports';
 import { useExample } from '../hooks/useExamples';
 import { useIsDev } from '../hooks/useAuth';
 
-export type ExportLanguage = 'es' | 'en';
+export type ExportLanguage = 'es' | 'en' | 'ca';
 /**
  * The {@code 'html'} option is gated to DEV users in the picker UI
  * (see {@link useIsDev}); the type stays open so the exporter can be

@@ -33,7 +33,7 @@ import ShareView, { type ShareReport } from './features/publicShare/ShareView';
 interface SnapshotReport extends ShareReport {
   /** Carried so the snapshot can default the language without the export
    *  needing to inject a separate marker tag. */
-  primaryLanguage?: 'es' | 'en';
+  primaryLanguage?: 'es' | 'en' | 'ca';
 }
 
 function readJsonTag<T>(id: string): T | null {
@@ -64,7 +64,7 @@ async function boot(): Promise<void> {
     return;
   }
   const requestedLang =
-    (readTextTag('report-lang') as 'es' | 'en' | null) ??
+    (readTextTag('report-lang') as 'es' | 'en' | 'ca' | null) ??
     report.primaryLanguage ??
     'es';
   if (i18n.language?.slice(0, 2) !== requestedLang.slice(0, 2)) {

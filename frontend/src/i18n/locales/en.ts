@@ -185,7 +185,7 @@ const en = {
     triggerBtn: 'Share',
     generating: 'Generating link…',
     language: 'Language',
-    lang: { es: 'Spanish', en: 'English' },
+    lang: { es: 'Spanish', en: 'English', ca: 'Catalan' },
     urlLabel: 'Public URL for the report',
     copy: 'Copy',
     copied: 'Copied!',

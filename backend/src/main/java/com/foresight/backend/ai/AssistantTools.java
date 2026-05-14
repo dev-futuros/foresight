@@ -65,8 +65,8 @@ public final class AssistantTools {
                             "properties", Map.of(
                                     "lang", Map.of(
                                             "type", "string",
-                                            "enum", List.of("es", "en"),
-                                            "description", "Idioma destino: 'es' o 'en'")),
+                                            "enum", List.of("es", "en", "ca"),
+                                            "description", "Idioma destino: 'es', 'en' o 'ca'")),
                             "required", List.of("lang"))),
             tool(
                     "loadReport",

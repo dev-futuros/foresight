@@ -15,7 +15,7 @@ export interface ReportSummary {
   title: string;
   status: ReportStatus;
   /** ISO-639-1 code of the language the wizard used. Mirrors `ReportResponse`. */
-  primaryLanguage: 'es' | 'en';
+  primaryLanguage: 'es' | 'en' | 'ca';
   /**
    * Languages this report is available in. Always contains {@link primaryLanguage};
    * additional entries appear after a translation has been materialised. Driven by
@@ -38,7 +38,7 @@ export interface ReportResponse {
    * other languages are produced on demand from the share / export
    * dialogs — see {@link availableLanguages}.
    */
-  primaryLanguage: 'es' | 'en';
+  primaryLanguage: 'es' | 'en' | 'ca';
   /**
    * Languages this report is available in. Always contains
    * {@link primaryLanguage}; additional entries appear after a
@@ -69,7 +69,7 @@ export interface ExampleSummary {
   slug: string;
   title: string;
   description?: string | null;
-  primaryLanguage: 'es' | 'en';
+  primaryLanguage: 'es' | 'en' | 'ca';
   availableLanguages: string[];
   createdAt: string;
   updatedAt: string;
@@ -81,7 +81,7 @@ export interface ExampleResponse {
   slug: string;
   title: string;
   description?: string | null;
-  primaryLanguage: 'es' | 'en';
+  primaryLanguage: 'es' | 'en' | 'ca';
   availableLanguages: string[];
   inputData: Record<string, unknown>;
   resultData: Record<string, unknown> | null;
@@ -137,7 +137,7 @@ export interface CreateReportRequest {
   title: string;
   inputData: Record<string, unknown>;
   /** ISO-639-1 code identifying the wizard's language. Defaults to 'es' server-side. */
-  primaryLanguage?: 'es' | 'en';
+  primaryLanguage?: 'es' | 'en' | 'ca';
 }
 
 export interface UpdateReportRequest {
@@ -148,5 +148,5 @@ export interface UpdateReportRequest {
 
 export interface UpdateUserRequest {
   name?: string;
-  language?: 'es' | 'en';
+  language?: 'es' | 'en' | 'ca';
 }

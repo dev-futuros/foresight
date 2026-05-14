@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 
-const LANGUAGES = ['es', 'en'] as const;
+const LANGUAGES = ['es', 'en', 'ca'] as const;
 type Lang = (typeof LANGUAGES)[number];
 
 /**

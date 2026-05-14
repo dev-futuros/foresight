@@ -30,7 +30,7 @@ export type SteepData = Record<DimensionKey, string>;
 interface Props {
   data: SteepData;
   companyProfile: string;
-  language: 'es' | 'en';
+  language: 'es' | 'en' | 'ca';
   onChange: (data: SteepData) => void;
   onNext: () => void;
   onBack: () => void;

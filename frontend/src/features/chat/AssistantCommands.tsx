@@ -121,7 +121,7 @@ export default function AssistantCommands() {
       name: 'setLang',
       mode: 'auto',
       handler: async (args) => {
-        const { lang } = args as { lang: 'es' | 'en' };
+        const { lang } = args as { lang: 'es' | 'en' | 'ca' };
         await i18n.changeLanguage(lang);
         return `Language changed to ${lang}.`;
       },

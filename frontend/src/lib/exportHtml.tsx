@@ -94,7 +94,7 @@ function jsonForScriptTag(value: unknown): string {
 function injectReportData(
   hostHtml: string,
   report: ReportResponse,
-  language: 'es' | 'en',
+  language: 'es' | 'en' | 'ca',
 ): string {
   // Snapshot entry expects the report under {@code window.__REPORT__}
   // via the JSON tag; we attach `primaryLanguage` so the entry has a
@@ -150,9 +150,9 @@ function injectReportData(
  */
 export async function exportReportHtml(
   report: ReportResponse,
-  language?: 'es' | 'en',
+  language?: 'es' | 'en' | 'ca',
 ): Promise<void> {
-  const lang: 'es' | 'en' = (language ?? (report.primaryLanguage as 'es' | 'en') ?? 'es');
+  const lang: 'es' | 'en' | 'ca' = (language ?? (report.primaryLanguage as 'es' | 'en' | 'ca') ?? 'es');
   const hostUrl = new URL('/share-snapshot.html', window.location.origin);
   // Cache-bust during dev so HMR-modified snapshots load fresh; harmless
   // in prod (the bucket can still cache the file aggressively at its

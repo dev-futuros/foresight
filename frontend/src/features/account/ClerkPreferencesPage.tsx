@@ -7,7 +7,10 @@ import { extractApiErrorMessage } from '../../lib/apiError';
 const LANGUAGE_OPTIONS = [
   { value: 'es' as const, label: 'Español' },
   { value: 'en' as const, label: 'English' },
+  { value: 'ca' as const, label: 'Català' },
 ];
+
+type UiLang = (typeof LANGUAGE_OPTIONS)[number]['value'];
 
 /**
  * App-specific preferences slotted into Clerk's UserProfile modal as a
@@ -24,15 +27,15 @@ export default function ClerkPreferencesPage() {
   const { data: user } = useCurrentUser();
   const updateProfile = useUpdateProfile();
 
-  const [language, setLanguage] = useState<'es' | 'en'>(
-    (user?.language as 'es' | 'en') ?? 'es',
+  const [language, setLanguage] = useState<UiLang>(
+    (user?.language as UiLang) ?? 'es',
   );
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   // Mirror updates from the API into local state when the row first lands.
   const [syncedUserId, setSyncedUserId] = useState<string | undefined>(undefined);
   if (user && user.id !== syncedUserId) {
     setSyncedUserId(user.id);
-    setLanguage((user.language as 'es' | 'en') ?? 'es');
+    setLanguage((user.language as UiLang) ?? 'es');
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -65,7 +68,7 @@ export default function ClerkPreferencesPage() {
           <select
             id="clerk-prefs-lang"
             value={language}
-            onChange={(e) => setLanguage(e.target.value as 'es' | 'en')}
+            onChange={(e) => setLanguage(e.target.value as UiLang)}
           >
             {LANGUAGE_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>

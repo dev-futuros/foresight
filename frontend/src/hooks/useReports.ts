@@ -61,7 +61,7 @@ export function useReport(id: string) {
         const ex = await api.get<{
           id: string;
           title: string;
-          primaryLanguage: 'es' | 'en';
+          primaryLanguage: 'es' | 'en' | 'ca';
           availableLanguages: string[];
           inputData: Record<string, unknown>;
           resultData: Record<string, unknown> | null;
@@ -139,7 +139,7 @@ export function useDeleteReport() {
  */
 export function useDeleteTranslation() {
   const qc = useQueryClient();
-  return useMutation<void, Error, { id: string; language: 'es' | 'en' }>({
+  return useMutation<void, Error, { id: string; language: 'es' | 'en' | 'ca' }>({
     mutationFn: async ({ id, language }) => {
       await api.delete(`/reports/${id}/translations/${language}`);
     },
@@ -155,7 +155,7 @@ export function useTranslateReport() {
   return useMutation<
     TranslatedReport,
     Error,
-    { id: string; targetLanguage: 'es' | 'en'; force?: boolean }
+    { id: string; targetLanguage: 'es' | 'en' | 'ca'; force?: boolean }
   >({
     mutationFn: async ({ id, targetLanguage, force = false }) => {
       const res = await api.post<TranslatedReport>(
@@ -192,7 +192,7 @@ export function useTranslateReport() {
  */
 export async function translateReportStream(args: {
   id: string;
-  targetLanguage: 'es' | 'en';
+  targetLanguage: 'es' | 'en' | 'ca';
   force?: boolean;
   onProgress?: (progress: TranslateProgress) => void;
   signal?: AbortSignal;

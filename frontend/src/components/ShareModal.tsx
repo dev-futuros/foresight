@@ -17,7 +17,7 @@ interface Props {
   onClose: () => void;
 }
 
-type Language = 'es' | 'en';
+type Language = 'es' | 'en' | 'ca';
 
 /**
  * Modal that mints a fresh public share link for the current report and lets

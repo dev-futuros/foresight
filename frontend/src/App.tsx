@@ -76,7 +76,13 @@ export default function App() {
   // the UI. Switching the language pill remounts ClerkProvider — fine on the
   // unauthed auth pages where there's no session state to preserve.
   const { i18n } = useTranslation();
-  const lang: 'es' | 'en' = i18n.resolvedLanguage?.startsWith('en') ? 'en' : 'es';
+  // Clerk doesn't ship a Catalan bundle. When the user's UI language is
+  // Catalan, fall back to Spanish for Clerk's internal copy — it's the
+  // closest match (Catalan speakers are virtually all bilingual with
+  // Spanish in the regions where the app is used) and matches what
+  // we'd see if a third-party widget didn't recognise 'ca'.
+  const resolved = i18n.resolvedLanguage ?? i18n.language ?? 'es';
+  const lang: 'es' | 'en' = resolved.startsWith('en') ? 'en' : 'es';
   const localization = clerkLocalization(lang, 'signin');
 
   return (

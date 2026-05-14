@@ -22,7 +22,7 @@ export function useCreateShare() {
   return useMutation<
     CreateShareResponse,
     Error,
-    { reportId: string; language?: 'es' | 'en'; kind?: 'report' | 'example' }
+    { reportId: string; language?: 'es' | 'en' | 'ca'; kind?: 'report' | 'example' }
   >({
     mutationFn: async ({ reportId, language, kind = 'report' }) => {
       const base = kind === 'example' ? 'examples' : 'reports';

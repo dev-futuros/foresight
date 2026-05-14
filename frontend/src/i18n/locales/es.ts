@@ -179,7 +179,7 @@ const es = {
     triggerBtn: 'Compartir',
     generating: 'Generando enlace…',
     language: 'Idioma',
-    lang: { es: 'Español', en: 'Inglés' },
+    lang: { es: 'Español', en: 'Inglés', ca: 'Catalán' },
     urlLabel: 'URL pública del informe',
     copy: 'Copiar',
     copied: '¡Copiado!',

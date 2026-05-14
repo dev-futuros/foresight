@@ -273,7 +273,7 @@ export default function NewReportPage() {
   // translation buttons) labels as "the authored language". The value
   // is computed lower in the component and written into the ref on
   // every render via the assignment after the `language` const.
-  const languageRef = useRef<'es' | 'en'>('es');
+  const languageRef = useRef<'es' | 'en' | 'ca'>('es');
 
   // Example mode — the user is exploring a global example through the
   // wizard. Inputs render exactly like a real report's, but every
@@ -413,8 +413,17 @@ export default function NewReportPage() {
     void flushAutosave();
   }, [flushAutosave]);
 
-  const language: 'es' | 'en' =
-    user?.language === 'en' || i18n.language === 'en' ? 'en' : 'es';
+  // Resolve the authored language from the user's saved preference first,
+  // then the active i18n locale. Catalan is treated as a first-class
+  // option alongside ES/EN — anything else falls through to Spanish.
+  const language: 'es' | 'en' | 'ca' = (() => {
+    const fromUser = user?.language;
+    if (fromUser === 'en' || fromUser === 'es' || fromUser === 'ca') return fromUser;
+    const code = i18n.language?.slice(0, 2);
+    if (code === 'en') return 'en';
+    if (code === 'ca') return 'ca';
+    return 'es';
+  })();
   // Keep the ref in sync so persistDraft (which captured an older
   // closure scope) always reads today's value.
   languageRef.current = language;

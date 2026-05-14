@@ -51,5 +51,5 @@ public record CreateReportRequest(
         @Schema(
                         description = "Language the wizard used to generate this report. Defaults to \"es\".",
                         example = "es",
-                        allowableValues = {"es", "en"})
+                        allowableValues = {"es", "en", "ca"})
                 String primaryLanguage) {}

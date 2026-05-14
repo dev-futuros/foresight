@@ -27,7 +27,7 @@ export default function PublicSharePage() {
   // tab titles, etc.) matches what the recipient is reading.
   useEffect(() => {
     const lang = searchParams.get('lang');
-    if (lang && (lang === 'es' || lang === 'en') && lang !== i18n.language) {
+    if (lang && (lang === 'es' || lang === 'en' || lang === 'ca') && lang !== i18n.language) {
       void i18n.changeLanguage(lang);
     }
   }, [searchParams, i18n]);

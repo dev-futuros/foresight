@@ -42,8 +42,9 @@ import reactor.core.scheduler.Schedulers;
 @RequiredArgsConstructor
 public class ExampleService {
 
-    /** Languages currently accepted by the on-demand translator. */
-    private static final Set<String> SUPPORTED_LANGUAGES = Set.of("es", "en");
+    /** Languages currently accepted by the on-demand translator. Catalan
+     *  was added as a third first-class language alongside ES and EN. */
+    private static final Set<String> SUPPORTED_LANGUAGES = Set.of("es", "en", "ca");
 
     private final ExampleRepository exampleRepository;
     private final ReportRepository reportRepository;

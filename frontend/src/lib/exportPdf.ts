@@ -2645,7 +2645,7 @@ function addFootersAndHeads(doc: jsPDF, reportTitle: string, tocPageNum: number)
  */
 export async function exportReportPdf(
   report: ReportResponse,
-  language?: 'es' | 'en',
+  language?: 'es' | 'en' | 'ca',
 ) {
   const originalLang = i18n.language;
   const needSwitch =
