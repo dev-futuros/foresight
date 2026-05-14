@@ -11,8 +11,11 @@ import java.util.UUID;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.foresight.backend.common.security.AuthenticatedUser;
 import com.posthog.server.PostHogCaptureOptions;
 import com.posthog.server.PostHogInterface;
@@ -50,6 +53,15 @@ public class LlmCapture {
     private final Optional<PostHogInterface> postHog;
 
     /**
+     * Used to convert Jackson {@link JsonNode} trees into plain Java collections before
+     * handing them to the PostHog SDK. PostHog's server SDK doesn't promise Jackson-aware
+     * property serialization, so passing a raw JsonNode as a property value can produce
+     * surprising output (an empty object, the node's internal field map, etc.) — convert
+     * to Lists/Maps/primitives where we can.
+     */
+    private final ObjectMapper objectMapper;
+
+    /**
      * Mint a UUID used to group multiple LLM calls under one PostHog trace (e.g. the 5
      * parallel analysis sections share a trace so the dashboard surfaces them together).
      */
@@ -75,11 +87,31 @@ public class LlmCapture {
         return "anonymous";
     }
 
+    /**
+     * Read the {@code X-PostHog-Session-Id} header forwarded by the frontend so the LLM event
+     * we eventually capture stitches into the same PostHog session as the browser-side
+     * pageviews / UI events. Null when the header is absent (e.g. unauthenticated public
+     * paths, request originated outside the SPA) or RequestContextHolder hasn't been bound
+     * yet (background tasks, tests).
+     */
+    public String currentSessionId() {
+        try {
+            ServletRequestAttributes attrs =
+                    (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attrs == null) return null;
+            String sid = attrs.getRequest().getHeader("X-PostHog-Session-Id");
+            return (sid == null || sid.isBlank()) ? null : sid;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     /** Build a per-call context with the bits the caller already knows; AiService fills the rest. */
     public LlmCaptureContext.LlmCaptureContextBuilder contextFor(String feature, String traceId) {
         return LlmCaptureContext.builder()
                 .feature(feature == null ? "unknown" : feature)
                 .distinctId(currentDistinctId())
+                .sessionId(currentSessionId())
                 .traceId(traceId == null ? newTraceId() : traceId)
                 .spanId(newTraceId());
     }
@@ -103,6 +135,7 @@ public class LlmCapture {
             props.put("$ai_is_error", ctx.error() != null);
             props.put("$ai_error", ctx.error());
             props.put("$ai_trace_id", ctx.traceId());
+            props.put("$ai_session_id", ctx.sessionId());
             props.put("$ai_span_id", ctx.spanId());
             props.put("$ai_span_name", ctx.feature());
             props.put("$ai_base_url", "https://api.anthropic.com");
@@ -152,13 +185,18 @@ public class LlmCapture {
      * (so PostHog's "tool calls" tab can surface {@code server_tool_use} / {@code tool_use}
      * blocks as function calls), falling back to plain text when only the accumulated string
      * is available (the streaming path before we re-walk the content blocks).
+     *
+     * <p>The JsonNode tree is converted to plain Java collections via {@code convertValue}
+     * because we can't assume PostHog's SDK serializes JsonNode the way Jackson does — the
+     * "tool calls" tab in PostHog only lights up when {@code $ai_output_choices[*].content}
+     * is a real JSON array of objects, not a stringified one.
      */
     private List<Map<String, Object>> buildOutputChoices(LlmCaptureContext ctx) {
         JsonNode content = ctx.outputContent();
         if (content != null && content.isArray() && !content.isEmpty()) {
             Map<String, Object> choice = new HashMap<>();
             choice.put("role", "assistant");
-            choice.put("content", content);
+            choice.put("content", objectMapper.convertValue(content, Object.class));
             return List.of(choice);
         }
         Map<String, Object> choice = new HashMap<>();

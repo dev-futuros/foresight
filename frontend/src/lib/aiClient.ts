@@ -1,4 +1,4 @@
-import api, { getAuthToken } from './api';
+import api, { getAuthToken, attachPostHogSession } from './api';
 
 /**
  * Thin wrappers around the backend `/api/ai/*` proxy endpoints. The Anthropic API key
@@ -625,6 +625,7 @@ async function streamSse<TBody, T>(
     Accept: 'text/event-stream',
   };
   if (token) headers.Authorization = `Bearer ${token}`;
+  attachPostHogSession(headers);
 
   const url = `/api/${path}`;
   // Verbose logs are gated on a localStorage flag so they don't spam
@@ -958,6 +959,7 @@ export async function chatStream(
     Accept: 'text/event-stream',
   };
   if (token) headers.Authorization = `Bearer ${token}`;
+  attachPostHogSession(headers);
 
   const res = await fetch('/api/ai/chat/stream', {
     method: 'POST',

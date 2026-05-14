@@ -24,6 +24,12 @@ import lombok.Singular;
  *                             present, {@code "anonymous"} otherwise. The frontend's posthog-js
  *                             snippet identifies the same Clerk id, so backend + frontend events
  *                             group on the same person.
+ * @param sessionId            PostHog session id forwarded by the browser via the
+ *                             {@code X-PostHog-Session-Id} header on every {@code /api/ai/*} call.
+ *                             Null when the frontend hasn't loaded PostHog yet or the request
+ *                             didn't come from the SPA (e.g. a direct API hit). Maps onto
+ *                             {@code $ai_session_id} so LLM events stitch into the same session
+ *                             as the frontend pageviews/UI events captured by posthog-js.
  * @param traceId              shared id across multiple LLM calls of one logical flow (e.g. the
  *                             5 analysis sections fan out under one trace). UUID string.
  * @param spanId               unique id for this single call. UUID string.
@@ -60,6 +66,7 @@ import lombok.Singular;
 public record LlmCaptureContext(
         String feature,
         String distinctId,
+        String sessionId,
         String traceId,
         String spanId,
         String model,

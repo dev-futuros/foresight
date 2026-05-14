@@ -58,7 +58,7 @@ class AiServiceTest {
                 Duration.ofSeconds(5));
         // No-op LlmCapture wired with an empty Optional so $ai_generation events are
         // simply skipped — the AI flow shape is what's under test here, not analytics.
-        LlmCapture llmCapture = new LlmCapture(Optional.empty());
+        LlmCapture llmCapture = new LlmCapture(Optional.empty(), MAPPER);
         aiService = new AiService(anthropicClient, MAPPER, props, llmCapture);
     }
 
