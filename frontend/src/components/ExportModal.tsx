@@ -29,8 +29,18 @@ interface Props {
    * jsPDF / pptxgenjs work and the LoadingOverlay that runs alongside
    * it — the modal closes itself immediately after the callback so
    * the user's eyes go straight to the export overlay.
+   *
+   * <p>{@code includeLanguages} is only populated for HTML exports —
+   * it's the set of languages the standalone snapshot should bake in.
+   * For PDF/PPT it's {@code undefined} (those formats are
+   * single-language and use the {@code language} arg as the content
+   * filter directly).
    */
-  onExport: (format: ExportFormat, language: ExportLanguage) => void;
+  onExport: (
+    format: ExportFormat,
+    language: ExportLanguage,
+    includeLanguages?: ExportLanguage[],
+  ) => void;
   /** Pre-select a format on open. The user can still change it. Used
    *  by the assistant when it knows the format but not the language. */
   initialFormat?: ExportFormat;
@@ -75,6 +85,16 @@ export default function ExportModal({
 
   const [format, setFormat] = useState<ExportFormat>('pdf');
   const [language, setLanguage] = useState<ExportLanguage>('es');
+  // For HTML exports the standalone bakes the selected languages —
+  // the "language" picker above is decorative (greyed). This separate
+  // picker controls which language the snapshot OPENS in when the
+  // recipient first loads it; they can still toggle via the in-page
+  // switcher. Only used when format=html.
+  const [htmlDefaultLanguage, setHtmlDefaultLanguage] = useState<ExportLanguage>('es');
+  // Which languages get baked into the HTML snapshot. Defaults to
+  // every available language on open; user opts OUT via the checkbox
+  // group. Only used when format=html.
+  const [htmlIncludedLanguages, setHtmlIncludedLanguages] = useState<ExportLanguage[]>([]);
 
   const availableLanguages = useMemo<ExportLanguage[]>(() => {
     const list = (data?.availableLanguages ?? []) as ExportLanguage[];
@@ -96,6 +116,11 @@ export default function ExportModal({
           ? initialLanguage
           : primaryLanguage;
       setLanguage(wantedLang);
+      setHtmlDefaultLanguage(wantedLang);
+      // Pre-check every available language for the HTML include
+      // group — the common case is "share everything I've already
+      // translated"; opting OUT of a language is the rare path.
+      setHtmlIncludedLanguages([...availableLanguages]);
       // Clamp the format to what the user is allowed to pick — non-DEV
       // users can't select HTML even if it was passed via initialFormat
       // (the option isn't rendered, so a stale 'html' would leave the
@@ -105,8 +130,49 @@ export default function ExportModal({
     }
   }, [open, primaryLanguage, data, initialFormat, initialLanguage, availableLanguages, isDev]);
 
+  // Whenever the user flips TO html, pre-fill the default-language
+  // picker with whatever they last set the (now-greyed) language
+  // picker to. Avoids the "I picked EN, switched format to HTML, but
+  // it's defaulting to ES" surprise. Switching back to PDF/PPT leaves
+  // the lang picker untouched.
+  useEffect(() => {
+    if (format === 'html') setHtmlDefaultLanguage(language);
+  }, [format, language]);
+
+  // The default-open language must be one of the included languages.
+  // If the user unchecks the currently-default, fall back to the
+  // first still-included one so we never end up trying to export
+  // with an excluded default.
+  useEffect(() => {
+    if (htmlIncludedLanguages.length === 0) return;
+    if (!htmlIncludedLanguages.includes(htmlDefaultLanguage)) {
+      setHtmlDefaultLanguage(htmlIncludedLanguages[0]);
+    }
+  }, [htmlIncludedLanguages, htmlDefaultLanguage]);
+
+  /**
+   * Toggle a language's inclusion in the HTML snapshot. Guards
+   * against unchecking the last remaining language (the export needs
+   * at least one).
+   */
+  function toggleIncludedLanguage(lng: ExportLanguage) {
+    setHtmlIncludedLanguages((prev) => {
+      const isIncluded = prev.includes(lng);
+      if (isIncluded) {
+        if (prev.length === 1) return prev;
+        return prev.filter((l) => l !== lng);
+      }
+      return [...prev, lng];
+    });
+  }
+
   function handleExport() {
-    onExport(format, language);
+    // For HTML the chosen "language" is the snapshot's default-open
+    // language (recipient can switch among included langs). Every
+    // other format uses the top picker's value as the content filter.
+    const exportLanguage = format === 'html' ? htmlDefaultLanguage : language;
+    const includeLanguages = format === 'html' ? htmlIncludedLanguages : undefined;
+    onExport(format, exportLanguage, includeLanguages);
     onClose();
   }
 
@@ -167,9 +233,81 @@ export default function ExportModal({
             className="share-lang-select"
             value={language}
             onChange={(e) => setLanguage(e.target.value as ExportLanguage)}
-            disabled={isLoading}
+            // Greyed out for HTML because the standalone bakes every
+            // available language — there's nothing to filter. The
+            // "Default language" picker below decides which one opens
+            // first; the recipient can still toggle in-page.
+            disabled={isLoading || format === 'html'}
           >
             {availableLanguages.map((lng) => (
+              <option key={lng} value={lng}>
+                {t(`share.lang.${lng}` as 'share.lang.es' | 'share.lang.en', {
+                  defaultValue: lng.toUpperCase(),
+                })}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* HTML-only include-languages checkbox group. Mirrors
+          ShareModal's chip-checkbox row — same visual language and the
+          same opt-out behaviour. The last remaining checked box can't
+          be unchecked (the export needs at least one language to bake
+          into the snapshot). */}
+      {format === 'html' && showLangPicker && (
+        <div className="share-lang-row share-lang-row--checks">
+          <span className="share-lang-label">
+            {t('share.includeLanguages', { defaultValue: 'Include languages' })}
+          </span>
+          <div className="share-lang-checks">
+            {availableLanguages.map((lng) => {
+              const checked = htmlIncludedLanguages.includes(lng);
+              const lastChecked =
+                checked && htmlIncludedLanguages.length === 1;
+              return (
+                <label
+                  key={lng}
+                  className={`share-lang-check${checked ? ' is-checked' : ''}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    disabled={isLoading || lastChecked}
+                    onChange={() => toggleIncludedLanguage(lng)}
+                  />
+                  <span>
+                    {t(`share.lang.${lng}` as 'share.lang.es' | 'share.lang.en', {
+                      defaultValue: lng.toUpperCase(),
+                    })}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* HTML-only "default open language" picker. Shown alongside the
+          (greyed) language picker above when format=html and the report
+          has translations to choose from. The standalone artefact
+          bundles the selected include set; this just sets the default
+          view. Only included languages are offered as options. */}
+      {format === 'html' && showLangPicker && (
+        <div className="share-lang-row">
+          <label htmlFor="export-html-default-language" className="share-lang-label">
+            {t('exportModal.htmlDefaultLanguage', {
+              defaultValue: 'Default language',
+            })}
+          </label>
+          <select
+            id="export-html-default-language"
+            className="share-lang-select"
+            value={htmlDefaultLanguage}
+            onChange={(e) => setHtmlDefaultLanguage(e.target.value as ExportLanguage)}
+            disabled={isLoading}
+          >
+            {htmlIncludedLanguages.map((lng) => (
               <option key={lng} value={lng}>
                 {t(`share.lang.${lng}` as 'share.lang.es' | 'share.lang.en', {
                   defaultValue: lng.toUpperCase(),

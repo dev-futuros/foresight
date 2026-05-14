@@ -143,11 +143,17 @@ public class ExampleController {
     public Callable<ResponseEntity<CreateShareResponse>> share(
             @CurrentUser AuthenticatedUser principal,
             @PathVariable UUID id,
-            @RequestParam(value = "language", required = false) String language) {
+            @RequestParam(value = "language", required = false) String language,
+            // Same semantics as the report share endpoint: comma-
+            // separated list of languages to bake into the snapshot.
+            // Omitting it includes every language the example has.
+            @RequestParam(value = "languages", required = false) String languages) {
         UUID userId = principal.id();
         String role = principal.role();
+        List<String> include =
+                com.foresight.backend.share.ShareController.parseLanguages(languages);
         return () -> {
-            ShareToken share = shareService.createForExample(id, userId, role, language);
+            ShareToken share = shareService.createForExample(id, userId, role, language, include);
             return ResponseEntity.status(201)
                     .body(CreateShareResponse.from(share, shareService.publicBaseUrl(), language));
         };

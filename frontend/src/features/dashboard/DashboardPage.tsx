@@ -238,6 +238,7 @@ export default function DashboardPage() {
     format: ExportFormat,
     language: ExportLanguage,
     kind: 'report' | 'example' = 'report',
+    includeLanguages?: ExportLanguage[],
   ) {
     if (exporting) return;
     setExporting({ id, kind: format });
@@ -253,31 +254,37 @@ export default function DashboardPage() {
           return res.data;
         },
       });
-      // Swap to the cached translation when the user picked a
-      // non-primary language. /translate is cache-warm so this is a
-      // fast round-trip — no Anthropic call. Same endpoint shape on
-      // both /reports and /examples.
-      const report =
-        language === baseReport.primaryLanguage
-          ? baseReport
-          : await (async () => {
-              const res = await api.post<{
-                inputData: Record<string, unknown>;
-                resultData: Record<string, unknown> | null;
-              }>(`/${base}/${id}/translate`, null, { params: { targetLanguage: language } });
-              return {
-                ...baseReport,
-                inputData: res.data.inputData,
-                resultData: res.data.resultData,
-              };
-            })();
+      // PDF and PPT each render ONE language — swap to the cached
+      // translation when the user picked a non-primary language.
+      // HTML, by contrast, bakes every available language into the
+      // snapshot, so we keep the report in its primary language and
+      // let {@link exportReportHtml} fetch the rest itself; the
+      // `language` arg becomes the "default open" preference for the
+      // recipient. /translate is cache-warm so the per-language calls
+      // are fast in either case.
+      const needsSingleLanguageSwap =
+        (format === 'pdf' || format === 'ppt') &&
+        language !== baseReport.primaryLanguage;
+      const report = needsSingleLanguageSwap
+        ? await (async () => {
+            const res = await api.post<{
+              inputData: Record<string, unknown>;
+              resultData: Record<string, unknown> | null;
+            }>(`/${base}/${id}/translate`, null, { params: { targetLanguage: language } });
+            return {
+              ...baseReport,
+              inputData: res.data.inputData,
+              resultData: res.data.resultData,
+            };
+          })()
+        : baseReport;
       // jspdf and pptxgenjs block the main thread; defer one tick so the
       // overlay paints before the work begins, matching the ReportPage
       // export pattern.
       await new Promise((r) => setTimeout(r, 0));
       if (format === 'pdf') await exportReportPdf(report, language);
       else if (format === 'ppt') exportReportPpt(report);
-      else await exportReportHtml(report, language);
+      else await exportReportHtml(report, language, kind, includeLanguages);
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('[dashboard] export failed', err);
@@ -807,9 +814,15 @@ export default function DashboardPage() {
         reportId={exportTargetId ?? ''}
         kind={exportTargetKind}
         onClose={() => setExportTargetId(null)}
-        onExport={(format, language) => {
+        onExport={(format, language, includeLanguages) => {
           if (exportTargetId) {
-            void handleExport(exportTargetId, format, language, exportTargetKind);
+            void handleExport(
+              exportTargetId,
+              format,
+              language,
+              exportTargetKind,
+              includeLanguages,
+            );
           }
         }}
       />

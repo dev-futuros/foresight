@@ -4,6 +4,9 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -11,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.foresight.backend.common.exception.NotFoundException;
 import com.foresight.backend.example.Example;
 import com.foresight.backend.example.ExampleService;
@@ -48,6 +52,7 @@ public class ShareService {
     private final ShareTokenRepository repository;
     private final ReportService reportService;
     private final ExampleService exampleService;
+    private final ObjectMapper objectMapper;
     private final SecureRandom random = new SecureRandom();
 
     @Value("${app.frontend-url:http://localhost:5173}")
@@ -73,7 +78,11 @@ public class ShareService {
      * @throws NotFoundException if the report does not exist or belongs to another user
      */
     @Transactional
-    public ShareToken createForReport(UUID reportId, UUID ownerId, String language) {
+    public ShareToken createForReport(
+            UUID reportId,
+            UUID ownerId,
+            String language,
+            Collection<String> includeLanguages) {
         // ReportService throws NotFoundException when ownership doesn't match — that's
         // the only path the controller needs to translate into a 404 for the caller.
         Report report = reportService.getOwned(reportId, ownerId);
@@ -81,16 +90,36 @@ public class ShareService {
                 ? report.getPrimaryLanguage()
                 : language;
 
+        // The share's primary payload — fetched (or pulled from cache)
+        // via reportService.translate when targetLang differs from the
+        // source's primary.
         JsonNode snapshotInput = report.getInputData();
         JsonNode snapshotResult = report.getResultData();
         if (!targetLang.equals(report.getPrimaryLanguage())) {
-            // Pull (or materialise) the cached translation for this language.
             JsonNode translated = reportService.translate(reportId, ownerId, targetLang, false);
             if (translated != null && translated.isObject()) {
                 if (translated.has("inputData")) snapshotInput = translated.get("inputData");
                 if (translated.has("resultData")) snapshotResult = translated.get("resultData");
             }
         }
+
+        // Resolve the FULL set of languages to bake into the snapshot.
+        // The caller may have nominated a specific subset via
+        // {@code includeLanguages}; if not (null/empty) we default to
+        // "every language the report has cached" so the recipient gets
+        // a complete viewer experience.
+        Set<String> include = resolveIncludeSet(
+                includeLanguages,
+                report.getPrimaryLanguage(),
+                report.getTranslations(),
+                targetLang);
+        JsonNode snapshotTranslations = materialiseTranslations(
+                include,
+                targetLang,
+                report.getPrimaryLanguage(),
+                report.getInputData(),
+                report.getResultData(),
+                (lang) -> reportService.translate(reportId, ownerId, lang, false));
 
         ShareToken share = ShareToken.builder()
                 .token(generateToken())
@@ -99,19 +128,25 @@ public class ShareService {
                 .title(report.getTitle())
                 .inputData(snapshotInput)
                 .resultData(snapshotResult)
+                .primaryLanguage(targetLang)
+                .translations(snapshotTranslations)
                 .expiresAt(Instant.now().plus(SHARE_TTL))
                 .build();
         return repository.save(share);
     }
 
     /**
-     * Backwards-compatible overload — shares in the report's primary
-     * language. Existing callers that don't care about translation
-     * don't have to change.
+     * Backwards-compatible overloads. Existing callers that don't need
+     * the new {@code includeLanguages} control don't have to change.
      */
     @Transactional
+    public ShareToken createForReport(UUID reportId, UUID ownerId, String language) {
+        return createForReport(reportId, ownerId, language, null);
+    }
+
+    @Transactional
     public ShareToken createForReport(UUID reportId, UUID ownerId) {
-        return createForReport(reportId, ownerId, null);
+        return createForReport(reportId, ownerId, null, null);
     }
 
     /**
@@ -131,7 +166,12 @@ public class ShareService {
      *                   primary language
      */
     @Transactional
-    public ShareToken createForExample(UUID exampleId, UUID userId, String callerRole, String language) {
+    public ShareToken createForExample(
+            UUID exampleId,
+            UUID userId,
+            String callerRole,
+            String language,
+            Collection<String> includeLanguages) {
         Example example = exampleService.get(exampleId);
         String targetLang = (language == null || language.isBlank())
                 ? example.getPrimaryLanguage()
@@ -147,6 +187,21 @@ public class ShareService {
             }
         }
 
+        // Same multi-language snapshot logic as report shares — see
+        // {@link #createForReport} for the rationale.
+        Set<String> include = resolveIncludeSet(
+                includeLanguages,
+                example.getPrimaryLanguage(),
+                example.getTranslations(),
+                targetLang);
+        JsonNode snapshotTranslations = materialiseTranslations(
+                include,
+                targetLang,
+                example.getPrimaryLanguage(),
+                example.getInputData(),
+                example.getResultData(),
+                (lang) -> exampleService.translate(exampleId, callerRole, lang, false));
+
         ShareToken share = ShareToken.builder()
                 .token(generateToken())
                 .exampleId(example.getId())
@@ -154,9 +209,105 @@ public class ShareService {
                 .title(example.getTitle())
                 .inputData(snapshotInput)
                 .resultData(snapshotResult)
+                .primaryLanguage(targetLang)
+                .translations(snapshotTranslations)
                 .expiresAt(Instant.now().plus(SHARE_TTL))
                 .build();
         return repository.save(share);
+    }
+
+    /** Backwards-compatible overload. */
+    @Transactional
+    public ShareToken createForExample(UUID exampleId, UUID userId, String callerRole, String language) {
+        return createForExample(exampleId, userId, callerRole, language, null);
+    }
+
+    /**
+     * Functional shim handed to {@link #materialiseTranslations} so it can
+     * pull translation payloads without ShareService needing two parallel
+     * code paths for reports and examples. Each consumer wires this up
+     * to its own service's {@code translate(...)} method.
+     */
+    @FunctionalInterface
+    private interface TranslationLookup {
+        JsonNode resolve(String language);
+    }
+
+    /**
+     * Compute the FULL set of languages the share should include —
+     * always contains the share's primary plus whichever extras the
+     * caller picked. When {@code requested} is null/empty we fall
+     * back to "every language the source has", preserving the older
+     * "include all by default" behaviour for callers that don't
+     * provide the new filter.
+     */
+    private Set<String> resolveIncludeSet(
+            Collection<String> requested,
+            String sourcePrimaryLanguage,
+            JsonNode sourceTranslations,
+            String shareLanguage) {
+        Set<String> out = new LinkedHashSet<>();
+        // The share's own primary must always be present — it's what
+        // the recipient sees first; you can't share something without
+        // its own default-open language.
+        out.add(shareLanguage);
+        if (requested == null || requested.isEmpty()) {
+            // No explicit filter — include everything the source has.
+            out.add(sourcePrimaryLanguage);
+            if (sourceTranslations != null && sourceTranslations.isObject()) {
+                sourceTranslations.fieldNames().forEachRemaining(out::add);
+            }
+        } else {
+            for (String r : requested) {
+                if (r != null && !r.isBlank()) out.add(r);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Build the snapshot's translations map: one entry per language in
+     * {@code include}, except the share's primary (whose payload already
+     * lives in the share's {@code inputData}/{@code resultData} columns).
+     * Each entry is materialised through {@code lookup} — a single,
+     * cache-warm call to the source's translate service.
+     *
+     * <p>Returns {@code null} when the resulting map is empty (single-
+     * language share) so the DB column stays NULL and the public
+     * response's {@code availableLanguages} ends up as a single-element
+     * list — the frontend hides the switcher pill in that case.
+     */
+    private JsonNode materialiseTranslations(
+            Set<String> include,
+            String shareLanguage,
+            String sourcePrimaryLanguage,
+            JsonNode sourcePrimaryInput,
+            JsonNode sourcePrimaryResult,
+            TranslationLookup lookup) {
+        com.fasterxml.jackson.databind.node.ObjectNode out = objectMapper.createObjectNode();
+        for (String lang : include) {
+            if (lang.equals(shareLanguage)) continue; // already in the columns
+            JsonNode input;
+            JsonNode result;
+            if (lang.equals(sourcePrimaryLanguage)) {
+                input = sourcePrimaryInput;
+                result = sourcePrimaryResult;
+            } else {
+                JsonNode translated = lookup.resolve(lang);
+                if (translated == null || !translated.isObject()) continue;
+                input = translated.path("inputData");
+                if (input.isMissingNode()) input = null;
+                result = translated.path("resultData");
+                if (result.isMissingNode()) result = null;
+            }
+            if (input == null && result == null) continue;
+            com.fasterxml.jackson.databind.node.ObjectNode entry = objectMapper.createObjectNode();
+            if (input != null) entry.set("inputData", input);
+            if (result != null) entry.set("resultData", result);
+            entry.put("generatedAt", Instant.now().toString());
+            out.set(lang, entry);
+        }
+        return out.size() == 0 ? null : out;
     }
 
     /**

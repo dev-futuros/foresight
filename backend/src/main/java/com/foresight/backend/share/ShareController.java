@@ -1,5 +1,7 @@
 package com.foresight.backend.share;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 
@@ -55,12 +57,39 @@ public class ShareController {
     public Callable<ResponseEntity<CreateShareResponse>> create(
             @CurrentUser AuthenticatedUser principal,
             @PathVariable UUID reportId,
-            @RequestParam(value = "language", required = false) String language) {
+            @RequestParam(value = "language", required = false) String language,
+            // Comma-separated list of languages to bake into the share.
+            // Omitting it falls back to "every language the report
+            // has", preserving the no-filter default. The shared
+            // primary (the `language` param above) is always
+            // implicitly included regardless of what's in this list.
+            @RequestParam(value = "languages", required = false) String languages) {
         UUID ownerId = principal.id();
+        List<String> include = parseLanguages(languages);
         return () -> {
-            ShareToken share = shareService.createForReport(reportId, ownerId, language);
+            ShareToken share = shareService.createForReport(reportId, ownerId, language, include);
             return ResponseEntity.status(201)
                     .body(CreateShareResponse.from(share, shareService.publicBaseUrl(), language));
         };
+    }
+
+    /**
+     * Split a comma-separated language list into a normalised
+     * {@code List<String>}. Empty / null / whitespace-only inputs
+     * yield {@code null} so {@code ShareService} sees no filter and
+     * falls back to "include all".
+     *
+     * <p>Public because {@code ExampleController} (different package)
+     * reuses the same parser to keep wire-format semantics identical
+     * between the report-share and example-share endpoints.
+     */
+    public static List<String> parseLanguages(String raw) {
+        if (raw == null) return null;
+        String trimmed = raw.trim();
+        if (trimmed.isEmpty()) return null;
+        return Arrays.stream(trimmed.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
     }
 }

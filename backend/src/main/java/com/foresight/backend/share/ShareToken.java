@@ -81,6 +81,21 @@ public class ShareToken extends BaseEntity {
     @Column(name = "result_data", columnDefinition = "jsonb")
     private JsonNode resultData;
 
+    /** ISO-639-1 of the language stored in {@link #inputData} / {@link #resultData}.
+     *  Defaults to {@code "es"} at the DB level so pre-V10 rows still resolve cleanly. */
+    @Column(name = "primary_language", nullable = false, length = 8)
+    @Builder.Default
+    private String primaryLanguage = "es";
+
+    /** Map of cached translations frozen at share creation time. Mirrors
+     *  {@code reports.translations}: keyed by ISO-639-1 code, each value carries
+     *  {@code inputData}, {@code resultData}, {@code generatedAt}. The entry whose
+     *  key matches {@link #primaryLanguage} is generally absent — that one lives
+     *  in the columns above. {@code null} for shares minted before V10. */
+    @Type(JsonBinaryType.class)
+    @Column(name = "translations", columnDefinition = "jsonb")
+    private JsonNode translations;
+
     /** Hard expiry timestamp. Once {@code now() > expiresAt} the public endpoint returns 404. */
     @Column(name = "expires_at", nullable = false)
     private Instant expiresAt;
