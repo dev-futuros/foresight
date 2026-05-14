@@ -660,7 +660,13 @@ function MessageView({ view, messageIdx, ctx, onApproveChip, onApplyAll }: Messa
   const hasCommands = !!commands && commands.length > 0;
   const pendingCount = commands?.filter((c) => c.status === 'pending').length ?? 0;
   const allResolved = hasCommands && pendingCount === 0;
-  const showApplyAll = applyAllState !== 'idle' || pendingCount >= 2;
+  // While the assistant is still streaming, chips are visible but NOT
+  // interactive — the user shouldn't approve the first one before the
+  // tail arrives, and "Apply all" is hidden so it can't fire on a
+  // partial set. Once the stream completes, both unlock.
+  const isStreaming = view.streaming === true;
+  const showApplyAll =
+    !isStreaming && (applyAllState !== 'idle' || pendingCount >= 2);
 
   async function handleApplyAll() {
     if (applyAllState !== 'idle') return;
@@ -684,6 +690,7 @@ function MessageView({ view, messageIdx, ctx, onApproveChip, onApplyAll }: Messa
               key={cmd.id}
               cmd={cmd}
               ctx={ctx}
+              streaming={isStreaming}
               onApprove={() => onApproveChip(messageIdx, cmd)}
             />
           ))}
@@ -726,10 +733,16 @@ function MessageView({ view, messageIdx, ctx, onApproveChip, onApplyAll }: Messa
 function CommandChip({
   cmd,
   ctx,
+  streaming,
   onApprove,
 }: {
   cmd: PendingCommand;
   ctx: PublishedWizardContext | undefined;
+  /** True while the parent message is still being streamed. A streaming
+   *  chip is rendered as a placeholder — visible so the user can see the
+   *  proposals arriving, but not interactive. Once streaming finishes the
+   *  chip becomes a normal clickable confirm. */
+  streaming: boolean;
   onApprove: () => void | Promise<void>;
 }) {
   const { t } = useTranslation();
@@ -751,7 +764,12 @@ function CommandChip({
         : cmd.status === 'declined'
           ? ' declined'
           : '';
-  const clickable = cmd.status === 'pending';
+  // Only pending chips on a finished message are clickable. While the
+  // message is still streaming we keep the chip visible (so the user
+  // sees proposals arrive in order) but block interaction so they can't
+  // approve a single one before the full set has been delivered.
+  const clickable = cmd.status === 'pending' && !streaming;
+  const streamingClass = streaming && cmd.status === 'pending' ? ' streaming' : '';
 
   const headText = (() => {
     if (isSetField) {
@@ -810,7 +828,7 @@ function CommandChip({
 
   return (
     <div
-      className={`chat-confirm${stateClass}${expanded ? ' expanded' : ''}`}
+      className={`chat-confirm${stateClass}${streamingClass}${expanded ? ' expanded' : ''}`}
       role={clickable ? 'button' : undefined}
       tabIndex={clickable ? 0 : -1}
       onClick={handleClick}

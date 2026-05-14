@@ -307,6 +307,21 @@ public class AiService {
               include trailing commentary after the closing brace.
             - If you need to think through structure, do so silently — your visible
               output is the JSON object and nothing else.
+
+            JSON SYNTAX — STRICT (frontend uses JSON.parse, no JS):
+            - ALL property names MUST be wrapped in double quotes: "key": value. Never
+              emit a bare-identifier key (key: value) and never emit a single-quoted
+              key ('key': value) — both crash JSON.parse with "Expected double-quoted
+              property name". This is the #1 cause of analyze-section failures.
+            - ALL string values MUST use double quotes too: "foo", never 'foo'.
+            - NO trailing commas. The token before a closing } or ] must NOT be a
+              comma. Strict JSON forbids this even though JavaScript allows it.
+            - Inside string values, escape newlines as \\n, tabs as \\t, double
+              quotes as \\". Never put a literal newline inside a "..." literal.
+            - Numbers, true, false, null are bare (no quotes). Everything else is a
+              quoted string.
+            - Before emitting, mentally re-check the keys: if any of them are missing
+              their double quotes, the entire response is unparseable.
             """;
 
     private static final String ANALYZE_SUMMARY_SYSTEM =
@@ -618,6 +633,17 @@ public class AiService {
             HOW MANY COMMANDS PER REPLY:
             Emit as many <command> tags as you need in a single reply. They are just text — there is no API-level constraint forcing one-at-a-time. When the user gives you content for 7 form fields, your single reply should contain 7 <command name="setField"> tags so the user can apply them all in one tap. Do NOT trickle them across turns; the user expects to see the full batch at once.
 
+            COMMITMENT COUNT — CRITICAL:
+            If your prose names a count ("I'll fill in 5 fields", "Here are three options", "All 7 fields", "Drafting the remaining 4"), the number of <command> tags you emit in that same reply MUST equal that count. No exceptions. If you said "5", emit 5; if you said "the remaining 4 fields", emit 4. Before you finish your reply, mentally count the <command> tags you wrote and check the number matches what you promised — if it doesn't, either add the missing tags or rephrase the prose to match what you actually emitted. Saying "I'll suggest 5" and emitting 3 leaves the user clicking "Apply all" on a partial batch and looking for the missing two — that is worse than not promising a number at all. When in doubt, do not name a count; just emit the chips and let the user count them.
+
+            REMAINING / OTHER / THE REST — CRITICAL:
+            When the user says "give me the other 3", "the rest", "the remaining ones", "the other dimensions", "fill the rest", or any similar pronoun phrase, they mean the fields in the SAME section/group as your previous batch that are still empty or unaddressed. They do NOT mean the next wizard step's fields. Resolve like this:
+            1. Look at your previous assistant turn (the one just before this user message). Which field group did the chips target — step-1 form fields? sectorial STEEP (steep-*)? horizon scan (hs-*)?
+            2. Look at the CURRENT STEP and FIELDS VISIBLE ON CURRENT STEP in the user state — those are the candidate fields.
+            3. Subtract: the "remaining" / "other" / "rest" fields = the candidate fields minus the ones your previous batch already addressed.
+            4. Emit setField chips for exactly those. Do NOT cross step boundaries — if your previous batch was sectorial STEEP (steep-*), "the other 3" means the remaining steep-* dimensions, NEVER the next step's hs-* signals.
+            If the prior batch + the "remaining" set together cover the WHOLE section and the user just asked for "the rest", the count rule above kicks in: name the count out loud only if you actually emit that many chips.
+
             REPLY STRUCTURE — IMPORTANT:
             Any prose you write AFTER the <command> tags will be hidden in the UI until the user actually applies the chips. So:
             - Put your introduction / framing / "Here's what I'm filling in" BEFORE the <command> tags.
@@ -647,7 +673,7 @@ public class AiService {
 
             newReport, deleteReport, loadReport, editReport, logout — destructive or replaces current state. ALWAYS ask in plain language first ("This will wipe your current form data — are you sure?"), wait for the reply, only emit on the NEXT turn after confirmation.
 
-            runAnalysis, generateGlobalSteep — slow operations the user is going to wait through. ALWAYS confirm in plain language ("This takes about 60-120 seconds — go ahead?"), wait for an explicit yes, emit on next turn. Never mention API credits, costs, billing, or "expensive" — that framing isn't appropriate for the end user. Just the time estimate.
+            runAnalysis, generateGlobalSteep — slow operations the user is going to wait through. Emit the chip IMMEDIATELY in the same reply, with a one-line time disclosure in the prose BEFORE the chip. The chip itself is the confirmation — the user clicks it to launch, or ignores it to cancel. Do NOT ask "are you sure?" / "go ahead?" / "shall I run it?" first and wait for a yes — that turns a one-tap action into a three-message ping-pong (prose ask → user yes → chip → user click). The chip is already a confirm affordance; double-confirming in prose is friction, not safety. Just say "This takes ~60-120 seconds." then emit the chip. Never mention API credits, costs, billing, or "expensive" — that framing isn't appropriate for the end user. Just the time estimate.
 
             goTo, openDashboard, closeDashboard, setLang, refreshReports, wizardNext, wizardBack, exportReport, shareReport — emit immediately WHEN the user explicitly asked for that action ("take me to step 4", "show my reports", "export as PDF"). Do NOT emit these as a "helpful next step" after another action. Especially: do NOT navigate after filling fields, do NOT open the dashboard after loading a report. If unsure whether the user wants you to navigate, ask. NEVER emit goTo to "make a field accessible" — every form field is already writable from any step. And NEVER emit goTo to a step the user is already on (check the CURRENT STEP line in the user state — if it matches the target, the call is a no-op and shouldn't be emitted). Same logic for openDashboard/closeDashboard: check the DASHBOARD line in the user state — if it says "open" don't emit openDashboard, if it says "closed" don't emit closeDashboard.
 
@@ -725,11 +751,8 @@ public class AiService {
             (Three ASSISTANT-PROPOSED chips, no preamble. The user picks which one(s) to keep by clicking — multiple are fine, they all add to the same field. Short closing line is the only prose around the chips.)
 
             User: "Generate the analysis."
-            You: This takes ~60-120 seconds. Should I go ahead?
-            (EXPENSIVE / slow command — confirm the time first. Do NOT emit runAnalysis yet.)
-
-            User: "Yes, go."
-            You: Running it now. <command name="runAnalysis"></command>
+            You: This takes ~60-120 seconds. <command name="runAnalysis"></command>
+            (Slow command — disclose the time in one line, then emit the chip in the SAME reply. The chip is the confirmation; do NOT ask "are you sure?" first. The user clicks the chip to launch, or moves on to cancel.)
 
             OUTPUT LANGUAGE — CRITICAL: Reply ONLY in English regardless of the language of the inputs below. The CONTENT inside setField value fields should match the user's working language (whatever language the existing field content uses).
             When you mention UI elements (dimension names, step names, button labels, field names), use these EXACT English names: Social, Technological, Economic, Environmental, Political; Global STEEP, Sectorial, Horizon Scan; H1 (0-2y), H2 (2-5y), H3 (5+y); Strategic challenge, Sector, Capabilities. Do not switch into the user's native language for UI references when in English mode.
@@ -806,6 +829,17 @@ public class AiService {
             CUÁNTOS COMANDOS POR RESPUESTA:
             Emite tantas etiquetas <command> como necesites en una única respuesta. Son solo texto — no hay restricción a nivel de API que fuerce uno-a-uno. Cuando el usuario te da contenido para 7 campos del formulario, tu única respuesta debe contener 7 etiquetas <command name="setField"> para que el usuario pueda aplicarlas todas de una sola pulsación. NO los goteees a lo largo de turnos; el usuario espera ver toda la tanda a la vez.
 
+            CONTEO COMPROMETIDO — CRÍTICO:
+            Si tu prosa nombra una cantidad ("Voy a rellenar los 5 campos", "Aquí van tres opciones", "Los 7 campos", "Redactando los 4 restantes"), el número de etiquetas <command> que emitas en esa misma respuesta DEBE coincidir con esa cantidad. Sin excepciones. Si dijiste "5", emite 5; si dijiste "los 4 restantes", emite 4. Antes de cerrar la respuesta, cuenta mentalmente las etiquetas <command> que escribiste y comprueba que el número coincide con lo prometido — si no coincide, o añade las etiquetas que faltan, o reformula la prosa para que cuadre con lo que realmente emitiste. Decir "te sugiero 5" y emitir 3 deja al usuario pulsando "Aplicar todo" sobre una tanda parcial y buscando las que faltan — eso es peor que no nombrar un número. Ante la duda, NO nombres una cantidad; emite los chips y deja que el usuario los cuente.
+
+            RESTANTES / LOS OTROS / EL RESTO — CRÍTICO:
+            Cuando el usuario diga "dame los otros 3", "el resto", "los que faltan", "las otras dimensiones", "rellena lo que queda", o cualquier frase pronominal similar, se refiere a los campos del MISMO bloque/sección que tu tanda anterior que aún están vacíos o sin abordar. NO se refiere a los campos del paso siguiente del wizard. Resuélvelo así:
+            1. Mira tu turno anterior (el justo antes de este mensaje del usuario). ¿A qué grupo de campos apuntaron los chips — campos de paso 1? STEEP sectorial (steep-*)? Horizon scan (hs-*)?
+            2. Mira el PASO ACTUAL y los CAMPOS VISIBLES EN EL PASO ACTUAL en el estado del usuario — esos son los candidatos.
+            3. Resta: los campos "restantes" / "otros" / "el resto" = los candidatos menos los que ya cubrió tu tanda anterior.
+            4. Emite chips setField para exactamente esos. NO cruces fronteras de paso — si tu tanda anterior fue STEEP sectorial (steep-*), "los otros 3" significa las dimensiones steep-* que faltan, NUNCA las señales hs-* del paso siguiente.
+            Si la tanda anterior + el conjunto "restante" juntas cubren TODA la sección y el usuario pidió "el resto", la regla de conteo de arriba se aplica: nombra la cantidad solo si realmente emites esa cantidad de chips.
+
             ESTRUCTURA DE LA RESPUESTA — IMPORTANTE:
             Cualquier prosa que escribas DESPUÉS de las etiquetas <command> queda oculta en la UI hasta que el usuario realmente aplique los chips. Por tanto:
             - Pon tu introducción / encuadre / "Esto es lo que voy a rellenar" ANTES de las etiquetas <command>.
@@ -835,7 +869,7 @@ public class AiService {
 
             newReport, deleteReport, loadReport, editReport, logout — destructivo o reemplaza el estado actual. Pregunta SIEMPRE en lenguaje claro primero ("Esto borrará tu formulario actual — ¿seguro?"), espera la respuesta, emite solo en el SIGUIENTE turno tras confirmación.
 
-            runAnalysis, generateGlobalSteep — operaciones lentas que el usuario va a esperar. Confirma SIEMPRE en lenguaje claro ("Esto tarda unos 60-120 segundos — ¿lo lanzo?"), espera un sí explícito, emite en el siguiente turno. Nunca menciones créditos de API, coste, facturación, ni "caro / costoso" — ese encuadre no es apropiado para el usuario final. Solo la estimación de tiempo.
+            runAnalysis, generateGlobalSteep — operaciones lentas que el usuario va a esperar. Emite el chip INMEDIATAMENTE en la misma respuesta, con una línea de prosa ANTES del chip que indique el tiempo. El propio chip es la confirmación — el usuario lo pulsa para lanzar, o lo ignora para cancelar. NO preguntes "¿estás seguro?" / "¿lo lanzo?" / "¿procedo?" antes y esperes un sí — eso convierte una acción de un toque en un ping-pong de tres mensajes (prosa pregunta → usuario sí → chip → usuario clic). El chip ya es un affordance de confirmación; doble-confirmar en prosa es fricción, no seguridad. Simplemente di "Esto tarda ~60-120 segundos." y luego emite el chip. Nunca menciones créditos de API, coste, facturación, ni "caro / costoso" — ese encuadre no es apropiado para el usuario final. Solo la estimación de tiempo.
 
             goTo, openDashboard, closeDashboard, setLang, refreshReports, wizardNext, wizardBack, exportReport, shareReport — emítelos inmediatamente CUANDO el usuario lo pida explícitamente ("llévame al paso 4", "muestra mis informes", "exporta como PDF"). NO los emitas como "siguiente paso útil" después de otra acción. En particular: NO navegues después de rellenar campos, NO abras el panel después de cargar un informe. Si tienes duda de si el usuario quiere que navegues, pregunta. NUNCA emitas goTo para "hacer accesible un campo" — todos los campos del formulario ya son escribibles desde cualquier paso. Y NUNCA emitas goTo a un paso en el que el usuario ya está (mira la línea PASO ACTUAL en el estado del usuario — si coincide con el destino, la llamada es un no-op y no debe emitirse). Misma lógica para openDashboard/closeDashboard.
 
@@ -913,11 +947,8 @@ public class AiService {
             (Tres chips PROPUESTOS POR TI, sin preámbulo. El usuario elige cuál(es) quedarse pulsando — varios valen, todos se añaden al mismo campo. Una línea breve de cierre es la única prosa alrededor de los chips.)
 
             Usuario: "Genera el análisis."
-            Tú: Esto tarda ~60-120 segundos. ¿Lo lanzo?
-            (Comando lento — confirma el tiempo primero. NO emitas runAnalysis todavía.)
-
-            Usuario: "Sí, dale."
-            Tú: Lanzándolo. <command name="runAnalysis"></command>
+            Tú: Esto tarda ~60-120 segundos. <command name="runAnalysis"></command>
+            (Comando lento — declara el tiempo en una línea y emite el chip en la MISMA respuesta. El chip es la confirmación; NO preguntes "¿estás seguro?" primero. El usuario pulsa el chip para lanzar, o pasa de él para cancelar.)
 
             IDIOMA DE SALIDA — CRÍTICO: Responde ÚNICAMENTE en español independientemente del idioma de los inputs siguientes. El CONTENIDO dentro de los campos value de setField debe coincidir con el idioma de trabajo del usuario (el idioma que use el contenido existente del campo).
             Cuando menciones elementos de la interfaz (nombres de dimensiones, pasos, botones, campos), usa estos nombres EXACTOS en español: Social, Tecnológico, Económico, Medioambiental, Político; STEEP Global, Sectorial, Horizon Scan; H1 (0-2 años), H2 (2-5 años), H3 (5+ años); Reto estratégico, Sector, Capacidades. NO uses los equivalentes en inglés cuando estés en modo español.

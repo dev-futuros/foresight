@@ -53,48 +53,193 @@ function stripFences(s: string): string {
 }
 
 /**
- * Escapes unescaped control characters (raw newline / carriage return / tab)
- * that appear INSIDE JSON string literals so the result is a strictly valid
- * JSON document.
+ * Best-effort repair of the most common JSON malformations the model
+ * produces, so that long analyze responses don't crash {@code JSON.parse}
+ * over a single rogue character buried at column 849. The walker tracks
+ * whether the current position is inside a {@code "..."} string and runs
+ * different fixes inside vs. outside string literals.
  *
- * <p>The new analyze prompts explicitly invite the model to emit `\n\n`
- * paragraph breaks inside long prose fields (executiveSummary, scenario
- * description, …). The model often respects the spirit of that by emitting
- * a literal newline in the JSON output — which is forbidden by the JSON
- * spec inside a string and crashes {@code JSON.parse}. This walker mirrors
- * the demo's `repairAndParseJSON` helper: it tracks whether we are inside a
- * string and rewrites raw `\n` / `\r` / `\t` as their escape sequences,
- * leaving anything outside string literals untouched.
+ * <p>Inside string literals it escapes raw control characters
+ * ({@code \n} / {@code \r} / {@code \t}) — the new analyze prompts invite
+ * {@code \n\n} paragraph breaks inside long prose fields and the model
+ * frequently honours that intent with literal newlines, which the JSON
+ * spec forbids inside strings.
+ *
+ * <p>Outside string literals it repairs three structural slips that
+ * surface as "Expected double-quoted property name…" or
+ * "Unexpected token…" errors:
+ *
+ * <ol>
+ *   <li><b>Single-quoted strings</b> — {@code 'foo':} or {@code :'bar'} —
+ *       rewritten with double quotes (inner doubles get backslash-escaped).
+ *       This is the case that throws "Expected double-quoted property
+ *       name" when the model slips into JS-object syntax.</li>
+ *   <li><b>Bare-identifier keys</b> — {@code foo:} with no quotes at all —
+ *       wrapped in double quotes. Matched only when an identifier
+ *       directly follows a {@code \{} or {@code ,} and is followed by a
+ *       {@code :}, so we don't accidentally rewrap legitimate content.</li>
+ *   <li><b>Trailing commas</b> — {@code ,}} and {@code ,]} stripped of
+ *       the dangling comma. Strict JSON forbids these, JS allows them,
+ *       and the model leaks them in long arrays.</li>
+ * </ol>
+ *
+ * <p>None of these repairs touch content inside string literals, so prose
+ * fields with quotes / commas / colons survive unchanged.
  */
 function repairJsonString(s: string): string {
-  let out = '';
+  // Pass 1: walk the source tracking the inside/outside-string state. Fix
+  // raw control chars in-place inside strings, and rewrite single-quoted
+  // string literals to double-quoted ones outside strings.
+  let pass1 = '';
   let inStr = false;
   let esc = false;
   for (let i = 0; i < s.length; i++) {
     const c = s[i];
     if (esc) {
-      out += c;
+      pass1 += c;
       esc = false;
       continue;
     }
     if (c === '\\') {
-      out += c;
+      pass1 += c;
+      esc = true;
+      continue;
+    }
+    if (inStr) {
+      if (c === '"') {
+        inStr = false;
+        pass1 += c;
+        continue;
+      }
+      if (c === '\n') { pass1 += '\\n'; continue; }
+      if (c === '\r') { pass1 += '\\r'; continue; }
+      if (c === '\t') { pass1 += '\\t'; continue; }
+      pass1 += c;
+      continue;
+    }
+    // Outside any string.
+    if (c === '"') {
+      inStr = true;
+      pass1 += c;
+      continue;
+    }
+    if (c === "'") {
+      // Lift the single-quoted literal until its matching closing single
+      // quote and re-emit with double quotes. Backslash escapes carry
+      // through; an inner double quote gets escaped so the surrounding
+      // "..." stays valid.
+      let lifted = '"';
+      let j = i + 1;
+      let innerEsc = false;
+      while (j < s.length) {
+        const cc = s[j];
+        if (innerEsc) {
+          lifted += cc;
+          innerEsc = false;
+          j++;
+          continue;
+        }
+        if (cc === '\\') {
+          lifted += cc;
+          innerEsc = true;
+          j++;
+          continue;
+        }
+        if (cc === "'") {
+          break;
+        }
+        if (cc === '"') {
+          lifted += '\\"';
+          j++;
+          continue;
+        }
+        if (cc === '\n') { lifted += '\\n'; j++; continue; }
+        if (cc === '\r') { lifted += '\\r'; j++; continue; }
+        if (cc === '\t') { lifted += '\\t'; j++; continue; }
+        lifted += cc;
+        j++;
+      }
+      lifted += '"';
+      pass1 += lifted;
+      i = j; // Skip past the closing single quote.
+      continue;
+    }
+    pass1 += c;
+  }
+
+  // Pass 2: scan again to wrap bare-identifier property names and strip
+  // trailing commas. Must re-track inside-string state because Pass 1
+  // emitted new "..." literals from single-quoted source.
+  let pass2 = '';
+  inStr = false;
+  esc = false;
+  for (let i = 0; i < pass1.length; i++) {
+    const c = pass1[i];
+    if (esc) {
+      pass2 += c;
+      esc = false;
+      continue;
+    }
+    if (c === '\\') {
+      pass2 += c;
       esc = true;
       continue;
     }
     if (c === '"') {
       inStr = !inStr;
-      out += c;
+      pass2 += c;
       continue;
     }
     if (inStr) {
-      if (c === '\n') { out += '\\n'; continue; }
-      if (c === '\r') { out += '\\r'; continue; }
-      if (c === '\t') { out += '\\t'; continue; }
+      pass2 += c;
+      continue;
     }
-    out += c;
+    // Outside any string.
+    // (a) Strip trailing commas before } or ].
+    if (c === ',') {
+      let k = i + 1;
+      while (k < pass1.length && /\s/.test(pass1[k])) k++;
+      if (pass1[k] === '}' || pass1[k] === ']') {
+        // Drop the comma; whitespace + closer carries through normally.
+        continue;
+      }
+      pass2 += c;
+      continue;
+    }
+    // (b) Bare-identifier keys: after {, [, or , (with optional ws), if we
+    //     see [A-Za-z_$] followed by an identifier run and then a colon,
+    //     wrap it in double quotes. We only rewrite when the colon really
+    //     terminates the identifier (allowing whitespace), which avoids
+    //     munging values, numeric tokens, true/false/null literals, etc.
+    if (c === '{' || c === '[' || c === ',') {
+      let k = i + 1;
+      while (k < pass1.length && /\s/.test(pass1[k])) k++;
+      if (k < pass1.length && /[A-Za-z_$]/.test(pass1[k])) {
+        const start = k;
+        while (k < pass1.length && /[A-Za-z0-9_$]/.test(pass1[k])) k++;
+        const ident = pass1.slice(start, k);
+        let m = k;
+        while (m < pass1.length && /\s/.test(pass1[m])) m++;
+        if (
+          pass1[m] === ':' &&
+          ident !== 'true' &&
+          ident !== 'false' &&
+          ident !== 'null'
+        ) {
+          pass2 += c;
+          pass2 += pass1.slice(i + 1, start);
+          pass2 += '"' + ident + '"';
+          i = k - 1; // Continue from after the identifier.
+          continue;
+        }
+      }
+      pass2 += c;
+      continue;
+    }
+    pass2 += c;
   }
-  return out;
+
+  return pass2;
 }
 
 function parseJson<T>(payload: AnthropicResponse): T {

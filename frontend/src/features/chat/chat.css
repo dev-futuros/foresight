@@ -439,6 +439,32 @@
   outline: 2px solid var(--gold-soft);
   outline-offset: 2px;
 }
+/* Streaming state — chip is rendered as soon as the model emits its
+   opening `<command>` tag so the user sees proposals materialise in
+   order, but interaction is blocked until the full set has arrived.
+   Visually: muted background, no hover highlight, no cursor pointer,
+   and a subtle pulse on the head label so it reads as "still arriving"
+   rather than "clickable but doing nothing". Once the stream finishes
+   the modifier drops and the chip becomes a normal clickable card. */
+.chat-confirm.streaming {
+  background: hsla(0, 0%, 100%, 0.025);
+  border-color: var(--line);
+  cursor: default;
+  opacity: 0.85;
+}
+.chat-confirm.streaming:hover {
+  background: hsla(0, 0%, 100%, 0.025);
+  border-color: var(--line);
+}
+.chat-confirm.streaming .chat-confirm-head {
+  color: var(--ink-mute);
+  animation: chat-confirm-streaming-pulse 1.4s ease-in-out infinite;
+}
+@keyframes chat-confirm-streaming-pulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
 /* Applied state — chip stays visible after the user clicks it but
    transitions to a green palette. No hover, no cursor pointer; it's
    spent. Matches the demo's persistent-chip behaviour. */

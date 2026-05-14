@@ -49,6 +49,13 @@ export interface ChatMessageView {
    *  completes (e.g. Global STEEP generation finished) — the assistant's
    *  REPLY is what surfaces; the trigger itself is invisible. */
   hidden?: boolean;
+  /** True while the assistant is still streaming this message. Renderers
+   *  use it to (a) hold "Apply all" off-screen until every chip has
+   *  arrived, and (b) keep individual chips non-interactive — the user
+   *  might otherwise approve a chip while a tail one is still being
+   *  parsed and end up missing it. Flipped to false in the final
+   *  post-stream setMessages call. */
+  streaming?: boolean;
 }
 
 interface ChatContextSnapshot {
@@ -210,6 +217,7 @@ export function useChat() {
         const placeholderView: ChatMessageView = {
           message: placeholderMessage,
           segments: { pre: '', post: '' },
+          streaming: true,
         };
         const baseHistory = [...history, placeholderView];
         setMessages(baseHistory);
@@ -237,6 +245,7 @@ export function useChat() {
                 },
                 segments: { pre, post },
                 commands: parsedCommands.length > 0 ? parsedCommands : undefined,
+                streaming: true,
               };
               return next;
             });
@@ -271,6 +280,10 @@ export function useChat() {
             message: assistantMsg,
             segments: { pre, post },
             commands: commands.length > 0 ? commands : undefined,
+            // Stream is done — chips become interactive, Apply All
+            // appears (if the message is multi-chip and any are still
+            // pending).
+            streaming: false,
           };
           return next;
         });
