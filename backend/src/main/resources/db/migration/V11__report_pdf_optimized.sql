@@ -1,0 +1,27 @@
+-- PDF-export "tighten" cache.
+--
+-- The PDF export pipeline picks magazine-style layouts with strict character
+-- budgets per field; when the actual content exceeds a layout's budget the
+-- frontend calls /api/ai/tighten to produce a shorter version that fits, and
+-- writes the result into this column keyed by (language, fieldPath) so the
+-- next export of the same report skips the LLM round-trip.
+--
+-- Shape:
+--   { "en": { "version": 1,
+--             "generatedAt": "ISO-8601",
+--             "fields": { "executiveSummary": "...",
+--                         "steep.global.S":   "...",
+--                         "steep.sectorial.T":"...",
+--                         "scenarios.0.description": "...",
+--                         "scenarios.0.firstMove":   "...",
+--                         "keyUncertainties.2.description": "...",
+--                         ... } },
+--     "es": { ... } }
+--
+-- Field paths are dotted, matching the resultData / inputData JSON structure.
+-- Array indices appear as integers. Cache entries are simple strings — no
+-- structural rewrites, just shorter prose. If the source text on the report
+-- ever changes the cache becomes stale; a future migration could add a hash
+-- to invalidate automatically. For now we treat the cache as best-effort.
+
+ALTER TABLE reports ADD COLUMN pdf_optimized JSONB;

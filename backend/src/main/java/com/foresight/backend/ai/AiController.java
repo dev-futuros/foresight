@@ -17,6 +17,7 @@ import com.foresight.backend.ai.dto.GlobalSteepDimRequest;
 import com.foresight.backend.ai.dto.GlobalSteepRequest;
 import com.foresight.backend.ai.dto.HorizonSuggestRequest;
 import com.foresight.backend.ai.dto.SteepSuggestRequest;
+import com.foresight.backend.ai.dto.TightenRequest;
 
 import lombok.RequiredArgsConstructor;
 import reactor.core.publisher.Flux;
@@ -214,5 +215,23 @@ public class AiController {
     @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<JsonNode>> chatStream(@Valid @RequestBody ChatRequest request) {
         return wrapSse(aiService.chatStream(request));
+    }
+
+    /**
+     * Shorten a piece of report prose so it fits a specific PDF-layout character budget while
+     * keeping the meaning + any caller-supplied {@code preserveTerms} verbatim.
+     *
+     * <p>Used exclusively by the PDF export pipeline: when a section's content is close to
+     * fitting a tighter layout (e.g. Brief + Resumen on one page) but slightly exceeds it, the
+     * frontend calls this endpoint with the over-budget field and uses the returned shorter
+     * text in the PDF. Result is cached per-language on the report row so re-exporting the
+     * same report doesn't re-pay the LLM round-trip.
+     *
+     * @param request validated payload — source text, target character budget, language, optional preserve terms
+     * @return JSON of the form {@code {"text": "<shortened>"}}
+     */
+    @PostMapping("/tighten")
+    public Mono<JsonNode> tighten(@Valid @RequestBody TightenRequest request) {
+        return aiService.tighten(request);
     }
 }

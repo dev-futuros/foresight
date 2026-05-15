@@ -27,6 +27,7 @@ import com.foresight.backend.ai.dto.GlobalSteepDimRequest;
 import com.foresight.backend.ai.dto.GlobalSteepRequest;
 import com.foresight.backend.ai.dto.HorizonSuggestRequest;
 import com.foresight.backend.ai.dto.SteepSuggestRequest;
+import com.foresight.backend.ai.dto.TightenRequest;
 import com.foresight.backend.analytics.LlmCapture;
 import com.foresight.backend.analytics.LlmCaptureContext;
 
@@ -2660,6 +2661,101 @@ public class AiService {
                         llmCapture.capture(ctx);
                     });
         });
+    }
+
+    /**
+     * System prompt for {@link #tighten}. The model must rewrite the given prose under a hard
+     * character budget while preserving meaning, factual claims, and any caller-supplied
+     * verbatim terms. No commentary or wrapping — the response IS the rewritten text.
+     */
+    private static final String TIGHTEN_SYSTEM =
+            """
+            You rewrite report prose to fit a strict character budget while preserving:
+              (a) the original meaning and analytical conclusions,
+              (b) all factual claims, statistics, percentages, dates, and proper nouns,
+              (c) every term in the PRESERVE list verbatim — these must appear in your output.
+
+            Length rules:
+              - Your response MUST be at or below the target character count. Aim ~5-10% under.
+              - Tighten by removing redundancy, hedging, and rhetorical scaffolding — not by
+                cutting facts or substantive analysis.
+              - Keep paragraph structure (preserve `\\n\\n` paragraph breaks if present).
+
+            Style rules:
+              - Match the original register (formal / analytical / report-style).
+              - Output the SAME language as the input.
+              - Do NOT add commentary, preamble, or post-script. Your entire response IS the
+                rewritten text — nothing else.
+              - Do NOT wrap in quotes or code fences.
+              - Do NOT use the literal phrase "in summary" or "to summarize".
+
+            If the source is already at or below the target, return it essentially unchanged
+            (only fixing typography if you spot any).
+            """;
+
+    /**
+     * Shorten the given prose to fit a target character budget.
+     *
+     * <p>Used by the PDF export pipeline to make report content fit specific magazine-style
+     * layouts. The model is told to preserve meaning + key terms and stay under the budget; in
+     * practice it often comes in slightly under, which is desirable for typesetting.
+     *
+     * @param request validated source text, target char count, language, optional preserve terms
+     * @return Mono emitting JSON of the form {@code {"text": "<shortened>"}}
+     */
+    public Mono<JsonNode> tighten(TightenRequest request) {
+        String preserve = (request.preserveTerms() == null || request.preserveTerms().isEmpty())
+                ? "(none)"
+                : String.join(", ", request.preserveTerms());
+        String userPrompt =
+                """
+                %s
+
+                TARGET CHARACTER COUNT: %d (your response MUST be at or below this).
+                PRESERVE VERBATIM: %s
+
+                SOURCE TEXT:
+                %s
+                """
+                        .formatted(
+                                langInstruction(request.language()),
+                                request.targetChars(),
+                                preserve,
+                                request.text());
+        String model = properties.haiku();
+        // Budget the response to roughly 2× targetChars in tokens (very loose upper bound — 1
+        // token ≈ 3-4 chars for Latin text, so 2× chars is ~5-7× the actual needed token count
+        // and acts as a safety net rather than a real constraint).
+        int maxTokens = Math.max(400, Math.min(4000, request.targetChars() * 2));
+        var ctx = llmCapture
+                .contextFor("tighten", null)
+                .model(model)
+                .systemPrompt(TIGHTEN_SYSTEM)
+                .userPrompt(userPrompt)
+                .maxTokens(maxTokens);
+        return captureUnary(ctx, anthropicClient.sendMessage(model, TIGHTEN_SYSTEM, userPrompt, maxTokens))
+                .map(AiResponseSanitizer::sanitize)
+                .map(this::extractTextEnvelope);
+    }
+
+    /**
+     * Extract the assistant's text reply from an Anthropic Messages-API response and wrap it
+     * in {@code {"text": "..."}} for the tighten endpoint. Joins multiple text blocks in the
+     * (rare) event the model split its output across blocks.
+     */
+    private JsonNode extractTextEnvelope(JsonNode response) {
+        StringBuilder out = new StringBuilder();
+        JsonNode content = response.path("content");
+        if (content.isArray()) {
+            for (JsonNode block : content) {
+                if ("text".equals(block.path("type").asText())) {
+                    out.append(block.path("text").asText(""));
+                }
+            }
+        }
+        com.fasterxml.jackson.databind.node.ObjectNode env = objectMapper.createObjectNode();
+        env.put("text", out.toString().trim());
+        return env;
     }
 
     /** Keep only the most recent {@code maxMessages} entries. Always
