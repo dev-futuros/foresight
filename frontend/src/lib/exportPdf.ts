@@ -83,34 +83,130 @@ type ResultData = {
 };
 
 /* ── Brand tokens (mirrored from src/index.css) ───────────────────── */
+//
+// Tokens are mutable so we can swap to a print-friendly light scheme via
+// {@link setTheme} at the start of {@link exportReportPdf}. Renderers reference
+// these by name — they NEVER hard-code hex values — so every paint, fill, and
+// stroke flips palette consistently when the theme is changed.
 
-const BG = '#0a0a0d';
-const SURFACE_1 = '#11111a';
-const SURFACE_2 = '#17171f';
-const SURFACE_3 = '#1f1f29';
+export type PdfTheme = 'dark' | 'light';
 
-const INK = '#f4efe5';
-const INK_SOFT = '#bcb6ac';
-const INK_MUTE = '#7d7872';
-const INK_FAINT = '#403d39';
+let activeTheme: PdfTheme = 'dark';
 
-const GOLD = '#d4a853';
-const GOLD_BG = '#1f1a0d';
+let BG = '#0a0a0d';
+let SURFACE_1 = '#11111a';
+let SURFACE_2 = '#17171f';
+let SURFACE_3 = '#1f1f29';
 
-const GREEN = '#6ee7b7';
-const GREEN_BG = '#0e2018';
-const BLUE = '#93bff8';
-const BLUE_BG = '#0e1622';
-const ORANGE = '#fbb77b';
-const ORANGE_BG = '#22160d';
-const PURPLE = '#d6bdfb';
-const PURPLE_BG = '#170e22';
-const RED = '#fb8e8e';
-const RED_BG = '#220d0d';
+let INK = '#f4efe5';
+let INK_SOFT = '#bcb6ac';
+let INK_MUTE = '#7d7872';
+let INK_FAINT = '#403d39';
 
-const LINE = '#1f1f25';
-const LINE_STRONG = '#2c2c34';
-const LINE_ACCENT = '#3a2f17';
+let GOLD = '#d4a853';
+let GOLD_BG = '#1f1a0d';
+
+let GREEN = '#6ee7b7';
+let GREEN_BG = '#0e2018';
+let BLUE = '#93bff8';
+let BLUE_BG = '#0e1622';
+let ORANGE = '#fbb77b';
+let ORANGE_BG = '#22160d';
+let PURPLE = '#d6bdfb';
+let PURPLE_BG = '#170e22';
+let RED = '#fb8e8e';
+let RED_BG = '#220d0d';
+
+let LINE = '#1f1f25';
+let LINE_STRONG = '#2c2c34';
+let LINE_ACCENT = '#3a2f17';
+
+/**
+ * Apply a theme palette. Called once at the start of {@link exportReportPdf}
+ * before any rendering. Tokens are intentionally module-scoped so every
+ * downstream renderer picks up the new palette without a parameter cascade.
+ *
+ * <p>The light palette is designed for print: white paper background,
+ * darker accent colours (gold / green / blue / purple / red) chosen for ~5:1
+ * contrast against white at the chip-pill scale we use throughout the report.
+ * Tinted-background variants (GOLD_BG, GREEN_BG, …) become very pale tints
+ * suitable for filled card backgrounds on a white page.
+ */
+function setTheme(theme: PdfTheme): void {
+  activeTheme = theme;
+  if (theme === 'light') {
+    BG = '#ffffff';
+    SURFACE_1 = '#f6f3eb';
+    SURFACE_2 = '#ede9dd';
+    SURFACE_3 = '#e1dcca';
+
+    INK = '#15151a';
+    INK_SOFT = '#3d3b35';
+    INK_MUTE = '#807a70';
+    INK_FAINT = '#b4b0a8';
+
+    // Accent palette tuned for white paper. Deliberately COOL-LEANING — emerald
+    // green, royal blue, magenta-purple, teal, raspberry — so every non-brand
+    // accent reads as clearly distinct from the warm gold. Each colour sits at
+    // 60-70% saturation, the sweet spot where it pops as an editorial accent
+    // without competing with body text for attention.
+    //
+    // GOLD is the only warm hue on the page (brand-primary). Every other slot
+    // — STEEP dimensions, 3P scenarios, signals, horizons, impact tags — pulls
+    // from the cool side of the wheel so the brand gold always wins visually.
+    GOLD = '#c8881a'; // warm amber (brand-primary)
+    GOLD_BG = '#fbeac4';
+
+    GREEN = '#22c55e'; // light green — fresher and brighter than the prior emerald
+    GREEN_BG = '#d3f5df';
+    BLUE = '#1d4dd0'; // royal blue
+    BLUE_BG = '#d4def8';
+    // "ORANGE" slot retained for API compatibility but recoloured to a deep
+    // TEAL — the warm orange clashed with the gold brand colour on print.
+    ORANGE = '#0a8a92'; // teal (replaces the original orange slot)
+    ORANGE_BG = '#cde8ea';
+    PURPLE = '#9d27c8'; // magenta-purple
+    PURPLE_BG = '#ecd0f7';
+    RED = '#d12f5d'; // raspberry — cooler than pure red, still reads "negative"
+    RED_BG = '#fad2dc';
+
+    LINE = '#d4cebd';
+    LINE_STRONG = '#a39c8a';
+    LINE_ACCENT = '#e0c167';
+  } else {
+    // Dark (default) — values mirror the on-screen brand tokens.
+    BG = '#0a0a0d';
+    SURFACE_1 = '#11111a';
+    SURFACE_2 = '#17171f';
+    SURFACE_3 = '#1f1f29';
+
+    INK = '#f4efe5';
+    INK_SOFT = '#bcb6ac';
+    INK_MUTE = '#7d7872';
+    INK_FAINT = '#403d39';
+
+    GOLD = '#d4a853';
+    GOLD_BG = '#1f1a0d';
+
+    GREEN = '#6ee7b7';
+    GREEN_BG = '#0e2018';
+    BLUE = '#93bff8';
+    BLUE_BG = '#0e1622';
+    ORANGE = '#fbb77b';
+    ORANGE_BG = '#22160d';
+    PURPLE = '#d6bdfb';
+    PURPLE_BG = '#170e22';
+    RED = '#fb8e8e';
+    RED_BG = '#220d0d';
+
+    LINE = '#1f1f25';
+    LINE_STRONG = '#2c2c34';
+    LINE_ACCENT = '#3a2f17';
+  }
+}
+// Reference activeTheme so the variable isn't flagged as unused — exposed for
+// any caller that wants to introspect the current palette mid-export.
+void activeTheme;
 
 /* Brand fonts. See ensureFonts. */
 let FONT_SANS = 'helvetica';
@@ -484,16 +580,20 @@ function sectionLabel(
   doc: jsPDF,
   y: number,
   text: string,
-  color = GOLD,
+  color: string = INK_MUTE,
   nextBlockH = 24,
 ): number {
   // Reserve enough space for the label plus the first content block
   // that follows. Without this, a label can land at the bottom of a
   // page while its content paginates to the next, leaving an orphan.
+  //
+  // Default colour is now INK_MUTE (neutral) instead of GOLD — structural
+  // sub-labels are typographic, not accent. Callers can still pass a colour
+  // for the rare case where a section genuinely wants its identity tint here.
   y = checkY(doc, y, 14 + nextBlockH);
   setText(doc, color, 8, 'bold', FONT_MONO);
   doc.text(text.toUpperCase(), MARGIN_X, y);
-  doc.setDrawColor(LINE_ACCENT);
+  doc.setDrawColor(LINE);
   doc.setLineWidth(0.25);
   doc.line(MARGIN_X, y + 2.5, PAGE_W - MARGIN_X, y + 2.5);
   return y + 11;
@@ -635,7 +735,7 @@ function drawBulletsNoPaginate(
  * Small uppercase mono kicker — eyebrow used above headlines. Returns
  * the y position after rendering (caller controls leading).
  */
-function kicker(doc: jsPDF, x: number, y: number, text: string, color = GOLD, size = 7.5): number {
+function kicker(doc: jsPDF, x: number, y: number, text: string, color = INK_MUTE, size = 7.5): number {
   setText(doc, color, size, 'bold', FONT_MONO);
   doc.text(text.toUpperCase(), x, y);
   return y;
@@ -677,14 +777,21 @@ function pageHeader(
   kickerText: string,
   color = GOLD,
 ): number {
-  // Record TOC entry on current page.
+  // Record TOC entry on current page. The `color` arg is the section's accent
+  // colour — only used for downstream chrome (rotated eyebrow, page chip) where
+  // colour-as-identity is appropriate. The section-header numeral itself is
+  // ALWAYS rendered in INK so all section numbers look identical across the
+  // report (per user policy: "use colours only for accents").
   const num = String(tocEntries.length + 1).padStart(2, '0');
   const page = (doc.getCurrentPageInfo() as { pageNumber: number }).pageNumber;
   tocEntries.push({ num, title, page, color });
 
   y = checkY(doc, y, 32);
-  // Left: numeral + kicker stacked
-  setText(doc, color, 28, 'bold', FONT_SERIF);
+  // Left: numeral (dark grey) + kicker stacked. Numerals across the report —
+  // page-header, TOC, 3P opener, brief, uncertainties — all use INK_SOFT so
+  // the section/index numbers read as a quiet typographic marker rather than
+  // pulling weight away from the actual title or label.
+  setText(doc, INK_SOFT, 28, 'bold', FONT_SERIF);
   doc.text(num, MARGIN_X, y + 4);
   setText(doc, INK_MUTE, 7.5, 'bold', FONT_MONO);
   doc.text(kickerText.toUpperCase(), MARGIN_X, y + 12);
@@ -699,10 +806,11 @@ function pageHeader(
     doc.text(ln, titleX, ty);
     ty += 9;
   }
-  // Gold rule under header
+  // Structural rule under the header — neutral grey, NOT the section colour
+  // (rules are structural, not accents).
   ty = Math.max(ty, y + 16);
   ty += 2;
-  doc.setDrawColor(color);
+  doc.setDrawColor(LINE_STRONG);
   doc.setLineWidth(0.4);
   doc.line(MARGIN_X, ty, PAGE_W - MARGIN_X, ty);
   return ty + 8;
@@ -1250,6 +1358,11 @@ function steepLabel(k: 'S' | 'T' | 'E' | 'ENV' | 'P'): string {
   }
 }
 
+// STEEP / dimension colour mappings. Every accent below is a COOL hue —
+// gold is reserved for brand chrome (cover / back cover / footer wordmark)
+// and never used as a dimension or section identity. The ORANGE slot is
+// repainted to teal in the light palette, so E / Economic reads as a clearly
+// distinct accent from technological's green.
 function steepColor(k: 'S' | 'T' | 'E' | 'ENV' | 'P'): { fg: string; bg: string } {
   switch (k) {
     case 'S':
@@ -1257,7 +1370,7 @@ function steepColor(k: 'S' | 'T' | 'E' | 'ENV' | 'P'): { fg: string; bg: string 
     case 'T':
       return { fg: GREEN, bg: GREEN_BG };
     case 'E':
-      return { fg: GOLD, bg: GOLD_BG };
+      return { fg: ORANGE, bg: ORANGE_BG }; // teal in light, amber in dark
     case 'ENV':
       return { fg: GREEN, bg: GREEN_BG };
     case 'P':
@@ -1276,7 +1389,7 @@ function dimensionColors(dim: string | undefined): { fg: string; bg: string } {
     case 'económico':
     case 'economico':
     case 'economic':
-      return { fg: GOLD, bg: GOLD_BG };
+      return { fg: ORANGE, bg: ORANGE_BG }; // teal in light, amber in dark
     case 'medioambiental':
     case 'environmental':
       return { fg: GREEN, bg: GREEN_BG };
@@ -1285,7 +1398,8 @@ function dimensionColors(dim: string | undefined): { fg: string; bg: string } {
     case 'political':
       return { fg: PURPLE, bg: PURPLE_BG };
     default:
-      return { fg: GOLD, bg: GOLD_BG };
+      // Fallback dimension — neutral mute rather than the brand gold.
+      return { fg: INK_MUTE, bg: SURFACE_2 };
   }
 }
 
@@ -1393,8 +1507,10 @@ function drawRunningHead(doc: jsPDF, reportTitle?: string) {
     const w = doc.getTextWidth(reportTitle);
     doc.text(reportTitle, PAGE_W - MARGIN_X - w, 14);
   }
-  doc.setDrawColor(LINE);
-  doc.setLineWidth(0.2);
+  // Thin gold rule under the running head — brand element, ties every page
+  // top to the cover's masthead language.
+  doc.setDrawColor(GOLD);
+  doc.setLineWidth(0.3);
   doc.line(MARGIN_X, 17, PAGE_W - MARGIN_X, 17);
 }
 
@@ -1523,18 +1639,11 @@ function renderCover(doc: jsPDF, report: ReportResponse, result: ResultData | nu
     setText(doc, INK_SOFT, 13, 'italic', FONT_SERIF);
     doc.text(consultant, MARGIN_X, PAGE_H - 22);
   }
-  setText(doc, INK_FAINT, 7, 'normal', FONT_MONO);
-  doc.text(
-    (en ? 'Generated with Claude AI' : 'Generado con Claude AI').toUpperCase(),
-    MARGIN_X,
-    PAGE_H - 10,
-  );
-  doc.text(
-    (en ? 'No. 01' : 'Núm. 01').toUpperCase(),
-    PAGE_W - MARGIN_X,
-    PAGE_H - 10,
-    { align: 'right' },
-  );
+  // Bottom-most colophon row removed — the cover no longer carries the
+  // "Generated with Claude AI" byline on the left nor the "Núm. 01" issue
+  // mark on the right. The page chrome from {@link addFootersAndHeads} is
+  // already skipped for the cover (loop starts at p=2), so nothing else
+  // overprints this slot now.
 }
 
 /**
@@ -1685,15 +1794,17 @@ function renderToc(
   drawRunningHead(doc, reportTitle);
   const en = isEnLang();
 
-  // Editorial top block: kicker + "Contents" headline (compact so the
-  // whole TOC — 10 entries plus chrome — fits on the reserved page).
+  // Editorial top block: kicker + "Contents" headline. Both kicker and rule
+  // use neutral typography — the TOC is a structural index, not an accent
+  // (the user's policy is "use colours only for accents"; gold is reserved
+  // for brand elements on the cover / back cover).
   let y = MARGIN_TOP + 8;
-  kicker(doc, MARGIN_X, y, en ? 'Inside this report' : 'Dentro de este informe', GOLD, 8);
+  kicker(doc, MARGIN_X, y, en ? 'Inside this report' : 'Dentro de este informe', INK_MUTE, 8);
   y += 8;
   setText(doc, INK, 28, 'bold', FONT_SERIF);
   doc.text(en ? 'Contents' : 'Contenidos', MARGIN_X, y + 12);
   y += 18;
-  doc.setDrawColor(GOLD);
+  doc.setDrawColor(LINE_STRONG);
   doc.setLineWidth(0.4);
   doc.line(MARGIN_X, y, PAGE_W - MARGIN_X, y);
   y += 10;
@@ -1726,9 +1837,9 @@ function renderToc(
     const entryH = Math.max(17, titleH + (teaserH > 0 ? teaserH + 2 : 0) + 4);
     const entryTopY = y - 4;
 
-    // Numeral — neutral mute tone so the index reads as a quiet
-    // typographic list rather than a coloured palette.
-    setText(doc, INK_MUTE, 16, 'bold', FONT_SERIF);
+    // TOC numeral — INK_SOFT (dark grey) so every index number across the
+    // report — TOC, page header, 3P opener — uses the same quiet tone.
+    setText(doc, INK_SOFT, 16, 'bold', FONT_SERIF);
     doc.text(e.num, MARGIN_X, y + 4);
     // Title — display serif, 13pt, wrapped to fit.
     setText(doc, INK, 13, 'bold', FONT_SERIF);
@@ -1965,7 +2076,7 @@ function renderBriefAndExec(
   const en = isEnLang();
   // Set BEFORE addPage so the new page captures the section context for
   // its rotated eyebrow + chip.
-  setSection(doc, en ? 'Brief' : 'Resumen', GOLD);
+  setSection(doc, en ? 'Brief' : 'Resumen', INK_MUTE);
   let y = addPage(doc);
   drawRunningHead(doc);
   const cp = input.companyProfile ?? {};
@@ -1977,7 +2088,7 @@ function renderBriefAndExec(
     num: briefNum,
     title: en ? 'Brief' : 'Brief',
     page,
-    color: GOLD,
+    color: INK_MUTE,
   });
   if (exec) {
     const execNum = String(tocEntries.length + 1).padStart(2, '0');
@@ -1985,7 +2096,7 @@ function renderBriefAndExec(
       num: execNum,
       title: tx('report.results.summary.execTitle', 'Executive summary'),
       page,
-      color: GOLD,
+      color: INK_MUTE,
     });
   }
 
@@ -2016,19 +2127,24 @@ function renderBriefAndExec(
   // way the "01 BRIEF" and "02 LEAD" anchors are guaranteed to land on
   // the same page side by side, regardless of how much body content
   // each column ends up holding.
-  setText(doc, GOLD, 22, 'bold', FONT_SERIF);
+  //
+  // Section numbers (briefNum / execNum) and structural rules render in INK /
+  // LINE_STRONG — consistent with every other section number and rule in the
+  // report. Gold is reserved for brand chrome (cover / back cover / footer
+  // wordmark).
+  setText(doc, INK_SOFT, 22, 'bold', FONT_SERIF);
   doc.text(briefNum, sidebarX, startY + 4);
   setText(doc, INK_MUTE, 7, 'bold', FONT_MONO);
   doc.text((en ? 'Brief' : 'Brief').toUpperCase(), sidebarX, startY + 11);
-  // Gold short rule under "01 BRIEF"
-  doc.setDrawColor(GOLD);
+  // Short structural rule under "01 BRIEF"
+  doc.setDrawColor(LINE_STRONG);
   doc.setLineWidth(0.4);
   doc.line(sidebarX, startY + 22, sidebarX + 14, startY + 22);
 
   let my = startY;
   if (exec) {
     const execNum = String(tocEntries.length).padStart(2, '0');
-    setText(doc, GOLD, 22, 'bold', FONT_SERIF);
+    setText(doc, INK_SOFT, 22, 'bold', FONT_SERIF);
     doc.text(execNum, mainX, my + 4);
     setText(doc, INK_MUTE, 7, 'bold', FONT_MONO);
     doc.text((en ? 'Lead' : 'Líder').toUpperCase(), mainX, my + 11);
@@ -2043,7 +2159,7 @@ function renderBriefAndExec(
       my += 10;
     }
     my += 2;
-    doc.setDrawColor(GOLD);
+    doc.setDrawColor(LINE_STRONG);
     doc.setLineWidth(0.6);
     doc.line(mainX, my, mainX + 22, my);
     my += 8;
@@ -2294,7 +2410,7 @@ function renderSteepInputs(
     yIn,
     tx('report.results.steep.title', 'STEEP analysis'),
     isEnLang() ? 'Context' : 'Contexto',
-    GOLD,
+    INK_MUTE,
   );
 
   const en = isEnLang();
@@ -2305,10 +2421,15 @@ function renderSteepInputs(
   const colRX = MARGIN_X + colW + gutter;
   const drawColHeaders = (yh: number): number => {
     if (!(hasGlobal && hasSect)) return yh;
-    setText(doc, GOLD, 8, 'bold', FONT_MONO);
+    // Column-header eyebrows — neutral mono caps. The colour-as-identity
+    // happens INSIDE each STEEP band (the letter badge), not on these
+    // structural labels.
+    setText(doc, INK_MUTE, 8, 'bold', FONT_MONO);
     doc.text(tx('report.results.steep.global', 'Global').toUpperCase(), colLX, yh);
     doc.text(tx('report.results.steep.sectorial', 'Sectorial').toUpperCase(), colRX, yh);
-    doc.setDrawColor(LINE_ACCENT);
+    // Neutral grey rule under the column eyebrows — was LINE_ACCENT which is
+    // a yellowish gold tint on the light palette; gold is brand-only.
+    doc.setDrawColor(LINE_STRONG);
     doc.setLineWidth(0.4);
     doc.line(colLX, yh + 2.5, MARGIN_X + CONTENT_W, yh + 2.5);
     return yh + 9;
@@ -2537,7 +2658,7 @@ function renderUncertainties(doc: jsPDF, yIn: number, items: KeyUncertainty[]): 
     yIn,
     tx('report.results.uncertainties', 'Key uncertainties'),
     isEnLang() ? 'Open questions' : 'Preguntas abiertas',
-    GOLD,
+    INK_MUTE,
   );
   const gap = 6;
   const colW = (CONTENT_W - gap) / 2;
@@ -2584,8 +2705,9 @@ function drawUncertaintyCard(
   idx: number,
 ) {
   const numStr = String(idx + 1).padStart(2, '0');
-  // Compact gold numeral
-  setText(doc, GOLD, 22, 'bold', FONT_SERIF);
+  // Compact INK_SOFT numeral — every subsection number across the report uses
+  // INK_SOFT (uncertainties index, TOC, page-header, 3P opener — all match).
+  setText(doc, INK_SOFT, 22, 'bold', FONT_SERIF);
   doc.text(numStr, x, y + 7);
   // Title
   const titleX = x + 12;
@@ -2639,7 +2761,9 @@ function renderScenarios(doc: jsPDF, scenarios: Scenario[]): number {
   );
   y += 4;
   // Quick index card — list each scenario type + name + probability so the opener
-  // works as a section "table of contents".
+  // works as a section "table of contents". Numerals + type label + name stay
+  // neutral / typographic; the probability number alone carries the scenario's
+  // identity colour so each row has a single editorial accent.
   for (let i = 0; i < scenarios.length; i++) {
     const s = scenarios[i];
     const colors = scenarioColors(s.type, i);
@@ -2673,12 +2797,17 @@ function renderScenarios(doc: jsPDF, scenarios: Scenario[]): number {
     const lineLead = nameSize * 0.4;
     const rowH = Math.max(16, 11 + (nameLines.length - 1) * lineLead);
     y = checkY(doc, y, rowH + 6);
-    // Coloured numeral
-    setText(doc, colors.fg, 28, 'bold', FONT_SERIF);
+    // INK_SOFT numeral — matches the section-number colour used in the TOC
+    // and pageHeader. All section / subsection numbers across the report
+    // share this dark-grey tone.
+    setText(doc, INK_SOFT, 28, 'bold', FONT_SERIF);
     const numStr = String(i + 1).padStart(2, '0');
     doc.text(numStr, MARGIN_X, y + 9);
-    // Type pill
-    pill(doc, nameX, y + 2, s.type ?? '', colors.fg, colors.bg);
+    // Type label — small uppercase mono caption (neutral) above the name.
+    if (s.type) {
+      setText(doc, INK_MUTE, 7.5, 'bold', FONT_MONO);
+      doc.text(s.type.toUpperCase(), nameX, y + 5);
+    }
     // Name — rendered at the shrunken size so it always fits without truncation.
     setText(doc, INK, nameSize, 'bold', FONT_SERIF);
     let ny = y + 11;
@@ -2686,7 +2815,8 @@ function renderScenarios(doc: jsPDF, scenarios: Scenario[]): number {
       doc.text(ln, nameX, ny);
       ny += lineLead;
     }
-    // Probability vertically centred against the row.
+    // Probability — scenario's identity colour. The single coloured element in
+    // the row, working as the row's editorial accent.
     if (s.probability) {
       setText(doc, colors.fg, probSize, 'bold', FONT_SERIF);
       doc.text(
@@ -2695,7 +2825,9 @@ function renderScenarios(doc: jsPDF, scenarios: Scenario[]): number {
         y + 9 + (nameLines.length > 1 ? 3 : 0),
       );
     }
-    y += rowH;
+    // Advance past the row WITH descender padding so the divider below never
+    // clips through 'p' / 'g' / 'q' descenders of the last name line.
+    y += rowH + 3;
     doc.setDrawColor(LINE);
     doc.setLineWidth(0.2);
     doc.line(MARGIN_X, y, PAGE_W - MARGIN_X, y);
@@ -2857,7 +2989,8 @@ function renderScenarioFeature(doc: jsPDF, yIn: number, s: Scenario, idx: number
   const lists: Array<[string[] | undefined, string, string]> = [
     [s.opportunities, tx('report.results.scen.opps', 'Opportunities'), GREEN],
     [s.threats, tx('report.results.scen.threats', 'Threats'), RED],
-    [s.successFactors, tx('report.results.scen.success', 'Success factors'), GOLD],
+    // Success factors use BLUE — gold is reserved for brand chrome only.
+    [s.successFactors, tx('report.results.scen.success', 'Success factors'), BLUE],
   ];
   const cols = lists.filter(([items]) => (items?.length ?? 0) > 0);
   if (cols.length > 0) {
@@ -2975,9 +3108,12 @@ function renderScenarioFeature(doc: jsPDF, yIn: number, s: Scenario, idx: number
       card(doc, MARGIN_X, y, CONTENT_W, compactH, {
         fill: SURFACE_2,
         border: LINE_ACCENT,
-        stripe: GOLD,
+        // Stripe + label use the SCENARIO's accent (not the brand gold) so
+        // every visual element on the scenario page reads as part of the
+        // same colour family.
+        stripe: colors.fg,
       });
-      setText(doc, GOLD, 7, 'bold', FONT_MONO);
+      setText(doc, colors.fg, 7, 'bold', FONT_MONO);
       doc.text(
         tx('report.results.scen.firstmove', 'First move').toUpperCase(),
         MARGIN_X + 7,
@@ -3043,7 +3179,10 @@ function renderFirstMoveHero(
   let cy = topMargin;
 
   // ── Tiny kicker above the headline so the page is still labelled as "FIRST MOVE".
-  setText(doc, colors.fg, 8, 'bold', FONT_MONO);
+  // Neutral mute mono — the page's scenario identity already comes through via the
+  // rotated section eyebrow on the left margin and the timeframe headline below,
+  // so this top-row kicker stays quiet and typographic.
+  setText(doc, INK_MUTE, 8, 'bold', FONT_MONO);
   doc.text(
     tx('report.results.scen.firstmove', 'First move').toUpperCase(),
     MARGIN_X,
@@ -3056,8 +3195,9 @@ function renderFirstMoveHero(
   doc.text(meta, PAGE_W - MARGIN_X - metaW, cy + 3);
   cy += 8;
 
-  // Thin coloured rule under the kicker.
-  doc.setDrawColor(colors.fg);
+  // Thin neutral rule under the kicker — matches the rest of the report's
+  // structural rules (no scenario tint on this divider).
+  doc.setDrawColor(LINE_STRONG);
   doc.setLineWidth(0.4);
   doc.line(MARGIN_X, cy, PAGE_W - MARGIN_X, cy);
   cy += 4;
@@ -3219,7 +3359,7 @@ function renderScenarioPlanning(doc: jsPDF, sp: ScenarioPlanning): number {
   // force renders at the same compact style as axes + logics for consistency.
   if (sp.drivingForces?.length) {
     const forces = [...sp.drivingForces].sort((a, b) => a.rank - b.rank);
-    y = sectionLabel(doc, y, tx('report.results.sp.forces', 'Driving forces of change'), GOLD, 26);
+    y = sectionLabel(doc, y, tx('report.results.sp.forces', 'Driving forces of change'), INK_MUTE, 26);
     for (let i = 0; i < forces.length; i++) {
       const h = measureDrivingForceRowH(doc, forces[i], i);
       if (y + h + 4 > PAGE_BOTTOM) {
@@ -3258,7 +3398,7 @@ function renderScenarioPlanning(doc: jsPDF, sp: ScenarioPlanning): number {
       doc,
       y,
       tx('report.results.sp.axesTitle', 'Critical uncertainty axes'),
-      GOLD,
+      INK_MUTE,
       firstAxisH + 4,
     );
     for (let i = 0; i < sp.axes.length; i++) {
@@ -3287,7 +3427,7 @@ function renderScenarioPlanning(doc: jsPDF, sp: ScenarioPlanning): number {
       doc,
       y,
       tx('report.results.sp.logics', 'Narrative logic per scenario'),
-      GOLD,
+      INK_MUTE,
       24,
     );
     for (let i = 0; i < sp.scenarioLogics.length; i++) {
@@ -3386,12 +3526,13 @@ function renderPlanningRow(
   let labelMaxW = CONTENT_W - 12;
   let statW = 0;
   if (opts.rightStat) {
-    setText(doc, GOLD, 18, 'bold', FONT_SERIF);
+    setText(doc, INK, 18, 'bold', FONT_SERIF);
     statW = doc.getTextWidth(opts.rightStat) + 4;
     labelMaxW -= statW;
   }
-  // ── Eyebrow numeral (mono gold).
-  setText(doc, GOLD, 9, 'bold', FONT_MONO);
+  // ── Eyebrow numeral — neutral mute mono so every subsection number across
+  // the report matches (per user policy: section numbers are always neutral).
+  setText(doc, INK_MUTE, 9, 'bold', FONT_MONO);
   doc.text(opts.eyebrowNum, numX, y + 4);
   // ── Label (large serif headline). Tighter leading (6.4 vs 7.2) so multi-line
   // labels don't bloat the heading band — helps pack 3 logic rows per page.
@@ -3403,9 +3544,11 @@ function renderPlanningRow(
     doc.text(ln, labelX, ty);
     ty += labelLead;
   }
-  // ── Right-side stat (e.g. impact score for driving forces).
+  // ── Right-side stat (e.g. impact score for driving forces). Rendered in INK
+  // (bold serif) — emphasis comes from size and weight, not colour, in line
+  // with the "colours only for accents" policy.
   if (opts.rightStat) {
-    setText(doc, GOLD, 18, 'bold', FONT_SERIF);
+    setText(doc, INK, 18, 'bold', FONT_SERIF);
     const sw = doc.getTextWidth(opts.rightStat);
     doc.text(opts.rightStat, PAGE_W - MARGIN_X - sw, y + 7);
     if (opts.rightStatLabel) {
@@ -3416,8 +3559,8 @@ function renderPlanningRow(
   }
   y = ty - labelLead + 5; // collapse the trailing gap below the last label line
 
-  // ── Gold rule under the label, anchored to the label column.
-  doc.setDrawColor(GOLD);
+  // ── Thin structural rule under the label — neutral grey, not the brand gold.
+  doc.setDrawColor(LINE_STRONG);
   doc.setLineWidth(0.35);
   doc.line(labelX, y, labelX + 16, y);
   y += 3.5;
@@ -3446,8 +3589,10 @@ function renderPlanningRow(
  */
 function measureDrivingForceRowH(doc: jsPDF, f: DrivingForce, idx: number): number {
   // Matches the (tightened) geometry of {@link renderPlanningRow}: eyebrow numeral
-  // + 16pt label at 6.4mm leading + 3.5mm gap-to-rule + body (10pt sans).
-  setText(doc, GOLD, 18, 'bold', FONT_SERIF);
+  // + 16pt label at 6.4mm leading + 3.5mm gap-to-rule + body (10pt sans). The
+  // INK colour here only affects {@link doc.getTextWidth} for the score — it
+  // matches the render-time font, not a deliberate accent choice.
+  setText(doc, INK, 18, 'bold', FONT_SERIF);
   const scoreStr = `${Math.round(f.impactScore ?? 0)}%`;
   const statW = doc.getTextWidth(scoreStr) + 4;
   const labelMaxW = CONTENT_W - 12 - statW;
@@ -3634,7 +3779,10 @@ function renderDrivingForceRow(doc: jsPDF, yIn: number, f: DrivingForce, idx: nu
 function measureAxisRow(doc: jsPDF, a: UncertaintyAxis, idx: number): number {
   setText(doc, INK, 16, 'bold', FONT_SERIF);
   const labelLines = doc.splitTextToSize(a.label, CONTENT_W - 12) as string[];
-  const headingH = 6 + labelLines.length * 6.4 + 5 + 3.5; // eyebrow + label + rule + gap
+  // Heading geometry mirrors renderPlanningRow + the +5mm push-down that
+  // renderAxisRow's drawBody applies so the ± pills don't collide with the
+  // structural rule under the label.
+  const headingH = 6 + labelLines.length * 6.4 + 5 + 3.5 + 5;
   const halfW = (CONTENT_W - 10) / 2 - 9;
   const poleLowH = a.poleLow
     ? measureBody(doc, a.poleLow, { size: 11, family: FONT_SANS, maxWidth: halfW, leading: 5.6 })
@@ -3668,7 +3816,12 @@ function renderAxisRow(
     eyebrowNum: String(idx + 1).padStart(2, '0'),
     label: a.label,
     drawBody: (yBody) => {
-      let y = yBody;
+      // Push the pole row down so the ± pills clear the thin LINE_STRONG rule
+      // that renderPlanningRow draws under the label. The pill is taller than
+      // the gap renderPlanningRow leaves (3.5mm), and since the pill is
+      // anchored at the left margin where the rule also starts, they
+      // collided visually — the rule cut horizontally through the − badge.
+      let y = yBody + 5;
       // ── Spectrum row: poleLow LEFT, poleHigh RIGHT.
       const colGap = 10;
       const colW = (CONTENT_W - 12 - colGap) / 2;
@@ -3775,7 +3928,10 @@ function renderBackcastingEntry(
   let y = yIn;
 
   // ── Kicker + headline ────────────────────────────────────────────
-  setText(doc, colors.fg, 7.5, 'bold', FONT_MONO);
+  // Neutral grey kicker — the scenario's identity colour is already loud on
+  // the big two-color split headline beneath, so the small mono-caps eyebrow
+  // stays quiet (per "colours only for accents" policy).
+  setText(doc, INK_MUTE, 7.5, 'bold', FONT_MONO);
   doc.text(
     `${(en ? 'Backcasting' : 'Backcasting').toUpperCase()} · ${(e.scenarioType ?? '').toUpperCase()}`,
     MARGIN_X,
@@ -4426,8 +4582,9 @@ function renderSourceList(doc: jsPDF, y: number, list: SourceItem[]): number {
   for (let i = 0; i < list.length; i++) {
     const it = list[i];
     y = checkY(doc, y, 10);
-    // Index numeral
-    setText(doc, GOLD, 8, 'bold', FONT_MONO);
+    // Source index numeral — neutral typographic style, matches section
+    // numbers everywhere else in the report.
+    setText(doc, INK_MUTE, 8, 'bold', FONT_MONO);
     const idx = String(i + 1).padStart(2, '0');
     doc.text(idx, MARGIN_X, y);
     // Title — compact
@@ -4489,20 +4646,22 @@ function addFootersAndHeads(
     if (section && p !== tocPageNum) {
       drawSectionEyebrow(doc, section.label, section.color);
     }
-    // Footer rule + wordmark + page-number chip
-    doc.setDrawColor(LINE);
-    doc.setLineWidth(0.2);
+    // Footer rule + wordmark + page-number chip. The footer rule is GOLD —
+    // brand element that mirrors the running head's gold rule, framing every
+    // content page top and bottom.
+    doc.setDrawColor(GOLD);
+    doc.setLineWidth(0.3);
     doc.line(MARGIN_X, PAGE_H - 14, PAGE_W - MARGIN_X, PAGE_H - 14);
     setText(doc, GOLD, 7, 'bold', FONT_MONO);
     doc.text('FUTUROS', MARGIN_X, PAGE_H - 8);
-    // Page-number chip: small filled pill in the section colour with the
-    // page number on top. Cosmopolitan-style — a coloured anchor in the
-    // corner that ties the page to its section visually. Falls back to a
-    // plain "p / total" string when no section colour is set.
-    const chipColor = section?.color ?? GOLD;
-    const chipBg = section ? withAlpha(chipColor, 0.18) : SURFACE_2;
+    // Page-number chip: ALWAYS neutral grey now (per user policy: page
+    // indicators are not accents and shouldn't change colour per section).
+    // Section identity already shows up via the rotated eyebrow on the left
+    // margin — the chip stays quiet.
+    const chipFg = INK_MUTE;
+    const chipBg = SURFACE_2;
     const pageStr = `${p} / ${total}`;
-    setText(doc, chipColor, 7, 'bold', FONT_MONO);
+    setText(doc, chipFg, 7, 'bold', FONT_MONO);
     const pw = doc.getTextWidth(pageStr);
     const chipPadX = 3;
     const chipH = 4.6;
@@ -4517,7 +4676,7 @@ function addFootersAndHeads(
       1.2,
       'F',
     );
-    setText(doc, chipColor, 7, 'bold', FONT_MONO);
+    setText(doc, chipFg, 7, 'bold', FONT_MONO);
     doc.text(pageStr, PAGE_W - MARGIN_X - chipW + chipPadX, PAGE_H - 8);
   }
 }
@@ -4544,6 +4703,9 @@ function withAlpha(hex: string, alpha: number): string {
   const bbb = mix(b, bb).toString(16).padStart(2, '0');
   return `#${rr}${gg}${bbb}`;
 }
+// Currently unused — kept around in case the chip / pill chrome wants
+// translucent fills again. Reference it so the linter doesn't flag dead code.
+void withAlpha;
 
 /**
  * Walk the report and emit one {@link FieldNeed} per text field that may need shortening to
@@ -4644,15 +4806,22 @@ function collectFieldNeeds(
 export async function exportReportPdf(
   report: ReportResponse,
   language?: 'es' | 'en',
+  theme: PdfTheme = 'dark',
 ) {
   const originalLang = i18n.language;
   const needSwitch =
     !!language && language.slice(0, 2) !== originalLang.slice(0, 2);
   if (needSwitch) await i18n.changeLanguage(language);
+  // Apply the requested palette BEFORE any rendering so every paint /
+  // setText / setDrawColor below reads from the chosen theme's tokens.
+  setTheme(theme);
   try {
     await renderReport(report);
   } finally {
     if (needSwitch) await i18n.changeLanguage(originalLang);
+    // Restore the dark default for the next export — keeps the module's
+    // global token state predictable across calls.
+    setTheme('dark');
   }
 }
 
@@ -4724,7 +4893,7 @@ async function renderReport(report: ReportResponse) {
   const gN = normalizeSteepKeys(input.globalSteep);
   const sN = normalizeSteepKeys(input.steep);
   if (Object.keys(gN).length > 0 || Object.keys(sN).length > 0) {
-    setSection(doc, isEnLang() ? 'STEEP Context' : 'Contexto STEEP', GOLD);
+    setSection(doc, isEnLang() ? 'STEEP Context' : 'Contexto STEEP', INK_MUTE);
     const yStart = addPage(doc);
     drawRunningHead(doc);
     renderSteepInputs(doc, yStart, input, tightened);
@@ -4732,7 +4901,7 @@ async function renderReport(report: ReportResponse) {
 
   if (result) {
     if (result.keyUncertainties?.length) {
-      setSection(doc, isEnLang() ? 'Key Uncertainties' : 'Incertidumbres', GOLD);
+      setSection(doc, isEnLang() ? 'Key Uncertainties' : 'Incertidumbres', INK_MUTE);
       const yStart = addPage(doc);
       drawRunningHead(doc);
       renderUncertainties(doc, yStart, result.keyUncertainties);

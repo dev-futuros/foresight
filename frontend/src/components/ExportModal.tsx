@@ -13,6 +13,13 @@ export type ExportLanguage = 'es' | 'en';
  * will simply never receive {@code 'html'} from the modal.
  */
 export type ExportFormat = 'pdf' | 'ppt' | 'html';
+/**
+ * Colour scheme for the PDF export. {@code 'dark'} mirrors the on-screen
+ * dark editorial palette (default); {@code 'light'} swaps to a printer-friendly
+ * palette with a white background and darker accent colours. Only used by the
+ * PDF format — PPT and HTML ignore the selection.
+ */
+export type ExportPdfTheme = 'dark' | 'light';
 
 interface Props {
   open: boolean;
@@ -40,6 +47,8 @@ interface Props {
     format: ExportFormat,
     language: ExportLanguage,
     includeLanguages?: ExportLanguage[],
+    /** PDF colour scheme. Ignored for non-PDF formats. */
+    pdfTheme?: ExportPdfTheme,
   ) => void;
   /** Pre-select a format on open. The user can still change it. Used
    *  by the assistant when it knows the format but not the language. */
@@ -85,6 +94,10 @@ export default function ExportModal({
 
   const [format, setFormat] = useState<ExportFormat>('pdf');
   const [language, setLanguage] = useState<ExportLanguage>('es');
+  // PDF colour scheme. Dark mirrors the editorial on-screen palette; light is
+  // print-friendly (white background, darker accent colours). Only used when
+  // format === 'pdf'; PPT and HTML ignore this picker.
+  const [pdfTheme, setPdfTheme] = useState<ExportPdfTheme>('dark');
   // For HTML exports the standalone bakes the selected languages —
   // the "language" picker above is decorative (greyed). This separate
   // picker controls which language the snapshot OPENS in when the
@@ -172,7 +185,11 @@ export default function ExportModal({
     // other format uses the top picker's value as the content filter.
     const exportLanguage = format === 'html' ? htmlDefaultLanguage : language;
     const includeLanguages = format === 'html' ? htmlIncludedLanguages : undefined;
-    onExport(format, exportLanguage, includeLanguages);
+    // The colour-scheme picker only applies to PDF exports — pass undefined
+    // for the others so callers can default cleanly without needing to know
+    // about it.
+    const themeArg = format === 'pdf' ? pdfTheme : undefined;
+    onExport(format, exportLanguage, includeLanguages, themeArg);
     onClose();
   }
 
@@ -222,6 +239,36 @@ export default function ExportModal({
           )}
         </select>
       </div>
+
+      {/* PDF-only colour-scheme picker. The dark scheme mirrors the on-screen
+          editorial palette; the light scheme uses a white background and
+          darker accent colours, suitable for printing. Hidden for PPT/HTML —
+          neither format honours the picker. */}
+      {format === 'pdf' && (
+        <div className="share-lang-row">
+          <label htmlFor="export-pdf-theme" className="share-lang-label">
+            {t('exportModal.colourScheme', { defaultValue: 'Colour scheme' })}
+          </label>
+          <select
+            id="export-pdf-theme"
+            className="share-lang-select"
+            value={pdfTheme}
+            onChange={(e) => setPdfTheme(e.target.value as ExportPdfTheme)}
+            disabled={isLoading}
+          >
+            <option value="dark">
+              {t('exportModal.themes.dark', {
+                defaultValue: 'Dark — Screen / digital',
+              })}
+            </option>
+            <option value="light">
+              {t('exportModal.themes.light', {
+                defaultValue: 'Light — Print-friendly',
+              })}
+            </option>
+          </select>
+        </div>
+      )}
 
       {showLangPicker && (
         <div className="share-lang-row">

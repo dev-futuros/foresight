@@ -14,6 +14,7 @@ import ConfirmDialog from '../../components/ConfirmDialog';
 import ExportModal, {
   type ExportFormat,
   type ExportLanguage,
+  type ExportPdfTheme,
 } from '../../components/ExportModal';
 import LoadingOverlay from '../../components/LoadingOverlay';
 import ShareModal from '../../components/ShareModal';
@@ -239,6 +240,7 @@ export default function DashboardPage() {
     language: ExportLanguage,
     kind: 'report' | 'example' = 'report',
     includeLanguages?: ExportLanguage[],
+    pdfTheme?: ExportPdfTheme,
   ) {
     if (exporting) return;
     setExporting({ id, kind: format });
@@ -282,7 +284,7 @@ export default function DashboardPage() {
       // overlay paints before the work begins, matching the ReportPage
       // export pattern.
       await new Promise((r) => setTimeout(r, 0));
-      if (format === 'pdf') await exportReportPdf(report, language);
+      if (format === 'pdf') await exportReportPdf(report, language, pdfTheme ?? 'dark');
       else if (format === 'ppt') exportReportPpt(report);
       else await exportReportHtml(report, language, kind, includeLanguages);
     } catch (err) {
@@ -814,7 +816,7 @@ export default function DashboardPage() {
         reportId={exportTargetId ?? ''}
         kind={exportTargetKind}
         onClose={() => setExportTargetId(null)}
-        onExport={(format, language, includeLanguages) => {
+        onExport={(format, language, includeLanguages, pdfTheme) => {
           if (exportTargetId) {
             void handleExport(
               exportTargetId,
@@ -822,6 +824,7 @@ export default function DashboardPage() {
               language,
               exportTargetKind,
               includeLanguages,
+              pdfTheme,
             );
           }
         }}
