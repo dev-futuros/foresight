@@ -23,10 +23,12 @@
     <!--
       PostHog analytics — current snippet from posthog.com/docs (2026-01-30 defaults).
       Project key + host are baked at build time via Vite's HTML env substitution so
-      we don't ship one analytics project across dev / preview / prod. To turn
-      analytics off in a given environment, leave VITE_POSTHOG_KEY blank — the
-      init below short-circuits and posthog.* calls become no-ops via the stub
-      installed below.
+      we don't ship one analytics project across dev / preview / prod.
+
+      Analytics is OFF by default. To turn it on for a given build, set
+      VITE_POSTHOG_ENABLED=true AND provide VITE_POSTHOG_KEY. With either missing
+      the snippet installs a no-op stub on window.posthog so call sites can call
+      posthog.* unconditionally — they all become no-ops.
 
       `opt_out_capturing_by_default: true` means nothing is captured until the
       CookieConsent component calls posthog.opt_in_capturing() after the user
@@ -39,12 +41,17 @@
     -->
     <script>
       (function () {
+        var enabledFlag = '%VITE_POSTHOG_ENABLED%';
         var key = '%VITE_POSTHOG_KEY%';
         var host = '%VITE_POSTHOG_HOST%' || 'https://eu.i.posthog.com';
         // Vite leaves the literal percent-wrapped token in place when the var
         // is unset (and warns about it at build time). Treat that and an empty
-        // string the same — disable PostHog by skipping init.
-        if (!key || key.indexOf('%') === 0) {
+        // string the same — analytics is OFF unless the flag is explicitly
+        // "true" AND a key was provided.
+        var enabled =
+          (enabledFlag === 'true' || enabledFlag === '1' || enabledFlag === 'TRUE') &&
+          key && key.indexOf('%') !== 0;
+        if (!enabled) {
           window.posthog = {
             __disabled: true,
             capture: function () {},
