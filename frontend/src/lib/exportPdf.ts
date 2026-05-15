@@ -1537,6 +1537,66 @@ function renderCover(doc: jsPDF, report: ReportResponse, result: ResultData | nu
   );
 }
 
+/**
+ * Back cover — final page of the report. Minimal centred composition modelled
+ * on the user's reference image:
+ *   • "Futuros" wordmark in display serif gold, centred.
+ *   • Short gold hairline rule under the wordmark.
+ *   • Tagline centred — lead clause in white, accent clause in gold, split at
+ *     the comma so the closing verb phrase reads as the editorial punchline.
+ *   • Matching short gold hairline rule under the tagline.
+ *   • "futuros.io" caption underneath in mono gold.
+ *
+ * <p>Renders its own chrome — {@link addFootersAndHeads} is told to skip this
+ * page so the standard running head / footer rule / page-number text don't
+ * intrude on the closing spread.
+ */
+function renderBackCover(doc: jsPDF) {
+  paintBackground(doc);
+  const en = isEnLang();
+  const cx = PAGE_W / 2;
+  const centerY = PAGE_H / 2;
+
+  // ── "Futuros" wordmark — title-case display serif in gold.
+  setText(doc, GOLD, 22, 'normal', FONT_SERIF);
+  doc.text('Futuros', cx, centerY - 36, { align: 'center' });
+  // Short hairline rule under the wordmark.
+  doc.setDrawColor(GOLD);
+  doc.setLineWidth(0.4);
+  doc.line(cx - 14, centerY - 26, cx + 14, centerY - 26);
+
+  // ── Tagline. Split at the comma so the accent clause can render in gold.
+  const tagline = en
+    ? { lead: 'The future is not predicted,', accent: 'it is designed.' }
+    : { lead: 'El futuro no se predice,', accent: 'se diseña.' };
+
+  // Auto-shrink so both lines fit CONTENT_W at the chosen size.
+  let taglineSize = 26;
+  for (;;) {
+    setText(doc, INK, taglineSize, 'normal', FONT_SERIF);
+    const leadW = doc.getTextWidth(tagline.lead);
+    const accentW = doc.getTextWidth(tagline.accent);
+    if ((leadW <= CONTENT_W && accentW <= CONTENT_W) || taglineSize <= 18) break;
+    taglineSize -= 2;
+  }
+  const lineLead = taglineSize * 0.55;
+
+  // Line 1 — white lead clause.
+  setText(doc, INK, taglineSize, 'normal', FONT_SERIF);
+  doc.text(tagline.lead, cx, centerY + 4, { align: 'center' });
+  // Line 2 — gold accent clause.
+  setText(doc, GOLD, taglineSize, 'normal', FONT_SERIF);
+  doc.text(tagline.accent, cx, centerY + 4 + lineLead, { align: 'center' });
+
+  // ── Matching hairline rule under the tagline + website caption.
+  const ruleY = centerY + 4 + lineLead + 16;
+  doc.setDrawColor(GOLD);
+  doc.setLineWidth(0.4);
+  doc.line(cx - 14, ruleY, cx + 14, ruleY);
+  setText(doc, GOLD, 10, 'normal', FONT_MONO);
+  doc.text('futuros.io', cx, ruleY + 8, { align: 'center' });
+}
+
 function pickCoverDeck(result: ResultData | null, cp: CompanyProfile, en: boolean): string | null {
   if (result?.executiveSummary) {
     const first = result.executiveSummary
@@ -4407,10 +4467,18 @@ function renderSourceList(doc: jsPDF, y: number, list: SourceItem[]): number {
 
 /* ── Footer (page numbers + wordmark + running head) ──────────────── */
 
-function addFootersAndHeads(doc: jsPDF, reportTitle: string, tocPageNum: number) {
+function addFootersAndHeads(
+  doc: jsPDF,
+  reportTitle: string,
+  tocPageNum: number,
+  backCoverPageNum: number | null = null,
+) {
   const total = doc.getNumberOfPages();
   for (let p = 2; p <= total; p++) {
     doc.setPage(p);
+    // Back cover renders its own chrome — skip the standard running head,
+    // rotated eyebrow, footer rule, and page-number chip.
+    if (p === backCoverPageNum) continue;
     const section = pageSections[p];
     // Skip drawing a duplicate running head over the TOC (already drawn).
     // Section openers also already drew the head; redraw is idempotent.
@@ -4701,8 +4769,15 @@ async function renderReport(report: ReportResponse) {
   // 5. Render TOC with correct page numbers + teasers.
   renderToc(doc, tocPageNum, 0, report.title, teasers);
 
-  // 6. Footers + running heads on every non-cover page.
-  addFootersAndHeads(doc, report.title, tocPageNum);
+  // 6. Back cover — closing manifesto page. Added BEFORE addFootersAndHeads so
+  // the page exists when the footer loop runs; the loop is told to skip it via
+  // backCoverPageNum so the standard chrome doesn't overwrite the manifesto.
+  doc.addPage();
+  const backCoverPageNum = (doc.getCurrentPageInfo() as { pageNumber: number }).pageNumber;
+  renderBackCover(doc);
+
+  // 7. Footers + running heads on every non-cover, non-back-cover page.
+  addFootersAndHeads(doc, report.title, tocPageNum, backCoverPageNum);
 
   const safeName = report.title.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'report';
   doc.save(`${safeName}_foresight.pdf`);
