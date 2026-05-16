@@ -35,7 +35,9 @@ export function useCommands(factory: () => AnyCommandSpec[]) {
   // the current state. The body of useEffect calls factoryRef.current() at
   // dispatch-time, never at mount-time.
   const factoryRef = useRef(factory);
-  factoryRef.current = factory;
+  useEffect(() => {
+    factoryRef.current = factory;
+  });
 
   useEffect(() => {
     const initial = factoryRef.current();
@@ -98,6 +100,6 @@ export function useCommands(factory: () => AnyCommandSpec[]) {
     }
     // Empty deps on purpose — the bus must be wired exactly once per mount.
     // Handlers stay fresh by re-resolving through factoryRef on every call.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 }

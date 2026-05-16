@@ -79,16 +79,11 @@ public class ShareService {
      */
     @Transactional
     public ShareToken createForReport(
-            UUID reportId,
-            UUID ownerId,
-            String language,
-            Collection<String> includeLanguages) {
+            UUID reportId, UUID ownerId, String language, Collection<String> includeLanguages) {
         // ReportService throws NotFoundException when ownership doesn't match — that's
         // the only path the controller needs to translate into a 404 for the caller.
         Report report = reportService.getOwned(reportId, ownerId);
-        String targetLang = (language == null || language.isBlank())
-                ? report.getPrimaryLanguage()
-                : language;
+        String targetLang = (language == null || language.isBlank()) ? report.getPrimaryLanguage() : language;
 
         // The share's primary payload — fetched (or pulled from cache)
         // via reportService.translate when targetLang differs from the
@@ -108,11 +103,8 @@ public class ShareService {
         // {@code includeLanguages}; if not (null/empty) we default to
         // "every language the report has cached" so the recipient gets
         // a complete viewer experience.
-        Set<String> include = resolveIncludeSet(
-                includeLanguages,
-                report.getPrimaryLanguage(),
-                report.getTranslations(),
-                targetLang);
+        Set<String> include =
+                resolveIncludeSet(includeLanguages, report.getPrimaryLanguage(), report.getTranslations(), targetLang);
         JsonNode snapshotTranslations = materialiseTranslations(
                 include,
                 targetLang,
@@ -167,15 +159,9 @@ public class ShareService {
      */
     @Transactional
     public ShareToken createForExample(
-            UUID exampleId,
-            UUID userId,
-            String callerRole,
-            String language,
-            Collection<String> includeLanguages) {
+            UUID exampleId, UUID userId, String callerRole, String language, Collection<String> includeLanguages) {
         Example example = exampleService.get(exampleId);
-        String targetLang = (language == null || language.isBlank())
-                ? example.getPrimaryLanguage()
-                : language;
+        String targetLang = (language == null || language.isBlank()) ? example.getPrimaryLanguage() : language;
 
         JsonNode snapshotInput = example.getInputData();
         JsonNode snapshotResult = example.getResultData();
@@ -190,10 +176,7 @@ public class ShareService {
         // Same multi-language snapshot logic as report shares — see
         // {@link #createForReport} for the rationale.
         Set<String> include = resolveIncludeSet(
-                includeLanguages,
-                example.getPrimaryLanguage(),
-                example.getTranslations(),
-                targetLang);
+                includeLanguages, example.getPrimaryLanguage(), example.getTranslations(), targetLang);
         JsonNode snapshotTranslations = materialiseTranslations(
                 include,
                 targetLang,

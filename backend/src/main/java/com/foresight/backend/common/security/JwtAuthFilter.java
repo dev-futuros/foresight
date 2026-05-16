@@ -27,8 +27,8 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * Servlet filter that extracts a session JWT from the {@code Authorization: Bearer <token>}
- * header, validates it against the external identity provider's JWKS (Clerk pre-migration,
- * Kinde post-migration), resolves the corresponding local {@link User}, and populates the
+ * header, validates it against the external identity provider's JWKS (Kinde), resolves the
+ * corresponding local {@link User}, and populates the
  * Spring {@link SecurityContextHolder} with an {@link AuthenticatedUser} principal.
  *
  * <p>Runs once per request (via {@link OncePerRequestFilter}) and is inserted before
@@ -131,8 +131,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     }
 
     private void authenticateDev() {
-        AuthenticatedUser principal = new AuthenticatedUser(
-                DevPrincipal.ID, DevPrincipal.EXTERNAL_USER_ID, DevPrincipal.ROLE);
+        AuthenticatedUser principal =
+                new AuthenticatedUser(DevPrincipal.ID, DevPrincipal.EXTERNAL_USER_ID, DevPrincipal.ROLE);
         var authority = new SimpleGrantedAuthority("ROLE_" + DevPrincipal.ROLE);
         var auth = new UsernamePasswordAuthenticationToken(principal, null, List.of(authority));
         SecurityContextHolder.getContext().setAuthentication(auth);

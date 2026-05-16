@@ -54,6 +54,5 @@ public record AnalyzeRequest(
                                 """)
                 @NotNull
                 JsonNode horizon,
-        @Schema(description = "Dated research bullets from /analyze/scan. Optional.")
-                String research,
+        @Schema(description = "Dated research bullets from /analyze/scan. Optional.") String research,
         @Schema(example = "es") String language) {}

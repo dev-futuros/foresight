@@ -24,7 +24,7 @@ import api from '../../lib/api';
 import { exportReportPdf } from '../../lib/exportPdf';
 import { exportReportPpt } from '../../lib/exportPpt';
 import { exportReportHtml } from '../../lib/exportHtml';
-import { useTranslations } from '../translations/TranslationsContext';
+import { useTranslations } from '../translations/useTranslations';
 import type {
   ExampleSummary,
   ReportResponse,
@@ -220,7 +220,7 @@ export default function DashboardPage() {
       // report card appears in place. The dev can open it if they want.
       await demoteExample.mutateAsync(exampleId);
     } catch (err) {
-      // eslint-disable-next-line no-console
+       
       console.error('[dashboard] demote failed', err);
     }
   }
@@ -288,7 +288,7 @@ export default function DashboardPage() {
       else if (format === 'ppt') exportReportPpt(report);
       else await exportReportHtml(report, language, kind, includeLanguages);
     } catch (err) {
-      // eslint-disable-next-line no-console
+       
       console.error('[dashboard] export failed', err);
     } finally {
       setExporting(null);
@@ -308,8 +308,10 @@ export default function DashboardPage() {
   // Stats are computed from the loaded page (default size 20) and cover
   // ONLY the caller's own reports — examples are demonstration content
   // and shouldn't count toward "completed" or "in progress" totals.
-  const userReports = data?.content ?? [];
-  const exampleRows = examplesQuery.data ?? [];
+  // Memoised so the `cards` useMemo below has a stable dependency identity
+  // even when `data` / `examplesQuery.data` are unchanged across renders.
+  const userReports = useMemo(() => data?.content ?? [], [data?.content]);
+  const exampleRows = useMemo(() => examplesQuery.data ?? [], [examplesQuery.data]);
 
   // The unified card list — examples first (they're the "what does a
   // finished foresight report look like?" anchor and benefit from being

@@ -82,6 +82,7 @@ export default function PublicSharePage() {
     if (requestedLang && availableLangs.includes(requestedLang)) {
       try {
         window.localStorage.setItem(storageKey, requestedLang);
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- mirror URL-driven lang into storage-backed state so deep-linked arrivals stick across reloads
         setStoredLang(requestedLang);
       } catch {
         /* private-browsing / storage-disabled — no-op. */

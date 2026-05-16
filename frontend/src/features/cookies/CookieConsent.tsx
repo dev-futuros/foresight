@@ -60,6 +60,7 @@ export default function CookieConsent() {
     const prior = readConsent();
     if (prior) {
       applyToPostHog(prior);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot mount-time resolution of localStorage-stored consent; cannot run during render because applyToPostHog touches the global posthog instance
       setVisible(false);
     } else {
       setVisible(true);

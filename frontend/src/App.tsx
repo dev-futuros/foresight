@@ -33,7 +33,7 @@ function SignInRoute() {
   if (!isLoading && isAuthenticated) return <Navigate to="/reports/new" replace />;
   return (
     <AuthLayout copyKey="auth.login">
-      <LoginLink className="cl-btn-primary kinde-continue-btn">
+      <LoginLink className="kinde-continue-btn">
         {t('auth.login.continueWithKinde')}
       </LoginLink>
     </AuthLayout>
@@ -47,7 +47,7 @@ function SignUpRoute() {
   if (!isLoading && isAuthenticated) return <Navigate to="/reports/new" replace />;
   return (
     <AuthLayout copyKey="auth.register">
-      <RegisterLink className="cl-btn-primary kinde-continue-btn">
+      <RegisterLink className="kinde-continue-btn">
         {t('auth.register.continueWithKinde')}
       </RegisterLink>
     </AuthLayout>

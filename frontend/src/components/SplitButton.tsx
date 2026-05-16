@@ -71,6 +71,7 @@ export default function SplitButton({
   // Otherwise a stale `selectedKey` would point at an option that no
   // longer exists in the list, and we'd silently fall back to primary.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- realign internal selection when the parent's primary option identity changes; pure-derivation isn't possible because the user can override selectedKey from the dropdown
     setSelectedKey(primary.key);
   }, [primary.key]);
 

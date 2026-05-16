@@ -113,10 +113,6 @@ export default function StepGlobal({
     S: 0, T: 0, E: 0, ENV: 0, P: 0,
   });
   const [error, setError] = useState<string | null>(null);
-  // `fetchedFor` is now owned by the parent (passed in as
-  // {@link Props#fetchedForRef}). Aliasing keeps the existing in-file
-  // references compact.
-  const fetchedFor = fetchedForRef;
   const max = useMaximizable<FieldKey>();
 
   const hasAny = FIELD_KEYS.some((k) => data[k].trim());
@@ -224,7 +220,7 @@ export default function StepGlobal({
       }, 50);
     } catch (e) {
       setError(extractApiErrorMessage(e, t('wizard.global.errorDefault')));
-      // Deliberately NOT resetting fetchedFor.current — once auto-fetch
+      // Deliberately NOT resetting fetchedForRef.current — once auto-fetch
       // has been attempted for a sector (success or failure), we don't
       // want a re-mount of step 2 (e.g. navigating away and back) to
       // re-trigger the call. User can retry via the assistant's
@@ -251,12 +247,12 @@ export default function StepGlobal({
     // surprised by a generation kicking off when they're just
     // exploring.
     if (disableGenerate) return;
-    if (!hasAny && sector.trim() && fetchedFor.current !== sector) {
+    if (!hasAny && sector.trim() && fetchedForRef.current !== sector) {
       // Claim this sector synchronously BEFORE the async fetch starts. React 18 StrictMode
       // double-mounts effects in dev, so the second pass would otherwise see the ref still
       // null and fire a duplicate request (wasting an Anthropic call). On error we reset
       // the ref so the next render can retry.
-      fetchedFor.current = sector;
+      fetchedForRef.current = sector;
       void fetchAll();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -275,7 +271,7 @@ export default function StepGlobal({
     // Clear through the parent so the autosave picks up the empty state too.
     onChange({ S: '', T: '', E: '', ENV: '', P: '' });
     // Force the next fetch to fire even though `sector` hasn't changed.
-    fetchedFor.current = null;
+    fetchedForRef.current = null;
     await fetchAll();
   }
 

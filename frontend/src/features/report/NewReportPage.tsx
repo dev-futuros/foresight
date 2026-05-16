@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useCreateReport, useReport, useUpdateReport } from '../../hooks/useReports';
 import Modal from '../../components/Modal';
 import { useCurrentUser } from '../../hooks/useAuth';
-import { useSetStepper } from '../shell/StepperContext';
+import { useSetStepper } from '../shell/useStepper';
 import {
   analyzeBackcasting,
   analyzeScenarioPlanning,
@@ -21,7 +21,7 @@ import LoadingPanel, {
   type ProgressItemStatus,
 } from '../../components/LoadingPanel';
 import { useCommands } from '../../lib/useCommands';
-import { useSetAssistantContext } from '../chat/AssistantContextProvider';
+import { useSetAssistantContext } from '../chat/useAssistantContext';
 import '../../components/modal.css';
 import StepEmpresa, { type EmpresaData } from './steps/StepEmpresa';
 import StepGlobal, { type GlobalSteepData } from './steps/StepGlobal';
@@ -282,7 +282,9 @@ export default function NewReportPage() {
   // around the steps and edit fields; nothing leaves the page.
   const isExampleMode = editingReport.data?.source === 'example';
   const isExampleModeRef = useRef(isExampleMode);
-  isExampleModeRef.current = isExampleMode;
+  useEffect(() => {
+    isExampleModeRef.current = isExampleMode;
+  });
 
   // ── Autosave state machine ──────────────────────────────────────
   // The wizard PATCHes the draft on a debounced timer as the user
@@ -312,7 +314,9 @@ export default function NewReportPage() {
   // Cache the status in a ref so flushAutosave / unmount cleanup can
   // read it without becoming a render-time dependency.
   const saveStatusRef = useRef<SaveStatus>(saveStatus);
-  saveStatusRef.current = saveStatus;
+  useEffect(() => {
+    saveStatusRef.current = saveStatus;
+  });
 
   /** Persists a draft snapshot. POST on first call (no id yet), PATCH after.
    *  Drives the autosave status indicator — sets 'saving' before the call,
@@ -357,7 +361,7 @@ export default function NewReportPage() {
         setSaveStatus('saved');
         setLastSavedAt(new Date());
       } catch (err) {
-        // eslint-disable-next-line no-console
+         
         console.error('[autosave] persistDraft failed', err);
         setSaveStatus('error');
       } finally {
@@ -385,7 +389,10 @@ export default function NewReportPage() {
   // a new handleStepperSelect, a new stepperState, and useSetStepper would
   // cycle the slot in StepperContext on every render.
   const persistDraftRef = useRef(persistDraft);
-  persistDraftRef.current = persistDraft;
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/immutability -- persistDraftRef IS a ref despite the rule's misfire; the assignment runs after commit so flushAutosave's later closure read sees the latest persistDraft
+    persistDraftRef.current = persistDraft;
+  });
 
   // Mirror the active step into a ref so flushAutosave can read it
   // without taking `step` as a dep (which would re-create flushAutosave
@@ -402,6 +409,7 @@ export default function NewReportPage() {
   const goToStep = useCallback((n: number) => {
     userHasNavigatedRef.current = true;
     setStep(n);
+    // eslint-disable-next-line react-hooks/immutability -- stepRef IS a ref (despite the rule's misfire); keeping current advanced before flushAutosave reads it
     stepRef.current = n;
     setMaxReached((prev) => Math.max(prev, n));
     // Flush any pending autosave so the user's last keystrokes land
@@ -415,9 +423,6 @@ export default function NewReportPage() {
 
   const language: 'es' | 'en' =
     user?.language === 'en' || i18n.language === 'en' ? 'en' : 'es';
-  // Keep the ref in sync so persistDraft (which captured an older
-  // closure scope) always reads today's value.
-  languageRef.current = language;
 
   const [empresa, setEmpresa] = useState<EmpresaData>(EMPTY_EMPRESA);
   const [globalData, setGlobalData] = useState<GlobalSteepData>(EMPTY_GLOBAL_STEEP);
@@ -432,14 +437,18 @@ export default function NewReportPage() {
   // purpose — only kept around for the in-flight wizard session.
   const [globalSteepCitations, setGlobalSteepCitations] = useState<SourceItem[]>([]);
 
-  // Mirror the four slices into refs every render. persistDraft reads from
-  // these so it always sees the freshest values without being rebuilt on
-  // every keystroke (which would cascade through useCallback dependents).
-  empresaRef.current = empresa;
-  globalDataRef.current = globalData;
-  steepRef.current = steep;
-  horizonRef.current = horizon;
-  reportIdRef.current = reportId;
+  // Mirror the four slices + language + reportId into refs every render.
+  // persistDraft reads from these so it always sees the freshest values
+  // without being rebuilt on every keystroke (which would cascade through
+  // useCallback dependents).
+  useEffect(() => {
+    languageRef.current = language;
+    empresaRef.current = empresa;
+    globalDataRef.current = globalData;
+    steepRef.current = steep;
+    horizonRef.current = horizon;
+    reportIdRef.current = reportId;
+  });
 
   // Prefill the four state slices once when the existing report's data lands
   // (edit mode only). The ref guard prevents re-runs on later refetches that
@@ -462,6 +471,7 @@ export default function NewReportPage() {
       horizon?: Partial<HorizonData> & Partial<Record<'h1' | 'h2' | 'h3', string>>;
       currentStep?: number;
     };
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot prefill from the API response; guarded by the prefilledFor ref above so it runs at most once per report id
     if (inputs.companyProfile) setEmpresa({ ...EMPTY_EMPRESA, ...inputs.companyProfile });
     if (inputs.globalSteep) setGlobalData({ ...EMPTY_GLOBAL_STEEP, ...inputs.globalSteep });
     if (inputs.steep) setSteep({ ...EMPTY_STEEP, ...inputs.steep });
@@ -483,7 +493,7 @@ export default function NewReportPage() {
         !normalisedHorizon.H2 &&
         !normalisedHorizon.H3
     ) {
-      // eslint-disable-next-line no-console
+       
       console.warn(
           '[wizard] example %s has no horizon scan inputs — re-promote a newer report to populate H1/H2/H3.',
           editingReport.data.id,
@@ -521,6 +531,7 @@ export default function NewReportPage() {
     ) {
       const resumeAt = Math.min(Math.max(inputs.currentStep, 1), 4);
       setStep(resumeAt);
+      // eslint-disable-next-line react-hooks/immutability -- stepRef IS a ref; keeping current in sync with the resumed step so the next autosave records the right step
       stepRef.current = resumeAt;
       setMaxReached((prev) => Math.max(prev, resumeAt));
     }
@@ -545,6 +556,7 @@ export default function NewReportPage() {
     if (!prefillCompleteRef.current) return;
     if (isExampleModeRef.current) return;
     if (isGenerating) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- this IS the autosave state machine: any user-driven change to the wizard slices must flip status to 'dirty' and reschedule the debounced save
     setSaveStatus('dirty');
     if (debounceTimerRef.current !== null) {
       window.clearTimeout(debounceTimerRef.current);
@@ -596,12 +608,15 @@ export default function NewReportPage() {
   }, []);
 
   // Tick the "Saved Ns ago" caption every 15s so the relative time
-  // visibly stays current. Only runs while a save has actually
-  // landed; otherwise the indicator's text is computed elsewhere.
-  const [nowTick, setNowTick] = useState(0);
+  // visibly stays current. Stored as the actual timestamp so the label
+  // useMemo can derive the elapsed delta without calling Date.now()
+  // during render (which the React Compiler treats as impure).
+  const [nowMs, setNowMs] = useState<number>(0);
   useEffect(() => {
     if (saveStatus !== 'saved') return;
-    const t = window.setInterval(() => setNowTick((n) => n + 1), 15_000);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- bootstrap the timestamp so the first render after 'saved' shows "just saved" instead of "Nh ago" against the default 0
+    setNowMs(Date.now());
+    const t = window.setInterval(() => setNowMs(Date.now()), 15_000);
     return () => window.clearInterval(t);
   }, [saveStatus]);
 
@@ -1139,25 +1154,25 @@ export default function NewReportPage() {
 
   ]);
 
-  // Status indicator copy — derives from saveStatus + lastSavedAt.
-  // nowTick is a dependency only because we want the relative time
-  // ("Saved 30s ago") to refresh; its value is otherwise unused.
+  // Status indicator copy — derives from saveStatus + lastSavedAt. nowMs
+  // is the wall-clock timestamp the 15s interval keeps current, so the
+  // relative time ("Saved 30s ago") refreshes without us calling Date.now()
+  // during render.
   const saveStatusLabel = useMemo<string | null>(() => {
     if (isExampleMode || isGenerating) return null;
     if (saveStatus === 'idle') return null;
     if (saveStatus === 'saving') return t('wizard.saveStatus.saving');
     if (saveStatus === 'dirty') return t('wizard.saveStatus.dirty');
     if (saveStatus === 'error') return t('wizard.saveStatus.error');
-    if (saveStatus === 'saved' && lastSavedAt) {
-      const seconds = Math.floor((Date.now() - lastSavedAt.getTime()) / 1000);
+    if (saveStatus === 'saved' && lastSavedAt && nowMs > 0) {
+      const seconds = Math.floor((nowMs - lastSavedAt.getTime()) / 1000);
       if (seconds < 5) return t('wizard.saveStatus.justSaved');
       if (seconds < 60) return t('wizard.saveStatus.savedSecondsAgo', { count: seconds });
       const minutes = Math.floor(seconds / 60);
       return t('wizard.saveStatus.savedMinutesAgo', { count: minutes });
     }
     return null;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [saveStatus, lastSavedAt, isExampleMode, isGenerating, nowTick, t]);
+  }, [saveStatus, lastSavedAt, isExampleMode, isGenerating, nowMs, t]);
 
   // Whether the inline save-row above the form should render at all. The
   // chip is only meaningful while the wizard's input form is on-screen —

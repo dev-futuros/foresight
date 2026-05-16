@@ -70,10 +70,7 @@ public class KindeWebhookController {
         String type = jwt.getClaimAsString("type");
         Map<String, Object> data = jwt.getClaim("data");
         if (type == null || data == null) {
-            log.warn(
-                    "Kinde webhook payload missing required claim(s) — type={}, data present={}",
-                    type,
-                    data != null);
+            log.warn("Kinde webhook payload missing required claim(s) — type={}, data present={}", type, data != null);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
 

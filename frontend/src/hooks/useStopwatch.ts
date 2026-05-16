@@ -4,6 +4,12 @@ import { useEffect, useRef, useState } from 'react';
  * MM:SS elapsed counter that ticks once per second while `running` is true.
  * Resets to 00:00 every time `running` flips from false → true so each
  * loading flow starts from zero.
+ *
+ * The reset-on-start setSeconds(0) is intentionally inside the effect body —
+ * a stopwatch needs to zero out at the exact instant the new run begins, and
+ * deferring that to a derived calculation would require reading Date.now()
+ * during render (which the React Compiler also bans). Using a numeric `epoch`
+ * counter that drives a state reset is the documented workaround.
  */
 export function useStopwatch(running: boolean): string {
   const [seconds, setSeconds] = useState(0);
@@ -12,6 +18,7 @@ export function useStopwatch(running: boolean): string {
   useEffect(() => {
     if (!running) {
       startedAt.current = null;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional reset on stop
       setSeconds(0);
       return;
     }

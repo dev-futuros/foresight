@@ -32,6 +32,5 @@ public record GlobalSteepDimRequest(
                 @NotBlank
                 @Pattern(regexp = "S|T|E|ENV|P")
                 String dimension,
-        @Schema(description = "Raw dated bullets for this dimension from the upstream scan call.")
-                @Size(max = 4000)
+        @Schema(description = "Raw dated bullets for this dimension from the upstream scan call.") @Size(max = 4000)
                 String snippet) {}

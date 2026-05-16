@@ -33,12 +33,15 @@ import io.swagger.v3.oas.annotations.media.Schema;
  * @param language target language for the assistant's prose ({@code "es"} or {@code "en"})
  */
 public record ChatRequest(
-        @NotEmpty @Schema(description = "Full conversation, oldest-first. Each entry mirrors Anthropic's"
-                + " messages[] shape: {role, content} where content is either a string or an array of"
-                + " content blocks.")
+        @NotEmpty
+                @Schema(
+                        description = "Full conversation, oldest-first. Each entry mirrors Anthropic's"
+                                + " messages[] shape: {role, content} where content is either a string or an array of"
+                                + " content blocks.")
                 @NotNull
                 List<JsonNode> messages,
-        @Schema(description = "Optional pre-formatted USER STATE block, stitched verbatim into the"
-                + " system prompt so the assistant answers grounded on what the user is looking at.")
+        @Schema(
+                        description = "Optional pre-formatted USER STATE block, stitched verbatim into the"
+                                + " system prompt so the assistant answers grounded on what the user is looking at.")
                 String context,
         @Schema(example = "es") String language) {}

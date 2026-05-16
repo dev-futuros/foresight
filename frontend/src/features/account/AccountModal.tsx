@@ -61,6 +61,7 @@ export default function AccountModal({ open, onClose }: Readonly<Props>) {
   // different user lands (logout → login as someone else without remount).
   useEffect(() => {
     if (user?.id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync API-owned profile fields into editable local state when the row identity changes
       setName(user.name ?? '');
       setLanguage((user.language as 'es' | 'en') ?? 'es');
     }
@@ -70,6 +71,7 @@ export default function AccountModal({ open, onClose }: Readonly<Props>) {
   // reopened — keeps "Saved!" from a previous session from carrying over.
   useEffect(() => {
     if (!open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset transient status banners on close
       setProfileMsg(null);
       setPrefsMsg(null);
     }

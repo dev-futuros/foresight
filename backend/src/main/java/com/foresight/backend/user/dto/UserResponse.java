@@ -10,7 +10,7 @@ import com.foresight.backend.user.UserRole;
  *
  * <p>Every field here is safe to send to the frontend. The {@code externalUserId} is intentionally
  * omitted: clients identify the current user through the identity provider on their side (Clerk
- * pre-migration, Kinde post-migration) and the local UUID is what every other API uses as a
+ * Kinde) and the local UUID is what every other API uses as a
  * foreign key. Email lives in the provider and the frontend reads it from there.
  *
  * @param id user UUID (foreign-key target for reports etc.)

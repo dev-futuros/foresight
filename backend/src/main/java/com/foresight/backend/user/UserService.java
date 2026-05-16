@@ -20,8 +20,8 @@ import lombok.extern.slf4j.Slf4j;
  * Business logic for reading and updating user profiles, plus the bridge between external
  * identity provider users and local {@link User} rows.
  *
- * <p>Authentication and email itself are delegated to the external provider (currently Clerk,
- * Kinde post-migration). This service is responsible for:
+ * <p>Authentication and email itself are delegated to the external provider (Kinde). This
+ * service is responsible for:
  *
  * <ul>
  *   <li>Loading and updating local profile fields (name, language).
@@ -123,12 +123,11 @@ public class UserService {
      * {@code given_name} on its own.
      */
     private String resolveName(String externalUserId, Jwt jwt) {
-        return kindeBackendClient.fetchUser(externalUserId)
+        return kindeBackendClient
+                .fetchUser(externalUserId)
                 .map(KindeBackendClient.KindeUser::composedName)
-                .filter(n -> n != null && !n.isBlank())
-                .orElseGet(() -> firstNonBlank(
-                        jwt.getClaimAsString("name"),
-                        jwt.getClaimAsString("given_name")));
+                .filter(n -> !n.isBlank())
+                .orElseGet(() -> firstNonBlank(jwt.getClaimAsString("name"), jwt.getClaimAsString("given_name")));
     }
 
     /**
@@ -141,9 +140,10 @@ public class UserService {
         if (user.getName() != null && !user.getName().isBlank()) {
             return user;
         }
-        return kindeBackendClient.fetchUser(externalUserId)
+        return kindeBackendClient
+                .fetchUser(externalUserId)
                 .map(KindeBackendClient.KindeUser::composedName)
-                .filter(n -> n != null && !n.isBlank())
+                .filter(n -> !n.isBlank())
                 .map(name -> {
                     user.setName(name);
                     log.info("Backfilled name for user id={} externalId={}", user.getId(), externalUserId);

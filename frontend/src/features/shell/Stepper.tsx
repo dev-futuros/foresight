@@ -1,4 +1,4 @@
-import type { StepperState } from './StepperContext';
+import type { StepperState } from './useStepper';
 
 type Props = {
   state: StepperState;

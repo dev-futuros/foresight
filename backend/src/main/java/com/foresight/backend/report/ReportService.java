@@ -54,8 +54,7 @@ public class ReportService {
      */
     @Transactional
     public Report create(UUID userId, CreateReportRequest request) {
-        String lang = (request.primaryLanguage() != null
-                        && SUPPORTED_LANGUAGES.contains(request.primaryLanguage()))
+        String lang = (request.primaryLanguage() != null && SUPPORTED_LANGUAGES.contains(request.primaryLanguage()))
                 ? request.primaryLanguage()
                 : "es";
         Report report = Report.builder()
@@ -192,9 +191,10 @@ public class ReportService {
         }
 
         // Persist into the translations cache, keyed by target language.
-        ObjectNode cache = (report.getTranslations() != null && report.getTranslations().isObject())
-                ? report.getTranslations().deepCopy()
-                : objectMapper.createObjectNode();
+        ObjectNode cache =
+                (report.getTranslations() != null && report.getTranslations().isObject())
+                        ? report.getTranslations().deepCopy()
+                        : objectMapper.createObjectNode();
         ObjectNode entry = objectMapper.createObjectNode();
         if (translated.has("inputData")) entry.set("inputData", translated.get("inputData"));
         if (translated.has("resultData")) entry.set("resultData", translated.get("resultData"));
@@ -274,7 +274,8 @@ public class ReportService {
         final JsonNode inputData = report.getInputData();
         final JsonNode resultData = report.getResultData();
 
-        return aiService.translateReportStream(inputData, resultData, targetLanguage)
+        return aiService
+                .translateReportStream(inputData, resultData, targetLanguage)
                 .concatMap(evt -> {
                     // Progress events pass through unchanged.
                     if (evt == null || !"done".equals(evt.path("type").asText())) {
@@ -289,7 +290,9 @@ public class ReportService {
                     ObjectNode entry = objectMapper.createObjectNode();
                     if (evt.has("inputData")) entry.set("inputData", evt.get("inputData"));
                     if (evt.has("resultData")) entry.set("resultData", evt.get("resultData"));
-                    entry.put("generatedAt", evt.path("generatedAt").asText(Instant.now().toString()));
+                    entry.put(
+                            "generatedAt",
+                            evt.path("generatedAt").asText(Instant.now().toString()));
                     return Mono.fromRunnable(() -> persistTranslation(reportId, targetLanguage, entry))
                             .subscribeOn(Schedulers.boundedElastic())
                             .then(Mono.just(evt));
@@ -308,7 +311,8 @@ public class ReportService {
             transactionTemplate.executeWithoutResult(status -> {
                 Report report = reportRepository.findById(reportId).orElse(null);
                 if (report == null) return;
-                ObjectNode cache = (report.getTranslations() != null && report.getTranslations().isObject())
+                ObjectNode cache = (report.getTranslations() != null
+                                && report.getTranslations().isObject())
                         ? report.getTranslations().deepCopy()
                         : objectMapper.createObjectNode();
                 cache.set(targetLanguage, entry);
@@ -345,8 +349,7 @@ public class ReportService {
         }
         Report report = getOwned(id, userId);
         if (language.equals(report.getPrimaryLanguage())) {
-            throw new BadRequestException(
-                    "Cannot delete the report's primary language (" + language + ")");
+            throw new BadRequestException("Cannot delete the report's primary language (" + language + ")");
         }
         JsonNode translations = report.getTranslations();
         if (translations == null || !translations.isObject() || !translations.has(language)) {
@@ -387,8 +390,7 @@ public class ReportService {
      * @param fields   map of dotted JSON paths → tightened text; never {@code null}
      */
     @Transactional
-    public void updatePdfOptimized(
-            UUID id, UUID userId, String language, java.util.Map<String, String> fields) {
+    public void updatePdfOptimized(UUID id, UUID userId, String language, java.util.Map<String, String> fields) {
         if (language == null || language.isBlank()) {
             throw new BadRequestException("Language is required");
         }
@@ -396,9 +398,10 @@ public class ReportService {
             throw new BadRequestException("Fields map is required");
         }
         Report report = getOwned(id, userId);
-        ObjectNode cache = (report.getPdfOptimized() != null && report.getPdfOptimized().isObject())
-                ? report.getPdfOptimized().deepCopy()
-                : objectMapper.createObjectNode();
+        ObjectNode cache =
+                (report.getPdfOptimized() != null && report.getPdfOptimized().isObject())
+                        ? report.getPdfOptimized().deepCopy()
+                        : objectMapper.createObjectNode();
         if (fields.isEmpty()) {
             cache.remove(language);
         } else {

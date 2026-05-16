@@ -26,7 +26,5 @@ public record PdfOptimizedUpdate(
                         description = "Tightened-text map: dotted JSON paths into the report → shortened text.")
                 @NotNull
                 @Size(max = 200)
-                Map<
-                                @NotBlank @Pattern(regexp = "^[A-Za-z0-9._\\-]{1,200}$") String,
-                                @NotNull @Size(max = 8000) String>
+                Map<@NotBlank @Pattern(regexp = "^[A-Za-z0-9._\\-]{1,200}$") String, @NotNull @Size(max = 8000) String>
                         fields) {}

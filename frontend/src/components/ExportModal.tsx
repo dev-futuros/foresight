@@ -122,12 +122,18 @@ export default function ExportModal({
   // previous row. {@code initialFormat} / {@code initialLanguage} let
   // the assistant pre-fill what it knows; the user can still change
   // either field before clicking Export.
+  // Reset-on-open: the modal's local form must snap back to the selected
+  // row's defaults every time it opens, including the format/language pre-
+  // fills the assistant may have requested. Suppressed because this is the
+  // documented React pattern for "reset state when the props change" and
+  // refactoring to a key prop would require contract changes at every call site.
   useEffect(() => {
     if (open && data) {
       const wantedLang =
         initialLanguage && availableLanguages.includes(initialLanguage)
           ? initialLanguage
           : primaryLanguage;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLanguage(wantedLang);
       setHtmlDefaultLanguage(wantedLang);
       // Pre-check every available language for the HTML include
@@ -149,6 +155,7 @@ export default function ExportModal({
   // it's defaulting to ES" surprise. Switching back to PDF/PPT leaves
   // the lang picker untouched.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- mirror primary picker into HTML default when the user switches format
     if (format === 'html') setHtmlDefaultLanguage(language);
   }, [format, language]);
 
@@ -159,6 +166,7 @@ export default function ExportModal({
   useEffect(() => {
     if (htmlIncludedLanguages.length === 0) return;
     if (!htmlIncludedLanguages.includes(htmlDefaultLanguage)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clamp default to a still-included language; cannot be derived during render because it would feed back into its own deps
       setHtmlDefaultLanguage(htmlIncludedLanguages[0]);
     }
   }, [htmlIncludedLanguages, htmlDefaultLanguage]);

@@ -1,5 +1,7 @@
 package com.foresight.backend.analytics;
 
+import static com.foresight.backend.common.Constants.*;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -22,8 +24,6 @@ import com.posthog.server.PostHogInterface;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
-import static com.foresight.backend.common.Constants.*;
 
 /**
  * Fires {@code $ai_generation} events to PostHog using the canonical LLM-analytics schema
@@ -99,8 +99,7 @@ public class LlmCapture {
      */
     public String currentSessionId() {
         try {
-            ServletRequestAttributes attrs =
-                    (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
             if (attrs == null) return null;
             String sid = attrs.getRequest().getHeader("X-PostHog-Session-Id");
             return (sid == null || sid.isBlank()) ? null : sid;
@@ -147,7 +146,8 @@ public class LlmCapture {
             if (ctx.stopReason() != null) props.put("$ai_stop_reason", ctx.stopReason());
             if (ctx.tools() != null && !ctx.tools().isEmpty()) props.put("$ai_tools", ctx.tools());
             if (ctx.cacheReadTokens() != null) props.put("$ai_cache_read_input_tokens", ctx.cacheReadTokens());
-            if (ctx.cacheCreationTokens() != null) props.put("$ai_cache_creation_input_tokens", ctx.cacheCreationTokens());
+            if (ctx.cacheCreationTokens() != null)
+                props.put("$ai_cache_creation_input_tokens", ctx.cacheCreationTokens());
 
             // Custom dimensions outside the canonical schema — used for filter/cohort building.
             props.put("feature", ctx.feature());

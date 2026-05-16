@@ -38,12 +38,18 @@ public final class AssistantTools {
                     "Navega al paso indicado del wizard (1-4 inputs, 6 resultados).",
                     Map.of(
                             "type", "object",
-                            "properties", Map.of(
-                                    "step", Map.of(
-                                            "type", "integer",
-                                            "minimum", 1,
-                                            "maximum", 6,
-                                            "description", "Número del paso a mostrar")),
+                            "properties",
+                                    Map.of(
+                                            "step",
+                                            Map.of(
+                                                    "type",
+                                                    "integer",
+                                                    "minimum",
+                                                    1,
+                                                    "maximum",
+                                                    6,
+                                                    "description",
+                                                    "Número del paso a mostrar")),
                             "required", List.of("step"))),
             tool(
                     "openDashboard",
@@ -62,19 +68,21 @@ public final class AssistantTools {
                     "Cambia el idioma de la interfaz.",
                     Map.of(
                             "type", "object",
-                            "properties", Map.of(
-                                    "lang", Map.of(
-                                            "type", "string",
-                                            "enum", List.of("es", "en"),
-                                            "description", "Idioma destino: 'es' o 'en'")),
+                            "properties",
+                                    Map.of(
+                                            "lang",
+                                            Map.of(
+                                                    "type", "string",
+                                                    "enum", List.of("es", "en"),
+                                                    "description", "Idioma destino: 'es' o 'en'")),
                             "required", List.of("lang"))),
             tool(
                     "loadReport",
                     "Carga un informe guardado por su id en el formulario.",
                     Map.of(
                             "type", "object",
-                            "properties", Map.of(
-                                    "id", Map.of("type", "string", "description", "UUID del informe a cargar")),
+                            "properties",
+                                    Map.of("id", Map.of("type", "string", "description", "UUID del informe a cargar")),
                             "required", List.of("id"))),
             tool(
                     "editReport",
@@ -82,8 +90,8 @@ public final class AssistantTools {
                             + " los inputs. Usa loadReport para abrir el visor de un informe ya completo.",
                     Map.of(
                             "type", "object",
-                            "properties", Map.of(
-                                    "id", Map.of("type", "string", "description", "UUID del informe a editar")),
+                            "properties",
+                                    Map.of("id", Map.of("type", "string", "description", "UUID del informe a editar")),
                             "required", List.of("id"))),
             tool(
                     "refreshReports",
@@ -95,8 +103,8 @@ public final class AssistantTools {
                             + " confirma verbalmente con el usuario antes de emitir esta tool.",
                     Map.of(
                             "type", "object",
-                            "properties", Map.of(
-                                    "id", Map.of("type", "string", "description", "UUID del informe a borrar")),
+                            "properties",
+                                    Map.of("id", Map.of("type", "string", "description", "UUID del informe a borrar")),
                             "required", List.of("id"))),
             tool(
                     "setField",
@@ -104,31 +112,49 @@ public final class AssistantTools {
                             + " si aplicarlo (no se aplica automáticamente). Úsalo para proponer textos al usuario.",
                     Map.of(
                             "type", "object",
-                            "properties", Map.of(
-                                    "id",
+                            "properties",
                                     Map.of(
-                                            "type",
-                                            "string",
-                                            "enum",
-                                            List.of(
-                                                    // Step 1 — empresa
-                                                    "f-name", "f-sector", "f-size", "f-horizon",
-                                                    "f-market", "f-challenge", "f-strengths",
-                                                    "f-consultant-name", "f-consultant-company",
-                                                    // Step 2 — global STEEP
-                                                    "gs-s", "gs-t", "gs-e", "gs-env", "gs-p",
-                                                    // Step 3 — sectorial STEEP
-                                                    "steep-s", "steep-t", "steep-e", "steep-env", "steep-p",
-                                                    // Step 4 — horizon
-                                                    "hs-h1", "hs-h2", "hs-h3"),
-                                            "description", "Identificador del campo del formulario"),
-                                    "value",
-                                    Map.of("type", "string", "description", "Texto sugerido"),
-                                    "mode",
-                                    Map.of(
-                                            "type", "string",
-                                            "enum", List.of("add", "replace"),
-                                            "description", "'add' añade al final, 'replace' sobreescribe")),
+                                            "id",
+                                            Map.of(
+                                                    "type",
+                                                    "string",
+                                                    "enum",
+                                                    List.of(
+                                                            // Step 1 — empresa
+                                                            "f-name",
+                                                            "f-sector",
+                                                            "f-size",
+                                                            "f-horizon",
+                                                            "f-market",
+                                                            "f-challenge",
+                                                            "f-strengths",
+                                                            "f-consultant-name",
+                                                            "f-consultant-company",
+                                                            // Step 2 — global STEEP
+                                                            "gs-s",
+                                                            "gs-t",
+                                                            "gs-e",
+                                                            "gs-env",
+                                                            "gs-p",
+                                                            // Step 3 — sectorial STEEP
+                                                            "steep-s",
+                                                            "steep-t",
+                                                            "steep-e",
+                                                            "steep-env",
+                                                            "steep-p",
+                                                            // Step 4 — horizon
+                                                            "hs-h1",
+                                                            "hs-h2",
+                                                            "hs-h3"),
+                                                    "description",
+                                                    "Identificador del campo del formulario"),
+                                            "value",
+                                            Map.of("type", "string", "description", "Texto sugerido"),
+                                            "mode",
+                                            Map.of(
+                                                    "type", "string",
+                                                    "enum", List.of("add", "replace"),
+                                                    "description", "'add' añade al final, 'replace' sobreescribe")),
                             "required", List.of("id", "value", "mode"))),
             tool(
                     "generateGlobalSteep",
@@ -154,24 +180,24 @@ public final class AssistantTools {
                     "Abre el modal para compartir el informe (genera enlace público con TTL 7 días).",
                     Map.of(
                             "type", "object",
-                            "properties", Map.of(
-                                    "id", Map.of("type", "string", "description", "UUID opcional del informe")),
+                            "properties",
+                                    Map.of("id", Map.of("type", "string", "description", "UUID opcional del informe")),
                             "required", List.of())),
             tool(
                     "exportPDF",
                     "Exporta el informe actual o el indicado por id como PDF.",
                     Map.of(
                             "type", "object",
-                            "properties", Map.of(
-                                    "id", Map.of("type", "string", "description", "UUID opcional del informe")),
+                            "properties",
+                                    Map.of("id", Map.of("type", "string", "description", "UUID opcional del informe")),
                             "required", List.of())),
             tool(
                     "exportPPT",
                     "Exporta el informe actual o el indicado por id como PowerPoint editable.",
                     Map.of(
                             "type", "object",
-                            "properties", Map.of(
-                                    "id", Map.of("type", "string", "description", "UUID opcional del informe")),
+                            "properties",
+                                    Map.of("id", Map.of("type", "string", "description", "UUID opcional del informe")),
                             "required", List.of())),
             tool(
                     "logout",

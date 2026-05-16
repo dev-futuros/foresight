@@ -2,6 +2,8 @@ package com.foresight.backend.common.security;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.http.HttpHeaders;
@@ -62,14 +64,15 @@ public class KindeBackendClient {
                 && !kinde.m2mClientId().isBlank()
                 && kinde.m2mClientSecret() != null
                 && !kinde.m2mClientSecret().isBlank();
-        // We don't set a base URL because we hit two different endpoints (token + management API)
-        // that don't share a common prefix beyond the tenant domain.
-        this.restClient = enabled ? RestClient.builder().build() : null;
+        // RestClient is created unconditionally — cheap to instantiate and avoids a nullable
+        // field. No base URL because we hit two different endpoints (token + management API)
+        // that don't share a common prefix beyond the tenant domain. When `enabled` is false,
+        // the gated methods short-circuit before ever touching this field.
+        this.restClient = RestClient.builder().build();
         if (!enabled) {
-            log.info(
-                    "Kinde Backend API disabled — M2M client id/secret not set. Lazy-created users "
-                            + "will have a null name until the webhook fires or the user edits "
-                            + "their profile.");
+            log.info("Kinde Backend API disabled — M2M client id/secret not set. Lazy-created users "
+                    + "will have a null name until the webhook fires or the user edits "
+                    + "their profile.");
         }
     }
 
@@ -138,8 +141,9 @@ public class KindeBackendClient {
         String last = parts.length > 1 ? parts[1] : "";
         String token = ensureAccessToken();
         // Send both naming conventions to cover whichever variant Kinde's PATCH endpoint
-        // currently honours. Unknown keys are ignored, so this is forward-safe.
-        java.util.Map<String, String> body = new java.util.LinkedHashMap<>();
+        // currently honours. Unknown keys are ignored, so this is forward-safe. LinkedHashMap
+        // keeps the order stable across runs — useful when eyeballing request logs.
+        Map<String, String> body = new LinkedHashMap<>();
         body.put("given_name", first);
         body.put("family_name", last);
         body.put("first_name", first);
@@ -195,12 +199,12 @@ public class KindeBackendClient {
                 .retrieve()
                 .body(TokenResponse.class);
 
-        if (response == null || response.accessToken() == null || response.accessToken().isBlank()) {
+        if (response == null
+                || response.accessToken() == null
+                || response.accessToken().isBlank()) {
             throw new IllegalStateException("Kinde token endpoint returned an empty access token");
         }
-        Instant expiresAt = Instant.now()
-                .plusSeconds(response.expiresIn())
-                .minus(EXPIRY_SAFETY_MARGIN);
+        Instant expiresAt = Instant.now().plusSeconds(response.expiresIn()).minus(EXPIRY_SAFETY_MARGIN);
         log.debug("Fetched new Kinde M2M access token, expires_in={}s", response.expiresIn());
         return new CachedToken(response.accessToken(), expiresAt);
     }

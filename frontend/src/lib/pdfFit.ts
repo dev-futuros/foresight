@@ -141,7 +141,7 @@ export async function persistTightened(
     await savePdfOptimized(reportId, language, tightened);
   } catch (err) {
     // Don't break the export; the user already has their PDF.
-    // eslint-disable-next-line no-console
+     
     console.warn('[pdfFit] failed to persist tightened cache', err);
   }
 }

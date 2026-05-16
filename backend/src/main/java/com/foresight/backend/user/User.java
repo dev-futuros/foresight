@@ -19,8 +19,8 @@ import lombok.Setter;
  *
  * <p>Inherits {@code id} (UUID), {@code createdAt} and {@code updatedAt} from {@link BaseEntity}.
  *
- * <p>Authentication is delegated to an external identity provider (currently Clerk, Kinde
- * post-migration): passwords, email verification, MFA, and session management all live there.
+ * <p>Authentication is delegated to an external identity provider (Kinde): passwords, email
+ * verification, MFA, and session management all live there.
  * Email is also the provider's responsibility — the local row only mirrors the profile fields
  * the app actually consumes (name, role, language) plus a stable {@code externalUserId} that
  * links the local row to the provider's user. That id is what we look up when validating an
@@ -36,8 +36,8 @@ import lombok.Setter;
 public class User extends BaseEntity {
 
     /**
-     * Stable identifier of the user in the external identity provider — currently Clerk
-     * (e.g. {@code user_2abc...}), Kinde post-migration (e.g. {@code kp_2abc...}). Populated
+     * Stable identifier of the user in the external identity provider — Kinde
+     * (e.g. {@code kp_2abc...}). Populated
      * either by the {@code user.*} webhook from the provider or, lazily, on the first
      * authenticated API call from a brand-new user. Unique and non-null for any user that
      * has authenticated at least once.

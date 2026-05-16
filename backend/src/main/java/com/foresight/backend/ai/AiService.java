@@ -14,8 +14,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 
-import lombok.extern.slf4j.Slf4j;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -32,6 +30,7 @@ import com.foresight.backend.analytics.LlmCapture;
 import com.foresight.backend.analytics.LlmCaptureContext;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -359,7 +358,8 @@ public class AiService {
               "Social", "Tecnológico", "Económico", "Medioambiental", "Político". English:
               "Social", "Technological", "Economic", "Environmental", "Political".
             - Respond in the requested language.
-            """ + OUTPUT_DISCIPLINE;
+            """
+                    + OUTPUT_DISCIPLINE;
 
     /**
      * Phase-B system prompt for the parallel-5 analysis flow — the 3P
@@ -411,7 +411,8 @@ public class AiService {
             - firstMove: single concrete sentence.
             - No extra top-level keys, no prose outside JSON.
             - Respond in the requested language.
-            """ + OUTPUT_DISCIPLINE;
+            """
+                    + OUTPUT_DISCIPLINE;
 
     /**
      * Section-C system prompt — scenario planning structure: an intro, 4
@@ -451,7 +452,8 @@ public class AiService {
             - scenarioLogics: exactly 3 entries in the order Probable / Plausible / Possible. Use
               "Posible" (Spanish) for the third when responding in Spanish.
             - Respond in the requested language.
-            """ + OUTPUT_DISCIPLINE;
+            """
+                    + OUTPUT_DISCIPLINE;
 
     /**
      * Section-E system prompt — backcasting trajectories.
@@ -498,7 +500,8 @@ public class AiService {
             - The 'year' field uses the exact calendar-year strings provided in the user prompt.
             - Each milestone: 2-3 actions, short verb phrases.
             - Respond in the requested language.
-            """ + OUTPUT_DISCIPLINE;
+            """
+                    + OUTPUT_DISCIPLINE;
 
     /**
      * Section-D system prompt — 6 strategic priorities (2 per H1/H2/H3
@@ -542,7 +545,8 @@ public class AiService {
               language's units, e.g. "meses" / "años" or "months" / "years").
             - actions: 2-3 short verb phrases per priority.
             - Respond in the requested language.
-            """ + OUTPUT_DISCIPLINE;
+            """
+                    + OUTPUT_DISCIPLINE;
 
     /**
      * System prompt template for the chat assistant. The user's language and the
@@ -1083,8 +1087,7 @@ public class AiService {
                 .userPrompt(prompt)
                 .maxTokens(1500)
                 .tools(WEB_SEARCH_TOOLS_FOR_CAPTURE);
-        return captureUnary(
-                        ctx, anthropicClient.sendMessageWithWebSearch(model, GLOBAL_STEEP_SYSTEM, prompt, 1500))
+        return captureUnary(ctx, anthropicClient.sendMessageWithWebSearch(model, GLOBAL_STEEP_SYSTEM, prompt, 1500))
                 .map(AiResponseSanitizer::sanitize);
     }
 
@@ -1143,7 +1146,9 @@ public class AiService {
                         request.dimension(),
                         request.sector(),
                         java.time.Year.now().getValue(),
-                        snippet.isBlank() ? "(none — write a brief, plausible 2-3 sentence summary for this dimension and sector)" : snippet);
+                        snippet.isBlank()
+                                ? "(none — write a brief, plausible 2-3 sentence summary for this dimension and sector)"
+                                : snippet);
         String model = properties.haiku();
         var ctx = llmCapture
                 .contextFor("steep-global:dim:" + request.dimension(), null)
@@ -1463,10 +1468,8 @@ public class AiService {
         // Per-event counter for the diagnostic log we emit on completion.
         // Helps us tell "stream never delivered" from "stream delivered
         // events but our matcher skipped them".
-        java.util.concurrent.atomic.AtomicInteger seenEvents =
-                new java.util.concurrent.atomic.AtomicInteger(0);
-        java.util.concurrent.atomic.AtomicInteger deltaEvents =
-                new java.util.concurrent.atomic.AtomicInteger(0);
+        java.util.concurrent.atomic.AtomicInteger seenEvents = new java.util.concurrent.atomic.AtomicInteger(0);
+        java.util.concurrent.atomic.AtomicInteger deltaEvents = new java.util.concurrent.atomic.AtomicInteger(0);
 
         // PostHog accumulators (lifetime: this stream). Refs are mutated
         // inside the per-event consumer below and read in doFinally.
@@ -1513,37 +1516,35 @@ public class AiService {
         // doFinally runs on complete / error / cancel, so cancelled requests
         // (user navigated away mid-stream) still show up — useful for
         // distinguishing abandoned generations from completed ones.
-        java.util.concurrent.atomic.AtomicReference<Throwable> err = new java.util.concurrent.atomic.AtomicReference<>();
-        return progressFlux
-                .concatWith(doneFlux)
-                .doOnError(err::set)
-                .doFinally(signal -> {
-                    String error = null;
-                    int httpStatus = 200;
-                    if (signal == reactor.core.publisher.SignalType.ON_ERROR && err.get() != null) {
-                        error = err.get().getMessage();
-                        httpStatus = 0;
-                    } else if (signal == reactor.core.publisher.SignalType.CANCEL) {
-                        error = "cancelled";
-                        httpStatus = 0;
-                    }
-                    LlmCaptureContext ctx = captureBuilder
-                            .model(ph.model == null ? captureBuilder.build().model() : ph.model)
-                            .latencyMs(System.currentTimeMillis() - t0)
-                            .httpStatus(httpStatus)
-                            .error(error)
-                            .stopReason(ph.stopReason)
-                            .inputTokens(ph.inputTokens)
-                            .outputTokens(ph.outputTokens)
-                            .cacheReadTokens(ph.cacheReadTokens)
-                            .cacheCreationTokens(ph.cacheCreationTokens)
-                            .outputText(accText.toString())
-                            .outputContent(buildOutputContent(blocks))
-                            .sourcesCount(citations.size())
-                            .streamed(true)
-                            .build();
-                    llmCapture.capture(ctx);
-                });
+        java.util.concurrent.atomic.AtomicReference<Throwable> err =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        return progressFlux.concatWith(doneFlux).doOnError(err::set).doFinally(signal -> {
+            String error = null;
+            int httpStatus = 200;
+            if (signal == reactor.core.publisher.SignalType.ON_ERROR && err.get() != null) {
+                error = err.get().getMessage();
+                httpStatus = 0;
+            } else if (signal == reactor.core.publisher.SignalType.CANCEL) {
+                error = "cancelled";
+                httpStatus = 0;
+            }
+            LlmCaptureContext ctx = captureBuilder
+                    .model(ph.model == null ? captureBuilder.build().model() : ph.model)
+                    .latencyMs(System.currentTimeMillis() - t0)
+                    .httpStatus(httpStatus)
+                    .error(error)
+                    .stopReason(ph.stopReason)
+                    .inputTokens(ph.inputTokens)
+                    .outputTokens(ph.outputTokens)
+                    .cacheReadTokens(ph.cacheReadTokens)
+                    .cacheCreationTokens(ph.cacheCreationTokens)
+                    .outputText(accText.toString())
+                    .outputContent(buildOutputContent(blocks))
+                    .sourcesCount(citations.size())
+                    .streamed(true)
+                    .build();
+            llmCapture.capture(ctx);
+        });
     }
 
     /** Mutable accumulator threaded through the streaming flux for PostHog capture. */
@@ -1595,17 +1596,21 @@ public class AiService {
                     if (!m.isBlank()) ph.model = m;
                     JsonNode usage = msg.path("usage");
                     if (!usage.isMissingNode()) {
-                        if (usage.has("input_tokens")) ph.inputTokens = usage.get("input_tokens").asInt();
+                        if (usage.has("input_tokens"))
+                            ph.inputTokens = usage.get("input_tokens").asInt();
                         if (usage.has("cache_read_input_tokens"))
-                            ph.cacheReadTokens = usage.get("cache_read_input_tokens").asInt();
+                            ph.cacheReadTokens =
+                                    usage.get("cache_read_input_tokens").asInt();
                         if (usage.has("cache_creation_input_tokens"))
-                            ph.cacheCreationTokens = usage.get("cache_creation_input_tokens").asInt();
+                            ph.cacheCreationTokens =
+                                    usage.get("cache_creation_input_tokens").asInt();
                     }
                 }
             }
             case "message_delta" -> {
                 JsonNode usage = payload.path("usage");
-                if (usage.has("output_tokens")) ph.outputTokens = usage.get("output_tokens").asInt();
+                if (usage.has("output_tokens"))
+                    ph.outputTokens = usage.get("output_tokens").asInt();
                 JsonNode delta = payload.path("delta");
                 String stop = delta.path("stop_reason").asText("");
                 if (!stop.isBlank()) ph.stopReason = stop;
@@ -1724,12 +1729,15 @@ public class AiService {
         if (!model.isBlank()) builder.model(model);
         JsonNode usage = response.path("usage");
         if (!usage.isMissingNode()) {
-            if (usage.has("input_tokens")) builder.inputTokens(usage.get("input_tokens").asInt());
-            if (usage.has("output_tokens")) builder.outputTokens(usage.get("output_tokens").asInt());
+            if (usage.has("input_tokens"))
+                builder.inputTokens(usage.get("input_tokens").asInt());
+            if (usage.has("output_tokens"))
+                builder.outputTokens(usage.get("output_tokens").asInt());
             if (usage.has("cache_read_input_tokens"))
                 builder.cacheReadTokens(usage.get("cache_read_input_tokens").asInt());
             if (usage.has("cache_creation_input_tokens"))
-                builder.cacheCreationTokens(usage.get("cache_creation_input_tokens").asInt());
+                builder.cacheCreationTokens(
+                        usage.get("cache_creation_input_tokens").asInt());
         }
         String stopReason = response.path("stop_reason").asText("");
         if (!stopReason.isBlank()) builder.stopReason(stopReason);
@@ -1740,7 +1748,8 @@ public class AiService {
             // dashboards that don't render the structured content view.
             StringBuilder txt = new StringBuilder();
             for (JsonNode block : content) {
-                if ("text".equals(block.path("type").asText())) txt.append(block.path("text").asText(""));
+                if ("text".equals(block.path("type").asText()))
+                    txt.append(block.path("text").asText(""));
             }
             builder.outputText(txt.toString());
         }
@@ -1884,8 +1893,7 @@ public class AiService {
      * @return a {@code Mono} emitting an object node with the same two keys
      *         in the target language: {@code {"inputData":..., "resultData":...}}
      */
-    public Mono<JsonNode> translateReport(
-            JsonNode inputData, JsonNode resultData, String targetLanguage) {
+    public Mono<JsonNode> translateReport(JsonNode inputData, JsonNode resultData, String targetLanguage) {
         String target = lang(targetLanguage);
         // Strip sources before the translation call — they are URLs and
         // already-cited source titles in their language of origin and
@@ -1922,30 +1930,29 @@ public class AiService {
         for (TranslationChunk chunk : chunks) {
             long chunkInputChars = chunk.envelopeJson().length();
             chunkMonos.add(Mono.defer(() -> {
-                        long subscribeAt = System.currentTimeMillis();
-                        log.info(
-                                "[translate]  chunk {} subscribed ({}ms after fan-out, {} chars in)",
+                long subscribeAt = System.currentTimeMillis();
+                log.info(
+                        "[translate]  chunk {} subscribed ({}ms after fan-out, {} chars in)",
+                        chunk.key(),
+                        subscribeAt - fanOutStart,
+                        chunkInputChars);
+                String model = properties.haiku();
+                String userPrompt = translateUserPrompt(target, chunk.envelopeJson());
+                var captureCtx = llmCapture
+                        .contextFor("translate:" + chunk.key(), translateTrace)
+                        .model(model)
+                        .systemPrompt(TRANSLATE_SYSTEM)
+                        .userPrompt(userPrompt)
+                        .maxTokens(12000);
+                return streamMessageToTextWithCapture(
+                                anthropicClient.streamMessage(model, TRANSLATE_SYSTEM, userPrompt, 12000), captureCtx)
+                        .map(this::parseTranslationJson)
+                        .map(parsed -> (Map.Entry<String, JsonNode>) Map.entry(chunk.key(), parsed))
+                        .doOnSuccess(e -> log.info(
+                                "[translate]  chunk {} done ({}ms wall-clock)",
                                 chunk.key(),
-                                subscribeAt - fanOutStart,
-                                chunkInputChars);
-                        String model = properties.haiku();
-                        String userPrompt = translateUserPrompt(target, chunk.envelopeJson());
-                        var captureCtx = llmCapture
-                                .contextFor("translate:" + chunk.key(), translateTrace)
-                                .model(model)
-                                .systemPrompt(TRANSLATE_SYSTEM)
-                                .userPrompt(userPrompt)
-                                .maxTokens(12000);
-                        return streamMessageToTextWithCapture(
-                                        anthropicClient.streamMessage(model, TRANSLATE_SYSTEM, userPrompt, 12000),
-                                        captureCtx)
-                                .map(this::parseTranslationJson)
-                                .map(parsed -> (Map.Entry<String, JsonNode>) Map.entry(chunk.key(), parsed))
-                                .doOnSuccess(e -> log.info(
-                                        "[translate]  chunk {} done ({}ms wall-clock)",
-                                        chunk.key(),
-                                        System.currentTimeMillis() - subscribeAt));
-                    }));
+                                System.currentTimeMillis() - subscribeAt));
+            }));
         }
         return Flux.merge(chunkMonos)
                 .collectMap(Map.Entry::getKey, Map.Entry::getValue)
@@ -2004,8 +2011,7 @@ public class AiService {
      * — they don't need to match the source-language names. So per-key
      * splits are safe.
      */
-    private List<TranslationChunk> buildTranslationChunks(
-            JsonNode inputData, JsonNode strippedResult) {
+    private List<TranslationChunk> buildTranslationChunks(JsonNode inputData, JsonNode strippedResult) {
         List<TranslationChunk> chunks = new ArrayList<>();
         addChunk(chunks, "inputData", inputData);
         if (strippedResult != null && strippedResult.isObject()) {
@@ -2026,9 +2032,7 @@ public class AiService {
             // For inputData, wrap in {"inputData": ...} so the translator's
             // output keeps the original key. For per-section chunks the
             // wrap is already done by the caller — store the payload as-is.
-            JsonNode envelope = key.equals("inputData")
-                    ? wrapSingleKey("inputData", payload)
-                    : payload;
+            JsonNode envelope = key.equals("inputData") ? wrapSingleKey("inputData", payload) : payload;
             chunks.add(new TranslationChunk(key, objectMapper.writeValueAsString(envelope)));
         } catch (Exception e) {
             log.warn("Failed to serialise translation chunk {} — skipping", key, e);
@@ -2050,8 +2054,7 @@ public class AiService {
      * place it under the matching key in the assembled
      * {@code inputData} / {@code resultData} objects.
      */
-    private JsonNode assembleTranslatedEnvelope(
-            List<TranslationChunk> chunks, Map<String, JsonNode> resultByKey) {
+    private JsonNode assembleTranslatedEnvelope(List<TranslationChunk> chunks, Map<String, JsonNode> resultByKey) {
         ObjectNode envelope = objectMapper.createObjectNode();
         ObjectNode resultData = null;
         for (TranslationChunk chunk : chunks) {
@@ -2097,8 +2100,7 @@ public class AiService {
         StreamCaptureState ph = new StreamCaptureState();
         Map<Integer, ContentBlockAcc> blocks = new HashMap<>();
         long t0 = System.currentTimeMillis();
-        Mono<String> body = upstream
-                .doOnNext(sse -> {
+        Mono<String> body = upstream.doOnNext(sse -> {
                     if (captureBuilder != null) absorbStreamMeta(sse, ph, blocks, acc);
                     String data = sse.data();
                     if (data == null) return;
@@ -2121,7 +2123,8 @@ public class AiService {
                 })
                 .then(Mono.fromCallable(acc::toString));
         if (captureBuilder == null) return body;
-        java.util.concurrent.atomic.AtomicReference<Throwable> err = new java.util.concurrent.atomic.AtomicReference<>();
+        java.util.concurrent.atomic.AtomicReference<Throwable> err =
+                new java.util.concurrent.atomic.AtomicReference<>();
         return body.doOnError(err::set).doFinally(signal -> {
             String error = null;
             int httpStatus = 200;
@@ -2172,8 +2175,7 @@ public class AiService {
      * stream errors with {@code AiException}; clients should retry
      * with a higher token budget or shorter input.
      */
-    public Flux<JsonNode> translateReportStream(
-            JsonNode inputData, JsonNode resultData, String targetLanguage) {
+    public Flux<JsonNode> translateReportStream(JsonNode inputData, JsonNode resultData, String targetLanguage) {
         String target = lang(targetLanguage);
         JsonNode strippedResult = stripSources(resultData);
         List<TranslationChunk> chunks = buildTranslationChunks(inputData, strippedResult);
@@ -2188,7 +2190,8 @@ public class AiService {
 
         // Total input across all chunks, used as the denominator for the
         // frontend's determinate progress bar.
-        final int inputChars = chunks.stream().mapToInt(c -> c.envelopeJson().length()).sum();
+        final int inputChars =
+                chunks.stream().mapToInt(c -> c.envelopeJson().length()).sum();
 
         // Per-chunk state: running output byte count + final parsed JSON.
         // ConcurrentHashMap because the per-chunk Fluxes run on whatever
@@ -2208,10 +2211,7 @@ public class AiService {
         // and recorded so the parallel siblings don't get cancelled — we
         // want a best-effort assembly that ships what it could translate.
         long fanOutStart = System.currentTimeMillis();
-        log.info(
-                "[translate-stream] fan-out → {} chunks, totalInputChars={}",
-                chunks.size(),
-                inputChars);
+        log.info("[translate-stream] fan-out → {} chunks, totalInputChars={}", chunks.size(), inputChars);
         // Trace id shared across every translation chunk so the PostHog dashboard groups
         // them under one $ai_trace_id (matches translateReport's unary fan-out behaviour).
         final String translateTrace = llmCapture.newTraceId();
@@ -2235,7 +2235,8 @@ public class AiService {
                     .maxTokens(12000);
             java.util.concurrent.atomic.AtomicReference<Throwable> chunkErr =
                     new java.util.concurrent.atomic.AtomicReference<>();
-            Flux<Object> events = anthropicClient.streamMessage(model, TRANSLATE_SYSTEM, userPrompt, 12000)
+            Flux<Object> events = anthropicClient
+                    .streamMessage(model, TRANSLATE_SYSTEM, userPrompt, 12000)
                     .doOnSubscribe(s -> {
                         subscribeAt[0] = System.currentTimeMillis();
                         chunkT0[0] = subscribeAt[0];
@@ -2327,17 +2328,15 @@ public class AiService {
             chunkFluxes.add(events);
         }
 
-        Flux<JsonNode> progressFlux = Flux.merge(chunkFluxes)
-                .concatMap(unused -> {
-                    long now = System.currentTimeMillis();
-                    if (now - lastEmit.get() < 200) return Flux.<JsonNode>empty();
-                    lastEmit.set(now);
-                    int total = outputBytesByKey.values()
-                            .stream()
-                            .mapToInt(AtomicInteger::get)
-                            .sum();
-                    return Flux.just(translateProgressEvent(inputChars, total));
-                });
+        Flux<JsonNode> progressFlux = Flux.merge(chunkFluxes).concatMap(unused -> {
+            long now = System.currentTimeMillis();
+            if (now - lastEmit.get() < 200) return Flux.<JsonNode>empty();
+            lastEmit.set(now);
+            int total = outputBytesByKey.values().stream()
+                    .mapToInt(AtomicInteger::get)
+                    .sum();
+            return Flux.just(translateProgressEvent(inputChars, total));
+        });
 
         Flux<JsonNode> doneFlux = Flux.defer(() -> {
             // If every chunk failed, surface a single AiException so the
@@ -2347,9 +2346,10 @@ public class AiService {
             // tab availability check naturally hides them.
             if (resultByKey.isEmpty() && !errorByKey.isEmpty()) {
                 Throwable first = errorByKey.values().iterator().next();
-                return Flux.error(first instanceof AiException
-                        ? first
-                        : new AiException("Translation failed: " + first.getMessage()));
+                return Flux.error(
+                        first instanceof AiException
+                                ? first
+                                : new AiException("Translation failed: " + first.getMessage()));
             }
             JsonNode assembled = assembleTranslatedEnvelope(chunks, resultByKey);
             JsonNode complete = reattachSources(assembled, resultData);
@@ -2554,21 +2554,22 @@ public class AiService {
             final String systemPrompt;
             final List<? extends Object> bounded;
             try {
-                String snapshot = (request.context() == null || request.context().isBlank())
-                        ? "(no snapshot available — user has not opened the wizard yet)"
-                        : request.context();
+                String snapshot =
+                        (request.context() == null || request.context().isBlank())
+                                ? "(no snapshot available — user has not opened the wizard yet)"
+                                : request.context();
                 String template = "en".equals(lang(request.language())) ? CHAT_SYSTEM_EN : CHAT_SYSTEM_ES;
                 systemPrompt = template.formatted(snapshot);
                 bounded = boundHistory(request.messages(), 20);
-                log.info("chatStream entry: lang={} ctxChars={} msgCount={}",
+                log.info(
+                        "chatStream entry: lang={} ctxChars={} msgCount={}",
                         lang(request.language()),
                         snapshot.length(),
                         bounded == null ? 0 : bounded.size());
             } catch (Throwable t) {
                 log.error("chatStream synchronous prep failed: {}", t.getMessage(), t);
-                return Flux.error(new AiException(
-                        "Chat preparation failed: " + t.getClass().getSimpleName()
-                                + (t.getMessage() == null ? "" : (" — " + t.getMessage()))));
+                return Flux.error(new AiException("Chat preparation failed: "
+                        + t.getClass().getSimpleName() + (t.getMessage() == null ? "" : (" — " + t.getMessage()))));
             }
 
             String chatModel = properties.sonnet();
@@ -2626,7 +2627,8 @@ public class AiService {
             // streamConversation onErrorResume handlers into a logged
             // AiException, so it still routes through the 502 mapper rather
             // than producing the silent empty 500 we've been chasing.
-            return deltaFlux.concatWith(doneFlux)
+            return deltaFlux
+                    .concatWith(doneFlux)
                     .doOnError(chatErr::set)
                     .onErrorResume(t -> !(t instanceof AiException), t -> {
                         log.error("chatStream pipeline error: {}", t.getMessage(), t);
@@ -2704,9 +2706,10 @@ public class AiService {
      * @return Mono emitting JSON of the form {@code {"text": "<shortened>"}}
      */
     public Mono<JsonNode> tighten(TightenRequest request) {
-        String preserve = (request.preserveTerms() == null || request.preserveTerms().isEmpty())
-                ? "(none)"
-                : String.join(", ", request.preserveTerms());
+        String preserve =
+                (request.preserveTerms() == null || request.preserveTerms().isEmpty())
+                        ? "(none)"
+                        : String.join(", ", request.preserveTerms());
         String userPrompt =
                 """
                 %s
@@ -2718,10 +2721,7 @@ public class AiService {
                 %s
                 """
                         .formatted(
-                                langInstruction(request.language()),
-                                request.targetChars(),
-                                preserve,
-                                request.text());
+                                langInstruction(request.language()), request.targetChars(), preserve, request.text());
         String model = properties.haiku();
         // Budget the response to roughly 2× targetChars in tokens (very loose upper bound — 1
         // token ≈ 3-4 chars for Latin text, so 2× chars is ~5-7× the actual needed token count
@@ -2763,8 +2763,7 @@ public class AiService {
      *  assistant — the API call wouldn't make sense). Trims from the
      *  front, since the most recent turns are the most contextually
      *  relevant. */
-    private static List<? extends Object> boundHistory(
-            List<? extends Object> messages, int maxMessages) {
+    private static List<? extends Object> boundHistory(List<? extends Object> messages, int maxMessages) {
         if (messages == null || messages.size() <= maxMessages) return messages;
         return messages.subList(messages.size() - maxMessages, messages.size());
     }
@@ -2777,10 +2776,16 @@ public class AiService {
      */
     private String contextPrompt(AnalyzeContextRequest request) {
         StringBuilder sb = new StringBuilder()
-                .append(langInstruction(request.language())).append("\n\n")
-                .append("Company profile: ").append(request.companyProfile()).append('\n')
-                .append("STEEP analysis: ").append(request.steep()).append('\n')
-                .append("Horizon signals: ").append(request.horizon());
+                .append(langInstruction(request.language()))
+                .append("\n\n")
+                .append("Company profile: ")
+                .append(request.companyProfile())
+                .append('\n')
+                .append("STEEP analysis: ")
+                .append(request.steep())
+                .append('\n')
+                .append("Horizon signals: ")
+                .append(request.horizon());
         if (request.scenarios() != null && !request.scenarios().isNull()) {
             sb.append("\nScenarios already chosen: ").append(request.scenarios());
         }
@@ -2816,12 +2821,12 @@ public class AiService {
      * unconditionally keeps the shared user-prompt helpers symmetric.
      */
     private String horizonContextBlock(JsonNode companyProfile, String language) {
-        int h    = extractHorizonYears(companyProfile);
+        int h = extractHorizonYears(companyProfile);
         int hMid = Math.max(1, Math.round(h / 2.0f));
-        int hq   = Math.max(1, Math.round(hMid / 2.0f));
-        int y0   = java.time.Year.now().getValue();
+        int hq = Math.max(1, Math.round(hMid / 2.0f));
+        int y0 = java.time.Year.now().getValue();
         boolean en = "en".equals(lang(language));
-        String yearsWord  = en ? "years"  : "años";
+        String yearsWord = en ? "years" : "años";
         String monthsWord = en ? "months" : "meses";
         return """
 
@@ -2834,11 +2839,7 @@ public class AiService {
                   - H2: "18 %s-%d %s"
                   - H3: "%d-%d %s"
                 """
-                .formatted(
-                        y0 + hq, y0 + hMid, y0 + h,
-                        monthsWord,
-                        monthsWord, hMid, yearsWord,
-                        hMid, h, yearsWord);
+                .formatted(y0 + hq, y0 + hMid, y0 + h, monthsWord, monthsWord, hMid, yearsWord, hMid, h, yearsWord);
     }
 
     /**

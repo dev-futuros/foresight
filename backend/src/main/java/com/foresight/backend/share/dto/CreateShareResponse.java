@@ -19,9 +19,8 @@ public record CreateShareResponse(String token, String shareUrl, Instant expires
     }
 
     public static CreateShareResponse from(ShareToken share, String publicBaseUrl, String language) {
-        String trimmed = publicBaseUrl.endsWith("/")
-                ? publicBaseUrl.substring(0, publicBaseUrl.length() - 1)
-                : publicBaseUrl;
+        String trimmed =
+                publicBaseUrl.endsWith("/") ? publicBaseUrl.substring(0, publicBaseUrl.length() - 1) : publicBaseUrl;
         String url = trimmed + "/share/" + share.getToken();
         if (language != null && !language.isBlank()) {
             url = url + "?lang=" + language;

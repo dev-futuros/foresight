@@ -36,9 +36,7 @@ function resolveReportIdFromArgsOrUrl(args: unknown): { id: string | undefined }
  * version that calls goToStep imperatively while the wizard is mounted; on
  * unmount {@link useCommands} restores this version automatically.
  */
-export function buildShellGoToCommand(
-  navigate: NavigateFunction,
-): CommandSpec<{ step: number }, string> {
+function buildShellGoToCommand(navigate: NavigateFunction): CommandSpec<{ step: number }, string> {
   return {
     name: 'goTo',
     mode: 'auto',

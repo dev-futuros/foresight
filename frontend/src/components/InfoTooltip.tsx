@@ -49,7 +49,7 @@ export default function InfoTooltip({ text }: { text: string }) {
     const trigger = triggerRef.current.getBoundingClientRect();
     const wantsFlip = trigger.top - bubble.height - 12 < 0;
     const placement: 'top' | 'bottom' = wantsFlip ? 'bottom' : 'top';
-    let top = placement === 'top' ? trigger.top - 8 : trigger.bottom + 8;
+    const top = placement === 'top' ? trigger.top - 8 : trigger.bottom + 8;
     let left = trigger.left + trigger.width / 2;
     // Clamp horizontally so the bubble stays inside the viewport.
     const halfW = bubble.width / 2;

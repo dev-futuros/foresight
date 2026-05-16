@@ -70,8 +70,7 @@ public class AnthropicClient {
      * @param maxTokens    upper bound on response length; pick generously for long outputs
      * @return a Mono that emits the raw JSON response from Anthropic
      */
-    public Mono<JsonNode> sendMessage(
-            String model, String systemPrompt, String userPrompt, int maxTokens) {
+    public Mono<JsonNode> sendMessage(String model, String systemPrompt, String userPrompt, int maxTokens) {
         return doSend(model, systemPrompt, userPrompt, maxTokens, null);
     }
 
@@ -119,8 +118,7 @@ public class AnthropicClient {
     }
 
     private Flux<ServerSentEvent<String>> streamRaw(
-            String model, String systemPrompt, String userPrompt, int maxTokens,
-            List<Map<String, Object>> tools) {
+            String model, String systemPrompt, String userPrompt, int maxTokens, List<Map<String, Object>> tools) {
         Map<String, Object> body = new HashMap<>();
         body.put("model", model);
         body.put("max_tokens", maxTokens);
@@ -214,14 +212,8 @@ public class AnthropicClient {
     }
 
     private Mono<JsonNode> doSend(
-            String model, String systemPrompt, String userPrompt, int maxTokens,
-            List<Map<String, Object>> tools) {
-        return doSendRaw(
-                model,
-                systemPrompt,
-                List.of(Map.of("role", "user", "content", userPrompt)),
-                maxTokens,
-                tools);
+            String model, String systemPrompt, String userPrompt, int maxTokens, List<Map<String, Object>> tools) {
+        return doSendRaw(model, systemPrompt, List.of(Map.of("role", "user", "content", userPrompt)), maxTokens, tools);
     }
 
     private Mono<JsonNode> doSendRaw(

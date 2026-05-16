@@ -395,44 +395,47 @@
    !important is needed throughout because Clerk computes inline hover styles
    from `variables.colorPrimary` and applies them directly to the element.
    Without !important the gold glow gets clobbered by Clerk's auto-darken. */
-.cl-btn-primary {
-  width: 100% !important;
-  margin-top: 0 !important;
-  padding: 13px 22px !important;
-  border-radius: var(--r-md) !important;
-  background: var(--gold) !important;
-  border: 1px solid var(--gold-soft) !important;
-  color: #0a0a0a !important;
-  font-family: var(--sans) !important;
-  font-size: 14px !important;
-  font-weight: 600 !important;
-  letter-spacing: 0.005em !important;
-  cursor: pointer !important;
-  transition: opacity 180ms, transform 120ms var(--ease), box-shadow 200ms !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 10px !important;
-  box-shadow: 0 1px 0 hsla(0, 0%, 100%, 0.2) inset !important;
-  text-transform: none !important;
+/* "Continue →" button on /sign-in and /sign-up — wraps Kinde's <LoginLink> /
+   <RegisterLink>, which render as plain anchors. No `!important` needed (was
+   only there in the old Clerk-era rule to override Clerk's auto-generated
+   inline styles; the Kinde SDK doesn't inject any). */
+.kinde-continue-btn {
+  width: 100%;
+  margin-top: 0;
+  padding: 13px 22px;
+  border-radius: var(--r-md);
+  background: var(--gold);
+  border: 1px solid var(--gold-soft);
+  color: #0a0a0a;
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+  cursor: pointer;
+  transition: opacity 180ms, transform 120ms var(--ease), box-shadow 200ms;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: 0 1px 0 hsla(0, 0%, 100%, 0.2) inset;
+  text-transform: none;
+  text-decoration: none; /* It's an <a>, not a <button> — strip the underline. */
 }
-.cl-btn-primary:hover {
-  opacity: 0.92 !important;
-  background: var(--gold) !important;
-  border-color: var(--gold-soft) !important;
-  color: #0a0a0a !important;
+.kinde-continue-btn:hover {
+  opacity: 0.92;
+  background: var(--gold);
+  border-color: var(--gold-soft);
+  color: #0a0a0a;
   box-shadow:
     0 1px 0 hsla(0, 0%, 100%, 0.2) inset,
-    0 0 32px hsla(40, 60%, 56%, 0.22) !important;
+    0 0 32px hsla(40, 60%, 56%, 0.22);
 }
-.cl-btn-primary:active {
-  transform: scale(0.985) !important;
+.kinde-continue-btn:active {
+  transform: scale(0.985);
 }
-.cl-btn-primary:disabled {
-  opacity: 0.4 !important;
-  cursor: not-allowed !important;
-  transform: none !important;
-  box-shadow: none !important;
+.kinde-continue-btn:focus-visible {
+  outline: 2px solid var(--gold-soft);
+  outline-offset: 2px;
 }
 
 /* Secondary / reset button (e.g. "Back" in multi-step flows) */

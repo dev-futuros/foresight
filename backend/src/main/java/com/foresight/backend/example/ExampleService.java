@@ -64,17 +64,13 @@ public class ExampleService {
     /** Look up one example by id. */
     @Transactional(readOnly = true)
     public Example get(UUID id) {
-        return exampleRepository
-                .findById(id)
-                .orElseThrow(() -> new NotFoundException("Example not found"));
+        return exampleRepository.findById(id).orElseThrow(() -> new NotFoundException("Example not found"));
     }
 
     /** Look up one example by slug (used by the public share path). */
     @Transactional(readOnly = true)
     public Example getBySlug(String slug) {
-        return exampleRepository
-                .findBySlug(slug)
-                .orElseThrow(() -> new NotFoundException("Example not found"));
+        return exampleRepository.findBySlug(slug).orElseThrow(() -> new NotFoundException("Example not found"));
     }
 
     // ────────────────────────────────────────────────────────────────
@@ -115,8 +111,7 @@ public class ExampleService {
                 .findByIdAndUserId(reportId, callerId)
                 .orElseThrow(() -> new NotFoundException("Report not found"));
         if (source.getResultData() == null || source.getStatus() != ReportStatus.COMPLETED) {
-            throw new BadRequestException(
-                    "Only completed reports with a generated analysis can be promoted");
+            throw new BadRequestException("Only completed reports with a generated analysis can be promoted");
         }
         String slug = request.slug();
         Example existing = exampleRepository.findBySlug(slug).orElse(null);
@@ -137,9 +132,7 @@ public class ExampleService {
             target = existing;
         }
 
-        String title = (request.title() != null && !request.title().isBlank())
-                ? request.title()
-                : source.getTitle();
+        String title = (request.title() != null && !request.title().isBlank()) ? request.title() : source.getTitle();
         target.setTitle(title);
         target.setDescription(request.description());
         target.setPrimaryLanguage(source.getPrimaryLanguage());
@@ -243,8 +236,7 @@ public class ExampleService {
         }
         Example example = get(id);
         if (language.equals(example.getPrimaryLanguage())) {
-            throw new BadRequestException(
-                    "Cannot delete the example's primary language (" + language + ")");
+            throw new BadRequestException("Cannot delete the example's primary language (" + language + ")");
         }
         JsonNode translations = example.getTranslations();
         if (translations == null || !translations.isObject() || !translations.has(language)) {
@@ -305,15 +297,15 @@ public class ExampleService {
         }
 
         if (example.getResultData() == null) {
-            return Flux.error(new BadRequestException(
-                    "Example has no analysis to translate"));
+            return Flux.error(new BadRequestException("Example has no analysis to translate"));
         }
 
         final UUID exampleId = example.getId();
         final JsonNode inputData = example.getInputData();
         final JsonNode resultData = example.getResultData();
 
-        return aiService.translateReportStream(inputData, resultData, targetLanguage)
+        return aiService
+                .translateReportStream(inputData, resultData, targetLanguage)
                 .concatMap(evt -> {
                     if (evt == null || !"done".equals(evt.path("type").asText())) {
                         return Mono.just(evt);
@@ -324,7 +316,9 @@ public class ExampleService {
                     ObjectNode entry = objectMapper.createObjectNode();
                     if (evt.has("inputData")) entry.set("inputData", evt.get("inputData"));
                     if (evt.has("resultData")) entry.set("resultData", evt.get("resultData"));
-                    entry.put("generatedAt", evt.path("generatedAt").asText(Instant.now().toString()));
+                    entry.put(
+                            "generatedAt",
+                            evt.path("generatedAt").asText(Instant.now().toString()));
                     return Mono.fromRunnable(() -> persistTranslation(exampleId, targetLanguage, entry))
                             .subscribeOn(Schedulers.boundedElastic())
                             .then(Mono.just(evt));
@@ -374,9 +368,10 @@ public class ExampleService {
             throw new BadRequestException("Translator returned an empty or invalid payload");
         }
 
-        ObjectNode cache = (example.getTranslations() != null && example.getTranslations().isObject())
-                ? example.getTranslations().deepCopy()
-                : objectMapper.createObjectNode();
+        ObjectNode cache =
+                (example.getTranslations() != null && example.getTranslations().isObject())
+                        ? example.getTranslations().deepCopy()
+                        : objectMapper.createObjectNode();
         ObjectNode entry = objectMapper.createObjectNode();
         if (translated.has("inputData")) entry.set("inputData", translated.get("inputData"));
         if (translated.has("resultData")) entry.set("resultData", translated.get("resultData"));
@@ -396,7 +391,8 @@ public class ExampleService {
             transactionTemplate.executeWithoutResult(status -> {
                 Example example = exampleRepository.findById(exampleId).orElse(null);
                 if (example == null) return;
-                ObjectNode cache = (example.getTranslations() != null && example.getTranslations().isObject())
+                ObjectNode cache = (example.getTranslations() != null
+                                && example.getTranslations().isObject())
                         ? example.getTranslations().deepCopy()
                         : objectMapper.createObjectNode();
                 cache.set(targetLanguage, entry);

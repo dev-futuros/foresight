@@ -56,12 +56,13 @@ export default function PromoteToExampleModal({ open, reportId, onClose }: Props
 
   const defaultSlug = useMemo(
     () => (reportQuery.data?.title ? slugify(reportQuery.data.title) : ''),
-    [reportQuery.data?.title],
+    [reportQuery.data],
   );
 
   // Reset the form whenever the modal opens against a different report.
   useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset-on-open: the form must snap back to defaults for each new report
       setSlug(defaultSlug);
       setTitle('');
       setDescription('');
@@ -74,6 +75,7 @@ export default function PromoteToExampleModal({ open, reportId, onClose }: Props
   // Keep slug in sync with the suggested default until the user starts
   // editing it — once they touch the field, we stop overwriting.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- mirror defaultSlug into slug until the user takes ownership of the field
     if (open && !slugDirty) setSlug(defaultSlug);
   }, [open, slugDirty, defaultSlug]);
 

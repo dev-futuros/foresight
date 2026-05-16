@@ -314,7 +314,7 @@ function registerCachedFonts(doc: jsPDF) {
       doc.addFileToVFS(filename, f.base64);
       doc.addFont(filename, f.family, f.style);
     } catch (err) {
-      // eslint-disable-next-line no-console
+       
       console.warn(
         `[exportPdf] Could not register ${f.family} (${f.style}) — likely a ` +
           `variable-font TTF jsPDF can't parse. Drop the *static* TTFs from ` +
@@ -2053,7 +2053,7 @@ function fitTextLines(
  */
 function warnOverflow(where: string, text: string, maxWidth: number, maxLines: number) {
   const snippet = text.length > 80 ? text.slice(0, 77) + '…' : text;
-  // eslint-disable-next-line no-console
+   
   console.warn(
     `[exportPdf] text overflow at "${where}" (max ${maxLines} line(s) @ ${maxWidth.toFixed(1)}mm): "${snippet}"`,
   );
@@ -2077,7 +2077,7 @@ function renderBriefAndExec(
   // Set BEFORE addPage so the new page captures the section context for
   // its rotated eyebrow + chip.
   setSection(doc, en ? 'Brief' : 'Resumen', INK_MUTE);
-  let y = addPage(doc);
+  const y = addPage(doc);
   drawRunningHead(doc);
   const cp = input.companyProfile ?? {};
 
@@ -3679,7 +3679,7 @@ function renderDrivingForceHero(
   const textX = MARGIN_X + numCol + 6;
   const textW = CONTENT_W - numCol - 6;
 
-  let y = yIn;
+  const y = yIn;
   // ── Left lockup: massive rank numeral
   setText(doc, colors.fg, numSize, 'bold', FONT_SERIF);
   doc.text(String(f.rank), MARGIN_X, y + numSize * 0.7);
@@ -4264,7 +4264,7 @@ function renderHorizonHeader(doc: jsPDF, yIn: number, h: 'H1' | 'H2' | 'H3', col
   // left, kicker + label stacked on the right, gold rule below the row.
   // Reserves enough vertical real estate that the lockup never compresses.
   const blockH = 30;
-  let y = checkY(doc, yIn, blockH + 6);
+  const y = checkY(doc, yIn, blockH + 6);
   // The horizon code as a display numeral. 48pt serif, anchored low so
   // its baseline sits with the bottom of the row.
   setText(doc, color, 48, 'bold', FONT_SERIF);
@@ -4725,7 +4725,6 @@ function collectFieldNeeds(
   _input: InputData,
   result: ResultData | null,
   cp: CompanyProfile,
-  _language: 'es' | 'en',
 ): FieldNeed[] {
   const out: FieldNeed[] = [];
 
@@ -4852,7 +4851,7 @@ async function renderReport(report: ReportResponse) {
   // Step 2: collect every field that needs AI shortening to fit its
   // CHOSEN-layout budget, fan out parallel /api/ai/tighten calls, return
   // a path→shortened-text map. Renderers consult it via the T() accessor.
-  const needs = collectFieldNeeds(input, result, cp, exportLang);
+  const needs = collectFieldNeeds(input, result, cp);
   let tightened: TightenedMap = {};
   if (needs.length > 0) {
     tightened = await runFitPass(needs, exportLang, report.pdfOptimized ?? null);

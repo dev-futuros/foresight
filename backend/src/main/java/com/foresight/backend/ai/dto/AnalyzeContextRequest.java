@@ -32,13 +32,13 @@ public record AnalyzeContextRequest(
         @NotNull JsonNode steep,
         @NotNull JsonNode horizon,
         @Schema(
-                description = "Scenarios already produced by /api/ai/analyze, passed in so the"
-                        + " downstream analysis stays consistent with what the user has already"
-                        + " seen. Optional; omit for the sources call.")
+                        description = "Scenarios already produced by /api/ai/analyze, passed in so the"
+                                + " downstream analysis stays consistent with what the user has already"
+                                + " seen. Optional; omit for the sources call.")
                 JsonNode scenarios,
         @Schema(
-                description = "Dated research bullets gathered by /analyze/scan up front."
-                        + " When present, section calls anchor on these shared facts instead of"
-                        + " each firing their own web_search loop.")
+                        description = "Dated research bullets gathered by /analyze/scan up front."
+                                + " When present, section calls anchor on these shared facts instead of"
+                                + " each firing their own web_search loop.")
                 String research,
         @Schema(example = "es") String language) {}

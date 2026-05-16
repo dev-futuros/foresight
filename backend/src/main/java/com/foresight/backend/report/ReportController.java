@@ -13,8 +13,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.*;
 
-import reactor.core.publisher.Flux;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.foresight.backend.common.security.AuthenticatedUser;
 import com.foresight.backend.common.security.CurrentUser;
@@ -26,6 +24,7 @@ import com.foresight.backend.report.dto.UpdateReportRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import lombok.RequiredArgsConstructor;
+import reactor.core.publisher.Flux;
 
 /**
  * REST endpoints for managing foresight reports.
@@ -212,9 +211,7 @@ public class ReportController {
     @Operation(summary = "Delete a cached translation from a report (owner only).")
     @DeleteMapping("/{id}/translations/{language}")
     public ResponseEntity<Void> deleteTranslation(
-            @CurrentUser AuthenticatedUser principal,
-            @PathVariable UUID id,
-            @PathVariable String language) {
+            @CurrentUser AuthenticatedUser principal, @PathVariable UUID id, @PathVariable String language) {
         reportService.deleteTranslation(id, principal.id(), language);
         return ResponseEntity.noContent().build();
     }

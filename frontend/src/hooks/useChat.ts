@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { chatStream, type ChatMessage } from '../lib/aiClient';
 import { dispatch, get as getCommandSpec } from '../lib/commandBus';
 
@@ -157,11 +157,13 @@ export function useChat() {
 
   const ctxRef = useRef<ChatContextSnapshot>({ language: 'es', context: undefined });
   // Mirror of messages / pending so async callbacks can read fresh snapshots
-  // without re-subscribing on every render. Updated on each render below.
+  // without re-subscribing on every render. Updated each render via effect.
   const messagesRef = useRef<ChatMessageView[]>([]);
-  messagesRef.current = messages;
   const pendingRef = useRef(false);
-  pendingRef.current = pending;
+  useEffect(() => {
+    messagesRef.current = messages;
+    pendingRef.current = pending;
+  });
   // Index into `messages` marking the start of the current API-facing
   // conversation. Messages at index < apiCursor are visible in the
   // chat UI but excluded from outgoing API requests. Bumped to the

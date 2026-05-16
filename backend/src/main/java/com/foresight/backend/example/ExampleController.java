@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -78,15 +77,13 @@ public class ExampleController {
             @CurrentUser AuthenticatedUser principal,
             @PathVariable UUID reportId,
             @Valid @RequestBody PromoteToExampleRequest request) {
-        Example created = exampleService.promoteReport(
-                reportId, principal.id(), principal.role(), request);
+        Example created = exampleService.promoteReport(reportId, principal.id(), principal.role(), request);
         return ResponseEntity.status(201).body(ExampleResponse.from(created));
     }
 
     @Operation(summary = "Delete an example (DEV only).")
     @DeleteMapping("/api/examples/{id}")
-    public ResponseEntity<Void> delete(
-            @CurrentUser AuthenticatedUser principal, @PathVariable UUID id) {
+    public ResponseEntity<Void> delete(@CurrentUser AuthenticatedUser principal, @PathVariable UUID id) {
         exampleService.delete(id, principal.role());
         return ResponseEntity.noContent().build();
     }
@@ -124,9 +121,7 @@ public class ExampleController {
     @Operation(summary = "Delete a cached translation from an example (DEV only).")
     @DeleteMapping("/api/examples/{id}/translations/{language}")
     public ResponseEntity<Void> deleteTranslation(
-            @CurrentUser AuthenticatedUser principal,
-            @PathVariable UUID id,
-            @PathVariable String language) {
+            @CurrentUser AuthenticatedUser principal, @PathVariable UUID id, @PathVariable String language) {
         exampleService.deleteTranslation(id, principal.role(), language);
         return ResponseEntity.noContent().build();
     }
@@ -150,8 +145,7 @@ public class ExampleController {
             @RequestParam(value = "languages", required = false) String languages) {
         UUID userId = principal.id();
         String role = principal.role();
-        List<String> include =
-                com.foresight.backend.share.ShareController.parseLanguages(languages);
+        List<String> include = com.foresight.backend.share.ShareController.parseLanguages(languages);
         return () -> {
             ShareToken share = shareService.createForExample(id, userId, role, language, include);
             return ResponseEntity.status(201)
@@ -171,8 +165,7 @@ public class ExampleController {
      */
     @Operation(summary = "Demote an example back to a private report (DEV only).")
     @PostMapping("/api/examples/{id}/demote")
-    public ResponseEntity<DemoteResponse> demote(
-            @CurrentUser AuthenticatedUser principal, @PathVariable UUID id) {
+    public ResponseEntity<DemoteResponse> demote(@CurrentUser AuthenticatedUser principal, @PathVariable UUID id) {
         UUID reportId = exampleService.demoteToReport(id, principal.id(), principal.role());
         return ResponseEntity.status(201).body(new DemoteResponse(reportId));
     }

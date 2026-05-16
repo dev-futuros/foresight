@@ -15,7 +15,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     /**
      * @param externalUserId the stable user identifier from the external identity provider —
-     *     the {@code sub} claim of the session JWT (Clerk pre-migration, Kinde post-migration)
+     *     the {@code sub} claim of the session JWT (Kinde)
      * @return the matching user, or empty if none exists
      */
     Optional<User> findByExternalUserId(String externalUserId);

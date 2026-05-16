@@ -7,7 +7,7 @@ import {
   type ChatMessageView,
   type PendingCommand,
 } from '../../hooks/useChat';
-import { useAssistantContext } from './AssistantContextProvider';
+import { useAssistantContext } from './useAssistantContext';
 import {
   buildAssistantSnapshot,
   type AssistantSnapshotInput,
@@ -151,7 +151,12 @@ export default function ChatAssistant() {
     if (typeof window === 'undefined') return 380;
     const raw = window.localStorage?.getItem('fs_chat_width');
     const n = raw ? Number.parseInt(raw, 10) : NaN;
-    return Number.isFinite(n) ? n : 380;
+    const wanted = Number.isFinite(n) ? n : 380;
+    // Clamp at construction so the very first paint can't spill off-screen
+    // on a viewport narrower than the persisted width.
+    const min = 320;
+    const max = Math.min(760, Math.max(min, window.innerWidth - 320));
+    return Math.min(Math.max(wanted, min), max);
   });
   const [resizing, setResizing] = useState(false);
   // Count of assistant messages received while the panel was closed —
@@ -227,7 +232,9 @@ export default function ChatAssistant() {
     context: snapshot,
     language,
   });
-  snapshotRef.current = { context: snapshot, language };
+  useEffect(() => {
+    snapshotRef.current = { context: snapshot, language };
+  });
 
   useEffect(() => {
     setAssistantNotifier((note) => {
@@ -281,16 +288,16 @@ export default function ChatAssistant() {
     const max = Math.min(760, Math.max(min, window.innerWidth - 320));
     return Math.min(Math.max(w, min), max);
   }, []);
+  // Clamping happens at every call site (setChatWidth(clampWidth(...)));
+  // the effect is purely the side-effect mirror: CSS var + persistence.
   useEffect(() => {
-    const clamped = clampWidth(chatWidth);
-    document.documentElement.style.setProperty('--chat-w', `${clamped}px`);
-    if (clamped !== chatWidth) setChatWidth(clamped);
+    document.documentElement.style.setProperty('--chat-w', `${chatWidth}px`);
     try {
-      window.localStorage?.setItem('fs_chat_width', String(clamped));
+      window.localStorage?.setItem('fs_chat_width', String(chatWidth));
     } catch {
       /* private-browsing / storage-disabled — no-op. */
     }
-  }, [chatWidth, clampWidth]);
+  }, [chatWidth]);
   // Re-clamp on window resize so a previously-saved width that no
   // longer fits the viewport snaps back into range.
   useEffect(() => {
@@ -350,18 +357,28 @@ export default function ChatAssistant() {
     [messages],
   );
   const lastSeenAssistantCountRef = useRef(visibleAssistantCount);
+  // While the panel is OPEN, keep the high-water mark synced so a later
+  // close+message doesn't replay all the messages the user already saw.
   useEffect(() => {
-    if (open) {
-      setUnread(0);
-      lastSeenAssistantCountRef.current = visibleAssistantCount;
-      return;
-    }
+    if (open) lastSeenAssistantCountRef.current = visibleAssistantCount;
+  }, [open, visibleAssistantCount]);
+  // While the panel is CLOSED, count new assistant messages so we can pulse
+  // the badge. The reset happens in the open-button handler.
+  useEffect(() => {
+    if (open) return;
     const prev = lastSeenAssistantCountRef.current;
     if (visibleAssistantCount > prev) {
-      setUnread((u) => u + (visibleAssistantCount - prev));
+      const delta = visibleAssistantCount - prev;
       lastSeenAssistantCountRef.current = visibleAssistantCount;
+      setUnread((u) => u + delta);
     }
   }, [visibleAssistantCount, open]);
+
+  const openChat = useCallback(() => {
+    setOpen(true);
+    setUnread(0);
+    lastSeenAssistantCountRef.current = visibleAssistantCount;
+  }, [visibleAssistantCount]);
 
   useEffect(() => {
     if (!open) return;
@@ -456,7 +473,7 @@ export default function ChatAssistant() {
           className={`chat-edge${unread > 0 ? ' has-unread' : ''}`}
           aria-label={t('chat.openAria')}
           title={t('chat.openTitle')}
-          onClick={() => setOpen(true)}
+          onClick={openChat}
         >
           <svg viewBox="0 0 24 24" aria-hidden>
             <path d="M21 12a8 8 0 0 1-11.5 7.2L4 21l1.8-5.5A8 8 0 1 1 21 12z" />

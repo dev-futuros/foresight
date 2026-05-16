@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Duration;
+import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,7 +24,6 @@ import com.foresight.backend.ai.dto.HorizonSuggestRequest;
 import com.foresight.backend.ai.dto.SteepSuggestRequest;
 import com.foresight.backend.analytics.LlmCapture;
 
-import java.util.Optional;
 import reactor.core.publisher.Mono;
 
 @ExtendWith(MockitoExtension.class)
@@ -44,8 +44,7 @@ class AiServiceTest {
         // tests only verify that the call shape matches, not the specific
         // tier (the per-call tier mapping is straightforward and is best
         // covered by reading the AiService source rather than by mocking).
-        AnthropicProperties.Models models =
-                new AnthropicProperties.Models("test-haiku", "test-sonnet", "test-opus");
+        AnthropicProperties.Models models = new AnthropicProperties.Models("test-haiku", "test-sonnet", "test-opus");
         AnthropicProperties props = new AnthropicProperties(
                 "test-key",
                 "https://api.anthropic.test",
@@ -74,12 +73,11 @@ class AiServiceTest {
 
         ArgumentCaptor<String> systemCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
-        verify(anthropicClient)
-                .sendMessage(anyString(), systemCaptor.capture(), promptCaptor.capture(), eq(700));
+        verify(anthropicClient).sendMessage(anyString(), systemCaptor.capture(), promptCaptor.capture(), eq(700));
 
         assertThat(systemCaptor.getValue()).contains("STEEP dimension");
         assertThat(promptCaptor.getValue())
-                .contains("Language: en")
+                .contains("Output language: ENGLISH")
                 .contains("Dimension: technological")
                 .contains("Acme Corp");
         assertThat(result).isEqualTo(expected);
@@ -93,10 +91,9 @@ class AiServiceTest {
         aiService.suggestSteep(new SteepSuggestRequest("social", "Acme", null)).block();
 
         ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
-        verify(anthropicClient)
-                .sendMessage(anyString(), anyString(), promptCaptor.capture(), eq(700));
+        verify(anthropicClient).sendMessage(anyString(), anyString(), promptCaptor.capture(), eq(700));
 
-        assertThat(promptCaptor.getValue()).contains("Language: es");
+        assertThat(promptCaptor.getValue()).contains("Idioma de salida: ESPAÑOL");
     }
 
     @Test
@@ -111,11 +108,12 @@ class AiServiceTest {
 
         ArgumentCaptor<String> systemCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
-        verify(anthropicClient)
-                .sendMessage(anyString(), systemCaptor.capture(), promptCaptor.capture(), eq(800));
+        verify(anthropicClient).sendMessage(anyString(), systemCaptor.capture(), promptCaptor.capture(), eq(800));
 
         assertThat(systemCaptor.getValue()).contains("Horizon Scanning");
-        assertThat(promptCaptor.getValue()).contains("Language: es").contains("Horizon: H2");
+        assertThat(promptCaptor.getValue())
+                .contains("Idioma de salida: ESPAÑOL")
+                .contains("Horizon: H2");
     }
 
     @Test
@@ -131,12 +129,11 @@ class AiServiceTest {
         ArgumentCaptor<String> systemCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
         verify(anthropicClient)
-                .sendMessageWithWebSearch(
-                        anyString(), systemCaptor.capture(), promptCaptor.capture(), eq(1500));
+                .sendMessageWithWebSearch(anyString(), systemCaptor.capture(), promptCaptor.capture(), eq(1500));
 
         assertThat(systemCaptor.getValue()).contains("web_search");
         assertThat(promptCaptor.getValue())
-                .contains("Language: en")
+                .contains("Output language: ENGLISH")
                 .contains("Sector: Movilidad eléctrica")
                 .contains("Current year:")
                 .doesNotContain("Return ONLY the");
@@ -153,9 +150,7 @@ class AiServiceTest {
                 .block();
 
         ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
-        verify(anthropicClient)
-                .sendMessageWithWebSearch(
-                        anyString(), anyString(), promptCaptor.capture(), eq(1500));
+        verify(anthropicClient).sendMessageWithWebSearch(anyString(), anyString(), promptCaptor.capture(), eq(1500));
 
         assertThat(promptCaptor.getValue())
                 .contains("Sector: Movilidad eléctrica")
@@ -182,14 +177,13 @@ class AiServiceTest {
         // AiService; this test just confirms the prompt body contents
         // reach the client unchanged.
         ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
-        verify(anthropicClient)
-                .sendMessage(anyString(), anyString(), promptCaptor.capture(), eq(16000));
+        verify(anthropicClient).sendMessage(anyString(), anyString(), promptCaptor.capture(), eq(16000));
 
         String prompt = promptCaptor.getValue();
         assertThat(prompt)
                 .contains("Acme")
                 .contains("technological")
                 .contains("H1")
-                .contains("Language: en");
+                .contains("Output language: ENGLISH");
     }
 }

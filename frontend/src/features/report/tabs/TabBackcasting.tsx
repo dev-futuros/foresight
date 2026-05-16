@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { BackcastingEntry } from '../../../lib/aiClient';
 import type { ResultData } from '../ReportContent';
@@ -22,12 +22,14 @@ export default function TabBackcasting({ result }: { result: ResultData }) {
   const [activeIdx, setActiveIdx] = useState(0);
   const [selectedMilestoneIdx, setSelectedMilestoneIdx] = useState(0);
 
-  // When the user switches scenarios, reset the milestone selection to
-  // the first card so the detail panel doesn't briefly read from the
-  // previous scenario before the user clicks again.
-  useEffect(() => {
+  // Reset milestone selection alongside scenario switch so the detail
+  // panel doesn't briefly read from the previous scenario. Wraps the
+  // setter so the two state updates batch into a single render and we
+  // avoid the "setState in effect" anti-pattern.
+  const switchScenario = (i: number) => {
+    setActiveIdx(i);
     setSelectedMilestoneIdx(0);
-  }, [activeIdx]);
+  };
 
   if (entries.length === 0) {
     return <p className="empty-state">{t('report.results.empty')}</p>;
@@ -49,7 +51,7 @@ export default function TabBackcasting({ result }: { result: ResultData }) {
             role="tab"
             className={`bc-tab-btn${i === activeIdx ? ' active' : ''}`}
             aria-selected={i === activeIdx}
-            onClick={() => setActiveIdx(i)}
+            onClick={() => switchScenario(i)}
           >
             {p.scenarioType}: {p.scenarioName}
           </button>

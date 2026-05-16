@@ -6,9 +6,9 @@ import api from '../../lib/api';
 import { useReport, useTranslateReport } from '../../hooks/useReports';
 import { useDemoteExample, useTranslateExample } from '../../hooks/useExamples';
 import { useIsDev } from '../../hooks/useAuth';
-import { useSetStepper } from '../shell/StepperContext';
+import { useSetStepper } from '../shell/useStepper';
 import { useCommands } from '../../lib/useCommands';
-import { useSetAssistantContext } from '../chat/AssistantContextProvider';
+import { useSetAssistantContext } from '../chat/useAssistantContext';
 import type { ReportResultSnapshot } from '../../lib/buildAssistantSnapshot';
 import { exportReportPdf } from '../../lib/exportPdf';
 import { exportReportPpt } from '../../lib/exportPpt';
@@ -84,9 +84,10 @@ export default function ReportPage() {
   const requestedLang: ExportLanguage | null =
     langParam === 'es' || langParam === 'en' ? langParam : null;
   const primaryLang = (report?.primaryLanguage as ExportLanguage | undefined) ?? 'es';
-  const availableLangs = (report?.availableLanguages as ExportLanguage[] | undefined) ?? [
-    primaryLang,
-  ];
+  const availableLangs = useMemo<ExportLanguage[]>(
+    () => (report?.availableLanguages as ExportLanguage[] | undefined) ?? [primaryLang],
+    [report?.availableLanguages, primaryLang],
+  );
 
   // Stored preference. Read once via {@code useState} initialiser so we
   // don't slam {@code localStorage} on every render. Updated via
@@ -141,6 +142,7 @@ export default function ReportPage() {
     if (requestedLang && availableLangs.includes(requestedLang)) {
       try {
         window.localStorage.setItem(storageKey, requestedLang);
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- mirror URL-driven lang into storage-backed state so deep-linked arrivals stick across reloads
         setStoredLang(requestedLang);
       } catch {
         /* private-browsing / storage-disabled — no-op. */
@@ -381,7 +383,7 @@ export default function ReportPage() {
       // No navigation needed — same URL, new shape.
       await refetch();
     } catch (err) {
-      // eslint-disable-next-line no-console
+       
       console.error('[report] demote failed', err);
     }
   }

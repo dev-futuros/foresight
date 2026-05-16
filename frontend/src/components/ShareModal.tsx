@@ -68,6 +68,7 @@ export default function ShareModal({ open, reportId, kind = 'report', onClose }:
   // everything they've translated; opting OUT is the rare path.
   useEffect(() => {
     if (open && data) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset-on-open: snap pickers back to the row's defaults whenever the modal opens
       setLanguage(primaryLanguage);
       setIncludedLanguages([...availableLanguages]);
     }
@@ -80,6 +81,7 @@ export default function ShareModal({ open, reportId, kind = 'report', onClose }:
   useEffect(() => {
     if (includedLanguages.length === 0) return;
     if (!includedLanguages.includes(language)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clamp default to a still-included language; cannot be derived during render because it would feed back into its own deps
       setLanguage(includedLanguages[0]);
     }
   }, [includedLanguages, language]);
@@ -106,6 +108,7 @@ export default function ShareModal({ open, reportId, kind = 'report', onClose }:
   useEffect(() => {
     if (!open) {
       createShare.reset();
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset copied flag when modal closes so reopening for a different row doesn't briefly show the old "copied!" state
       setCopied(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
