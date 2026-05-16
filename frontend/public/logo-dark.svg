@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Futuros 120x120 logomark — dark theme.
+
+  Matches the existing icon-192.png mark (bold serif "F" on near-black,
+  warm gold) so favicon / PWA icons / in-app logo placements all share
+  the same visual identity. Use this version on dark surfaces.
+
+  Colours mirror the dark-palette tokens in lib/exportPdf.ts:
+    BG    #0a0a0d  (page background)
+    GOLD  #d4a853  (brand-primary, warm amber)
+
+  SVG renders sharp at any size; export to PNG via your image tool if
+  you need a raster at a specific dpi (e.g. for an email signature).
+-->
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="120" height="120"
+     viewBox="0 0 120 120"
+     role="img"
+     aria-label="Futuros">
+  <title>Futuros</title>
+  <rect width="120" height="120" fill="#0a0a0d"/>
+  <text x="60" y="62"
+        text-anchor="middle"
+        dominant-baseline="central"
+        font-family="'Playfair Display', 'Times New Roman', Georgia, serif"
+        font-weight="900"
+        font-size="110"
+        fill="#d4a853">F</text>
+</svg>

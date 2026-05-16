@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Futuros 120x120 logomark — light theme.
+
+  Same composition as logo-dark.svg (bold serif "F" centred in a square)
+  but inverted for white / cream surfaces: white background with a
+  deeper gold for ~5:1 contrast against paper or a light UI.
+
+  Colours mirror the light-palette tokens in lib/exportPdf.ts:
+    BG    #ffffff  (white)
+    GOLD  #c8881a  (darker amber tuned for white backgrounds)
+
+  Use this version on light surfaces. Both variants are 120×120; pick the
+  one whose background matches the surface you're placing it on.
+-->
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="120" height="120"
+     viewBox="0 0 120 120"
+     role="img"
+     aria-label="Futuros">
+  <title>Futuros</title>
+  <rect width="120" height="120" fill="#ffffff"/>
+  <text x="60" y="62"
+        text-anchor="middle"
+        dominant-baseline="central"
+        font-family="'Playfair Display', 'Times New Roman', Georgia, serif"
+        font-weight="900"
+        font-size="110"
+        fill="#c8881a">F</text>
+</svg>
