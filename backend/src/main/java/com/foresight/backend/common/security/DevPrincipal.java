@@ -15,10 +15,12 @@ public final class DevPrincipal {
     public static final UUID ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
 
     /**
-     * Synthetic Clerk id for the dev user — not a real Clerk identifier, just a stable
-     * placeholder that satisfies the NOT NULL / UNIQUE constraint on {@code clerk_user_id}.
+     * Synthetic external-provider id for the dev user — not a real Clerk/Kinde identifier,
+     * just a stable placeholder that satisfies the NOT NULL / UNIQUE constraint on
+     * {@code external_user_id}. Value preserved across the Clerk → Kinde migration so
+     * existing local DBs keep working without a re-seed.
      */
-    public static final String CLERK_USER_ID = "user_local_dev";
+    public static final String EXTERNAL_USER_ID = "user_local_dev";
 
     /** Display name. */
     public static final String NAME = "Dev User";

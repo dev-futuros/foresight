@@ -70,9 +70,10 @@ public class LlmCapture {
     }
 
     /**
-     * Resolve the PostHog {@code distinct_id} for the current request. Uses the Clerk user id
-     * when there's an authenticated principal (matches what the frontend's {@code posthog.identify}
-     * call uses, so backend + frontend events group on the same person). Falls back to
+     * Resolve the PostHog {@code distinct_id} for the current request. Uses the external
+     * provider's user id (Clerk pre-migration, Kinde post-migration) when there's an
+     * authenticated principal — matches what the frontend's {@code posthog.identify}
+     * call uses, so backend + frontend events group on the same person. Falls back to
      * {@code "anonymous"} for unauthenticated paths (e.g. public share preview).
      */
     public String currentDistinctId() {
@@ -80,9 +81,9 @@ public class LlmCapture {
         if (auth != null
                 && auth.isAuthenticated()
                 && auth.getPrincipal() instanceof AuthenticatedUser user
-                && user.clerkUserId() != null
-                && !user.clerkUserId().isBlank()) {
-            return user.clerkUserId();
+                && user.externalUserId() != null
+                && !user.externalUserId().isBlank()) {
+            return user.externalUserId();
         }
         return "anonymous";
     }

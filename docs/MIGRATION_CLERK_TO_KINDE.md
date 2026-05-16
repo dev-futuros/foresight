@@ -61,17 +61,27 @@ While billing isn't wired, **the existing `SubscriptionService.assertCanCreateRe
 - [x] `docs/CHANGELOG.md` entry registering the migration start
 - [ ] Initial commit on the branch
 
-### Phase 1 — Backend: DB + entity rename
+### Phase 1 — Backend: DB + entity rename ✅
 
-- [ ] `V12__rename_clerk_user_id_to_external.sql` — rename column + index
-- [ ] `User.java` — `@Column(name = "external_user_id")`, field `externalUserId`
-- [ ] `UserRepository.java` — `findByExternalUserId(...)`
-- [ ] `UserService.java` — rename `findOrCreateByClerkUserId`, `upsertFromClerk`, `deleteByClerkUserId`
-- [ ] `AuthenticatedUser.java` — field `externalUserId`
-- [ ] `DevPrincipal.java` — constant `EXTERNAL_USER_ID`
-- [ ] `DevUserSeeder.java` — adapt
-- [ ] `UserResponse.java` (DTO) — confirm no `clerk` references leak
-- [ ] All tests still pass with renamed methods/fields
+- [x] `V12__rename_clerk_user_id_to_external.sql` — renames column + unique index
+- [x] `User.java` — `@Column(name = "external_user_id")`, field `externalUserId`, class javadoc made provider-agnostic
+- [x] `UserRepository.java` — `findByExternalUserId(...)`
+- [x] `UserService.java` — renamed `findOrCreateByExternalUserId`, `upsertFromExternal`, `deleteByExternalUserId`; internal vars, log messages and constraint reference updated
+- [x] `JwtAuthFilter.java` — local var renamed, call site updated, javadoc made provider-agnostic
+- [x] `AuthenticatedUser.java` — field `externalUserId`
+- [x] `DevPrincipal.java` — constant `EXTERNAL_USER_ID` (value preserved as `"user_local_dev"` so existing local DBs keep working)
+- [x] `DevUserSeeder.java` — uses renamed constant + builder method, log message updated
+- [x] `LlmCapture.java` — distinct-id resolver reads `user.externalUserId()` instead of `clerkUserId()`
+- [x] `UserResponse.java` (DTO) — javadoc updated; no `clerk` references leak in the wire shape
+- [x] `ClerkWebhookController.java` — call sites updated to new service method names (controller class itself stays — replaced in Phase 3)
+- [x] `UserServiceTest.java` — builder call uses `externalUserId(...)`, all tests pass
+- [x] `./mvnw compile` and `./mvnw test-compile` both green; `UserServiceTest` passes
+
+**Files intentionally left untouched in this phase (deleted/replaced in Phase 2/3):**
+
+- `ClerkBackendClient.java` — `fetchUser(String clerkUserId)` param name kept for now; class is replaced wholesale by `KindeBackendClient` in Phase 2
+- `ClerkEvent.java` — record field `clerkUserId` kept; record is replaced by `KindeEvent` in Phase 3
+- `ClerkEventParser.java` — local var kept; file deleted in Phase 3 along with `ClerkWebhookController`
 
 ### Phase 2 — Backend: auth filter + decoder
 

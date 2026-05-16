@@ -67,9 +67,9 @@ public class ClerkWebhookController {
 
         ClerkEvent event = eventParser.parse(rawBody);
         switch (event.type()) {
-            case "user.created", "user.updated" -> userService.upsertFromClerk(
+            case "user.created", "user.updated" -> userService.upsertFromExternal(
                     event.clerkUserId(), event.name());
-            case "user.deleted" -> userService.deleteByClerkUserId(event.clerkUserId());
+            case "user.deleted" -> userService.deleteByExternalUserId(event.clerkUserId());
             default -> log.debug("Ignoring Clerk event type {}", event.type());
         }
         return ResponseEntity.noContent().build();

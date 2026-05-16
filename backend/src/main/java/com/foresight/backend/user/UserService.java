@@ -16,14 +16,15 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Business logic for reading and updating user profiles, plus the bridge between Clerk identities
- * and local {@link User} rows.
+ * Business logic for reading and updating user profiles, plus the bridge between external
+ * identity provider users and local {@link User} rows.
  *
- * <p>Authentication and email itself are delegated to Clerk. This service is responsible for:
+ * <p>Authentication and email itself are delegated to the external provider (currently Clerk,
+ * Kinde post-migration). This service is responsible for:
  *
  * <ul>
  *   <li>Loading and updating local profile fields (name, language).
- *   <li>Lazy-creating a local row the first time a Clerk-authenticated user reaches the API
+ *   <li>Lazy-creating a local row the first time a provider-authenticated user reaches the API
  *       (covers the webhook race window).
  *   <li>Reconciling the local row when the {@code user.created} / {@code user.updated} /
  *       {@code user.deleted} webhooks fire.
@@ -40,14 +41,14 @@ public class UserService {
     private final ClerkBackendClient clerkBackendClient;
 
     /**
-     * Per-clerk-id locks used to serialize the very first lazy creation when several requests
-     * from the same fresh user arrive concurrently (e.g. the dashboard fires {@code /users/me}
-     * and {@code /reports} in parallel right after sign-in).
+     * Per-external-id locks used to serialize the very first lazy creation when several
+     * requests from the same fresh user arrive concurrently (e.g. the dashboard fires
+     * {@code /users/me} and {@code /reports} in parallel right after sign-in).
      *
      * <p>Without this, both threads see "user not found", both try to INSERT, one fails with
      * a unique-constraint violation. The DB catches it correctly thanks to {@code
-     * uk_users_clerk_user_id}, but the failing INSERT still produces noisy stack traces and
-     * a wasted round-trip. Holding a JVM-level lock for the few milliseconds it takes to
+     * uk_users_external_user_id}, but the failing INSERT still produces noisy stack traces
+     * and a wasted round-trip. Holding a JVM-level lock for the few milliseconds it takes to
      * resolve the first request keeps the second request cheap (single SELECT).
      *
      * <p>JVM-level only: in a multi-instance deployment the DB unique constraint remains the
@@ -65,8 +66,8 @@ public class UserService {
     }
 
     /**
-     * Returns the local {@link User} row for the given Clerk identity, creating it on the fly if
-     * the {@code user.created} webhook hasn't replicated it yet.
+     * Returns the local {@link User} row for the given external-provider identity, creating it
+     * on the fly if the {@code user.created} webhook hasn't replicated it yet.
      *
      * <p>Called from {@link com.foresight.backend.common.security.JwtAuthFilter} on every
      * authenticated request, so it must be cheap on the hot path: a single indexed lookup, and an
@@ -75,48 +76,48 @@ public class UserService {
      * <p>Intentionally NOT {@code @Transactional} at this level: each {@code repository.save()}
      * call uses its own implicit transaction, which means a failed INSERT (constraint violation
      * from a parallel insert in another JVM) does not poison the caller's transaction. After the
-     * failed save we can simply re-issue {@link UserRepository#findByClerkUserId(String)} and
+     * failed save we can simply re-issue {@link UserRepository#findByExternalUserId(String)} and
      * find the row written by the winner.
      */
-    public User findOrCreateByClerkUserId(String clerkUserId, Jwt jwt) {
-        var existing = userRepository.findByClerkUserId(clerkUserId);
+    public User findOrCreateByExternalUserId(String externalUserId, Jwt jwt) {
+        var existing = userRepository.findByExternalUserId(externalUserId);
         if (existing.isPresent()) {
-            return healMissingName(existing.get(), clerkUserId);
+            return healMissingName(existing.get(), externalUserId);
         }
 
-        Object lock = creationLocks.computeIfAbsent(clerkUserId, k -> new Object());
+        Object lock = creationLocks.computeIfAbsent(externalUserId, k -> new Object());
         try {
             synchronized (lock) {
-                var afterLock = userRepository.findByClerkUserId(clerkUserId);
+                var afterLock = userRepository.findByExternalUserId(externalUserId);
                 if (afterLock.isPresent()) {
-                    return healMissingName(afterLock.get(), clerkUserId);
+                    return healMissingName(afterLock.get(), externalUserId);
                 }
                 try {
                     return userRepository.save(User.builder()
-                            .clerkUserId(clerkUserId)
-                            .name(resolveName(clerkUserId, jwt))
+                            .externalUserId(externalUserId)
+                            .name(resolveName(externalUserId, jwt))
                             .role(UserRole.USER)
                             .language(DEFAULT_LANGUAGE)
                             .build());
                 } catch (DataIntegrityViolationException e) {
-                    return userRepository.findByClerkUserId(clerkUserId).orElseThrow(() -> e);
+                    return userRepository.findByExternalUserId(externalUserId).orElseThrow(() -> e);
                 }
             }
         } finally {
-            creationLocks.remove(clerkUserId);
+            creationLocks.remove(externalUserId);
         }
     }
 
     /**
      * Resolves the user's display name on first sign-in.
      *
-     * <p>Strategy: prefer Clerk's Backend API (authoritative, always returns the live profile),
-     * fall back to JWT claims (only present if a JWT template is configured), and finally accept
-     * {@code null} — the user can always edit their name from the account page, and a future
-     * webhook delivery will fill it in retroactively.
+     * <p>Strategy: prefer the provider's Backend API (authoritative, always returns the live
+     * profile), fall back to JWT claims (only present if a JWT template is configured), and
+     * finally accept {@code null} — the user can always edit their name from the account page,
+     * and a future webhook delivery will fill it in retroactively.
      */
-    private String resolveName(String clerkUserId, Jwt jwt) {
-        return clerkBackendClient.fetchUser(clerkUserId)
+    private String resolveName(String externalUserId, Jwt jwt) {
+        return clerkBackendClient.fetchUser(externalUserId)
                 .map(ClerkBackendClient.ClerkUser::composedName)
                 .filter(n -> n != null && !n.isBlank())
                 .orElseGet(() -> firstNonBlank(
@@ -125,40 +126,40 @@ public class UserService {
     }
 
     /**
-     * Backfills {@code name} for an existing user whose row was created before Clerk's profile
-     * was queryable (e.g. when {@code CLERK_SECRET_KEY} hadn't been configured yet, or before
-     * this codepath existed). Runs at most once per user — once {@code name} is set, the guard
-     * short-circuits on every subsequent request.
+     * Backfills {@code name} for an existing user whose row was created before the provider's
+     * profile was queryable (e.g. when the provider's Backend API secret hadn't been configured
+     * yet, or before this codepath existed). Runs at most once per user — once {@code name} is
+     * set, the guard short-circuits on every subsequent request.
      */
-    private User healMissingName(User user, String clerkUserId) {
+    private User healMissingName(User user, String externalUserId) {
         if (user.getName() != null && !user.getName().isBlank()) {
             return user;
         }
-        return clerkBackendClient.fetchUser(clerkUserId)
+        return clerkBackendClient.fetchUser(externalUserId)
                 .map(ClerkBackendClient.ClerkUser::composedName)
                 .filter(n -> n != null && !n.isBlank())
                 .map(name -> {
                     user.setName(name);
-                    log.info("Backfilled name for user id={} clerkId={}", user.getId(), clerkUserId);
+                    log.info("Backfilled name for user id={} externalId={}", user.getId(), externalUserId);
                     return userRepository.save(user);
                 })
                 .orElse(user);
     }
 
     /**
-     * Idempotent upsert used by the Clerk webhook handler when a {@code user.created} or
-     * {@code user.updated} event arrives.
+     * Idempotent upsert used by the identity-provider webhook handler when a {@code user.created}
+     * or {@code user.updated} event arrives.
      */
     @Transactional
-    public void upsertFromClerk(String clerkUserId, String name) {
+    public void upsertFromExternal(String externalUserId, String name) {
         userRepository
-                .findByClerkUserId(clerkUserId)
+                .findByExternalUserId(externalUserId)
                 .map(existing -> {
                     if (name != null) existing.setName(name);
                     return userRepository.save(existing);
                 })
                 .orElseGet(() -> userRepository.save(User.builder()
-                        .clerkUserId(clerkUserId)
+                        .externalUserId(externalUserId)
                         .name(name)
                         .role(UserRole.USER)
                         .language(DEFAULT_LANGUAGE)
@@ -186,18 +187,18 @@ public class UserService {
     public void deleteAccount(UUID id) {
         User user = getById(id);
         userRepository.delete(user);
-        log.info("Deleted user account id={} clerkId={}", user.getId(), user.getClerkUserId());
+        log.info("Deleted user account id={} externalId={}", user.getId(), user.getExternalUserId());
     }
 
     /**
-     * Webhook-driven counterpart to {@link #deleteAccount(UUID)}: deletes by Clerk id and is a
-     * no-op if the row no longer exists (Clerk may redeliver events).
+     * Webhook-driven counterpart to {@link #deleteAccount(UUID)}: deletes by external-provider id
+     * and is a no-op if the row no longer exists (the provider may redeliver events).
      */
     @Transactional
-    public void deleteByClerkUserId(String clerkUserId) {
-        userRepository.findByClerkUserId(clerkUserId).ifPresent(user -> {
+    public void deleteByExternalUserId(String externalUserId) {
+        userRepository.findByExternalUserId(externalUserId).ifPresent(user -> {
             userRepository.delete(user);
-            log.info("Deleted user (via webhook) id={} clerkId={}", user.getId(), clerkUserId);
+            log.info("Deleted user (via webhook) id={} externalId={}", user.getId(), externalUserId);
         });
     }
 

@@ -33,14 +33,14 @@ public class DevUserSeeder {
                 return;
             }
             User user = User.builder()
-                    .clerkUserId(DevPrincipal.CLERK_USER_ID)
+                    .externalUserId(DevPrincipal.EXTERNAL_USER_ID)
                     .name(DevPrincipal.NAME)
                     .role(UserRole.USER)
                     .language("es")
                     .build();
             user.setId(DevPrincipal.ID);
             users.save(user);
-            log.info("Seeded dev user id={} clerkId={}", DevPrincipal.ID, DevPrincipal.CLERK_USER_ID);
+            log.info("Seeded dev user id={} externalId={}", DevPrincipal.ID, DevPrincipal.EXTERNAL_USER_ID);
         };
     }
 }

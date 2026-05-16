@@ -26,18 +26,19 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Servlet filter that extracts a Clerk session JWT from the {@code Authorization: Bearer <token>}
- * header, validates it against Clerk's JWKS, resolves the corresponding local {@link User}, and
- * populates the Spring {@link SecurityContextHolder} with an {@link AuthenticatedUser} principal.
+ * Servlet filter that extracts a session JWT from the {@code Authorization: Bearer <token>}
+ * header, validates it against the external identity provider's JWKS (Clerk pre-migration,
+ * Kinde post-migration), resolves the corresponding local {@link User}, and populates the
+ * Spring {@link SecurityContextHolder} with an {@link AuthenticatedUser} principal.
  *
  * <p>Runs once per request (via {@link OncePerRequestFilter}) and is inserted before
  * {@link org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter} in
  * {@link com.foresight.backend.common.config.SecurityConfig}.
  *
- * <p>Lazy-sync semantics: the source of truth for users is Clerk. A local row is created on first
- * authenticated request if the webhook hasn't replicated it yet — this hides ordering races
- * between the {@code user.created} webhook and the user's first API call. Subsequent profile
- * mutations (email change, deletion) are still reconciled by the webhook.
+ * <p>Lazy-sync semantics: the source of truth for users is the external provider. A local row
+ * is created on first authenticated request if the webhook hasn't replicated it yet — this
+ * hides ordering races between the {@code user.created} webhook and the user's first API call.
+ * Subsequent profile mutations (name change, deletion) are still reconciled by the webhook.
  *
  * <p>If the token is missing, malformed, or invalid, the failure is logged at DEBUG level and the
  * security context is left empty — downstream authorization rules then reject the request with
@@ -95,11 +96,11 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
             try {
                 Jwt jwt = jwtDecoder.decode(token);
-                String clerkUserId = jwt.getSubject();
-                if (clerkUserId == null || clerkUserId.isBlank()) {
+                String externalUserId = jwt.getSubject();
+                if (externalUserId == null || externalUserId.isBlank()) {
                     log.debug("JWT decoded but `sub` claim is empty");
                 } else {
-                    User user = userService.findOrCreateByClerkUserId(clerkUserId, jwt);
+                    User user = userService.findOrCreateByExternalUserId(externalUserId, jwt);
                     authenticate(user);
                 }
             } catch (JwtException ex) {
@@ -123,7 +124,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     private void authenticate(User user) {
         AuthenticatedUser principal = new AuthenticatedUser(
-                user.getId(), user.getClerkUserId(), user.getRole().name());
+                user.getId(), user.getExternalUserId(), user.getRole().name());
         var authority = new SimpleGrantedAuthority("ROLE_" + user.getRole().name());
         var auth = new UsernamePasswordAuthenticationToken(principal, null, List.of(authority));
         SecurityContextHolder.getContext().setAuthentication(auth);
@@ -131,7 +132,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     private void authenticateDev() {
         AuthenticatedUser principal = new AuthenticatedUser(
-                DevPrincipal.ID, DevPrincipal.CLERK_USER_ID, DevPrincipal.ROLE);
+                DevPrincipal.ID, DevPrincipal.EXTERNAL_USER_ID, DevPrincipal.ROLE);
         var authority = new SimpleGrantedAuthority("ROLE_" + DevPrincipal.ROLE);
         var auth = new UsernamePasswordAuthenticationToken(principal, null, List.of(authority));
         SecurityContextHolder.getContext().setAuthentication(auth);

@@ -8,10 +8,10 @@ import com.foresight.backend.user.UserRole;
 /**
  * Public projection of a {@link User}.
  *
- * <p>Every field here is safe to send to the frontend. The {@code clerkUserId} is intentionally
- * omitted: clients identify the current user through Clerk on their side and the local UUID is
- * what every other API uses as a foreign key. Email lives in Clerk and the frontend reads it
- * from there.
+ * <p>Every field here is safe to send to the frontend. The {@code externalUserId} is intentionally
+ * omitted: clients identify the current user through the identity provider on their side (Clerk
+ * pre-migration, Kinde post-migration) and the local UUID is what every other API uses as a
+ * foreign key. Email lives in the provider and the frontend reads it from there.
  *
  * @param id user UUID (foreign-key target for reports etc.)
  * @param name display name (may be {@code null})

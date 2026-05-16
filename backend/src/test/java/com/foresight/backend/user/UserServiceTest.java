@@ -38,7 +38,7 @@ class UserServiceTest {
     void setup() {
         userId = UUID.randomUUID();
         user = User.builder()
-                .clerkUserId("user_clerk_" + userId)
+                .externalUserId("user_external_" + userId)
                 .name("Original Name")
                 .role(UserRole.USER)
                 .language("es")

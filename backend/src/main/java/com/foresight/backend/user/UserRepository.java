@@ -14,8 +14,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface UserRepository extends JpaRepository<User, UUID> {
 
     /**
-     * @param clerkUserId Clerk's stable user identifier (the {@code sub} claim of the session JWT)
+     * @param externalUserId the stable user identifier from the external identity provider —
+     *     the {@code sub} claim of the session JWT (Clerk pre-migration, Kinde post-migration)
      * @return the matching user, or empty if none exists
      */
-    Optional<User> findByClerkUserId(String clerkUserId);
+    Optional<User> findByExternalUserId(String externalUserId);
 }
