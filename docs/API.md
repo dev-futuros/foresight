@@ -2,7 +2,7 @@
 
 Complete reference for the Foresight backend REST API. Base URL: `http://localhost:8080`.
 
-All protected endpoints require `Authorization: Bearer <clerk-session-jwt>`. The token comes from Clerk — the backend does **not** issue tokens, register users, or run a sign-in/sign-up flow itself. Sign-in, sign-up, password reset, email verification, MFA, and social login are all handled by Clerk's hosted UI on the frontend (`<SignIn />` / `<SignUp />` / `<UserButton />`).
+All protected endpoints require `Authorization: Bearer <kinde-access-token>`. The token comes from Kinde — the backend does **not** issue tokens, register users, or run a sign-in/sign-up flow itself. Sign-in, sign-up, password reset, email verification, MFA, social login, and active-session management are all handled by Kinde's hosted UI (the frontend redirects to Kinde for these flows; the in-app Account modal deep-links to Kinde's hosted account portal for ongoing management).
 
 ---
 
@@ -44,7 +44,7 @@ For validation errors (HTTP 400), `fieldErrors` is an array:
 | 201 | Created | Successful POST that creates a resource |
 | 204 | No Content | Successful action with no response body |
 | 400 | Bad Request | Validation failure or invalid domain state |
-| 401 | Unauthorized | Missing / invalid Clerk JWT |
+| 401 | Unauthorized | Missing / invalid Kinde JWT |
 | 402 | Payment Required | User has no active subscription, or the current billing period has ended |
 | 403 | Forbidden | Authenticated but not allowed (e.g. DEV-only endpoint hit by a regular user) |
 | 404 | Not Found | Resource doesn't exist (or doesn't belong to caller) |
@@ -56,15 +56,15 @@ For validation errors (HTTP 400), `fieldErrors` is an array:
 
 ## Authentication
 
-The backend has no `/api/auth/*` endpoints. Sign-in, sign-up, password reset, email verification, MFA, social providers, and account management UI are all hosted by Clerk:
+The backend has no `/api/auth/*` endpoints. Sign-in, sign-up, password reset, email verification, MFA, social providers, and account management UI are all hosted by Kinde:
 
-- The frontend mounts Clerk's `<SignIn />` / `<SignUp />` components and obtains a session JWT via `useAuth().getToken()`.
-- Every API request goes out with `Authorization: Bearer <clerk-session-jwt>`.
-- The backend's `JwtAuthFilter` validates the JWT against Clerk's JWKS, then resolves the local `users` row by `clerk_user_id` (lazy-creating it if the `user.created` webhook hasn't arrived yet).
+- The frontend mounts `<KindeProvider>` and triggers auth flows via `<LoginLink>` / `<RegisterLink>` (from `@kinde-oss/kinde-auth-react/components`) that redirect to Kinde's hosted pages. After auth, Kinde redirects back to the configured callback URI, where the SDK processes the OAuth params and exposes the access token via `useKindeAuth().getToken()`.
+- Every API request goes out with `Authorization: Bearer <kinde-access-token>`.
+- The backend's `JwtAuthFilter` validates the JWT against Kinde's JWKS, then resolves the local `users` row by `external_user_id` (lazy-creating it if the `user.created` webhook hasn't arrived yet — typical in dev where the team's single shared webhook endpoint can't reach localhost).
 
-The backend never sees the user's password or email. Email is read directly from Clerk on the frontend (`useUser().primaryEmailAddress`).
+The backend never sees the user's password or email. Email is managed entirely in Kinde and accessed by the user through Kinde's hosted account portal (deep-linked from the in-app Account modal via `<PortalLink>`).
 
-> **JWT template.** To populate `name` on lazy-create, configure a Clerk JWT template with a `name` claim (e.g. `"name": "{{user.first_name}} {{user.last_name}}"`) and pass `template: "<name>"` to `getToken()`.
+> **Where does `name` come from?** Kinde's default session JWT doesn't include the user's name. The backend's `KindeBackendClient` calls `GET ${KINDE_MANAGEMENT_API_BASE_URL}/user?id={sub}` via the M2M `client_credentials` flow on lazy-create to fetch it. Editing the name from the in-app Account modal triggers a `PATCH /api/users/me` which pushes back to Kinde via the same Management API.
 
 ---
 
@@ -92,7 +92,7 @@ When exceeded → `HTTP 429`:
 
 Users with `UserRole.DEV` bypass both checks. The role is assigned by direct SQL only — there is no endpoint to promote it.
 
-Auth-endpoint rate limiting (login, register, forgot-password, etc.) is handled by Clerk on the auth flows it owns. The backend does not duplicate it.
+Auth-endpoint rate limiting (login, register, forgot-password, etc.) is handled by Kinde on the auth flows it owns. The backend does not duplicate it.
 
 ---
 
@@ -136,7 +136,7 @@ Returns the authenticated user's profile.
 }
 ```
 
-> Email is intentionally not in this response — it lives in Clerk. The frontend reads it from `useUser().primaryEmailAddress.emailAddress`.
+> Email is intentionally not in this response — it lives in Kinde. The user accesses / updates it via Kinde's hosted account portal (deep-linked from the in-app Account modal's "Gestionar cuenta" section).
 
 ---
 
@@ -743,26 +743,25 @@ There is no dedicated subscription controller today. The current subscription st
 }
 ```
 
-Plan, period bounds, and DEV flag are mirrored from **Clerk Billing** via the `/api/webhooks/clerk` receiver. The dedicated Stripe integration (`/api/billing/*` endpoints) lives on the `feature/stripe` branch and is not exposed on `develop`.
+Plan, period bounds, and DEV flag will be mirrored from **Stripe** webhook events (`customer.subscription.*`, `invoice.*`) once the dedicated Stripe integration (`/api/billing/*` endpoints + Stripe webhook receiver) lands. Today that wiring lives on the `feature/stripe` branch and is not on `develop` yet — see `docs/MIGRATION_CLERK_TO_KINDE.md` for the auth/billing decision narrative.
 
 ---
 
 ## Webhooks — `/api/webhooks`
 
-### POST /api/webhooks/clerk
+### POST /api/webhooks/kinde
 
-Receives Clerk events and reconciles the local `users` table — both identity (`user.*`) and the subscription mirror (Clerk Billing events).
+Receives Kinde events and reconciles the local `users` table for identity changes (`user.*`).
 
-**Auth required:** No (authenticated via Svix HMAC signature instead).
+**Auth required:** No (authenticated via the JWT in the request body — Kinde signs the entire webhook payload as a JWT).
 
-Every delivery is verified with the Svix signing secret (`CLERK_WEBHOOK_SIGNING_SECRET`). Deliveries with a missing or invalid signature are rejected with `400` before any side effect. Outside the 5-minute timestamp window also fails verification (replay protection).
+**Body**: the raw request body **IS** the JWT — there is no JSON envelope. The backend decodes it using the same `JwtDecoder` bean that validates session tokens (both signed against the same JWKS). Deliveries with an invalid signature, expired `exp`, or wrong issuer are rejected with `400` before any side effect.
 
 **Handled events:**
 | Event | Action |
 |---|---|
-| `user.created`, `user.updated` | Upsert local row by `clerk_user_id`; refresh `name` |
+| `user.created`, `user.updated` | Upsert local row by `external_user_id`; refresh `name` from `data.{firstName,lastName}` (or `data.{first_name,last_name}` — accepted via defensive parsing) |
 | `user.deleted` | Delete local row (cascades to owned reports) |
-| Clerk Billing subscription events | Mirror `subscription_plan`, `subscription_current_period_start/end` onto the matching user |
 | anything else | Ignored, returns `204` |
 
 **Response `204`:** No body, on successful processing or ignored event type.
@@ -770,7 +769,11 @@ Every delivery is verified with the Svix signing secret (`CLERK_WEBHOOK_SIGNING_
 **Errors:**
 | Status | When |
 |--------|------|
-| 400 | Missing or invalid Svix signature, or malformed payload (missing `type` / `data.id`) |
+| 400 | Empty body, invalid JWT (bad signature / expired / wrong issuer), or missing required claims (`type` / `data.userId`) |
+
+> **No `KINDE_WEBHOOK_SIGNING_SECRET`** exists — Kinde signs with the JWT private key matching its JWKS, not an HMAC shared secret. This means one fewer env var to manage, no risk of secret rotation desync, and one less surface for credential leakage.
+
+> **Subscription events** (`subscription.*`) will be wired with the billing integration on `feature/stripe`. They'll come from **Stripe**, not Kinde — Kinde's role is auth-only in our setup.
 
 ---
 
@@ -817,7 +820,7 @@ POST /api/reports  →  DRAFT
 }
 ```
 
-Email, password, MFA, and email-verification status all live in Clerk, not in this response. Subscription state is surfaced separately via the `useSubscription` hook (see Subscriptions section).
+Email, password, MFA, and email-verification status all live in Kinde, not in this response. Subscription state is surfaced separately via the `useSubscription` hook (see Subscriptions section).
 
 ### ReportResponse
 ```json

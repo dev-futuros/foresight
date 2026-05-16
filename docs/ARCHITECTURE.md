@@ -13,24 +13,25 @@ This document describes the system architecture, design decisions, and conventio
 │   Browser   │◀──────────────▶│   Backend    │◀───────────▶│  PostgreSQL  │
 │  (React)    │  Bearer JWT    │ (Spring Boot)│             └──────────────┘
 └──────┬──────┘                └──────▲───────┘
-       │                              │  Svix-signed webhooks
-       │ Clerk SDK                    │  (user.* + Clerk Billing)
-       ▼                              │
+       │                              │  JWT-signed webhooks +
+       │ Kinde SDK                    │  M2M Management API calls
+       ▼                              │  (user.*)
 ┌─────────────────┐                   │
-│      Clerk      │───────────────────┘
-│ (auth + billing)│
+│      Kinde      │───────────────────┘
+│ (auth + future  │
+│   billing TBD)  │
 └─────────────────┘
 
    Side channel: PostHog
    ─────────────────────
    Backend  ── $ai_generation ─▶  PostHog (server SDK, opt-in)
    Browser  ── pageviews/UI  ─▶  PostHog (posthog-js, opt-in)
-   Shared distinct id = clerkUserId for correlation
+   Shared distinct id = Kinde user id for correlation
 ```
 
-- **Frontend** authenticates against Clerk and talks to the backend with the session JWT Clerk hands it. Long-running AI calls are streamed back as Server-Sent Events. It never calls Anthropic directly — that key stays server-side.
-- **Backend** is the single gateway: validates Clerk JWTs, enforces subscription gating, runs business logic, persists data, proxies AI calls, captures LLM telemetry. It is stateless.
-- **Clerk** owns identities, credentials, sessions, MFA, social login, email delivery, rate-limiting on auth endpoints, **and the billing flow** (Clerk Billing). The backend never sees a password — and never stores the user's email. The only mirrored identity field is the stable `clerk_user_id`; subscription plan and period bounds are mirrored from Clerk Billing via the same webhook.
+- **Frontend** authenticates against Kinde (redirect to Kinde's hosted sign-in / sign-up pages — Kinde does not support embedded credential forms by design) and talks to the backend with the access token Kinde hands it. Long-running AI calls are streamed back as Server-Sent Events. It never calls Anthropic directly — that key stays server-side.
+- **Backend** is the single gateway: validates Kinde JWTs, enforces subscription gating, runs business logic, persists data, proxies AI calls, captures LLM telemetry. It is stateless. Uses an M2M `client_credentials` flow to call Kinde's Management API for user-profile reads (lazy-create) and writes (account name editing).
+- **Kinde** owns identities, credentials, sessions, MFA, social login, email delivery, and rate-limiting on auth endpoints. Future state: also the billing flow (Stripe directly, with Stripe Tax for EU VAT — the team is Merchant of Record via an autónomo in Spain; see `feature/stripe` branch). The backend never sees a password — and never stores the user's email. The only mirrored identity field is the stable `external_user_id`.
 - **PostgreSQL** stores a minimal `users` row, reports (with cached translations and PDF-optimised text), examples (DEV-curated report snapshots), and share tokens (frozen public snapshots).
 - **Anthropic Claude API** is only reachable via the backend, tier-routed (haiku / sonnet / opus) per call.
 - **PostHog** receives `$ai_generation` events for every Anthropic call (server-side) plus pageviews / UI events from the browser. Default-off; opt-in per environment.
@@ -46,12 +47,12 @@ This document describes the system architecture, design decisions, and conventio
 | DB access | Spring Data JPA + Hibernate | Productivity, rich query support |
 | JSONB columns | `hypersistence-utils-hibernate-63` | First-class JSONB mapping (reports, translations, share snapshots) |
 | Migrations | Flyway | Versioned, reproducible schema changes |
-| HTTP client | Spring WebClient + `RestClient` | Reactive for Anthropic streams; sync `RestClient` for Clerk Backend API |
+| HTTP client | Spring WebClient + `RestClient` | Reactive for Anthropic streams; sync `RestClient` for Kinde Management API |
 | Async streaming | Spring MVC + `Flux<JsonNode>` wrapped as `ServerSentEvent` | Backpressure-aware streaming of long Claude calls to the browser |
-| Auth | Clerk session JWT, validated against Clerk JWKS | Delegate identity to a hosted provider; keep backend stateless |
-| Billing | Clerk Billing (mirrored via webhook); Stripe wiring on `feature/stripe` | Same provider as auth — one webhook, one source of truth |
-| JWT validation | `spring-security-oauth2-resource-server` (Nimbus) | Standard, handles JWKS caching and rotation |
-| Webhook signatures | `com.svix:svix` | Official Svix client — Clerk webhooks are Svix-signed |
+| Auth | Kinde session JWT, validated against Kinde JWKS | Delegate identity to a hosted provider; keep backend stateless. Migrated from Clerk on `feature/kinde` (2026-05-16) — see `docs/MIGRATION_CLERK_TO_KINDE.md` |
+| Billing | Stripe directly (on `feature/stripe`); we are Merchant of Record via an autónomo (Spain) | Stripe Tax for EU VAT; Kinde Billing was evaluated and rejected (USD-only, no VAT) |
+| JWT validation | `spring-security-oauth2-resource-server` (Nimbus) | Standard, handles JWKS caching and rotation. Same decoder bean validates session JWTs AND webhook JWTs (Kinde signs both with the same key set) |
+| Webhook signatures | The webhook body IS the JWT, verified with the same `JwtDecoder` bean | No HMAC, no shared secret, no Svix client. Kinde signs deliveries with a JWT against the same JWKS as session tokens |
 | Validation | Bean Validation (`jakarta.validation`) | Declarative on DTOs |
 | Boilerplate | Lombok | Removes getters/setters/builders noise |
 | AI SDK | `com.anthropic:anthropic-java` | Official SDK with tool-use, streaming, web_search support |
@@ -73,22 +74,22 @@ com.foresight.backend/
 │   ├── config/              # SecurityConfig, SecurityProperties, OpenApiConfig, ClockConfig, JwtConfig
 │   ├── domain/              # BaseEntity (UUID, timestamps)
 │   ├── exception/           # GlobalExceptionHandler, ApiError, domain exceptions
-│   └── security/            # ClerkJwtDecoderConfig, JwtAuthFilter, AiRateLimitFilter,
-│                            # AuthenticatedUser, DevPrincipal, DevUserSeeder, ClerkBackendClient
-├── user/                    # User entity (clerk_user_id + role + language + subscription_*),
-│                            # UserService (findOrCreateByClerkUserId), UserRole {USER, DEV, ADMIN}
+│   └── security/            # KindeJwtDecoderConfig, JwtAuthFilter, AiRateLimitFilter,
+│                            # AuthenticatedUser, DevPrincipal, DevUserSeeder, KindeBackendClient
+├── user/                    # User entity (external_user_id + role + language + subscription_*),
+│                            # UserService (findOrCreateByExternalUserId), UserRole {USER, DEV, ADMIN}
 ├── report/                  # foresight reports CRUD with translations + pdf_optimized caches
 ├── ai/                      # Claude proxy: 16 endpoints (analyze pipeline, suggestions,
 │                            # chat assistant, tighten) + AssistantTools (15 frontend tools)
 ├── analytics/               # PostHogConfig + LlmCapture wrapper for $ai_generation events
-├── subscription/            # SubscriptionService gate (Clerk Billing-backed), plan/status records
+├── subscription/            # SubscriptionService gate (Stripe-backed; wiring on feature/stripe), plan/status records
 ├── share/                   # ShareController, PublicShareController, ShareService,
 │                            # ShareToken (frozen multilingual snapshot of report or example)
 ├── example/                 # Example entity — DEV-promoted report snapshots, viewable to all
-└── webhook/                 # ClerkWebhookController + event parser (user.* + subscription mirror)
+└── webhook/                 # KindeWebhookController (user.created / .updated / .deleted)
 ```
 
-> **Not present today:** a dedicated `billing/` package. Subscription state is mirrored from Clerk Billing through the existing `webhook/` receiver into the `users` table. The Stripe direct-integration branch (`feature/stripe`) lives in parallel; on `develop` there are no Stripe-specific endpoints.
+> **Not present today:** a dedicated `billing/` package. The subscription gate (`SubscriptionService.assertCanCreateReport()`) and DB columns (`users.subscription_plan` + period bounds) are in place from earlier M3 work, but the Stripe wiring (checkout sessions, customer portal, billing webhook) lives on the `feature/stripe` branch and is not on `develop` yet. The plan: we'll be Merchant of Record ourselves (autónomo in Spain), Stripe Tax will handle EU VAT.
 
 **Why package-by-feature?**
 
@@ -107,7 +108,7 @@ All entities use `UUID` (v4), not auto-incrementing `Long`.
 - **Security**: prevents enumeration attacks (`/reports/1`, `/reports/2`, …)
 - **Merge-safe**: no collisions when merging datasets
 
-The internal `User.id` (UUID) is the foreign-key target for everything the backend owns (`reports`, future `subscriptions`, …) — this stays stable even if Clerk identifiers change.
+The internal `User.id` (UUID) is the foreign-key target for everything the backend owns (`reports`, future `subscriptions`, …) — this stays stable even if Kinde identifiers (or, in the future, any other auth provider's) change. The `external_user_id` column is intentionally provider-agnostic; it currently holds Kinde IDs (format `kp_<random>`) but the schema would survive another provider swap without a rename.
 
 Implemented in `common/domain/BaseEntity.java`, inherited by all entities.
 
@@ -115,52 +116,56 @@ Implemented in `common/domain/BaseEntity.java`, inherited by all entities.
 
 Every entity inherits `createdAt` and `updatedAt` via JPA's `@EntityListeners(AuditingEntityListener.class)`. Activated at the app level with `@EnableJpaAuditing`.
 
-#### Authentication flow (Clerk-based)
+#### Authentication flow (Kinde-based)
 
-1. The user signs in or signs up through Clerk's prebuilt React components (`<SignIn>` / `<SignUp>`) — Clerk handles email verification, social login, MFA, password reset, etc.
-2. Clerk issues a short-lived **session JWT** signed with its private key. The frontend retrieves it via `useAuth().getToken()` (wired through `<AuthBridge>`).
-3. Every API request goes out with `Authorization: Bearer <clerk-session-jwt>`.
-4. `JwtAuthFilter` extracts the token and validates it through a `JwtDecoder` (Nimbus) configured against Clerk's JWKS URI. Validators enforce signature + issuer + expiration.
-5. The filter pulls the `sub` claim (Clerk's stable user id) and looks up the local `users` row by `clerk_user_id`. If the row doesn't exist yet (race against the `user.created` webhook), it lazy-creates one — `name` is sourced via `ClerkBackendClient` (see below), with the JWT claims (`name`, `first_name`) as fallback.
-6. The filter populates the `SecurityContext` with an `AuthenticatedUser(uuid, clerkUserId, role)` principal, so `@CurrentUser`-annotated controller params keep working unchanged.
+1. The user clicks "Continue →" on `/sign-in` or `/sign-up` and is redirected to Kinde's hosted page (Kinde does not support embedded credential forms — they own the auth UI for SCA/PSD2 compliance). Kinde handles email verification, social login, MFA, password reset, etc.
+2. After successful auth, Kinde redirects to `${VITE_KINDE_REDIRECT_URI}` (typically `/callback`). The `@kinde-oss/kinde-auth-react` SDK processes the OAuth params and flips `isAuthenticated`. The `/callback` route then navigates to `/reports/new`.
+3. Every API request goes out with `Authorization: Bearer <kinde-access-token>`, wired by `<AuthBridge>` which feeds `useKindeAuth().getToken()` into the axios request interceptor.
+4. `JwtAuthFilter` extracts the token and validates it through a `JwtDecoder` (Nimbus) configured against Kinde's JWKS URI. Validators enforce signature + issuer + expiration.
+5. The filter pulls the `sub` claim (Kinde's stable user id, format `kp_<random>`) and looks up the local `users` row by `external_user_id`. If the row doesn't exist yet (race against the `user.created` webhook, or webhook not configured for the env), it lazy-creates one — `name` is sourced via `KindeBackendClient` (see below), with the JWT claims (`name`, `given_name`) as fallback.
+6. The filter populates the `SecurityContext` with an `AuthenticatedUser(uuid, externalUserId, role)` principal, so `@CurrentUser`-annotated controller params keep working unchanged.
 
-The backend never sees a password, never issues a token, and has no `accessTokenTtl` to manage. Token lifetime is governed entirely by Clerk's JWT template settings.
+The backend never sees a password, never issues a token, and has no `accessTokenTtl` to manage. Token lifetime is governed entirely by Kinde's session settings.
 
 #### How `name` is populated
 
-Clerk's default session JWT carries only identity claims (`sub`, `iss`, `iat`, `exp`, `nbf`, `azp`) — no `name`. To surface the user's display name without forcing every deployment to manually configure a JWT template, the backend has a tiny client (`ClerkBackendClient`) that calls Clerk's Backend API:
+Kinde's default session JWT does not include the user's name (only `sub`, `iss`, `iat`, `exp`, etc.). To surface the user's display name without forcing every deployment to manually configure a custom JWT, the backend has a tiny client (`KindeBackendClient`) that calls Kinde's Management API via the OAuth2 `client_credentials` flow:
 
-- **On lazy-create**: `GET https://api.clerk.com/v1/users/{sub}` with `Authorization: Bearer ${CLERK_SECRET_KEY}` returns the live profile. We compose `name` from `first_name + last_name` and persist it.
-- **As a heal-on-read**: if `findOrCreateByClerkUserId` finds an existing row whose `name` is null/blank (e.g. created before the secret was wired in), the same call backfills it in place. The guard short-circuits as soon as `name` is set, so the heal only runs once per user.
-- **Fallback chain**: Backend API → JWT claims (`name`, `first_name`) → leave `null`. The user can always edit `name` from the account page later, and the `user.updated` webhook will keep the row in sync.
+- **Token acquisition**: `POST ${KINDE_TOKEN_ENDPOINT}` with `grant_type=client_credentials`, the M2M client id/secret, and `audience=${KINDE_DOMAIN}/api`. Returns an access token cached in memory (with a 60s safety margin before declared expiry; refresh uses double-checked locking so concurrent first-fetches don't hit the token endpoint multiple times).
+- **On lazy-create**: `GET ${KINDE_MANAGEMENT_API_BASE_URL}/user?id={sub}` with the cached M2M token returns the live profile. We compose `name` from `given_name + family_name` (or `first_name + last_name` — both are accepted via `@JsonAlias` on the `KindeUser` record because Kinde's docs are inconsistent about which convention the response uses).
+- **As a heal-on-read**: if `findOrCreateByExternalUserId` finds an existing row whose `name` is null/blank, the same call backfills it in place. The guard short-circuits as soon as `name` is set, so the heal only runs once per user.
+- **Fallback chain**: Management API → JWT claims (`name`, `given_name`) → leave `null`. The user can always edit `name` from the in-app Account modal later — and that edit pushes back to Kinde via `KindeBackendClient.updateUser()`, keeping both sides in sync.
 
-`CLERK_SECRET_KEY` is optional. When blank, `ClerkBackendClient.fetchUser()` is a silent no-op returning `Optional.empty()`, and the chain falls through to JWT/null. Auth keeps working in environments that haven't wired the key yet.
+`KINDE_M2M_CLIENT_ID` / `KINDE_M2M_CLIENT_SECRET` are optional. When blank, `KindeBackendClient.fetchUser()` is a silent no-op returning `Optional.empty()`, and the chain falls through to JWT/null. Auth keeps working in environments that haven't wired the M2M app yet.
+
+The M2M app needs these scopes granted on Kinde Management API: `read:users` (lazy-create), `update:users` (account-modal name edit), and `delete:users` (pending GDPR cascade on `DELETE /api/users/me`).
 
 #### Concurrency on first sign-in
 
-`findOrCreateByClerkUserId` runs on **every** authenticated request, so the very first time a brand-new user lands on the dashboard several requests typically hit it in parallel (e.g. `/users/me` and `/reports`). Each thread sees "user not found" and would race to INSERT.
+`findOrCreateByExternalUserId` runs on **every** authenticated request, so the very first time a brand-new user lands on the dashboard several requests typically hit it in parallel (e.g. `/users/me` and `/reports`). Each thread sees "user not found" and would race to INSERT.
 
 Two layers handle this:
 
-1. **JVM-level lock per Clerk id** — `UserService` keeps a `ConcurrentMap<String, Object>` of locks keyed by `clerkUserId`. The first thread acquires it and INSERTs; subsequent threads wait briefly, then read the row that the first one just wrote. The map entry is removed after creation finishes so it cannot grow unbounded.
+1. **JVM-level lock per external id** — `UserService` keeps a `ConcurrentMap<String, Object>` of locks keyed by `externalUserId`. The first thread acquires it and INSERTs; subsequent threads wait briefly, then read the row that the first one just wrote. The map entry is removed after creation finishes so it cannot grow unbounded.
 2. **DB unique constraint as last-resort guard** — if a different JVM instance ever wins the race, the second INSERT fails with `DataIntegrityViolationException`. The catch falls back to a SELECT and returns the row written by the winner. The method is intentionally not `@Transactional` at the top level so a failed save does not poison the caller's transaction (which would otherwise be marked rollback-only and break the recovery query).
 
-#### User lifecycle (Clerk → backend)
+#### User lifecycle (Kinde → backend)
 
-The `users` table mirrors a tiny subset of Clerk's user store:
+The `users` table mirrors a tiny subset of Kinde's user store:
 
-- **Create / update**: the `user.created` and `user.updated` webhooks fire `UserService.upsertFromClerk(clerkId, name)`. As a safety net, `JwtAuthFilter.findOrCreateByClerkUserId` lazy-creates the row on first authenticated request — handles the brief window between sign-up and webhook delivery.
-- **Delete**: the `user.deleted` webhook fires `UserService.deleteByClerkUserId(clerkId)`, which cascades to all owned resources via the `reports.user_id` FK. `DELETE /api/users/me` is the user-initiated counterpart (and should also delete the Clerk side via Clerk's management API — TODO).
+- **Create / update**: the `user.created` and `user.updated` webhooks fire `UserService.upsertFromExternal(externalUserId, name)`. As a safety net, `JwtAuthFilter.findOrCreateByExternalUserId` lazy-creates the row on first authenticated request — handles the brief window between sign-up and webhook delivery (and the case where webhooks aren't reaching localhost in dev).
+- **Delete**: the `user.deleted` webhook fires `UserService.deleteByExternalUserId(externalUserId)`, which cascades to all owned resources via the `reports.user_id` FK. `DELETE /api/users/me` is the user-initiated counterpart (and should also delete the Kinde side via the Management API — TODO; the `delete:users` scope is already granted on the M2M app).
+- **Name edit from our app**: `PATCH /api/users/me` with a new `name` triggers `KindeBackendClient.updateUser()` BEFORE persisting locally. Kinde is the source of truth — if its API rejects, the local update doesn't happen and the user sees an error. Prevents silent divergence (which would otherwise happen as soon as the next webhook arrived with Kinde's old value).
 
-The webhook receiver (`/api/webhooks/clerk`) verifies the Svix signature on every delivery; deliveries with a missing or invalid signature are rejected with 400 before any work is done.
+The webhook receiver (`/api/webhooks/kinde`) verifies the JWT signature on every delivery using the same `JwtDecoder` bean that validates session tokens — Kinde signs both with the same key set. Deliveries with an invalid signature are rejected with 400 before any work is done.
 
 #### What lives where
 
 | Field | Source of truth | Notes |
 |---|---|---|
-| `email`, `password`, MFA, social identities, email verification | **Clerk** | Never stored locally. The frontend reads the email from `useUser().primaryEmailAddress` when it needs to display it (e.g. in the account page). |
-| `clerk_user_id` | **Clerk** (mirrored) | Stable identifier; what we look up by. |
-| `name` | **Clerk** (mirrored) | Filled from the JWT `name` claim on lazy-create, or by the `user.updated` webhook. Locally editable via `PATCH /api/users/me` for convenience, but Clerk is still authoritative — webhook overwrites are accepted. |
+| `email`, `password`, MFA, social identities, email verification, active sessions | **Kinde** | Never stored locally. Users manage these via Kinde's hosted account portal (deep-linked from the "Gestionar cuenta" section of the in-app Account modal). |
+| `external_user_id` | **Kinde** (mirrored) | Stable identifier (`kp_<random>`); what we look up by. |
+| `name` | **Bidirectional** | Editable from the Account modal — `PATCH /api/users/me` pushes the change to Kinde via the Management API BEFORE persisting locally, so both stay in sync. The `user.updated` webhook from Kinde also overwrites local. Kinde is the source of truth in case of conflict. |
 | `role` | **Backend** | `USER` / `ADMIN`. Authorization decisions stay in the backend. |
 | `language` | **Backend** | UI preference (`es` / `en`), edited from the account page. |
 | Reports, future subscriptions | **Backend** | Owned entirely by us, FK'd to `users.id`. |
@@ -206,8 +211,8 @@ Current migrations:
 |---------|--------------|
 | `V1__init.sql` | Initial schema: `users`, `reports`. |
 | `V2__auth_tokens.sql` | Legacy: short-lived password-reset / email-verification tokens. (Dropped by V3.) |
-| `V3__clerk_auth.sql` | Adds `clerk_user_id` to `users`; drops `password`, `email_verified`, and the V2 token tables. |
-| `V4__fix_user_constraints_for_clerk.sql` | Drops the `email` column entirely (Clerk owns it); makes `clerk_user_id` `NOT NULL` and unique-indexed. |
+| `V3__clerk_auth.sql` | Adds `clerk_user_id` to `users` (later renamed by V12); drops `password`, `email_verified`, and the V2 token tables. Historical Clerk-era name kept for migration replay. |
+| `V4__fix_user_constraints_for_clerk.sql` | Drops the `email` column entirely (external provider owns it); makes `clerk_user_id` `NOT NULL` and unique-indexed. Historical Clerk-era name kept for migration replay. |
 | `V5__subscription.sql` | Adds `subscription_plan`, `subscription_current_period_start/end` to `users`; CHECK constraint on plan whitelist; composite index `(user_id, created_at DESC)` on `reports` for period-window counting. |
 | `V6__share_tokens.sql` | Creates `share_tokens` table (token, report_id, frozen snapshot columns, expiry); indexes on `token`, `report_id`, `expires_at`. |
 | `V7__report_translations.sql` | Adds `translations` (JSONB) and `primary_language` to `reports`. |
@@ -215,12 +220,13 @@ Current migrations:
 | `V9__share_tokens_for_examples.sql` | Makes `share_tokens.report_id` nullable; adds `example_id` + XOR CHECK constraint so each share row points at exactly one source. |
 | `V10__share_token_translations.sql` | Adds `translations` + `primary_language` to `share_tokens` so a snapshot can ship all baked translations. |
 | `V11__report_pdf_optimized.sql` | Adds `pdf_optimized` (JSONB) to `reports` — per-language cache of "tightened" prose for the PDF export pipeline. |
+| `V12__rename_clerk_user_id_to_external.sql` | Renames `users.clerk_user_id` → `users.external_user_id` (and the unique index) for provider-agnostic schema. Purely lexical — column type and values unchanged. Landed with the Clerk → Kinde migration on `feature/kinde`. |
 
 #### Rate limiting
 
 The `AiRateLimitFilter` (Bucket4j, in-memory) caps `/api/ai/**` per authenticated user. Defaults: 100 calls / hour / user — generous for genuine wizard use, hostile to scripted abuse.
 
-Auth-endpoint rate limiting is not implemented in the backend any more — Clerk handles it for the auth flows it owns. If we add public unauthenticated endpoints later (e.g. a public landing page contact form), we'll re-introduce a per-IP filter for those specific paths.
+Auth-endpoint rate limiting is not implemented in the backend any more — Kinde handles it for the auth flows it owns. If we add public unauthenticated endpoints later (e.g. a public landing page contact form), we'll re-introduce a per-IP filter for those specific paths.
 
 #### Subscription gating
 
@@ -233,9 +239,9 @@ Report creation is gated by `SubscriptionService.assertCanCreateReport()`:
   - `ReportLimitExceededException` → `429 Too Many Requests` — period quota exhausted. The response body carries `limit`, `used`, `periodEnd` so the frontend can render an informative paywall instead of a generic error.
 - **DEV bypass**: users with `UserRole.DEV` skip the check entirely — used by the internal team for demos and testing. The role is promoted by direct SQL only (no UI surface, no endpoint).
 
-The plan, period bounds, and quota counters are mirrored from **Clerk Billing** via the same `/api/webhooks/clerk` receiver that handles `user.*` events. The backend does not talk to Stripe directly on `develop` — Clerk Billing intermediates the payment flow. A frontend `useSubscription` hook surfaces `SubscriptionService.statusOf()` (no dedicated controller endpoint; the status is bundled into the user-context responses the UI already fetches).
+The plan, period bounds, and quota counters will be mirrored from **Stripe webhook events** (`customer.subscription.*`, `invoice.*`) once the Stripe integration lands. Backend → Stripe direct (no MoR intermediary like Paddle); we are MoR ourselves via an autónomo registered in Spain, with Stripe Tax handling EU VAT calculation. A frontend `useSubscription` hook surfaces `SubscriptionService.statusOf()` (no dedicated controller endpoint; the status is bundled into the user-context responses the UI already fetches).
 
-> **M3 status:** the gate + DB columns + DEV bypass + Clerk-mirrored fields landed first so the rest of the product could be built behind a real paywall. Direct Stripe integration (checkout sessions, `/api/billing/*`) lives on the `feature/stripe` branch and is the in-flight work.
+> **M3 status:** the gate + DB columns + DEV bypass landed first so the rest of the product could be built behind a real paywall (Clerk Billing was the original plan; replaced by direct Stripe — see `docs/MIGRATION_CLERK_TO_KINDE.md`). The Stripe wiring (checkout sessions, Stripe Tax config, `/api/billing/*` endpoints) lives on the `feature/stripe` branch and is the in-flight work.
 
 #### Share tokens (public snapshots)
 
@@ -329,13 +335,13 @@ The same translations shape is used by `share_tokens.translations` (V10) and `ex
 
 Every Anthropic call fires a `$ai_generation` event to PostHog using the canonical LLM schema:
 
-- **Identity**: `$ai_trace_id`, `$ai_session_id` (forwarded from the frontend via the `X-PostHog-Session-Id` header), `$ai_span_name`, distinct id = the authenticated user's Clerk id
+- **Identity**: `$ai_trace_id`, `$ai_session_id` (forwarded from the frontend via the `X-PostHog-Session-Id` header), `$ai_span_name`, distinct id = the authenticated user's Kinde id
 - **Call**: `$ai_provider=anthropic`, `$ai_model`, `$ai_base_url`, `$ai_stream`, `$ai_max_tokens`, `$ai_tools`
 - **Usage**: `$ai_input_tokens`, `$ai_output_tokens`, `$ai_cache_read_input_tokens`, `$ai_cache_creation_input_tokens`
 - **Result**: `$ai_input`, `$ai_output_choices`, `$ai_stop_reason`, `$ai_latency`, `$ai_http_status`, `$ai_is_error`, `$ai_error`
 - **Custom**: `feature` (which endpoint), `sources_count` (for web_search calls)
 
-`LlmCapture.capture()` is invoked from `AiService` after every call — success or failure. Distinct id matches the frontend's `posthog.identify(clerkUserId)` so backend `$ai_generation` events correlate with browser pageviews and UI events from `posthog-js`.
+`LlmCapture.capture()` is invoked from `AiService` after every call — success or failure. Distinct id matches the frontend's `posthog.identify(kindeUserId)` so backend `$ai_generation` events correlate with browser pageviews and UI events from `posthog-js`.
 
 Default-off (`foresight.analytics.posthog.enabled=false`). When enabled with a blank API key, the app **fails to start** — a deliberate fail-fast so silent misconfigs don't ship as no-ops in production. The frontend snippet, by contrast, installs a no-op stub when either flag or key is missing (so the UI never breaks on missing analytics).
 
@@ -344,16 +350,16 @@ Default-off (`foresight.analytics.posthog.enabled=false`). When enabled with a b
 | Threat | Mitigation |
 |---|---|
 | API key theft | Claude key only server-side; never reaches browser. |
-| Password cracking | We don't store passwords — Clerk does, with their own hashing + breach detection. |
-| Token forgery | Backend validates Clerk JWTs against Clerk's JWKS (public-key signature, can't be forged). Issuer is pinned. |
-| Webhook forgery | Every Clerk webhook delivery verified via Svix HMAC signature before any side effect. |
+| Password cracking | We don't store passwords — Kinde does, with their own hashing + breach detection. |
+| Token forgery | Backend validates Kinde JWTs against Kinde's JWKS (public-key signature, can't be forged). Issuer is pinned. |
+| Webhook forgery | Every Kinde webhook delivery IS a JWT, verified against the same JWKS as session tokens before any side effect. No shared HMAC secret to leak. |
 | ID enumeration | UUIDs everywhere. |
 | Cross-origin attacks | CORS whitelist configured via env var. |
 | Mass assignment | DTOs never expose entity fields directly. |
 | SQL injection | JPA + parameterized queries only. |
 | Logging secrets | API keys / JWTs / webhook secrets never logged. |
 | AI cost abuse | Per-user token bucket on `/api/ai/**` (Bucket4j). |
-| Replay of webhooks | Svix verification rejects events outside a 5-minute timestamp window. |
+| Replay of webhooks | Standard JWT `exp` validation rejects expired tokens (Kinde sets a short TTL on the webhook JWT). |
 
 ## Frontend
 
@@ -365,8 +371,8 @@ Default-off (`foresight.analytics.posthog.enabled=false`). When enabled with a b
 | Language | TypeScript | Type-safe API contracts, autocomplete on DTOs |
 | Framework | React 19 | Component model, large ecosystem |
 | Routing | React Router v7 | Protected routes, nested layouts |
-| Auth | `@clerk/react@6` | Hosted auth with prebuilt `<SignIn>` / `<SignUp>` / `<UserButton>` components |
-| HTTP | Axios | Async request interceptor for Clerk session JWT injection |
+| Auth | `@kinde-oss/kinde-auth-react@5` | Hosted auth via redirect (no embedded forms — Kinde requirement). Components (`LoginLink`, `RegisterLink`, `PortalLink`) live under the `/components` subpath import |
+| HTTP | Axios | Async request interceptor for Kinde access token injection |
 | Server state | TanStack Query v5 | Caching, invalidation, background refresh |
 | AI streaming | Native `fetch` + `ReadableStream` parser | Consumes the backend's SSE phases of the analyze pipeline |
 | i18n | i18next + `react-i18next` | TS catalogs, ES default, EN secondary; wraps `TranslationsContext` for in-app dynamic copy |
@@ -382,11 +388,11 @@ Default-off (`foresight.analytics.posthog.enabled=false`). When enabled with a b
 
 ```
 frontend/src/
-├── main.tsx                 # mounts <ClerkProvider> with VITE_CLERK_PUBLISHABLE_KEY
+├── main.tsx                 # mounts <KindeProvider> with VITE_KINDE_DOMAIN + VITE_KINDE_CLIENT_ID
 ├── App.tsx                  # router root; mounts <AuthBridge> + global CookieConsent
 ├── share-snapshot.tsx       # entry for vite.snapshot.config.ts → standalone share viewer
 ├── lib/
-│   ├── api.ts               # Axios instance — async tokenGetter for Clerk JWT
+│   ├── api.ts               # Axios instance — async tokenGetter for Kinde access token
 │   ├── apiError.ts          # Backend ApiError → user-facing message
 │   ├── queryClient.ts       # TanStack Query global config
 │   ├── aiClient.ts          # AI fetch wrappers (SSE parsers for analyze phases + chat)
@@ -421,8 +427,8 @@ frontend/src/
 │   │                             # TabSources, ImpactMatrix
 │   ├── chat/                # ChatAssistant + AssistantCommands + AssistantContextProvider
 │   ├── publicShare/         # PublicSharePage (router-mounted) + ShareView (shared body)
-│   ├── account/             # ClerkPreferencesPage + AppUserButton + appearance config
-│   ├── auth/                # AuthLayout, Clerk appearance, Clerk localization (ES/EN)
+│   ├── account/             # AccountModal (preferences + Kinde portal link + sign-out)
+│   ├── auth/                # AuthLayout (generic shell wrapping the Kinde Continue button)
 │   ├── shell/               # AppShell, TopBar, AppFooter, Stepper + StepperContext
 │   ├── translations/        # TranslationsContext (per-report language toggle)
 │   ├── privacy/             # PrivacyPage (public)
@@ -443,17 +449,21 @@ frontend/src/
 
 ### Key decisions
 
-**Clerk owns auth UI.** Sign-in and sign-up routes (`/sign-in/*`, `/sign-up/*`) render Clerk's prebuilt `<SignIn>` / `<SignUp>` components. Email verification, password reset, MFA enrolment, and account management UI are all hosted by Clerk — no custom forms to maintain.
+**Kinde owns auth UI.** Sign-in and sign-up routes (`/sign-in/*`, `/sign-up/*`) render the in-app `<AuthLayout>` (branded shell) with a single "Continue →" `<LoginLink>` / `<RegisterLink>` button that redirects to Kinde's hosted pages. Email verification, password reset, MFA enrolment, and active-session management are all hosted by Kinde — accessed from the in-app Account modal via `<PortalLink>`. Kinde does not support embedded credential forms by design (security policy); see `docs/MIGRATION_CLERK_TO_KINDE.md` for the constraints.
 
-**Tokens via async interceptor.** Clerk's `getToken()` is async (it may need to refresh). `lib/api.ts` exposes `setTokenGetter(...)` and runs the getter inside an async axios request interceptor; `<AuthBridge>` (mounted once inside `<ClerkProvider>`) registers Clerk's getter on mount and clears it on unmount. The rest of the codebase keeps using a single shared axios instance without each call having to plumb a token through manually.
+**Tokens via async interceptor.** Kinde's `getToken()` is async and returns `Promise<string | undefined>`. `lib/api.ts` exposes `setTokenGetter(...)` and runs the getter inside an async axios request interceptor; `<AuthBridge>` (mounted once inside `<KindeProvider>`) registers Kinde's getter on mount, wrapping it with a `?? null` shim because the axios layer expects `string | null`. The rest of the codebase keeps using a single shared axios instance without each call having to plumb a token through manually.
 
-**`useCurrentUser` is gated.** The query is `enabled` only after Clerk reports `isLoaded && isSignedIn` — prevents the brief 401 flash that would otherwise happen between mount and the first time `getToken()` resolves, and avoids fetching for signed-out users.
+**`useCurrentUser` is gated.** The query is `enabled` only after Kinde reports `!isLoading && isAuthenticated` — prevents the brief 401 flash that would otherwise happen between mount and the first time `getToken()` resolves, and avoids fetching for signed-out users.
 
-**Email read directly from Clerk.** The DB no longer stores email, so the account page reads it from `useUser().primaryEmailAddress.emailAddress`. The Clerk `<UserButton />` is the canonical entry point for changing email, password, MFA, and social connections.
+**Account modal, not a route.** The in-app `<AccountModal>` (opened from the topbar avatar button) carries language preferences, role view, name editing, the link out to Kinde's hosted portal, and sign-out. No `/account` route exists — modal state is local to `<AppShell>`. Built on the generic `Modal` primitive (`components/Modal.tsx`).
+
+**Name editing pushes to Kinde first.** When the user submits a new name in the Account modal, the frontend `PATCH /api/users/me` triggers `KindeBackendClient.updateUser()` BEFORE the local row is saved. If Kinde rejects (403 scope missing, 5xx outage, etc.) the local update doesn't happen and the user sees an error — preventing silent divergence with Kinde as source of truth.
 
 **Vite proxy.** In development, `/api/*` is proxied to `http://localhost:8080` to avoid CORS. In production, CORS is configured on the backend via `CORS_ALLOWED_ORIGINS` and Caddy serves the SPA.
 
 **Prototype as reference, not as code.** The vanilla-JS prototype (committed at `frontend/Futuros — Advanced AI Strategic Tools.html`) is the UX/design reference. Logic (AI calls, export) is ported; the code is rewritten in React + TypeScript from scratch. The marketing landing page lives in the same file and is the canonical source for the public site.
+
+**Auth redirect-only (not embedded).** Unlike the prior Clerk integration that rendered `<SignIn>` / `<SignUp>` as embedded React components, Kinde requires redirecting to its hosted pages — they own the auth UI for SCA/PSD2 compliance reasons. The trade-off (brand discontinuity on the auth pages) is mitigated by customising the Kinde-hosted page's branding (logo + palette) to match the Foresight design system.
 
 **Dual Vite build.** Production runs two passes:
 - `vite build` → SPA bundle in `dist/` (Caddy serves it; React Router resolves client-side via a catch-all to `/index.html`).
@@ -480,7 +490,7 @@ The shape is in place; the actual hosting target is the last open item on M4.
 
 - Picking the hosting target (Railway / Fly.io / VPS).
 - CI pipeline (GitHub Actions: test → build → push image).
-- Clerk **production** instance bound to a custom domain (`clerk.<yourdomain>`) with its own webhook signing secret.
+- Kinde **production** tenant bound to a custom domain (e.g. `auth.<yourdomain>`) — separate from the dev tenant, with its own M2M app, webhook endpoint, and callback URLs.
 - Error tracking (Sentry or similar).
 - Structured JSON logs with correlation IDs + Micrometer `/actuator/prometheus`.
 
@@ -488,7 +498,7 @@ The shape is in place; the actual hosting target is the last open item on M4.
 
 - **Long-running AI calls**: streaming SSE covers the 60-120s analyze pipeline well today. For full background processing (e.g. batch re-translation of many reports), move to a job queue (Spring Batch, or a simple async endpoint + polling).
 - **Caching**: Redis in front of Claude for identical prompts (saves cost). The `translations` / `pdf_optimized` JSONB caches already cover the highest-leverage cases at the DB level.
-- **Multi-tenancy**: current model is single-user ownership. If orgs/teams come, Clerk Organizations maps cleanly onto an `organization_id` FK across relevant entities; `ShareToken` already supports the snapshot pattern teams will need.
+- **Multi-tenancy**: current model is single-user ownership. If orgs/teams come, Kinde Organizations maps cleanly onto an `organization_id` FK across relevant entities; `ShareToken` already supports the snapshot pattern teams will need.
 - **Observability**: PostHog covers LLM + product analytics. Still pending: Micrometer metrics, structured JSON logs with correlation IDs, error tracking (Sentry-class tool).
 - **Distributed rate limiting**: today's `AiRateLimitFilter` is in-memory; swap to a Redis-backed bucket once we scale beyond a single instance.
-- **Stripe direct integration**: lives on `feature/stripe`. The hook is the existing `webhook/` package and `SubscriptionService.assertCanCreateReport()` — Stripe wiring just needs to fire `UserService.updateSubscription(...)` the same way Clerk Billing already does today.
+- **Stripe direct integration**: lives on `feature/stripe`. The hook is the existing `webhook/` package (will be extended with a Stripe-specific receiver `/api/webhooks/stripe`, separate from `/api/webhooks/kinde`) and `SubscriptionService.assertCanCreateReport()` — Stripe wiring fires `UserService.updateSubscription(...)` on `customer.subscription.*` events. We are MoR ourselves (autónomo, Spain) with Stripe Tax handling EU VAT.

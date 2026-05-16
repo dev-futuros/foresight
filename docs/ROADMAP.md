@@ -13,9 +13,9 @@ Goal: a production-quality backend skeleton ready to plug a frontend into.
 - [x] Package-by-feature structure (`user/`, `report/`, `ai/`, `webhook/`, `common/`)
 - [x] UUID-based entities with auditing (`createdAt`, `updatedAt`)
 - [x] Flyway migrations — schema under source control (V1–V4)
-- [x] Authentication delegated to Clerk: backend validates session JWTs against Clerk's JWKS, no passwords stored locally
-- [x] `JwtAuthFilter` + `@CurrentUser` resolves the local row by `clerk_user_id`, lazy-creates on first authenticated request
-- [x] Clerk webhook receiver (`POST /api/webhooks/clerk`) with Svix HMAC verification — keeps the local `users` row in sync on `user.created` / `user.updated` / `user.deleted`
+- [x] Authentication delegated to **Kinde** (migrated from Clerk on `feature/kinde`, 2026-05-16 — see `docs/MIGRATION_CLERK_TO_KINDE.md`). Backend validates session JWTs against Kinde's JWKS, no passwords stored locally
+- [x] `JwtAuthFilter` + `@CurrentUser` resolves the local row by `external_user_id`, lazy-creates on first authenticated request via `KindeBackendClient` (M2M `client_credentials` → Management API)
+- [x] Kinde webhook receiver (`POST /api/webhooks/kinde`) — body IS the JWT, verified with the same `JwtDecoder` bean as session tokens (no HMAC, no shared secret). Keeps the local `users` row in sync on `user.created` / `user.updated` / `user.deleted`
 - [x] Global exception handling with normalized `ApiError` response
 - [x] Bean Validation on all DTOs
 - [x] CORS configurable via env var
@@ -46,16 +46,16 @@ Vite · React 19 · TypeScript · React Router v7 · Axios · TanStack Query v5 
 ### Deliverables
 
 - [x] Scaffold: Vite + React 19 + TypeScript + ESLint
-- [x] Router: React Router v7 with `ProtectedRoute` (Clerk-aware)
-- [x] HTTP layer: Axios instance with async Clerk-JWT injection (`src/lib/api.ts` + `<AuthBridge>`)
+- [x] Router: React Router v7 with `ProtectedRoute` (Kinde-aware — originally Clerk, swapped during the auth migration)
+- [x] HTTP layer: Axios instance with async access-token injection (`src/lib/api.ts` + `<AuthBridge>`), now wired to `useKindeAuth().getToken()`
 - [x] Backend `ApiError` → user-facing message helper (`src/lib/apiError.ts`)
 - [x] Data fetching: TanStack Query v5 configured (`src/lib/queryClient.ts`)
 - [x] TypeScript types for all backend DTOs (`src/types/api.ts`)
 - [x] Global design system: dark theme + accent dorado, fuentes DM Sans/DM Mono/Playfair Display (`src/index.css`)
-- [x] Auth integration: `@clerk/react@6` (`<ClerkProvider>`, `<SignIn />`, `<SignUp />`, `<UserButton />`)
-- [x] Auth hooks: `useCurrentUser` (gated by `isLoaded && isSignedIn`), `useLogout` (delegates to `useClerk().signOut`)
+- [x] Auth integration: `@kinde-oss/kinde-auth-react@5` (`<KindeProvider>`, `<LoginLink>`, `<RegisterLink>`, `<PortalLink>` for the hosted account portal). Original integration was `@clerk/react@6`; migrated for EU billing reasons (USD-only, no VAT, beta) — see `docs/MIGRATION_CLERK_TO_KINDE.md`
+- [x] Auth hooks: `useCurrentUser` (gated by `!isLoading && isAuthenticated`), `useLogout` (delegates to `useKindeAuth().logout()`)
 - [x] Screens:
-  - [x] `/sign-in/*` and `/sign-up/*` — Clerk's prebuilt components (no custom forms to maintain)
+  - [x] `/sign-in/*` and `/sign-up/*` — branded `<AuthLayout>` shell wrapping a single "Continue →" link that redirects to Kinde's hosted pages (Kinde does not support embedded credential forms by design). Was previously Clerk's embedded `<SignIn />` / `<SignUp />` — see migration doc
   - [x] `/dashboard` — report list with status badges, empty state, delete, retry on error
   - [x] `/reports/new` — 3-step wizard (Empresa → STEEP → Horizon Scan), fully i18n
   - [x] `/reports/:id` — tabbed result view (Escenarios 3P, señales débiles, wildcards, incertidumbres) with retry on error
@@ -67,7 +67,7 @@ Vite · React 19 · TypeScript · React Router v7 · Axios · TanStack Query v5 
 
 ### Done when
 
-A user can sign up via Clerk, create a report through the wizard, see the AI-generated result, and download PDF + PPTX.
+A user can sign up via Kinde, create a report through the wizard, see the AI-generated result, and download PDF + PPTX.
 
 ---
 
@@ -75,7 +75,7 @@ A user can sign up via Clerk, create a report through the wizard, see the AI-gen
 
 Goal: gate paid functionality behind an active subscription.
 
-The shape changed during execution: rather than implementing Stripe directly, the gate is wired against **Clerk Billing**, which sits in front of Stripe and handles checkout + customer portal UI. The Stripe direct-integration branch (`feature/stripe`) is parallel work for environments where Clerk Billing isn't an option.
+The shape pivoted twice during execution: original plan was Clerk Billing (rejected — USD-only, no EU VAT, beta, SCA dubious), then Kinde Billing was considered (still Stripe-backed but with the same EU constraints unresolved), now landing on **Stripe directly** with us as Merchant of Record via an autónomo in Spain. Stripe Tax handles EU VAT calculation. See `docs/MIGRATION_CLERK_TO_KINDE.md` for the full decision narrative.
 
 ### Landed on `develop`
 
@@ -83,7 +83,7 @@ The shape changed during execution: rather than implementing Stripe directly, th
 - [x] `V5__subscription.sql`: `users.subscription_plan` + `subscription_current_period_start/end`, CHECK constraint on plan whitelist, composite index on `(user_id, created_at DESC)` for period-window counting
 - [x] Gate on `POST /api/reports` — enforces plan + period quota (10 reports / period on `FUTUROS_PLATAFORMA`), returns enriched 429 body (`limit`, `used`, `periodEnd`)
 - [x] `UserRole.DEV` bypass for the internal team (promotion by direct SQL only)
-- [x] Clerk Billing mirror through `/api/webhooks/clerk` — plan + period bounds updated as Clerk reports them
+- [ ] Stripe webhook receiver (`/api/webhooks/stripe`, separate from `/api/webhooks/kinde`) — plan + period bounds updated on `customer.subscription.*` and `invoice.*` events
 - [x] Frontend `useSubscription` hook surfacing current plan, usage, period bounds
 - [x] Paywall UI states (banner when quota exhausted, lock when no plan / period expired)
 
@@ -98,7 +98,7 @@ The shape changed during execution: rather than implementing Stripe directly, th
 
 ### Done when
 
-A new user can sign up → start a trial → be prompted to subscribe → complete checkout → continue using paid features. Billing state survives reloads and is the source of truth for access. The gating is already live; the open work is the direct-Stripe path for the deploy targets where Clerk Billing isn't used.
+A new user can sign up → start a trial → be prompted to subscribe → complete Stripe Checkout → continue using paid features. Billing state survives reloads and is the source of truth for access. The gate + DB columns + DEV bypass are already live; the open work is the Stripe wiring (checkout sessions, customer portal redirect, webhook receiver, Stripe Tax configuration).
 
 ---
 
@@ -109,7 +109,7 @@ Goal: ship to production.
 ### Already landed
 
 - [x] Rate limiting on `/api/ai/**` (Bucket4j, per-user) — landed early in M1
-- [x] LLM observability via PostHog (`$ai_generation` events server-side, `posthog-js` in the browser, shared distinct id by Clerk user id)
+- [x] LLM observability via PostHog (`$ai_generation` events server-side, `posthog-js` in the browser, shared distinct id by Kinde user id)
 - [x] Privacy page (`/privacy`) and cookie consent overlay (`CookieConsent`, gates analytics until accepted)
 - [x] Production frontend image: multi-stage `Dockerfile.prod` (Node 20 build → Caddy 2 alpine serve) with SPA fallback in `Caddyfile`
 - [x] Static asset cache policy (`/assets/*` 1y, `index.html` / `share-snapshot.html` no-cache)
@@ -122,11 +122,11 @@ Goal: ship to production.
 - [ ] Production backend Dockerfile optimisations (layered JAR, smaller base)
 - [ ] CI pipeline (GitHub Actions): test, build, push image
 - [ ] Deployment target (Railway / Fly.io / VPS — to decide)
-- [ ] Domain + HTTPS, including a Clerk **production** instance bound to a custom domain (`clerk.<yourdomain>`) with its own webhook signing secret
+- [ ] Domain + HTTPS, including a Kinde **production** tenant bound to a custom domain (e.g. `auth.<yourdomain>`) with its own M2M app + webhook endpoint + callback URLs
 - [ ] Error tracking (Sentry or similar)
 - [ ] Basic admin endpoints for observability
 - [ ] Terms of service page (privacy is done)
-- [ ] Transactional emails for billing events (signup / password-reset emails are already handled by Clerk)
+- [ ] Transactional emails for billing events (signup / password-reset / MFA emails are already handled by Kinde)
 
 ### Done when
 
@@ -157,7 +157,7 @@ These are all production code today, not experiments — they're treated as such
 
 These are intentionally **not** in the MVP but are worth noting so we don't build ourselves into a corner:
 
-- **Multi-user organisations / teams** — sharing reports inside an org (note: public share tokens already cover one-off sharing with clients). Maps cleanly onto Clerk Organizations when needed.
+- **Multi-user organisations / teams** — sharing reports inside an org (note: public share tokens already cover one-off sharing with clients). Maps cleanly onto Kinde Organizations when needed.
 - **Report versioning** — track edits over time.
 - **Server-side PDF/PPTX generation** — as a fallback if client-side gets too heavy for large reports.
 - **Alternative LLM providers** — swap Claude for OpenAI/Gemini if needed.
