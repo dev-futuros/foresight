@@ -1,31 +1,135 @@
-/* Styles for the custom Preferences page that slots into Clerk's
-   UserProfile modal via <UserButton.UserProfilePage>. Clerk renders
-   our React body inside its own panel chrome, so this just owns
-   layout (.field spacing, action-row alignment) and the inline
-   status messages.
+/* ============================================================
+   ACCOUNT MODAL
+   Layout for AccountModal — the overlay opened from the topbar
+   avatar button. Carries language preferences, role view, the
+   "manage account in Kinde" link out, and sign-out. The Modal
+   primitive (components/Modal.tsx + components/modal.css) owns
+   the backdrop, dialog body, ESC handling, focus trap, and
+   entrance animation; this stylesheet only paints the interior.
 
-   The older .account-page styles for the standalone /account route
-   were removed when that route was retired — preferences (language,
-   role) live inside the Clerk modal now. */
+   Tokens come from src/index.css.
+   ============================================================ */
 
-.clerk-custom-page {
-  padding: 4px 0;
+/* Slightly wider than the default dialog (520px) — we need to fit
+   three sections cleanly without each one feeling cramped. */
+.modal-dialog--account {
+  width: min(560px, calc(100vw - 32px));
+  padding: 24px 28px 22px;
 }
-.clerk-custom-page-title {
-  font-family: var(--serif);
-  font-weight: 400;
-  font-size: 22px;
-  line-height: 1.2;
-  margin: 0 0 18px;
-  color: var(--ink);
+
+/* ── Close button (top-right corner) ──────────────────────────
+   Small ghost icon button. Same proportions as .btn-ghost--icon
+   in the topbar so it feels like part of the same family. Sits
+   absolute over the dialog so it never participates in the
+   header's text flow. */
+.account-modal-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  color: var(--ink-mute);
+  cursor: pointer;
+  padding: 0;
+  transition: color 150ms var(--ease), background 150ms var(--ease),
+    border-color 150ms var(--ease);
 }
-.clerk-custom-page .field {
-  margin-bottom: 16px;
+.account-modal-close:hover {
+  color: var(--gold);
+  background: var(--gold-bg);
+  border-color: var(--line-accent);
 }
-/* Match the modal's Clerk form controls — same metrics as
-   .cl-up-label / .cl-up-input so the Preferences page sits in the
-   same visual rhythm as the built-in Profile / Security pages. */
-.clerk-custom-page label {
+.account-modal-close:focus-visible {
+  outline: 2px solid var(--gold-soft);
+  outline-offset: 2px;
+}
+.account-modal-close svg {
+  width: 12px;
+  height: 12px;
+}
+
+.account-modal-header {
+  margin-bottom: 6px;
+  /* Reserve room on the right so the title doesn't tuck under the
+     absolute-positioned close button on narrow viewports. */
+  padding-right: 36px;
+}
+.account-modal-eyebrow {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--gold);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin: 0 0 4px;
+}
+.account-modal-header .modal-title {
+  margin-bottom: 0;
+}
+
+.account-modal-loading {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-mute);
+  letter-spacing: 0.04em;
+  padding: 24px 0;
+  text-align: center;
+}
+
+/* ── Sections ───────────────────────────────────────────────
+   Each section gets a top divider (inset shadow rather than
+   border-bottom + last-child gymnastics — same trick the Clerk
+   UserProfile modal used to make the chrome agnostic to which
+   section is last). */
+.account-modal-section {
+  padding: 18px 0 14px;
+  box-shadow: inset 0 1px 0 var(--line);
+}
+.account-modal-section:first-of-type {
+  /* First section sits flush under the header without a divider —
+     the section title already gives enough visual separation. */
+  box-shadow: none;
+  padding-top: 12px;
+}
+.account-modal-section-title {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin: 0 0 10px;
+  font-weight: 500;
+}
+.account-modal-section-desc {
+  font-family: var(--sans);
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  line-height: 1.55;
+  margin: 0 0 14px;
+}
+.account-modal-section-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ── Form fields (preferences) ───────────────────────────── */
+.account-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.account-modal-field {
+  display: flex;
+  flex-direction: column;
+}
+.account-modal-field label {
   display: block;
   font-family: var(--mono);
   font-size: 10px;
@@ -34,8 +138,8 @@
   color: var(--ink-mute);
   margin-bottom: 6px;
 }
-.clerk-custom-page input,
-.clerk-custom-page select {
+.account-modal-field input,
+.account-modal-field select {
   width: 100%;
   padding: 8px 12px;
   background: var(--surface-3);
@@ -48,760 +152,42 @@
   outline: none;
   transition: border-color 150ms;
 }
-.clerk-custom-page input:focus,
-.clerk-custom-page select:focus {
+.account-modal-field input:focus,
+.account-modal-field select:focus {
   border-color: var(--line-accent);
+  box-shadow: 0 0 0 2px hsla(40, 60%, 56%, 0.08);
 }
-.clerk-custom-page .account-input--readonly {
-  color: var(--ink-soft);
-  background: var(--surface-3);
+.account-modal-input--readonly {
+  color: var(--ink-soft) !important;
   cursor: default;
 }
-.clerk-custom-page .account-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 8px;
-}
-.clerk-custom-page .account-msg {
+
+/* ── Status messages (ok / err) ──────────────────────────── */
+.account-modal-msg {
   font-family: var(--mono);
   font-size: 11.5px;
   letter-spacing: 0.02em;
-  margin-bottom: 12px;
+  margin: 0;
   padding: 10px 12px;
   border-radius: var(--r-sm);
 }
-.clerk-custom-page .account-msg--ok {
+.account-modal-msg--ok {
   color: var(--green);
   background: var(--green-bg);
   border: 1px solid hsla(160, 64%, 67%, 0.25);
 }
-.clerk-custom-page .account-msg--err {
+.account-modal-msg--err {
   color: var(--red);
   background: var(--red-bg);
   border: 1px solid hsla(0, 80%, 70%, 0.30);
 }
 
-/* ============================================================
-   CLERK <UserButton> + <UserProfile> OVERRIDES
-   Element keys are mapped to these classes via
-   features/account/userButtonAppearance.ts. Pattern mirrors the
-   auth-screen overrides in features/auth/auth.css: we own visual
-   chrome; Clerk owns the markup and behaviour. !important is the
-   norm because Clerk inlines styles derived from `variables` that
-   we want to override.
-   ============================================================ */
-
-/* ── Clerk modal footer placement ─────────────────────────────
-   In development mode Clerk renders a "Secured by Clerk · Development
-   mode" strip inside the UserProfile modal (.cl-footer). In its
-   default placement it sits beside the content column and squeezes
-   it, making the Profile row's name wrap one character per line.
-   Pin it to the bottom-left corner of the modal card via absolute
-   positioning — the parent .cl-up-card-box gets `position: relative`
-   so this anchors to the card, not the viewport. Out of the normal
-   flow, so the content column gets to expand to its intended width.
-   In production Clerk omits the dev-mode strip entirely, so this
-   rule effectively only matters during development. */
-/* Both the UserProfile modal (cl-up-card-box) and the userVerification
-   step-up card (cl-up-card via my appearance map; also cl-card from
-   Clerk auto-class) need `position: relative` so the absolute-
-   positioned footer anchors inside the card. */
-.cl-up-card-box,
-.cl-up-card {
-  position: relative !important;
-}
-/* userVerification card has no scroll-box wrapper, so its direct
-   children (header + main content) sit flush against the card edges
-   without padding. The UserProfile modal doesn't need this because
-   its .cl-up-page-scroll already supplies 28px interior padding.
-   Double-class selector (.cl-up-card.cl-card) so specificity beats
-   auth.css's `.cl-card { padding: 0 !important }` rule which targets
-   the same element via the auto-emitted `cl-card` class. */
-.cl-up-card.cl-card {
-  padding: 28px 32px !important;
-}
-.cl-footer {
-  position: absolute !important;
-  bottom: 12px !important;
-  left: 16px !important;
-  right: auto !important;
-  top: auto !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  z-index: 2 !important;
-  width: auto !important;
-  pointer-events: auto !important;
-}
-
-/* ── Avatar trigger in the topbar ─────────────────────────── */
-.cl-up-trigger {
+/* PortalLink renders an <a>; align it visually with the .modal-btn
+   palette so all three section actions feel uniform. The .modal-btn
+   class itself already provides padding / border / hover, this just
+   strips the link defaults. */
+.account-modal-section-actions a.modal-btn {
+  text-decoration: none;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  border-radius: 50% !important;
-  outline: none !important;
-  transition: box-shadow 180ms var(--ease);
 }
-.cl-up-trigger:focus-visible {
-  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--gold-soft) !important;
-}
-.cl-up-avatar {
-  border-radius: 50% !important;
-  border: 1px solid var(--line);
-  transition: border-color 180ms var(--ease), box-shadow 180ms var(--ease);
-}
-/* Hover decoration lives on the trigger itself rather than reaching into
-   the avatar child (would be a structural CSS selector that Clerk warns
-   about). Visually equivalent — the trigger is the avatar's tight
-   wrapper. */
-.cl-up-trigger:hover {
-  box-shadow: 0 0 16px hsla(40, 60%, 56%, 0.18);
-  border-radius: 50% !important;
-}
-
-/* ── Avatar popover (dropdown when avatar clicked) ─────────── */
-.cl-up-popover {
-  background: linear-gradient(180deg, var(--surface-1), var(--surface-2)) !important;
-  border: 1px solid var(--line-strong) !important;
-  border-radius: var(--r-md) !important;
-  box-shadow:
-    0 1px 0 hsla(0, 0%, 100%, 0.04) inset,
-    0 24px 48px -16px rgba(0, 0, 0, 0.6),
-    0 0 60px hsla(40, 60%, 56%, 0.04) !important;
-  padding: 6px !important;
-  min-width: 240px !important;
-}
-.cl-up-popover-main {
-  padding: 8px !important;
-}
-.cl-up-popover-footer {
-  border-top: 1px solid var(--line) !important;
-  padding-top: 6px !important;
-  margin-top: 4px !important;
-}
-.cl-up-popover-actions {
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 2px !important;
-  padding: 0 !important;
-  margin: 0 !important;
-}
-.cl-up-popover-action {
-  display: flex !important;
-  align-items: center !important;
-  gap: 10px !important;
-  width: 100% !important;
-  padding: 9px 10px !important;
-  background: transparent !important;
-  border: none !important;
-  border-radius: var(--r-sm) !important;
-  color: var(--ink) !important;
-  font-family: var(--mono) !important;
-  font-size: 12px !important;
-  letter-spacing: 0.02em !important;
-  text-align: left !important;
-  cursor: pointer !important;
-  transition: background 140ms var(--ease), color 140ms var(--ease) !important;
-}
-.cl-up-popover-action:hover {
-  background: var(--surface-3) !important;
-  color: var(--gold) !important;
-}
-.cl-up-popover-action--signout {
-  color: var(--ink-soft) !important;
-  border-top: 1px solid var(--line) !important;
-  margin-top: 4px !important;
-  padding-top: 11px !important;
-  border-radius: 0 0 var(--r-sm) var(--r-sm) !important;
-}
-.cl-up-popover-action--signout:hover {
-  background: hsla(0, 80%, 70%, 0.05) !important;
-  color: var(--red) !important;
-}
-/* Icon colour follows the parent button's text colour via `currentColor`
-   inheritance (Clerk's SVGs already use stroke="currentColor"), so we
-   don't need a structural ".action:hover .ico" selector to swap the
-   icon colour — setting color on the action button cascades naturally. */
-.cl-up-popover-action-ico {
-  width: 16px !important;
-  height: 16px !important;
-  flex-shrink: 0 !important;
-  color: inherit !important;
-}
-
-/* ── Identity preview (in popover header + modal header) ──── */
-.cl-up-preview {
-  display: flex !important;
-  align-items: center !important;
-  gap: 10px !important;
-  padding: 10px !important;
-  margin-bottom: 4px !important;
-}
-.cl-up-preview-avatar {
-  width: 36px !important;
-  height: 36px !important;
-  border-radius: 50% !important;
-  border: 1px solid var(--line) !important;
-  flex-shrink: 0 !important;
-}
-.cl-up-preview-text {
-  display: flex !important;
-  flex-direction: column !important;
-  min-width: 0 !important;
-}
-/* Preview text — allow normal wrapping at word boundaries, but no
-   mid-word breaks (that was making "Ruben Henares" stack one letter
-   per line when the column got squeezed by the Clerk dev footer). */
-.cl-up-preview,
-.cl-up-preview-text,
-.cl-up-preview-name,
-.cl-up-preview-sub {
-  white-space: normal !important;
-  overflow: visible !important;
-  text-overflow: clip !important;
-  max-width: none !important;
-  min-width: 0 !important;
-  word-break: normal !important;
-  overflow-wrap: normal !important;
-}
-.cl-up-preview-name {
-  font-family: var(--sans) !important;
-  font-size: 13px !important;
-  color: var(--ink) !important;
-  font-weight: 500 !important;
-}
-.cl-up-preview-sub {
-  font-family: var(--mono) !important;
-  font-size: 10.5px !important;
-  color: var(--ink-mute) !important;
-  letter-spacing: 0.04em !important;
-}
-
-/* Modal close (X) button — top-right corner of the modal. Stable
-   Clerk class (cl-modalCloseButton), no element-key mapping needed.
-   Styled as a small ghost icon button, gold-on-hover. */
-.cl-modalCloseButton {
-  width: 32px !important;
-  height: 32px !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  background: transparent !important;
-  border: 1px solid transparent !important;
-  border-radius: var(--r-sm) !important;
-  color: var(--ink-mute) !important;
-  cursor: pointer !important;
-  transition: color 150ms, background 150ms, border-color 150ms !important;
-}
-.cl-modalCloseButton:hover {
-  color: var(--gold) !important;
-  background: var(--gold-bg) !important;
-  border-color: var(--line-accent) !important;
-}
-.cl-modalCloseButton svg {
-  width: 12px !important;
-  height: 12px !important;
-}
-
-/* ── Modal chrome (UserProfile pages) ──────────────────────── */
-.cl-up-modal-backdrop {
-  background: hsla(240, 12%, 4%, 0.7) !important;
-  -webkit-backdrop-filter: blur(8px) saturate(120%) !important;
-  backdrop-filter: blur(8px) saturate(120%) !important;
-}
-.cl-up-modal-content {
-  /* Clerk's outer modal scroll container — strip its own background so
-     the .cl-up-card chrome below is what reads as the panel. */
-  background: transparent !important;
-  padding: 24px !important;
-}
-.cl-up-root,
-.cl-up-card,
-.cl-up-card-box {
-  background: linear-gradient(180deg, var(--surface-1), var(--surface-2)) !important;
-  border: 1px solid var(--line) !important;
-  border-radius: 18px !important;
-  box-shadow:
-    0 1px 0 hsla(0, 0%, 100%, 0.04) inset,
-    0 24px 48px -16px rgba(0, 0, 0, 0.5),
-    0 0 80px hsla(40, 60%, 56%, 0.04) !important;
-  overflow: hidden !important;
-}
-
-/* ── Left rail navigation ──────────────────────────────────── */
-.cl-up-navbar {
-  background: hsla(240, 8%, 4%, 0.4) !important;
-  border-right: 1px solid var(--line) !important;
-  padding: 24px 14px !important;
-}
-/* Navbar header — Clerk renders this as a bare <h1> + <p> pair with no
-   element-key class, only hashed cl-internal-* classes. Descendant
-   selectors are the only way to reach it; Clerk's structural-CSS
-   warning will note these but there's no stable hook to use instead. */
-.cl-up-navbar h1 {
-  font-family: var(--serif) !important;
-  font-weight: 400 !important;
-  font-size: 22px !important;
-  line-height: 1.2 !important;
-  color: var(--ink) !important;
-  margin: 0 0 4px !important;
-  padding: 0 12px !important;
-}
-.cl-up-navbar p {
-  font-family: var(--sans) !important;
-  font-size: 12.5px !important;
-  line-height: 1.5 !important;
-  color: var(--ink-soft) !important;
-  margin: 0 0 18px !important;
-  padding: 0 12px !important;
-}
-.cl-up-navbar-buttons {
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 2px !important;
-}
-.cl-up-navbar-btn {
-  display: flex !important;
-  align-items: center !important;
-  gap: 10px !important;
-  padding: 9px 12px !important;
-  background: transparent !important;
-  border: none !important;
-  border-radius: var(--r-sm) !important;
-  color: var(--ink-soft) !important;
-  font-family: var(--mono) !important;
-  font-size: 11.5px !important;
-  letter-spacing: 0.06em !important;
-  text-transform: uppercase !important;
-  text-align: left !important;
-  cursor: pointer !important;
-  transition: background 140ms var(--ease), color 140ms var(--ease) !important;
-}
-.cl-up-navbar-btn:hover {
-  background: var(--surface-3) !important;
-  color: var(--ink) !important;
-}
-.cl-up-navbar-btn[data-active='true'],
-.cl-up-navbar-btn[aria-current='page'] {
-  background: var(--gold-bg) !important;
-  color: var(--gold) !important;
-}
-
-/* ── Page content (right pane) ─────────────────────────────── */
-.cl-up-page-scroll {
-  padding: 28px 32px !important;
-}
-/* No border-bottom — the first .cl-up-section under the header draws
-   its own top-inset divider, so a border here would render a second
-   line right next to it with empty space between (Clerk applies a
-   border to the same element via its hashed cl-internal-* class; we
-   explicitly strip it). */
-.cl-up-page-header {
-  margin-bottom: 4px !important;
-  border: none !important;
-  padding-bottom: 0 !important;
-}
-.cl-up-page-title {
-  font-family: var(--serif) !important;
-  font-weight: 400 !important;
-  font-size: 22px !important;
-  line-height: 1.2 !important;
-  color: var(--ink) !important;
-  margin: 0 0 4px !important;
-}
-.cl-up-page-subtitle {
-  font-family: var(--sans) !important;
-  font-size: 13px !important;
-  color: var(--ink-soft) !important;
-  line-height: 1.5 !important;
-  margin: 0 !important;
-}
-
-/* Breadcrumbs (visible on nested pages e.g. "Add an email address") */
-.cl-up-breadcrumbs {
-  display: flex !important;
-  align-items: center !important;
-  gap: 6px !important;
-  font-family: var(--mono) !important;
-  font-size: 11px !important;
-  letter-spacing: 0.06em !important;
-  text-transform: uppercase !important;
-  color: var(--ink-mute) !important;
-  margin-bottom: 12px !important;
-}
-.cl-up-breadcrumbs-item {
-  color: var(--ink-mute) !important;
-  text-decoration: none !important;
-  transition: color 140ms var(--ease) !important;
-}
-.cl-up-breadcrumbs-item:hover {
-  color: var(--gold) !important;
-}
-.cl-up-breadcrumbs-divider {
-  color: var(--ink-mute) !important;
-  opacity: 0.5 !important;
-}
-
-/* The "PRIMARY" / "VERIFIED" badge next to an email address, the
-   default password marker, etc. The auth.css rule sets only typography
-   (mono / uppercase / letter-spacing); add the gold-on-dark palette
-   here so the chip pops against the modal's surface. .cl-badge is a
-   class we own (mapped via appearance.elements.badge), so this isn't
-   a structural-CSS dependency on Clerk's DOM. */
-.cl-badge {
-  color: var(--gold) !important;
-  background: var(--gold-bg) !important;
-  border: 1px solid var(--gold-soft) !important;
-  border-radius: var(--r-sm) !important;
-  padding: 2px 7px !important;
-}
-
-/* ── Built-in profile sections (email, password, 2FA, …) ──── */
-/* Top divider via inset box-shadow rather than border-bottom + last-
-   child. The inset-shadow approach is structure-agnostic: every
-   section draws a 1px line at its top, no need to detect which sibling
-   is last to suppress a trailing border. The first section's top line
-   sits just under the page header's own bottom border — visually a
-   single divider, which is what you want anyway. */
-.cl-up-section {
-  padding: 18px 0 !important;
-  box-shadow: inset 0 1px 0 var(--line) !important;
-}
-.cl-up-section-title {
-  margin-bottom: 10px !important;
-}
-.cl-up-section-title-text {
-  font-family: var(--mono) !important;
-  font-size: 10.5px !important;
-  letter-spacing: 0.16em !important;
-  text-transform: uppercase !important;
-  color: var(--ink-mute) !important;
-}
-.cl-up-section-subtitle {
-  font-family: var(--sans) !important;
-  font-size: 12.5px !important;
-  color: var(--ink-soft) !important;
-  margin-bottom: 8px !important;
-  line-height: 1.5 !important;
-}
-/* Set color on every ancestor in the section tree. Clerk's value-row
-   text is rendered as `<p data-color="inherit">…</p>` with no stable
-   class hook, so the only way to control its colour is through CSS
-   inheritance: whichever ancestor sets a `color` value, the inner text
-   picks up via `color: inherit`. Setting it at multiple levels makes
-   the chain robust against Clerk inserting an unstyled wrapper. */
-.cl-up-card-box,
-.cl-up-navbar,
-.cl-up-page,
-.cl-up-page-scroll,
-.cl-up-section,
-.cl-up-section-content,
-.cl-up-section-item {
-  color: var(--ink) !important;
-}
-/* Force text colour via Clerk's data-color attribute system.
-   Clerk renders value rows like `<p data-color="inherit">email</p>`
-   inside a hashed `cl-internal-*` wrapper that has its own dim
-   colour — so `data-color="inherit"` inherits dim regardless of how
-   far up the chain we set `color`, and Clerk's `variables` system
-   (colorText, colorTextSecondary) doesn't apply to elements with
-   `data-color="inherit"` because Clerk literally emits
-   `color: inherit` for those.
-   Trade-off: Clerk warns this is "structural CSS" (the data-color
-   attribute is internal API and may change between versions). Without
-   these rules text rows go dim and the modal becomes hard to read,
-   which is a worse regression than a console warning. If the warning
-   blocks something concrete, install @clerk/ui — it pins the DOM
-   structure and lets us drop these rules. */
-.cl-up-card-box [data-color='inherit'],
-.cl-up-card-box [data-color='text'] {
-  color: var(--ink) !important;
-}
-.cl-up-card-box [data-color='textSecondary'],
-.cl-up-card-box [data-color='secondary'],
-.cl-up-card-box [data-color='neutral'] {
-  color: var(--ink-soft) !important;
-}
-.cl-up-section-content {
-  font-family: var(--sans) !important;
-  font-size: 13.5px !important;
-}
-/* No inset shadow on section-items — the parent .cl-up-section already
-   draws its own top divider, and an additional shadow on the first
-   item creates a visible double-line (the section's shadow at the
-   very top, then the item's shadow 18px below after the section's
-   padding). Trade-off: subsequent items in multi-row sections lose
-   their inter-item divider — fine in practice, the section's outer
-   divider + items' padding-based spacing is enough visual separation. */
-.cl-up-section-item {
-  padding: 8px 0 !important;
-}
-.cl-up-section-action {
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 6px !important;
-  padding: 6px 10px !important;
-  background: transparent !important;
-  border: 1px solid var(--line) !important;
-  border-radius: var(--r-sm) !important;
-  color: var(--ink-soft) !important;
-  font-family: var(--mono) !important;
-  font-size: 11px !important;
-  letter-spacing: 0.04em !important;
-  cursor: pointer !important;
-  transition: border-color 150ms, color 150ms, background 150ms !important;
-}
-.cl-up-section-action:hover {
-  color: var(--gold) !important;
-  border-color: var(--line-accent) !important;
-  background: var(--gold-bg) !important;
-}
-
-/* ── Modal form controls ───────────────────────────────────────
-   Forked from the auth-screen .cl-* classes so the modal's narrower
-   columns get proportionally sized inputs and buttons. Same visual
-   language (border colour, focus ring, gold primary) — just smaller
-   typography and padding. The section-action button (.cl-up-section-
-   action, used for Update profile / Add email) sets the size rhythm
-   we match here. */
-.cl-up-field {
-  margin-bottom: 0 !important;
-}
-.cl-up-label {
-  display: block !important;
-  font-family: var(--mono) !important;
-  font-size: 10px !important;
-  color: var(--ink-mute) !important;
-  letter-spacing: 0.12em !important;
-  text-transform: uppercase !important;
-  margin-bottom: 6px !important;
-}
-.cl-up-input {
-  width: 100% !important;
-  background: var(--surface-3) !important;
-  border: 1px solid var(--line) !important;
-  color: var(--ink) !important;
-  padding: 8px 12px !important;
-  border-radius: var(--r-sm) !important;
-  font-family: var(--sans) !important;
-  font-size: 13px !important;
-  line-height: 1.45 !important;
-  outline: none !important;
-  transition:
-    border-color 180ms var(--ease),
-    box-shadow 180ms var(--ease),
-    background 180ms var(--ease);
-}
-.cl-up-input::placeholder {
-  color: var(--ink-mute) !important;
-  opacity: 0.65 !important;
-}
-.cl-up-input:hover:not(:focus) {
-  border-color: var(--line-strong) !important;
-}
-.cl-up-input:focus {
-  border-color: var(--line-accent) !important;
-  box-shadow: 0 0 0 2px hsla(40, 60%, 56%, 0.08) !important;
-}
-.cl-up-eye-btn {
-  background: transparent !important;
-  border: none !important;
-  color: var(--ink-mute) !important;
-  padding: 0 !important;
-  width: 28px !important;
-  height: 28px !important;
-  display: grid !important;
-  place-items: center !important;
-  border-radius: var(--r-sm) !important;
-  cursor: pointer !important;
-  transition: color 150ms, background 150ms !important;
-}
-.cl-up-eye-btn:hover {
-  color: var(--ink) !important;
-  background: hsla(0, 0%, 100%, 0.04) !important;
-}
-.cl-up-hint {
-  font-family: var(--mono) !important;
-  font-size: 10.5px !important;
-  color: var(--ink-mute) !important;
-  margin-top: 5px !important;
-  letter-spacing: 0.02em !important;
-}
-.cl-up-err-msg {
-  font-family: var(--mono) !important;
-  font-size: 10.5px !important;
-  color: var(--red) !important;
-  margin-top: 6px !important;
-  letter-spacing: 0.02em !important;
-}
-/* Primary button (Save) — auto width so it sits beside the secondary
-   Cancel rather than spanning the form. Same gold palette as auth's
-   primary, just compact padding/font. */
-.cl-up-btn-primary {
-  width: auto !important;
-  margin: 0 !important;
-  padding: 8px 18px !important;
-  border-radius: var(--r-sm) !important;
-  background: var(--gold) !important;
-  border: 1px solid var(--gold-soft) !important;
-  color: #0a0a0a !important;
-  font-family: var(--sans) !important;
-  font-size: 12px !important;
-  font-weight: 600 !important;
-  letter-spacing: 0.01em !important;
-  cursor: pointer !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 8px !important;
-  box-shadow: 0 1px 0 hsla(0, 0%, 100%, 0.2) inset !important;
-  text-transform: none !important;
-  transition: opacity 180ms, transform 120ms var(--ease), box-shadow 200ms !important;
-}
-.cl-up-btn-primary:hover {
-  opacity: 0.92 !important;
-  background: var(--gold) !important;
-  color: #0a0a0a !important;
-  box-shadow:
-    0 1px 0 hsla(0, 0%, 100%, 0.2) inset,
-    0 0 24px hsla(40, 60%, 56%, 0.2) !important;
-}
-.cl-up-btn-primary:active {
-  transform: scale(0.985) !important;
-}
-.cl-up-btn-primary:disabled {
-  opacity: 0.4 !important;
-  cursor: not-allowed !important;
-  transform: none !important;
-}
-/* OTP / verification code segments — six small boxes for 2FA flows.
-   Double-class selector to outweigh auth.css's `.cl-input` rule which
-   gets auto-emitted onto the same elements (Clerk gives every input-
-   type element the `cl-input` class regardless of appearance map).
-   Without the double-class, auth's `width: 100% !important` would
-   make each segment full-width and break the row layout. */
-.cl-otpCodeFieldInput.cl-up-otp-input {
-  /* Clerk renders OTP segments as bare <div>s with no text content
-     (a hidden <input> overlay captures the digits). Without an
-     explicit width they collapse to 0 and render as thin vertical
-     lines — explicitly fix the box to 38×38 so each segment is
-     visible as a digit-sized square. */
-  width: 38px !important;
-  height: 38px !important;
-  flex: 0 0 38px !important;
-  padding: 0 !important;
-  background: var(--surface-3) !important;
-  border: 1px solid var(--line) !important;
-  color: var(--ink) !important;
-  font-family: var(--mono) !important;
-  font-size: 16px !important;
-  letter-spacing: 0 !important;
-  text-align: center !important;
-  border-radius: var(--r-sm) !important;
-  outline: none !important;
-  transition: border-color 180ms, box-shadow 180ms !important;
-}
-.cl-otpCodeFieldInput.cl-up-otp-input[data-focus-within='true'],
-.cl-otpCodeFieldInput.cl-up-otp-input:focus {
-  border-color: var(--line-accent) !important;
-  box-shadow: 0 0 0 2px hsla(40, 60%, 56%, 0.08) !important;
-}
-
-/* "Didn't receive a code? Resend (15)" link button below the OTP. */
-.cl-up-resend-link {
-  background: transparent !important;
-  border: none !important;
-  color: var(--gold) !important;
-  font-family: var(--mono) !important;
-  font-size: 11px !important;
-  letter-spacing: 0.04em !important;
-  padding: 6px 0 !important;
-  cursor: pointer !important;
-}
-.cl-up-resend-link:hover {
-  color: var(--gold-soft) !important;
-}
-.cl-up-resend-link:disabled {
-  color: var(--ink-mute) !important;
-  cursor: not-allowed !important;
-}
-
-/* Secondary / reset button (Cancel) — ghost outline. */
-.cl-up-btn-reset {
-  background: transparent !important;
-  border: 1px solid var(--line) !important;
-  color: var(--ink-soft) !important;
-  padding: 8px 16px !important;
-  border-radius: var(--r-sm) !important;
-  font-family: var(--sans) !important;
-  font-size: 12px !important;
-  cursor: pointer !important;
-  transition: border-color 150ms, color 150ms, background 150ms !important;
-}
-.cl-up-btn-reset:hover {
-  border-color: var(--line-strong) !important;
-  color: var(--ink) !important;
-  background: hsla(0, 0%, 100%, 0.02) !important;
-}
-
-/* Avatar action buttons on the Update-profile page. Two distinct
-   variants: secondary ghost (Upload) and danger ghost (Remove). Both
-   sit beside the avatar so we keep them compact — same vertical
-   rhythm as the section-action buttons. */
-.cl-up-btn-ghost,
-.cl-up-btn-danger {
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 6px !important;
-  padding: 6px 12px !important;
-  background: transparent !important;
-  border: 1px solid var(--line) !important;
-  border-radius: var(--r-sm) !important;
-  font-family: var(--mono) !important;
-  font-size: 11px !important;
-  letter-spacing: 0.04em !important;
-  cursor: pointer !important;
-  transition: border-color 150ms, color 150ms, background 150ms !important;
-}
-.cl-up-btn-ghost {
-  color: var(--ink-soft) !important;
-}
-.cl-up-btn-ghost:hover {
-  color: var(--gold) !important;
-  border-color: var(--line-accent) !important;
-  background: var(--gold-bg) !important;
-}
-.cl-up-btn-danger {
-  color: var(--red) !important;
-  border-color: hsla(0, 80%, 70%, 0.3) !important;
-}
-.cl-up-btn-danger:hover {
-  color: var(--red) !important;
-  border-color: hsla(0, 80%, 70%, 0.55) !important;
-  background: hsla(0, 80%, 70%, 0.08) !important;
-}
-
-/* Accordion trigger (Clerk uses it on multi-step settings) */
-.cl-up-accordion-trigger {
-  background: transparent !important;
-  border: 1px solid var(--line) !important;
-  border-radius: var(--r-sm) !important;
-  color: var(--ink) !important;
-  padding: 10px 12px !important;
-  font-family: var(--sans) !important;
-  font-size: 13px !important;
-  cursor: pointer !important;
-  transition: border-color 150ms, background 150ms !important;
-}
-.cl-up-accordion-trigger:hover {
-  border-color: var(--line-strong) !important;
-  background: var(--surface-3) !important;
-}
-
-/* ── Override: in-modal Clerk card chrome (auth.css strips this for
-   sign-in/up; we want it KEPT for the profile modal, but the auth
-   rules use .cl-card / .cl-card-box which our appearance map sends
-   to .cl-up-card / .cl-up-card-box — so no conflict.) ─────── */

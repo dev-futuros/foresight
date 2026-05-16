@@ -3,9 +3,9 @@ import api from '../lib/api';
 import type { UserResponse, UpdateUserRequest } from '../types/api';
 
 /**
- * Updates the local profile (name / language) on the backend. Email and password live in
- * Clerk and are managed through Clerk's prebuilt `<UserProfile />` component (rendered
- * inside `<UserButton />`), so they're not handled from here.
+ * Updates the local profile (name / language) on the backend. Email, password and MFA live
+ * in Kinde and are managed through Kinde's hosted account portal (linked from the in-app
+ * Account page via {@code PortalLink}), so they're not handled from here.
  */
 export function useUpdateProfile() {
   const qc = useQueryClient();

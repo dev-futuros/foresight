@@ -23,6 +23,8 @@ import com.posthog.server.PostHogInterface;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import static com.foresight.backend.common.Constants.*;
+
 /**
  * Fires {@code $ai_generation} events to PostHog using the canonical LLM-analytics schema
  * from <a href="https://posthog.com/docs/llm-analytics/installation/manual-capture">posthog.com</a>.
@@ -70,11 +72,11 @@ public class LlmCapture {
     }
 
     /**
-     * Resolve the PostHog {@code distinct_id} for the current request. Uses the external
-     * provider's user id (Clerk pre-migration, Kinde post-migration) when there's an
-     * authenticated principal — matches what the frontend's {@code posthog.identify}
-     * call uses, so backend + frontend events group on the same person. Falls back to
-     * {@code "anonymous"} for unauthenticated paths (e.g. public share preview).
+     * Resolve the PostHog {@code distinct_id} for the current request. Uses the Kinde user id
+     * when there's an authenticated principal — matches what the frontend's
+     * {@code posthog.identify} call uses, so backend + frontend events group on the same
+     * person. Falls back to {@code "anonymous"} for unauthenticated paths (e.g. public share
+     * preview).
      */
     public String currentDistinctId() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -171,12 +173,12 @@ public class LlmCapture {
     private List<Map<String, Object>> buildInput(LlmCaptureContext ctx) {
         List<Map<String, Object>> input = new ArrayList<>();
         if (ctx.systemPrompt() != null && !ctx.systemPrompt().isBlank()) {
-            input.add(Map.of("role", "system", "content", ctx.systemPrompt()));
+            input.add(Map.of(ROLE, "system", CONTENT, ctx.systemPrompt()));
         }
         if (ctx.messages() != null && !ctx.messages().isEmpty()) {
             input.addAll(ctx.messages());
         } else if (ctx.userPrompt() != null) {
-            input.add(Map.of("role", "user", "content", ctx.userPrompt()));
+            input.add(Map.of(ROLE, "user", CONTENT, ctx.userPrompt()));
         }
         return input;
     }
@@ -196,13 +198,13 @@ public class LlmCapture {
         JsonNode content = ctx.outputContent();
         if (content != null && content.isArray() && !content.isEmpty()) {
             Map<String, Object> choice = new HashMap<>();
-            choice.put("role", "assistant");
-            choice.put("content", objectMapper.convertValue(content, Object.class));
+            choice.put(ROLE, ASSISTANT);
+            choice.put(CONTENT, objectMapper.convertValue(content, Object.class));
             return List.of(choice);
         }
         Map<String, Object> choice = new HashMap<>();
-        choice.put("role", "assistant");
-        choice.put("content", ctx.outputText() == null ? "" : ctx.outputText());
+        choice.put(ROLE, ASSISTANT);
+        choice.put(CONTENT, ctx.outputText() == null ? "" : ctx.outputText());
         return List.of(choice);
     }
 }

@@ -15,35 +15,49 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @param authDisabled when {@code true}, every endpoint becomes public and a synthetic dev user is
  *     injected as the principal. NEVER enable this in production — only activated via the {@code
  *     local} profile.
- * @param clerk Clerk-related settings (issuer, JWKS, webhook signing secret)
+ * @param kinde Kinde-related settings (auth + Management API M2M credentials)
  * @param cors CORS-related settings (allowed origins)
  * @param rateLimit rate-limit settings keyed by endpoint family
  */
 @ConfigurationProperties(prefix = "foresight.security")
-public record SecurityProperties(boolean authDisabled, Clerk clerk, Cors cors, RateLimit rateLimit) {
+public record SecurityProperties(boolean authDisabled, Kinde kinde, Cors cors, RateLimit rateLimit) {
 
     /**
-     * Settings required to validate session JWTs issued by Clerk, to verify webhook deliveries,
-     * and to call Clerk's Backend API for profile lookups.
+     * Kinde-related settings: the values needed to (a) validate session JWTs against Kinde's
+     * JWKS endpoint, and (b) fetch user profile fields from Kinde's Management API on
+     * lazy-create using the M2M client_credentials OAuth2 flow.
      *
-     * @param issuer the {@code iss} claim value Clerk puts in every session JWT (e.g.
-     *     {@code https://your-app.clerk.accounts.dev} for dev or {@code https://clerk.example.com}
-     *     when using a custom domain in production). Used as a strict validator on incoming tokens.
-     * @param jwksUri public URI exposing Clerk's signing keys; the {@code JwtDecoder} fetches and
-     *     caches keys from here to verify token signatures.
-     * @param webhookSigningSecret HMAC secret used to verify the Svix signature of incoming
-     *     webhooks. Pulled from the Clerk Dashboard → Webhooks page after creating an endpoint.
-     * @param secretKey Clerk Backend API secret key ({@code sk_test_...} / {@code sk_live_...}).
-     *     Used server-side to fetch user profile fields when lazy-creating a local row. Blank if
-     *     the feature is disabled.
-     * @param apiBaseUrl base URL of the Clerk Backend API (defaults to {@code https://api.clerk.com/v1}).
+     * <p>Kinde signs webhook deliveries with a JWT verified against the same JWKS endpoint as
+     * the auth JWTs — there is intentionally no separate webhook signing secret to configure.
+     *
+     * @param domain                 Kinde tenant URL with scheme, no trailing slash
+     *                               (e.g. {@code https://futuros.kinde.com}). Used to derive
+     *                               the Management API audience (domain + {@code /api}).
+     * @param issuer                 the {@code iss} claim value Kinde puts in every session JWT
+     *                               (same value as {@code domain} for stock Kinde tenants).
+     *                               Used by the strict issuer validator on incoming tokens.
+     * @param jwksUri                public URI exposing Kinde's signing keys; the
+     *                               {@code JwtDecoder} fetches and caches keys from here to
+     *                               verify token signatures AND webhook JWT signatures.
+     * @param tokenEndpoint          OAuth2 token endpoint used by {@code KindeBackendClient}
+     *                               for the client_credentials grant
+     *                               (e.g. {@code <domain>/oauth2/token}).
+     * @param managementApiBaseUrl   base URL of the Management API
+     *                               (e.g. {@code <domain>/api/v1}) — appended to per-call paths.
+     * @param m2mClientId            Client ID of the Machine-to-Machine app created in the Kinde
+     *                               Dashboard. Granted the {@code read:users} scope on the
+     *                               Management API. Blank disables the backend client (lazy-
+     *                               create will fall back to JWT claims for {@code name}).
+     * @param m2mClientSecret        Secret of the M2M app. Sensitive — never log.
      */
-    public record Clerk(
+    public record Kinde(
+            String domain,
             String issuer,
             String jwksUri,
-            String webhookSigningSecret,
-            String secretKey,
-            String apiBaseUrl) {}
+            String tokenEndpoint,
+            String managementApiBaseUrl,
+            String m2mClientId,
+            String m2mClientSecret) {}
 
     /**
      * @param allowedOrigins Comma-separated list of origins allowed by CORS (e.g. the frontend

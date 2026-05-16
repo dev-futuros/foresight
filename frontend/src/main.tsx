@@ -4,9 +4,10 @@ import './index.css';
 import './i18n';
 import App from './App.tsx';
 
-if (!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY) {
+if (!import.meta.env.VITE_KINDE_DOMAIN || !import.meta.env.VITE_KINDE_CLIENT_ID) {
   throw new Error(
-    'Missing VITE_CLERK_PUBLISHABLE_KEY. Copy .env.example to .env.local and set the publishable key from your Clerk Dashboard.',
+    'Missing Kinde configuration. Copy frontend/.env.example to frontend/.env.local and set ' +
+      'VITE_KINDE_DOMAIN and VITE_KINDE_CLIENT_ID from your Kinde Dashboard → Applications → Futuros FE.',
   );
 }
 

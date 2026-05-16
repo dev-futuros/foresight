@@ -34,9 +34,11 @@ import lombok.extern.slf4j.Slf4j;
  * <p>Public endpoints (no token required):
  *
  * <ul>
- *   <li>{@code POST /api/webhooks/clerk} — protected by Svix signature, not by JWT.
+ *   <li>{@code POST /api/webhooks/kinde} — protected by JWT signature (Kinde signs webhooks),
+ *       not by a session bearer token. Verification is done inside the controller using the
+ *       same {@code JwtDecoder} bean as the auth filter.
  *   <li>{@code GET /api/public/**} — anonymous-readable share snapshots (token-gated at the
- *       service layer; see {@link com.foresight.backend.share.PublicShareController}).
+ *       service layer; see {@code PublicShareController}).
  *   <li>{@code /api/health}, {@code /actuator/health[/**]} — liveness probes.
  *   <li>Swagger UI / OpenAPI docs.
  * </ul>
@@ -79,7 +81,7 @@ public class SecurityConfig {
                     if (properties.authDisabled()) {
                         auth.anyRequest().permitAll();
                     } else {
-                        auth.requestMatchers(HttpMethod.POST, "/api/webhooks/clerk")
+                        auth.requestMatchers(HttpMethod.POST, "/api/webhooks/kinde")
                                 .permitAll()
                                 .requestMatchers(HttpMethod.GET, "/api/public/**")
                                 .permitAll()
@@ -107,7 +109,7 @@ public class SecurityConfig {
     public UrlBasedCorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         List<String> origins = properties.cors().allowedOrigins();
-        System.out.println(">>> CORS allowed origins: " + origins); // ← add here
+        log.debug(">>> CORS allowed origins: {}", origins);
     
         config.setAllowedOriginPatterns(origins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));

@@ -1,21 +1,31 @@
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { dispatch as dispatchCommand } from '../../lib/commandBus';
-import AppUserButton from '../account/AppUserButton';
+
+type TopBarProps = {
+  /**
+   * Opens the account modal overlay. Wired by {@link AppShell}, which owns
+   * the modal's open state. Kept as a prop (instead of an internal click
+   * handler that opens a modal here) so the modal can sit alongside the
+   * shell's other floating UI — chat assistant, footer — without nesting
+   * portals inside the topbar.
+   */
+  onOpenAccount: () => void;
+};
 
 /**
  * Sticky top bar — brand on the left, action cluster on the right:
- * new-report icon (gold) → dashboard icon → user avatar. The avatar
- * (Clerk's UserButton wrapped via {@link AppUserButton}) opens the modal
- * that carries "My account", the custom "Preferences" page, and sign
- * out — replacing the older hamburger dropdown.
+ * new-report icon (gold) → dashboard icon → account icon. The account icon
+ * opens an overlay modal (mounted in {@link AppShell}) with language
+ * preferences, role view, a link out to Kinde's hosted portal for
+ * email/password/MFA management, and the sign-out button.
  *
  * <p>The autosave chip used to live here, but it now sits inline above
  * the wizard's input form (see {@code wizard-save-row} in
  * {@code NewReportPage}) so the "I'm typing — am I saved?" relationship
  * reads spatially next to the fields the user is actually editing.
  */
-export default function TopBar() {
+export default function TopBar({ onOpenAccount }: Readonly<TopBarProps>) {
   const { t } = useTranslation();
 
   return (
@@ -61,12 +71,21 @@ export default function TopBar() {
               <use href="#i-grid" />
             </svg>
           </Link>
-          {/* User avatar — opens the Clerk modal (My Account, Security,
-              custom Preferences page, sign out). Replaces the older
-              hamburger dropdown that wrapped the same two destinations. */}
-          <div className="topbar-avatar">
-            <AppUserButton size={28} />
-          </div>
+          {/* Account — opens the AccountModal overlay (mounted in AppShell).
+              Hosts language settings, role view, "manage account" out to
+              Kinde's hosted portal for email/password/MFA, and sign-out. */}
+          <button
+            type="button"
+            className="btn-ghost btn-ghost--icon"
+            data-tooltip={t('nav.account')}
+            data-tooltip-pos="below"
+            aria-label={t('nav.account')}
+            onClick={onOpenAccount}
+          >
+            <svg className="btn-ghost-ico" aria-hidden>
+              <use href="#i-user" />
+            </svg>
+          </button>
         </div>
       </div>
     </header>

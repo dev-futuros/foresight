@@ -9,9 +9,34 @@ import type { ReportSummary } from '../types/api';
 
 const mockMutate = vi.fn();
 
+// DashboardPage pulls a handful of hooks from useReports / useExamples / useAuth /
+// TranslationsContext. We mock the surface area each one needs so the component
+// renders without standing up a real query client / Kinde provider. Inlined
+// `{ mutate, mutateAsync, isPending }` stubs because vi.mock factories are hoisted
+// above top-level const declarations and can't reference local helpers.
 vi.mock('../hooks/useReports', () => ({
   useReports: vi.fn(),
+  useReport: () => ({ data: undefined, isLoading: false }),
+  useCreateReport: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
+  useUpdateReport: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
   useDeleteReport: () => ({ mutate: mockMutate }),
+  useDeleteTranslation: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
+  useTranslateReport: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
+  translateReportStream: vi.fn(),
+}));
+vi.mock('../hooks/useExamples', () => ({
+  useExamples: () => ({ data: undefined, isLoading: false, isError: false }),
+  useExample: () => ({ data: undefined, isLoading: false }),
+  usePromoteToExample: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
+  useDemoteExample: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
+  useDeleteExample: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
+  useTranslateExample: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
+  useDeleteExampleTranslation: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
+}));
+vi.mock('../hooks/useAuth', () => ({
+  useIsDev: () => false,
+  useCurrentUser: () => ({ data: undefined, isLoading: false }),
+  useLogout: () => vi.fn(),
 }));
 
 import { useReports } from '../hooks/useReports';

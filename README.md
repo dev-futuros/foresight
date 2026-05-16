@@ -8,14 +8,17 @@ Strategic foresight platform. Helps organizations anticipate future scenarios th
 Foresight/
 ├── backend/              # Spring Boot 3.5 backend (Java 21)
 ├── frontend/             # React 19 + Vite + TypeScript frontend
-├── docker-compose.yml    # Orchestrates backend + PostgreSQL
-├── .env.example          # Backend env template (Clerk, DB, Anthropic, …)
-├── frontend/.env.example # Frontend env template (Clerk publishable key)
+├── docker-compose-backend.yml  # Backend stack: PostgreSQL + Spring Boot + optional SonarQube
+├── docker-compose-frontend.yml # Frontend stack: Vite dev / preview server
+├── scripts/              # up.ps1 / up.sh / down.ps1 / down.sh helpers
+├── .env.example          # Backend env template (Kinde, DB, Anthropic, …)
+├── frontend/.env.example # Frontend env template (Kinde domain + client id)
 └── docs/
     ├── API.md            # REST API reference
     ├── ARCHITECTURE.md   # System architecture and design decisions
     ├── CHANGELOG.md      # Notable changes by milestone
-    └── ROADMAP.md        # Development plan (M1–M4)
+    ├── ROADMAP.md        # Development plan (M1–M4)
+    └── MIGRATION_CLERK_TO_KINDE.md  # Post-mortem of the Clerk → Kinde auth migration (archive eventually)
 ```
 
 ## Quick start
@@ -24,16 +27,22 @@ Foresight/
 
 - Docker Desktop
 - Node.js 20+ (for the frontend)
-- A Clerk account — sign up at [clerk.com](https://clerk.com), create an application, and have its **Publishable Key** + **Frontend API URL** ready
+- A Kinde account — sign up at [kinde.com](https://kinde.com), create a tenant, and have a Front-end app + a Machine-to-Machine (M2M) app set up (see [One-time Kinde setup](#one-time-kinde-setup) below)
 - (Optional, only if you want to run the backend with `mvnw` outside Docker) JDK 21 + Maven
 
-### One-time Clerk setup
+### One-time Kinde setup
 
-Authentication is delegated to Clerk. Before the app can run with auth enabled you need to copy three values from your Clerk Dashboard:
+Authentication is delegated to Kinde. The migration post-mortem in [docs/MIGRATION_CLERK_TO_KINDE.md](docs/MIGRATION_CLERK_TO_KINDE.md) has the complete dashboard checklist; the minimum to boot the stack is:
 
-1. **Publishable Key** — Dashboard → API Keys → React (`pk_test_...` for the dev instance).
-2. **Frontend API URL** — Dashboard → API Keys → Show JWT Public Key → the issuer URL it shows, e.g. `https://your-app.clerk.accounts.dev`.
-3. **Webhook signing secret** — only needed once you wire the webhook (see [Webhooks](#webhooks-clerk--backend) below).
+1. **Front-end app** (Kinde Dashboard → Applications → Add → "Front-end and mobile"). Note the **Client ID** (public — it ships in the browser bundle). Configure:
+   - **Allowed Callback URLs**: `http://localhost:5173/callback`, `http://localhost:4173/callback`, plus your deployed URL (e.g. `https://app.example.com/callback`).
+   - **Allowed Logout Redirect URLs**: same set without `/callback`.
+   - **Application login URI**: where Kinde sends users to restart the auth flow (e.g. `http://localhost:5173/sign-in`).
+2. **M2M app** (Applications → Add → "Machine to Machine"). Note the **Client ID** + **Client Secret**. Grant the following scopes on the **Kinde Management API**: `read:users` (lazy-create needs the user's name), `update:users` (account-modal name editing pushes back to Kinde), `delete:users` (for the GDPR-cascade work pending on `DELETE /api/users/me`).
+3. **Webhook endpoint** (Workflows → Webhooks → Add endpoint). URL = `https://<your-domain>/api/webhooks/kinde`. Subscribe to `user.created`, `user.updated`, `user.deleted`. **No signing secret to copy** — Kinde signs webhook deliveries with a JWT verified against the same JWKS endpoint that validates session tokens.
+4. **Authentication methods** (Authentication → enable email + password + whichever social providers you want, e.g. Google).
+
+The tenant domain is the value you put in `KINDE_DOMAIN` / `VITE_KINDE_DOMAIN` (e.g. `https://foresight.kinde.com`). It's the same domain for the SPA and M2M apps; what differs is the Client ID + (for M2M) the Client Secret.
 
 ### One-command stack
 
@@ -80,16 +89,16 @@ npm run dev
 
 The frontend proxies all `/api/*` calls to `http://localhost:8080` automatically — no CORS setup needed in development.
 
-> **First-time use:** open http://localhost:5173, click sign-in, and either use one of the social providers (Google / LinkedIn / Apple) you enabled in the Clerk Dashboard, or sign up with email + password if you have that strategy enabled. The first authenticated request lazy-creates the matching row in the `users` table — only `clerk_user_id`, `name`, `role`, and `language` are stored locally. Email, password, and MFA all stay in Clerk.
+> **First-time use:** open http://localhost:5173, click sign-in → "Continue →" to be sent to Kinde's hosted page, and either use one of the social providers (Google etc.) you enabled in the Kinde Dashboard, or sign up with email + password. The first authenticated request lazy-creates the matching row in the `users` table — only `external_user_id`, `name`, `role`, and `language` are stored locally. Email, password, MFA, and the user's session live in Kinde and are managed from its hosted account portal (accessible via the "Gestionar cuenta" section of our in-app Account modal — opened from the topbar avatar button).
 
 ### How environments work
 
 | File              | Purpose                                                                 |
 |-------------------|-------------------------------------------------------------------------|
 | `.env.example`    | Backend template, **versioned**. Lists every variable the stack expects. |
-| `.env.local`      | Your local-dev backend values, **gitignored**. `SPRING_PROFILES_ACTIVE=local`. |
-| `frontend/.env.example` | Frontend template, **versioned**. Just the Clerk publishable key. |
-| `frontend/.env.local`   | Your local Clerk publishable key, **gitignored**. |
+| `.env.local`      | Your local-dev backend values, **gitignored**. `SPRING_PROFILES_ACTIVE=local` or `dev`. |
+| `frontend/.env.example` | Frontend template, **versioned**. Kinde tenant domain + SPA client id + redirect / logout URIs. |
+| `frontend/.env.local`   | Your local Kinde values + Vite/PostHog overrides, **gitignored**. |
 | `.env.dev`, `.env.prod` | Backend values for other environments — same shape, different secrets / profile. |
 
 Two backend env vars drive the orchestration:
@@ -99,15 +108,23 @@ Two backend env vars drive the orchestration:
 
 In `.env.local`, both are set to give you the comfiest dev experience by default.
 
-### Required Clerk env vars
+### Required Kinde env vars
 
 | Variable | Where it lives | What it is |
 |---|---|---|
-| `VITE_CLERK_PUBLISHABLE_KEY` | `frontend/.env.local` | Public key that boots the Clerk SDK in the browser. |
-| `CLERK_ISSUER` | `.env.local` (root) | Frontend API URL of your Clerk instance, no trailing slash. |
-| `CLERK_JWKS_URI` | `.env.local` (root) | `${CLERK_ISSUER}/.well-known/jwks.json`. Used by the backend to validate session JWTs. |
-| `CLERK_WEBHOOK_SIGNING_SECRET` | `.env.local` (root) | HMAC secret from Clerk Dashboard → Webhooks → endpoint → Signing Secret. |
-| `CLERK_SECRET_KEY` | `.env.local` (root) | Backend API secret (`sk_test_...` / `sk_live_...`). Lets the backend fetch a user's first/last name from Clerk on first sign-in so `name` is populated immediately. Optional but recommended — without it, `name` stays null until the webhook fires or the user edits their profile. |
+| `VITE_KINDE_DOMAIN` | `frontend/.env.local` | Your Kinde tenant URL, e.g. `https://foresight.kinde.com`. Same value the backend reads as `KINDE_DOMAIN`. |
+| `VITE_KINDE_CLIENT_ID` | `frontend/.env.local` | Client ID of the Front-end SPA app. Public — it ships in the browser bundle. |
+| `VITE_KINDE_REDIRECT_URI` | `frontend/.env.local` | Where Kinde redirects after sign-in. Defaults to `${origin}/callback` if unset; explicit value lets you point at a non-standard port (e.g. Vite preview on 4173). |
+| `VITE_KINDE_LOGOUT_REDIRECT_URI` | `frontend/.env.local` | Where Kinde sends users after sign-out. Usually the app root. |
+| `KINDE_DOMAIN` | `.env.local` (root) | Tenant URL — same value as `VITE_KINDE_DOMAIN`. |
+| `KINDE_ISSUER` | `.env.local` (root) | The `iss` claim Kinde puts on session JWTs. Stock tenants: same as `KINDE_DOMAIN`. |
+| `KINDE_JWKS_URI` | `.env.local` (root) | `${KINDE_DOMAIN}/.well-known/jwks`. Validates both session JWTs and webhook JWTs (Kinde signs both with the same key set). |
+| `KINDE_TOKEN_ENDPOINT` | `.env.local` (root) | `${KINDE_DOMAIN}/oauth2/token`. Used by `KindeBackendClient` for the M2M `client_credentials` flow. |
+| `KINDE_MANAGEMENT_API_BASE_URL` | `.env.local` (root) | `${KINDE_DOMAIN}/api/v1`. Base URL for user-profile fetch / update calls. |
+| `KINDE_M2M_CLIENT_ID` | `.env.local` (root) | Client ID of the Machine-to-Machine app. |
+| `KINDE_M2M_CLIENT_SECRET` | `.env.local` (root) | Secret of the M2M app — sensitive. The M2M app must have `read:users` + `update:users` + `delete:users` scopes granted on the Kinde Management API. |
+
+> There is intentionally **no `KINDE_WEBHOOK_SIGNING_SECRET`**. Kinde signs webhook deliveries with a JWT — verifiable against `KINDE_JWKS_URI`, the same endpoint that validates session tokens. The webhook controller uses the same `JwtDecoder` bean as the auth filter.
 
 ### Running the backend with `mvnw` (hot reload / IDE debugger)
 
@@ -124,27 +141,28 @@ The backend uses [`spring-dotenv`](https://github.com/paulschwarz/spring-dotenv)
 ### What the `local` profile does
 
 - `foresight.security.auth-disabled=true` → every endpoint is `permitAll`.
-- `JwtAuthFilter` injects a synthetic dev principal (id `00000000-0000-0000-0000-000000000001`, clerk id `user_local_dev`) when no token is present, so `@CurrentUser` still works and you can hit endpoints from Swagger without going through Clerk.
-- `DevUserSeeder` ensures the matching row exists in the `users` table on startup with that same synthetic Clerk id.
+- `JwtAuthFilter` injects a synthetic dev principal (id `00000000-0000-0000-0000-000000000001`, external id `user_local_dev`) when no token is present, so `@CurrentUser` still works and you can hit endpoints from Swagger without going through Kinde.
+- `DevUserSeeder` ensures the matching row exists in the `users` table on startup with that same synthetic external id.
 - A loud `WARN` is logged at boot so you cannot miss it: `AUTHENTICATION IS DISABLED`.
 
 > ⚠️ The `local` profile must NEVER be activated in production. The toggle defaults to `false` in `application.properties` and is only flipped on by `application-local.properties`.
 
-To test the **real** Clerk auth path (recommended before shipping anything that touches security), spin up with a different env file (e.g. `.env.dev`) where `SPRING_PROFILES_ACTIVE` is unset or set to a non-`local` value, then sign in through the frontend and click **Authorize** in Swagger pasting the session JWT (paste it as `eyJ...` — Swagger adds the `Bearer ` prefix itself).
+To test the **real** Kinde auth path (recommended before shipping anything that touches security), set `SPRING_PROFILES_ACTIVE=dev` in `.env.local` (or use `.env.dev`), recreate the stack, then sign in through the frontend and click **Authorize** in Swagger pasting the access token from your browser (paste it as `eyJ...` — Swagger adds the `Bearer ` prefix itself).
 
-### Webhooks (Clerk → backend)
+### Webhooks (Kinde → backend)
 
-The backend exposes `POST /api/webhooks/clerk` to receive `user.created`, `user.updated`, and `user.deleted` events from Clerk so the local `users` table stays in sync. It's authenticated by Svix signature, not by JWT.
+The backend exposes `POST /api/webhooks/kinde` to receive `user.created`, `user.updated`, and `user.deleted` events from Kinde so the local `users` table stays in sync. **The request body IS the JWT** — Kinde signs webhook deliveries with a JWT validated against the same JWKS endpoint that validates session tokens. No separate signing secret exists.
 
 To wire it up in dev:
 
 1. Expose your local backend with a tunnel (e.g. `ngrok http 8080`).
-2. In the Clerk Dashboard → Webhooks → Add Endpoint, point at `https://<tunnel>/api/webhooks/clerk` and subscribe to the `user.*` events.
-3. Copy the endpoint's Signing Secret into `CLERK_WEBHOOK_SIGNING_SECRET`.
+2. In the Kinde Dashboard → Workflows → Webhooks → Add Endpoint, point at `https://<tunnel>/api/webhooks/kinde` and subscribe to the `user.*` events.
 
-The lazy-sync in `JwtAuthFilter` covers the case where the webhook hasn't fired yet — a brand-new Clerk user can authenticate immediately and the local row is created on their first authenticated request. The webhook is the canonical channel for `user.deleted` and for keeping `name` in sync after profile edits in Clerk.
+Kinde's free tier only allows **one webhook endpoint per environment**; the team-shared one currently points at `https://dev.futuros.io/api/webhooks/kinde`. For local-dev iterations either (a) write unit tests with forged JWTs, (b) deploy to the dev environment, or (c) temporarily edit the webhook URL in Kinde to your ngrok tunnel.
 
-> **Where does `name` come from on first sign-in?** Clerk's default session JWT does not include the user's name. The backend therefore calls Clerk's Backend API (`GET /v1/users/{id}`) with `CLERK_SECRET_KEY` whenever it lazy-creates a local row, and fills `name` from the live profile (`first_name + last_name`). The same call backfills the name on a subsequent login if a previously-created user happens to have `name = null`. If `CLERK_SECRET_KEY` is blank the API call is skipped silently — auth still works, just with `name = null` until the webhook is wired or the user edits the profile.
+The lazy-sync in `JwtAuthFilter` covers the case where the webhook hasn't fired yet — a brand-new Kinde user can authenticate immediately and the local row is created on their first authenticated request. The webhook is the canonical channel for `user.deleted` and for keeping `name` in sync after profile edits in Kinde's portal.
+
+> **Where does `name` come from on first sign-in?** Kinde's default session JWT does not include the user's name. The backend therefore calls Kinde's Management API (`GET /api/v1/user?id=...`) via the M2M `client_credentials` flow whenever it lazy-creates a local row, and fills `name` from the live profile (`given_name`/`family_name` or `first_name`/`last_name` — both accepted via `@JsonAlias`). The same call backfills the name on a subsequent login if a previously-created user happens to have `name = null`. If `KINDE_M2M_CLIENT_*` are blank, the API call is skipped silently — auth still works, just with `name = null` until the webhook fires or the user edits the profile.
 
 ---
 
@@ -154,9 +172,9 @@ The lazy-sync in `JwtAuthFilter` covers the case where the webhook hasn't fired 
 
 All core backend infrastructure is in place:
 
-- **Authentication via Clerk** — sessions and credentials owned by Clerk; the backend only validates Clerk's session JWTs and mirrors a minimal `users` row keyed by `clerk_user_id`
-- **User management**: profile endpoints (`GET /api/users/me`, `PATCH /api/users/me`, `DELETE /api/users/me`) — only the locally-owned fields (`name`, `language`, `role`); email/password/MFA changes go through Clerk's `<UserButton />`
-- **Webhooks**: `POST /api/webhooks/clerk` (Svix-signed) keeps the local `users` row in sync with Clerk on `user.created` / `user.updated` / `user.deleted`
+- **Authentication via Kinde** (migrated from Clerk on `feature/kinde`, 2026-05-16) — sessions and credentials owned by Kinde; the backend only validates Kinde's session JWTs against its JWKS and mirrors a minimal `users` row keyed by `external_user_id`. Editable name flows back to Kinde via the Management API on `PATCH /api/users/me`. See [docs/MIGRATION_CLERK_TO_KINDE.md](docs/MIGRATION_CLERK_TO_KINDE.md) for the post-mortem.
+- **User management**: profile endpoints (`GET /api/users/me`, `PATCH /api/users/me`, `DELETE /api/users/me`) — `name` is pushed to Kinde on update; `language` and `role` are local-only. Email / password / MFA / active sessions are managed from Kinde's hosted portal (deep-linked from the in-app Account modal).
+- **Webhooks**: `POST /api/webhooks/kinde` (JWT-signed by Kinde, verified with the same `JwtDecoder` bean as session JWTs) keeps the local `users` row in sync with Kinde on `user.created` / `user.updated` / `user.deleted`
 - **Reports CRUD**: create/list/get/update/delete with user-scoped ownership (`/api/reports/**`)
 - **AI proxy**: server-side calls to Anthropic Claude API (`/api/ai/suggest-steep`, `/api/ai/suggest-horizon`, `/api/ai/analyze`) — the API key never leaves the server
 - **Database**: PostgreSQL 16 with Flyway migrations; UUID-based entities with auditing (`created_at`, `updated_at`)
@@ -170,11 +188,11 @@ Package structure follows **package-by-feature** (`user/`, `report/`, `ai/`, `we
 
 ### ✅ M2 — Frontend (React + i18n)
 
-React 19 + TypeScript frontend with Clerk-hosted auth, a 4-step report wizard, full i18n (ES/EN), and PDF / PPTX / HTML exports. See [ROADMAP.md](docs/ROADMAP.md).
+React 19 + TypeScript frontend with Kinde-hosted auth (sign-in / sign-up redirect to Kinde's hosted pages), an in-app Account modal (preferences + Kinde portal link + sign-out), a 4-step report wizard, full i18n (ES/EN), and PDF / PPTX / HTML exports. See [ROADMAP.md](docs/ROADMAP.md).
 
 ### 🚧 M3 — Payments (in progress)
 
-Subscription gating on `POST /api/reports` is **live** against Clerk Billing — quota enforcement (10 reports / period), `402` when no plan, enriched `429` (`limit`, `used`, `periodEnd`) when the quota is burned, `UserRole.DEV` bypass for the team. The direct Stripe integration (`/api/billing/*` endpoints) is the in-flight work on the `feature/stripe` branch. See [ROADMAP.md](docs/ROADMAP.md).
+Subscription gating on `POST /api/reports` is **live** — quota enforcement (10 reports / period), `402` when no plan, enriched `429` (`limit`, `used`, `periodEnd`) when the quota is burned, `UserRole.DEV` bypass for the team. The Stripe integration (`/api/billing/*` endpoints + Stripe Tax wiring + pricing page) is the in-flight work on the `feature/stripe` branch — we'll be Merchant of Record ourselves via an autónomo in Spain, with Stripe Tax handling EU VAT calculation. See [ROADMAP.md](docs/ROADMAP.md).
 
 ### 🚧 M4 — Polish, hardening, deploy
 
@@ -243,7 +261,7 @@ Add new migrations under `backend/src/main/resources/db/migration/` following Fl
 - `V5__add_subscription_table.sql` ✅
 - `V5_add_subscription_table.sql` ❌ (silently ignored)
 
-Current migrations: `V1__init` through `V11__report_pdf_optimized` — auth (V1–V4), subscriptions (V5), share tokens (V6/V9/V10), translations (V7), examples (V8), PDF cache (V11). See [ARCHITECTURE.md](docs/ARCHITECTURE.md#database-migrations) for what each one does.
+Current migrations: `V1__init` through `V12__rename_clerk_user_id_to_external` — auth (V1–V4), subscriptions (V5), share tokens (V6/V9/V10), translations (V7), examples (V8), PDF cache (V11), Clerk→Kinde column rename (V12). See [ARCHITECTURE.md](docs/ARCHITECTURE.md#database-migrations) for what each one does.
 
 Never modify an already-applied migration — always add a new one.
 
@@ -255,6 +273,7 @@ Never modify an already-applied migration — always add a new one.
 - [API reference](docs/API.md)
 - [Changelog](docs/CHANGELOG.md)
 - [Roadmap (M1–M4)](docs/ROADMAP.md)
+- [Migration: Clerk → Kinde post-mortem](docs/MIGRATION_CLERK_TO_KINDE.md) — archive eventually
 
 ## License
 

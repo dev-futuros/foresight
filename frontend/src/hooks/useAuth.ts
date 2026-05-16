@@ -1,20 +1,20 @@
 import { useQuery } from '@tanstack/react-query';
-import { useAuth as useClerkAuth, useClerk } from '@clerk/react';
+import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
 import api from '../lib/api';
 import type { UserResponse } from '../types/api';
 
 /**
  * Fetches the local user profile (`/api/users/me`).
  *
- * Disabled until Clerk has confirmed a signed-in session — that prevents the brief 401
+ * Disabled until Kinde has confirmed a signed-in session — that prevents the brief 401
  * we'd otherwise hit between mount and the first time `getToken()` resolves, and avoids
  * fetching for signed-out users altogether.
  */
 export function useCurrentUser() {
-  const { isLoaded, isSignedIn } = useClerkAuth();
+  const { isLoading, isAuthenticated } = useKindeAuth();
   return useQuery<UserResponse>({
     queryKey: ['me'],
-    enabled: isLoaded && isSignedIn === true,
+    enabled: !isLoading && isAuthenticated === true,
     queryFn: async () => {
       const res = await api.get<UserResponse>('/users/me');
       return res.data;
@@ -40,8 +40,8 @@ export function useIsDev(): boolean {
 }
 
 /**
- * Returns a function that signs the user out of Clerk and redirects to the sign-in page.
- * Replaces the previous JWT-based logout that just dropped the token from localStorage.
+ * Returns a function that signs the user out of Kinde and redirects to the configured
+ * logout URI (Kinde's hosted logout flow handles the actual redirect).
  *
  * <p>Side effect: clears the per-session "onboarding seen" flag so the next
  * login re-shows the welcome dialog. Without this, a user who logs out and
@@ -50,13 +50,13 @@ export function useIsDev(): boolean {
  * show again" checkbox) should silence it across logins.
  */
 export function useLogout() {
-  const { signOut } = useClerk();
+  const { logout } = useKindeAuth();
   return () => {
     try {
       sessionStorage.removeItem('fs_onboarding_seen_this_session');
     } catch {
       /* private mode / quota — ignore */
     }
-    return signOut({ redirectUrl: '/sign-in' });
+    return logout();
   };
 }

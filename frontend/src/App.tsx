@@ -1,6 +1,8 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { ClerkProvider, SignIn, SignUp } from '@clerk/react';
+import { KindeProvider, useKindeAuth } from '@kinde-oss/kinde-auth-react';
+import { LoginLink, RegisterLink } from '@kinde-oss/kinde-auth-react/components';
 import { useTranslation } from 'react-i18next';
 import { queryClient } from './lib/queryClient';
 import AuthBridge from './components/AuthBridge';
@@ -12,46 +14,70 @@ import ReportPage from './features/report/ReportPage';
 import PrivacyPage from './features/privacy/PrivacyPage';
 import PublicSharePage from './features/publicShare/PublicSharePage';
 import AuthLayout from './features/auth/AuthLayout';
-import { clerkAppearance, clerkVariables } from './features/auth/clerkAppearance';
-import { clerkLocalization } from './features/auth/clerkLocalization';
-import { userButtonAppearance } from './features/account/userButtonAppearance';
 import AppShell from './features/shell/AppShell';
 import CookieConsent from './features/cookies/CookieConsent';
 import { useLanguageSync } from './hooks/useLanguageSync';
 import './features/auth/auth.css';
 
+/**
+ * Sign-in route — renders the branded auth shell with a "Continue with Kinde →"
+ * button that redirects to Kinde's hosted login page. We keep the shell instead
+ * of auto-redirecting so the user sees the brand before bouncing off-site.
+ *
+ * If a session is already live (e.g. user opens /sign-in in a new tab while
+ * authenticated elsewhere), short-circuit straight to the wizard.
+ */
+function SignInRoute() {
+  const { t } = useTranslation();
+  const { isLoading, isAuthenticated } = useKindeAuth();
+  if (!isLoading && isAuthenticated) return <Navigate to="/reports/new" replace />;
+  return (
+    <AuthLayout copyKey="auth.login">
+      <LoginLink className="cl-btn-primary kinde-continue-btn">
+        {t('auth.login.continueWithKinde')}
+      </LoginLink>
+    </AuthLayout>
+  );
+}
+
+/** Sign-up — same shape as sign-in but starts the registration flow. */
+function SignUpRoute() {
+  const { t } = useTranslation();
+  const { isLoading, isAuthenticated } = useKindeAuth();
+  if (!isLoading && isAuthenticated) return <Navigate to="/reports/new" replace />;
+  return (
+    <AuthLayout copyKey="auth.register">
+      <RegisterLink className="cl-btn-primary kinde-continue-btn">
+        {t('auth.register.continueWithKinde')}
+      </RegisterLink>
+    </AuthLayout>
+  );
+}
+
+/**
+ * OAuth callback landing page. Kinde redirects here after the user authenticates;
+ * the SDK consumes the OAuth params from the URL and flips `isAuthenticated`. We
+ * render a loading state until that's done, then navigate to the wizard (or back
+ * to sign-in if something went wrong).
+ */
+function CallbackRoute() {
+  const { t } = useTranslation();
+  const { isLoading, isAuthenticated } = useKindeAuth();
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (isLoading) return;
+    navigate(isAuthenticated ? '/reports/new' : '/sign-in', { replace: true });
+  }, [isLoading, isAuthenticated, navigate]);
+  return <div className="loading-screen">{t('common.loading')}</div>;
+}
+
 function AppRoutes() {
   useLanguageSync();
   return (
     <Routes>
-      <Route
-        path="/sign-in/*"
-        element={
-          <AuthLayout copyKey="auth.login">
-            <SignIn
-              routing="path"
-              path="/sign-in"
-              signUpUrl="/sign-up"
-              forceRedirectUrl="/reports/new"
-              appearance={clerkAppearance}
-            />
-          </AuthLayout>
-        }
-      />
-      <Route
-        path="/sign-up/*"
-        element={
-          <AuthLayout copyKey="auth.register">
-            <SignUp
-              routing="path"
-              path="/sign-up"
-              signInUrl="/sign-in"
-              forceRedirectUrl="/reports/new"
-              appearance={clerkAppearance}
-            />
-          </AuthLayout>
-        }
-      />
+      <Route path="/sign-in/*" element={<SignInRoute />} />
+      <Route path="/sign-up/*" element={<SignUpRoute />} />
+      <Route path="/callback" element={<CallbackRoute />} />
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/share/:token" element={<PublicSharePage />} />
       <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
@@ -69,46 +95,20 @@ function AppRoutes() {
   );
 }
 
-const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+const KINDE_DOMAIN = import.meta.env.VITE_KINDE_DOMAIN;
+const KINDE_CLIENT_ID = import.meta.env.VITE_KINDE_CLIENT_ID;
+const KINDE_REDIRECT_URI =
+  import.meta.env.VITE_KINDE_REDIRECT_URI ?? `${globalThis.location.origin}/callback`;
+const KINDE_LOGOUT_URI =
+  import.meta.env.VITE_KINDE_LOGOUT_REDIRECT_URI ?? globalThis.location.origin;
 
 export default function App() {
-  // Read the active locale from i18next so Clerk's internal copy ("Continue",
-  // "Email address", "OR", footer toggle, etc.) translates with the rest of
-  // the UI. Switching the language pill remounts ClerkProvider — fine on the
-  // unauthed auth pages where there's no session state to preserve.
-  const { i18n } = useTranslation();
-  const lang: 'es' | 'en' = i18n.resolvedLanguage?.startsWith('en') ? 'en' : 'es';
-  const localization = clerkLocalization(lang, 'signin');
-
   return (
-    <ClerkProvider
-      publishableKey={PUBLISHABLE_KEY}
-      afterSignOutUrl="/sign-in"
-      localization={localization}
-      // Global appearance with the shared palette + the userProfile
-      // sub-config from userButtonAppearance. Setting it at the provider
-      // level (not just on the UserButton instance) ensures Clerk's
-      // portal-rendered UserProfile modal — which is opened from the
-      // UserButton but mounted outside the component subtree — still
-      // picks up our element classes. SignIn/SignUp keep their own
-      // appearance prop, which overrides this on a per-instance basis.
-      //
-      // userVerification is the step-up reverification flow (rendered
-      // when a sensitive action requires re-auth — e.g. adding an
-      // email). Same modal shape as UserProfile, same element keys, so
-      // we reuse the same element map. Without this scope the OTP /
-      // header / card / button fall back to Clerk defaults.
-      appearance={{
-        variables: clerkVariables,
-        // Top-level `elements` apply globally to every Clerk component
-        // rendered in this provider — including ones that aren't
-        // exposed via a per-component scope (e.g. userVerification,
-        // the step-up reverification flow). SignIn/SignUp pass their
-        // own per-instance appearance, which overrides this at the
-        // instance level, so the auth screens are unaffected.
-        elements: userButtonAppearance.userProfile.elements,
-        userProfile: userButtonAppearance.userProfile,
-      }}
+    <KindeProvider
+      clientId={KINDE_CLIENT_ID}
+      domain={KINDE_DOMAIN}
+      redirectUri={KINDE_REDIRECT_URI}
+      logoutUri={KINDE_LOGOUT_URI}
     >
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
@@ -121,6 +121,6 @@ export default function App() {
           <CookieConsent />
         </BrowserRouter>
       </QueryClientProvider>
-    </ClerkProvider>
+    </KindeProvider>
   );
 }

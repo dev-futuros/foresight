@@ -17,7 +17,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.foresight.backend.common.exception.NotFoundException;
-import com.foresight.backend.common.security.ClerkBackendClient;
+import com.foresight.backend.common.security.KindeBackendClient;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
@@ -26,7 +26,7 @@ class UserServiceTest {
     private UserRepository userRepository;
 
     @Mock
-    private ClerkBackendClient clerkBackendClient;
+    private KindeBackendClient kindeBackendClient;
 
     @InjectMocks
     private UserService userService;

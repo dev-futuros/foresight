@@ -225,6 +225,7 @@ const es = {
     menu: 'Abrir menú',
     dashboard: 'Dashboard',
     newReport: 'Nuevo informe',
+    account: 'Mi cuenta',
     brandTitle: 'Empezar un nuevo informe',
     brandTag: 'Foresight Strategy · Powered by AI',
     footerTag: 'Foresight Strategy · Powered by AI',
@@ -242,7 +243,8 @@ const es = {
     login: {
       eyebrow: 'Acceso privado',
       title: 'Bienvenido a Futuros',
-      description: 'Introduce tus credenciales para acceder a la plataforma.',
+      description: 'Te llevamos a Kinde, nuestro proveedor de identidad, para acceder de forma segura.',
+      continueWithKinde: 'Continuar →',
       email: 'Correo electrónico',
       emailPlaceholder: 'alice@ejemplo.com',
       password: 'Contraseña',
@@ -255,7 +257,8 @@ const es = {
     register: {
       eyebrow: 'Nueva cuenta',
       title: 'Crea tu acceso',
-      description: 'Empieza a construir tus análisis de foresight estratégico.',
+      description: 'Te llevamos a Kinde para crear tu cuenta y empezar a construir análisis de foresight.',
+      continueWithKinde: 'Continuar →',
       name: 'Nombre (opcional)',
       namePlaceholder: 'Alice Analyst',
       email: 'Correo electrónico',
@@ -667,6 +670,16 @@ const es = {
       saving: 'Guardando…',
       successMsg: 'Preferencias actualizadas correctamente.',
       errorMsg: 'No se pudieron actualizar las preferencias.',
+    },
+    manageAccount: {
+      title: 'Gestionar cuenta',
+      description: 'Email, contraseña, MFA y sesiones se gestionan en Kinde, nuestro proveedor de identidad.',
+      openPortal: 'Abrir portal de Kinde →',
+    },
+    signOut: {
+      title: 'Cerrar sesión',
+      description: 'Cierra la sesión en este navegador.',
+      button: 'Cerrar sesión',
     },
     security: {
       title: 'Seguridad',

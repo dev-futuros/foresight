@@ -10,7 +10,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.foresight.backend.common.exception.NotFoundException;
-import com.foresight.backend.common.security.ClerkBackendClient;
+import com.foresight.backend.common.security.DevPrincipal;
+import com.foresight.backend.common.security.KindeBackendClient;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,7 +39,7 @@ public class UserService {
     private static final String DEFAULT_LANGUAGE = "es";
 
     private final UserRepository userRepository;
-    private final ClerkBackendClient clerkBackendClient;
+    private final KindeBackendClient kindeBackendClient;
 
     /**
      * Per-external-id locks used to serialize the very first lazy creation when several
@@ -112,17 +113,22 @@ public class UserService {
      * Resolves the user's display name on first sign-in.
      *
      * <p>Strategy: prefer the provider's Backend API (authoritative, always returns the live
-     * profile), fall back to JWT claims (only present if a JWT template is configured), and
-     * finally accept {@code null} — the user can always edit their name from the account page,
-     * and a future webhook delivery will fill it in retroactively.
+     * profile), fall back to JWT claims, and finally accept {@code null} — the user can always
+     * edit their name from the account page, and a future webhook delivery will fill it in
+     * retroactively.
+     *
+     * <p>Kinde follows the OIDC standard for claim names — {@code given_name} (not
+     * {@code first_name}), and the composed {@code name} claim when the JWT template includes
+     * it. We try {@code name} first to preserve any explicit composition, then fall back to
+     * {@code given_name} on its own.
      */
     private String resolveName(String externalUserId, Jwt jwt) {
-        return clerkBackendClient.fetchUser(externalUserId)
-                .map(ClerkBackendClient.ClerkUser::composedName)
+        return kindeBackendClient.fetchUser(externalUserId)
+                .map(KindeBackendClient.KindeUser::composedName)
                 .filter(n -> n != null && !n.isBlank())
                 .orElseGet(() -> firstNonBlank(
                         jwt.getClaimAsString("name"),
-                        jwt.getClaimAsString("first_name")));
+                        jwt.getClaimAsString("given_name")));
     }
 
     /**
@@ -135,8 +141,8 @@ public class UserService {
         if (user.getName() != null && !user.getName().isBlank()) {
             return user;
         }
-        return clerkBackendClient.fetchUser(externalUserId)
-                .map(ClerkBackendClient.ClerkUser::composedName)
+        return kindeBackendClient.fetchUser(externalUserId)
+                .map(KindeBackendClient.KindeUser::composedName)
                 .filter(n -> n != null && !n.isBlank())
                 .map(name -> {
                     user.setName(name);
@@ -168,10 +174,26 @@ public class UserService {
 
     /**
      * Updates mutable profile fields. {@code null} arguments are ignored (partial update).
+     *
+     * <p>When {@code name} changes and the principal is a real Kinde user, the change is also
+     * pushed to Kinde's Management API <em>before</em> the local row is saved — Kinde is the
+     * source of truth for {@code name}, and if we updated locally first then failed to push,
+     * the next {@code user.updated} webhook would overwrite our edit with Kinde's old value.
+     * Pushing first means a Kinde failure surfaces to the user (500), they retry, and we
+     * never end up in a divergent state.
+     *
+     * <p>Skips the Kinde push when the principal is the synthetic dev user
+     * ({@link DevPrincipal#EXTERNAL_USER_ID}) — that id has no Kinde counterpart and the call
+     * would 404. Lets local-dev profile keep editing names without a real tenant.
      */
     public User updateProfile(UUID id, String name, String language) {
         User user = getById(id);
-        if (name != null) user.setName(name);
+        if (name != null && !name.equals(user.getName())) {
+            if (!DevPrincipal.EXTERNAL_USER_ID.equals(user.getExternalUserId())) {
+                kindeBackendClient.updateUser(user.getExternalUserId(), name);
+            }
+            user.setName(name);
+        }
         if (language != null) user.setLanguage(language);
         return userRepository.save(user);
     }

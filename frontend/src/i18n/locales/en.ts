@@ -231,6 +231,7 @@ const en = {
     menu: 'Open menu',
     dashboard: 'Dashboard',
     newReport: 'New report',
+    account: 'My account',
     brandTitle: 'Start a new report',
     brandTag: 'Foresight Strategy · Powered by AI',
     footerTag: 'Foresight Strategy · Powered by AI',
@@ -248,7 +249,8 @@ const en = {
     login: {
       eyebrow: 'Private access',
       title: 'Welcome to Futuros',
-      description: 'Enter your credentials to access the platform.',
+      description: 'We use Kinde as our identity provider — continue to sign in securely.',
+      continueWithKinde: 'Continue →',
       email: 'Email address',
       emailPlaceholder: 'alice@example.com',
       password: 'Password',
@@ -261,7 +263,8 @@ const en = {
     register: {
       eyebrow: 'New account',
       title: 'Create your access',
-      description: 'Start building your strategic foresight analyses.',
+      description: 'We use Kinde as our identity provider — continue to create your account.',
+      continueWithKinde: 'Continue →',
       name: 'Name (optional)',
       namePlaceholder: 'Alice Analyst',
       email: 'Email address',
@@ -673,6 +676,16 @@ const en = {
       saving: 'Saving…',
       successMsg: 'Preferences updated successfully.',
       errorMsg: 'Could not update preferences.',
+    },
+    manageAccount: {
+      title: 'Manage account',
+      description: 'Email, password, MFA and sessions are managed in Kinde, our identity provider.',
+      openPortal: 'Open Kinde portal →',
+    },
+    signOut: {
+      title: 'Sign out',
+      description: 'Sign out from this browser.',
+      button: 'Sign out',
     },
     security: {
       title: 'Security',

@@ -98,17 +98,6 @@
       <artifactId>bucket4j_jdk17-core</artifactId>
       <version>8.14.0</version>
     </dependency>
-    <!--
-				Svix: official client library used to verify the signature of webhook
-				deliveries from Clerk. Clerk's webhook infrastructure is built on Svix,
-				so this is the canonical way to validate incoming events.
-			-->
-    <dependency>
-      <groupId>com.svix</groupId>
-      <artifactId>svix</artifactId>
-      <version>1.45.0</version>
-    </dependency>
-
     <dependency>
       <groupId>org.postgresql</groupId>
       <artifactId>postgresql</artifactId>

@@ -9,16 +9,41 @@ Format: `[version/milestone] — date — description`.
 
 Bloque consolidado de cambios que han aterrizado entre `2026-05-04` y hoy, agrupados por área. La pista en git está en `develop` (ver `git log` para fechas exactas por commit).
 
-### 2026-05-16 (Migración Clerk → Kinde — `feature/kinde`)
+### 2026-05-16 (Migración Clerk → Kinde COMPLETADA — `feature/kinde`)
 
-- **Decisión tomada**: migrar de Clerk a **Kinde** para auth (y eventualmente billing, en una fase posterior). Motivo principal: Clerk Billing no es viable en EU (USD-only, sin IVA, beta, SCA dudoso, planes no sincronizados con Stripe). Kinde resuelve los cuatro puntos manteniendo el modelo "auth + billing en un solo vendor". La alternativa "Clerk + Stripe directo" se evaluó y descartó por preferencia de stack consolidado.
-- **Scope de esta rama**: solo auth. La parte de billing (pricing page, plan en Kinde, conexión Stripe) queda diferida. Durante esta fase, los usuarios nuevos no tendrán `subscription_plan` y el gate de `SubscriptionService.assertCanCreateReport()` los bloqueará — workaround: usar `UserRole.DEV` para testing interno o activar `auth-disabled=true` con el perfil `local`.
-- **Setup Kinde Dashboard completado**: tenant `https://futuros.kinde.com`, app SPA "Futuros FE" (Client ID público), app M2M "Futuros BE" con scope `read:users`, webhook endpoint apuntando a `https://dev.futuros.io/api/webhooks/kinde`.
-- **Configuración añadida**:
-  - `.env.example` y `frontend/.env.example` con bloque `KINDE_*` documentado al lado del bloque `CLERK_*` (que se retira al final de la migración).
-  - Nuevas variables: `KINDE_DOMAIN`, `KINDE_ISSUER`, `KINDE_JWKS_URI`, `KINDE_TOKEN_ENDPOINT`, `KINDE_MANAGEMENT_API_BASE_URL`, `KINDE_M2M_CLIENT_ID`, `KINDE_M2M_CLIENT_SECRET` (backend) y `VITE_KINDE_DOMAIN`, `VITE_KINDE_CLIENT_ID`, `VITE_KINDE_REDIRECT_URI`, `VITE_KINDE_LOGOUT_REDIRECT_URI` (frontend).
-  - **NO** se añade `KINDE_WEBHOOK_SIGNING_SECRET`: a diferencia de Clerk/Svix, Kinde firma los webhooks con JWT verificable contra la misma JWKS que usa la auth normal — un solo decoder cubre ambos casos.
-- **Doc nuevo**: [docs/MIGRATION_CLERK_TO_KINDE.md](MIGRATION_CLERK_TO_KINDE.md) como checklist vivo de la migración (decisión, scope, setup dashboard, fases de código, gotchas). Se archivará/eliminará cuando la migración aterrice en `develop`.
+End-to-end migration de auth de Clerk a Kinde. Backend, frontend, env vars, docker-compose y docs actualizados. Billing (Stripe) sigue diferido para una iteración posterior. Resumen condensado abajo; el detalle completo (decisión, scope, setup Dashboard, gotchas, plan de rollback) vive en [docs/MIGRATION_CLERK_TO_KINDE.md](MIGRATION_CLERK_TO_KINDE.md) hasta que se archive tras 1-2 release cycles.
+
+**Por qué migramos**: Clerk Billing tiene blockers críticos para EU (USD only, sin IVA EU, SCA dudoso, beta, planes no sincronizados con Stripe). Kinde los resuelve todos (EUR + 130 monedas, SCA via Stripe nativo, GA, SDK Spring Boot oficial). Decisión paralela del boss: somos MoR via autónomo en España (no Paddle).
+
+**Backend**:
+- **Nuevo**: `KindeJwtDecoderConfig` (Nimbus contra JWKS de Kinde), `KindeBackendClient` (OAuth2 `client_credentials` + Management API con token caching + 60s safety margin), `KindeWebhookController` (webhook body **es** un JWT — verifica con el mismo `JwtDecoder` bean, sin Svix, sin HMAC, sin secret separado).
+- **Migración `V12__rename_clerk_user_id_to_external.sql`** — rename lexical de la columna y su índice único. Provider-agnóstico hacia adelante.
+- **Refactor**: `User`, `UserRepository`, `UserService`, `AuthenticatedUser`, `DevPrincipal`, `DevUserSeeder`, `LlmCapture` — todas las menciones a `clerkUserId` ahora son `externalUserId`. Métodos del servicio renombrados (`findOrCreateByExternalUserId`, `upsertFromExternal`, `deleteByExternalUserId`).
+- **`UserService.updateProfile`** ahora pushea cambios de nombre a Kinde via Management API **antes** de guardar local. Kinde es source of truth; una falla en su API surge como 500 al frontend en vez de divergencia silenciosa (el siguiente webhook sobrescribiría la edición local). DEV users skipean el push (no tienen counterpart en Kinde).
+- **`SecurityProperties.Kinde`** record con 7 campos. La `Clerk` y el bloque `foresight.security.clerk.*` se eliminaron.
+- **Borrado**: `ClerkJwtDecoderConfig`, `ClerkBackendClient`, `ClerkWebhookController`, `ClerkEvent`, `ClerkEventParser`, `JwtConfig` (duplicado muerto descubierto durante la migración), dependencia `com.svix:svix` del pom.
+- **`docker-compose-backend.yml`**: env mappings `CLERK_*` → `KINDE_*`. **No `KINDE_WEBHOOK_SIGNING_SECRET`** — Kinde firma webhooks con JWT, mismo JWKS que para sesión.
+
+**Frontend**:
+- **Dependencia**: `@clerk/react` → `@kinde-oss/kinde-auth-react`. Componentes bajo el subpath `/components` (`LoginLink`, `RegisterLink`, `PortalLink`).
+- **`KindeProvider`** en `main.tsx` + `App.tsx`. Variables `VITE_KINDE_DOMAIN`, `VITE_KINDE_CLIENT_ID`, `VITE_KINDE_REDIRECT_URI`, `VITE_KINDE_LOGOUT_REDIRECT_URI`.
+- **Rutas**: `/sign-in/*` y `/sign-up/*` renderizan el `<AuthLayout>` (existente) con un único botón "Continue →" (`LoginLink` / `RegisterLink`) que redirige a Kinde hosted. Nueva ruta `/callback` que procesa el return del OAuth.
+- **Nuevo `AccountModal`**: overlay del topbar avatar, con 4 secciones (Perfil con nombre editable inline + role readonly · Gestionar cuenta con `PortalLink` a portal hosted para email/password/MFA · Preferencias con idioma · Cerrar sesión). Botón × small top-right, ESC/backdrop cierran, reutiliza el primitivo `Modal`.
+- **Hooks**: `useAuth` (`useCurrentUser` / `useIsDev` / `useLogout`) leen de `useKindeAuth()`. `AuthBridge` y `ProtectedRoute` adaptados. `getToken()` mapeado con `?? null` shim (Kinde devuelve `undefined`, axios espera `null`).
+- **Borrado**: `AppUserButton.tsx`, `ClerkPreferencesPage.tsx`, `clerkAppearance.ts`, `clerkLocalization.ts`, `userButtonAppearance.ts`.
+- **i18n** (es + en): añadidas keys `auth.{login,register}.continueWithKinde`, `account.manageAccount.*`, `account.signOut.*`, `nav.account`.
+
+**Limitaciones que aceptamos**:
+- **No embedded auth UI** — Kinde por diseño no permite sign-in form custom (impone su página hosted para garantizar SCA/PSD2). Se brandeará la página hosted via Kinde Dashboard.
+- **Nombre editable inline, email/password/MFA via portal hosted** — son flows que Kinde solo expone via su portal hosted (verificación, factor extras).
+- **Field naming inconsistente en Kinde Management API** (`first_name` vs `given_name`) — manejado defensivamente con `@JsonAlias` en `KindeUser` y enviando ambos formatos en `updateUser` PATCH. Kinde ignora unknowns.
+
+**Diferido para iteración posterior**:
+- Stripe billing endpoints (`/api/billing/*`), Stripe Tax wiring, pricing page.
+- GDPR cascade en `DELETE /api/users/me` — el scope `delete:users` ya está concedido en el M2M; falta añadir `KindeBackendClient.deleteUser()` y llamarlo desde `UserService.deleteAccount`.
+- CSS cleanup de selectores `.cl-*` muertos en `auth.css` / `account.css` (inertes pero ~200 líneas).
+
+**Convención**: el equipo levanta el stack con `./scripts/up.ps1 <env> [--build]` (ej. `./scripts/up.ps1 local --build`). No usar `docker compose` directo — el script combina los dos compose files y pasa el `--env-file` correcto.
 
 ### M3 — Subscription gate (sin Stripe directo todavía)
 
@@ -26,7 +51,7 @@ Bloque consolidado de cambios que han aterrizado entre `2026-05-04` y hoy, agrup
 - Migración `V5__subscription.sql`: `users.subscription_plan` + `subscription_current_period_start/end`, CHECK constraint sobre la whitelist de planes (`FUTUROS_PLATAFORMA`), índice compuesto `(user_id, created_at DESC)` en `reports` para contar el periodo en O(log n).
 - Gate en `POST /api/reports` — bloquea sin plan / fuera de periodo / con cuota agotada (10 informes / periodo).
 - `UserRole.DEV` añadido al enum — bypass total del gate para el equipo, no asignable desde UI (sólo `UPDATE users SET role='DEV'` directo).
-- Mirror de Clerk Billing a través del receiver `/api/webhooks/clerk` existente — plan + bounds se sincronizan automáticamente.
+- ~~Mirror de Clerk Billing a través del receiver `/api/webhooks/clerk` existente — plan + bounds se sincronizan automáticamente.~~ **Superseded** por la migración Clerk → Kinde y la decisión de ir a Stripe directo: el mirror llegará vía un nuevo receiver `/api/webhooks/stripe` (en `feature/stripe`), no via Clerk.
 - Frontend `useSubscription` + estados de paywall (banner cuando se llega al límite, lock cuando no hay plan / periodo expirado).
 - Integración Stripe directa pendiente — vive en `feature/stripe`, no en `develop`.
 
@@ -100,7 +125,7 @@ Bloque consolidado de cambios que han aterrizado entre `2026-05-04` y hoy, agrup
 
 - Nuevo paquete `analytics/`: `LlmCapture`, `LlmCaptureContext`, `PostHogConfig`, `AnalyticsProperties`.
 - `LlmCapture.capture()` invocado desde `AiService` tras cada llamada Anthropic — emite `$ai_generation` con el esquema canónico (model, tokens, latency, citations, stop_reason, error, tools, cache hit/miss).
-- Distinct id = `clerkUserId` para correlacionar con eventos del frontend (`posthog-js`).
+- Distinct id = id del usuario en el provider de auth (originalmente `clerkUserId`, ahora `kindeUserId` tras la migración) para correlacionar con eventos del frontend (`posthog-js`).
 - Default-off (`foresight.analytics.posthog.enabled=false`). Con flag a true pero key vacía, el backend **no arranca** (fail-fast deliberado). El frontend instala un stub no-op en su lugar.
 - `frontend/src/lib/posthog.ts` + bootstrap en `main.tsx`.
 - Commits: "Adding posthog instrumentation" (x2), "Fixing bug in instrumentation", "Disabling posthog by default".
