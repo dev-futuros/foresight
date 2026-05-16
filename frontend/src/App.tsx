@@ -16,6 +16,7 @@ import { clerkAppearance, clerkVariables } from './features/auth/clerkAppearance
 import { clerkLocalization } from './features/auth/clerkLocalization';
 import { userButtonAppearance } from './features/account/userButtonAppearance';
 import AppShell from './features/shell/AppShell';
+import CookieConsent from './features/cookies/CookieConsent';
 import { useLanguageSync } from './hooks/useLanguageSync';
 import './features/auth/auth.css';
 
@@ -120,6 +121,10 @@ export default function App() {
           <IconSprite />
           <AuthBridge />
           <AppRoutes />
+          {/* Mounted outside <AppRoutes> so it overlays every page — auth, dashboard,
+              public share, privacy. CookieConsent only renders once consent is missing
+              from localStorage, so authenticated users who already opted in never see it. */}
+          <CookieConsent />
         </BrowserRouter>
       </QueryClientProvider>
     </ClerkProvider>

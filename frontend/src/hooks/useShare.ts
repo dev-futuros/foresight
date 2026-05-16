@@ -24,12 +24,21 @@ export function useCreateShare() {
     Error,
     { reportId: string; language?: 'es' | 'en' | 'ca'; kind?: 'report' | 'example' }
   >({
-    mutationFn: async ({ reportId, language, kind = 'report' }) => {
+    mutationFn: async ({ reportId, language, languages, kind = 'report' }) => {
       const base = kind === 'example' ? 'examples' : 'reports';
+      // Compose the query params explicitly so omitted fields don't end
+      // up as `language=undefined` in the URL.
+      const params: Record<string, string> = {};
+      if (language) params.language = language;
+      if (languages && languages.length > 0) {
+        // Backend's ShareController parses this as a comma-separated
+        // list — see {@code parseLanguages}.
+        params.languages = languages.join(',');
+      }
       const res = await api.post<CreateShareResponse>(
         `/${base}/${reportId}/share`,
         null,
-        language ? { params: { language } } : undefined,
+        Object.keys(params).length > 0 ? { params } : undefined,
       );
       return res.data;
     },

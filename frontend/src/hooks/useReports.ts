@@ -76,6 +76,10 @@ export function useReport(id: string) {
           resultData: ex.data.resultData,
           primaryLanguage: ex.data.primaryLanguage,
           availableLanguages: ex.data.availableLanguages,
+          // Examples don't carry a tighten cache — the PDF export pipeline
+          // tightens fresh on every example export (rare action, fine to skip
+          // the caching layer).
+          pdfOptimized: null,
           createdAt: ex.data.createdAt,
           updatedAt: ex.data.updatedAt,
           source: 'example' as const,

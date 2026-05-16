@@ -218,4 +218,31 @@ public class ReportController {
         reportService.deleteTranslation(id, principal.id(), language);
         return ResponseEntity.noContent().build();
     }
+
+    /**
+     * Replace the per-language entry in the report's PDF-optimized "tighten" cache. Called by
+     * the PDF export pipeline once it has finished asking {@code /api/ai/tighten} for every
+     * field it needs to shorten. Subsequent exports of the same report in the same language
+     * reuse the cached strings here and skip the LLM round-trip entirely.
+     *
+     * <p>Body shape: {@code { "fields": { "<dottedPath>": "<text>", ... } }}.
+     * Pass an empty map to clear the cache for that language (useful when the source text has
+     * changed and the optimised version is stale).
+     *
+     * @param principal authenticated caller
+     * @param id        report UUID
+     * @param language  ISO-639-1 code identifying which language's cache to replace
+     * @param body      validated payload — the {@code fields} map of tightened entries
+     * @return HTTP 204 on success
+     */
+    @Operation(summary = "Update the per-language PDF-optimized tighten cache (owner only).")
+    @PutMapping("/{id}/pdf-optimized/{language}")
+    public ResponseEntity<Void> updatePdfOptimized(
+            @CurrentUser AuthenticatedUser principal,
+            @PathVariable UUID id,
+            @PathVariable String language,
+            @Valid @RequestBody com.foresight.backend.report.dto.PdfOptimizedUpdate body) {
+        reportService.updatePdfOptimized(id, principal.id(), language, body.fields());
+        return ResponseEntity.noContent().build();
+    }
 }

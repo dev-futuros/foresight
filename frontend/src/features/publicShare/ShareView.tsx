@@ -1,4 +1,4 @@
-import { type ReactElement } from 'react';
+import { type ReactElement, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import ReportContent, {
   type InputProjection,
@@ -30,6 +30,14 @@ export interface ShareReport {
 
 interface Props {
   report: ShareReport;
+  /**
+   * Optional slot rendered inside the report-meta row, typically a
+   * language-switcher pill. Passed in by {@link PublicSharePage} when
+   * the share carries cached translations; the standalone snapshot
+   * entry leaves it undefined (the snapshot is single-language by
+   * construction — the export bakes in one chosen language).
+   */
+  languageSwitcher?: ReactNode;
 }
 
 /**
@@ -48,7 +56,7 @@ interface Props {
  *       of the share page into a single file.</li>
  * </ul>
  */
-export default function ShareView({ report }: Props): ReactElement {
+export default function ShareView({ report, languageSwitcher }: Props): ReactElement {
   const { t, i18n } = useTranslation();
   const formattedDate = new Date(report.createdAt).toLocaleDateString(
     i18n.language === 'en' ? 'en-GB' : 'es-ES',
@@ -88,6 +96,10 @@ export default function ShareView({ report }: Props): ReactElement {
                 {cp.sector && (
                   <span className="report-meta-item">· {cp.sector}</span>
                 )}
+                {/* (Language switcher used to live here. It now feeds
+                    into ReportContent's rightSlot so it pins with the
+                    sticky tab row, mirroring the in-app viewer's
+                    layout — see below.) */}
               </div>
             </div>
           </header>
@@ -98,6 +110,7 @@ export default function ShareView({ report }: Props): ReactElement {
                 globalSteep: input.globalSteep as InputProjection['globalSteep'],
                 sectorialSteep: input.steep as InputProjection['sectorialSteep'],
               }}
+              rightSlot={languageSwitcher}
             />
           )}
         </div>

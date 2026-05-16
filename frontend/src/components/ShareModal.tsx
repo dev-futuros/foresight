@@ -23,14 +23,22 @@ type Language = 'es' | 'en' | 'ca';
  * Modal that mints a fresh public share link for the current report and lets
  * the owner copy it to the clipboard.
  *
- * <p>Translation is no longer triggered from this dialog — the dashboard now
- * owns the translate workflow and only languages that have already been
- * materialised show up in the picker here. If only the primary language is
- * available the picker is hidden entirely. This keeps share-mint snappy:
- * every call hits a warm cache, no 30-second Anthropic round-trip.
+ * <p>Two language controls when the source has more than one cached
+ * language:
  *
- * <p>Each open OR language change creates a NEW token rather than reusing a
- * previous one — matching the demo behaviour.
+ * <ul>
+ *   <li><b>Include</b> — checkboxes for each language the source has.
+ *       Selected ones get baked into the share snapshot; unselected
+ *       are stripped, so the recipient can't switch to them. The
+ *       chosen default-open language is always implicitly included
+ *       (you can't share something without its default).</li>
+ *   <li><b>Default language</b> — which language the share viewer
+ *       opens in first. Recipients can still switch in-page among
+ *       the included languages via the share viewer's pill.</li>
+ * </ul>
+ *
+ * <p>With just one available language both controls hide; the share is
+ * single-language by definition.
  */
 export default function ShareModal({ open, reportId, kind = 'report', onClose }: Props) {
   const { t } = useTranslation();
@@ -42,6 +50,7 @@ export default function ShareModal({ open, reportId, kind = 'report', onClose }:
   const data = kind === 'example' ? exampleQuery.data : reportQuery.data;
   const [copied, setCopied] = useState(false);
   const [language, setLanguage] = useState<Language>('es');
+  const [includedLanguages, setIncludedLanguages] = useState<Language[]>([]);
 
   const availableLanguages = useMemo<Language[]>(() => {
     const list = (data?.availableLanguages ?? []) as Language[];
@@ -51,26 +60,73 @@ export default function ShareModal({ open, reportId, kind = 'report', onClose }:
   const primaryLanguage =
     (data?.primaryLanguage as Language | undefined) ?? 'es';
 
-  // Initial language defaults to the source's primary language once the
-  // detail row has loaded. Reset on every open.
+  // Hide both controls when there's nothing to pick.
+  const showLangControls = availableLanguages.length > 1;
+
+  // On open: reset the default-language picker to the source's primary
+  // and pre-check every available language. Most users want to share
+  // everything they've translated; opting OUT is the rare path.
   useEffect(() => {
     if (open && data) {
       setLanguage(primaryLanguage);
+      setIncludedLanguages([...availableLanguages]);
     }
-  }, [open, primaryLanguage, data]);
+  }, [open, primaryLanguage, data, availableLanguages]);
 
-  // Mint (or re-mint) a token whenever the language changes while the
-  // modal is open. Translation is guaranteed already-cached because the
-  // picker only exposes available languages — share-mint just snapshots
-  // the existing translation row.
+  // The default-open language MUST be one of the included ones. If
+  // the user unchecks the currently-default, fall back to the first
+  // still-included language (deterministic — picks the leftmost
+  // checkbox that survives).
   useEffect(() => {
-    if (open && data) {
+    if (includedLanguages.length === 0) return;
+    if (!includedLanguages.includes(language)) {
+      setLanguage(includedLanguages[0]);
+    }
+  }, [includedLanguages, language]);
+
+  // Single debounced effect that handles BOTH the initial mint and
+  // any subsequent re-mint triggered by checkbox / default-language
+  // changes. ~400ms gives the user time to flip several checkboxes
+  // before we fire a single mint with the final state, and the
+  // previously-minted URL (when one exists) stays visible during the
+  // edit so the row doesn't flicker. The 400ms wait on FIRST open is
+  // perceptually fine — the mutation itself usually takes longer.
+  useEffect(() => {
+    if (!open || !data || includedLanguages.length === 0) return;
+    const handle = window.setTimeout(() => {
       setCopied(false);
+      createShare.mutate({ reportId, language, languages: includedLanguages, kind });
+    }, 400);
+    return () => window.clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, data, reportId, kind, language, includedLanguages]);
+
+  // Reset the mutation state when the modal closes so reopening for a
+  // different report doesn't briefly show the old URL.
+  useEffect(() => {
+    if (!open) {
       createShare.reset();
-      createShare.mutate({ reportId, language, kind });
+      setCopied(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, reportId, language, kind, data]);
+  }, [open]);
+
+  /**
+   * Toggle a language's inclusion. Guards against unchecking the
+   * currently-selected default in a way that leaves zero languages
+   * checked (the share endpoint requires at least one).
+   */
+  function toggleLanguage(lng: Language) {
+    setIncludedLanguages((prev) => {
+      const isIncluded = prev.includes(lng);
+      if (isIncluded) {
+        // Last one standing — can't share zero languages.
+        if (prev.length === 1) return prev;
+        return prev.filter((l) => l !== lng);
+      }
+      return [...prev, lng];
+    });
+  }
 
   async function handleCopy() {
     if (!createShare.data) return;
@@ -90,10 +146,6 @@ export default function ShareModal({ open, reportId, kind = 'report', onClose }:
     : null;
 
   const isMinting = createShare.isPending;
-  // Hide the picker when only one language is available — there's nothing
-  // to pick. The user translates the report from the dashboard first if
-  // they want a different language here.
-  const showPicker = availableLanguages.length > 1;
 
   return (
     <Modal
@@ -105,54 +157,96 @@ export default function ShareModal({ open, reportId, kind = 'report', onClose }:
       <div className="share-eyebrow">{t('share.eyebrow')}</div>
       <h2 className="modal-title">{t('share.title')}</h2>
 
-      {showPicker && (
-        <div className="share-lang-row">
-          <label htmlFor="share-language" className="share-lang-label">
-            {t('share.language', { defaultValue: 'Language' })}
-          </label>
-          <select
-            id="share-language"
-            className="share-lang-select"
-            value={language}
-            onChange={(e) => setLanguage(e.target.value as Language)}
-            disabled={isMinting}
-          >
-            {availableLanguages.map((lng) => (
-              <option key={lng} value={lng}>
-                {t(`share.lang.${lng}` as 'share.lang.es' | 'share.lang.en', {
-                  defaultValue: lng.toUpperCase(),
-                })}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {isMinting && (
-        <div className="share-stage">{t('share.generating')}</div>
-      )}
-
-      {createShare.data && !isMinting && (
+      {showLangControls && (
         <>
-          <div className="share-url-row">
-            <input
-              type="text"
-              readOnly
-              value={createShare.data.shareUrl}
-              onFocus={(e) => e.currentTarget.select()}
-              aria-label={t('share.urlLabel')}
-            />
-            <button
-              type="button"
-              className="modal-btn modal-btn--primary"
-              onClick={handleCopy}
-            >
-              {copied ? t('share.copied') : t('share.copy')}
-            </button>
+          <div className="share-lang-row share-lang-row--checks">
+            <span className="share-lang-label">
+              {t('share.includeLanguages', { defaultValue: 'Include languages' })}
+            </span>
+            <div className="share-lang-checks">
+              {availableLanguages.map((lng) => {
+                const checked = includedLanguages.includes(lng);
+                // The last-remaining checked option becomes
+                // un-uncheckable so we never end up requesting a share
+                // with zero languages. Disabling the input gives a
+                // clear visual cue.
+                const lastChecked =
+                  checked && includedLanguages.length === 1;
+                return (
+                  <label
+                    key={lng}
+                    className={`share-lang-check${checked ? ' is-checked' : ''}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={isMinting || lastChecked}
+                      onChange={() => toggleLanguage(lng)}
+                    />
+                    <span>
+                      {t(`share.lang.${lng}` as 'share.lang.es' | 'share.lang.en', {
+                        defaultValue: lng.toUpperCase(),
+                      })}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
           </div>
-          <p className="share-meta">{t('share.expires')}</p>
+
+          <div className="share-lang-row">
+            <label htmlFor="share-default-language" className="share-lang-label">
+              {t('share.defaultLanguage', { defaultValue: 'Default language' })}
+            </label>
+            <select
+              id="share-default-language"
+              className="share-lang-select"
+              value={language}
+              onChange={(e) => setLanguage(e.target.value as Language)}
+              disabled={isMinting}
+            >
+              {includedLanguages.map((lng) => (
+                <option key={lng} value={lng}>
+                  {t(`share.lang.${lng}` as 'share.lang.es' | 'share.lang.en', {
+                    defaultValue: lng.toUpperCase(),
+                  })}
+                </option>
+              ))}
+            </select>
+          </div>
         </>
       )}
+
+      {/* Always render the URL row so toggling checkboxes doesn't
+          unmount/remount the input — the field stays in place and just
+          swaps its value when a new mint resolves. While a mint is in
+          flight (initial load OR after a checkbox change debounce
+          fires), the input shows a placeholder hint and the Copy
+          button is greyed out. */}
+      <div className="share-url-row">
+        <input
+          type="text"
+          readOnly
+          value={createShare.data?.shareUrl ?? ''}
+          placeholder={isMinting ? t('share.generating') : ''}
+          onFocus={(e) => e.currentTarget.select()}
+          aria-label={t('share.urlLabel')}
+          aria-busy={isMinting || undefined}
+        />
+        <button
+          type="button"
+          className={`share-copy-btn${copied ? ' share-copy-btn--ok' : ''}`}
+          onClick={handleCopy}
+          disabled={!createShare.data || isMinting}
+          aria-label={copied ? t('share.copied') : t('share.copy')}
+          title={copied ? t('share.copied') : t('share.copy')}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden>
+            <use href={copied ? '#i-check' : '#i-link'} />
+          </svg>
+        </button>
+      </div>
+      <p className="share-meta">{t('share.expires')}</p>
 
       {errorMessage && (
         <div className="err-box" role="alert">

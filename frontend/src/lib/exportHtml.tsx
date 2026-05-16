@@ -1,4 +1,17 @@
+import api from './api';
 import type { ReportResponse } from '../types/api';
+
+type ExportLanguage = 'es' | 'en';
+
+/**
+ * Per-language slice baked into the standalone HTML snapshot. Mirrors the
+ * shape the backend's {@code /translate} endpoint returns and the report's
+ * authored payload — same fields, different language.
+ */
+interface LanguagePayload {
+  inputData: Record<string, unknown>;
+  resultData: Record<string, unknown> | null;
+}
 
 /**
  * Foresight report — standalone HTML export.
@@ -84,28 +97,33 @@ function jsonForScriptTag(value: unknown): string {
 }
 
 /**
- * Splice the report payload and chosen language into the snapshot host
- * HTML. Inserts two {@code <script>} tags as the FIRST children of
- * {@code <head>} so the data is available before the bundled entry
- * module runs (its {@code type="module"} default-defers execution to
- * after the document is parsed; injecting at the top of head guarantees
- * order regardless).
+ * Splice the report payload and chosen default-open language into the
+ * snapshot host HTML. The payload is a multi-lingual envelope when the
+ * report has cached translations — the snapshot entry detects that
+ * shape and renders its in-page language switcher, mirroring the
+ * editor + share viewer.
  */
 function injectReportData(
   hostHtml: string,
   report: ReportResponse,
   language: 'es' | 'en' | 'ca',
 ): string {
-  // Snapshot entry expects the report under {@code window.__REPORT__}
-  // via the JSON tag; we attach `primaryLanguage` so the entry has a
-  // sensible default if the lang tag is somehow stripped.
-  const reportPayload = { ...report, primaryLanguage: report.primaryLanguage ?? language };
+  // The payload carries: the report metadata, the primary-language
+  // payload (in the top-level inputData/resultData), and a translations
+  // map keyed by language for the OTHER languages. Mirrors the share
+  // token's wire shape so the snapshot entry can reuse the same
+  // resolver logic the public share page uses.
+  const reportPayload = {
+    ...report,
+    primaryLanguage: report.primaryLanguage ?? defaultLanguage,
+    translations,
+  };
   const dataTag = `<script id="report-data" type="application/json">${jsonForScriptTag(reportPayload)}</script>`;
   // {@code type="text/plain"} keeps the browser from trying to execute
   // it; the snapshot entry just reads {@code textContent}.
-  const langTag = `<script id="report-lang" type="text/plain">${escapeHtml(language)}</script>`;
+  const langTag = `<script id="report-lang" type="text/plain">${escapeHtml(defaultLanguage)}</script>`;
   // Set the document language too so screen readers pick it up.
-  const withLangAttr = hostHtml.replace(/<html\s+lang="[^"]*"/i, `<html lang="${escapeHtml(language)}"`);
+  const withLangAttr = hostHtml.replace(/<html\s+lang="[^"]*"/i, `<html lang="${escapeHtml(defaultLanguage)}"`);
   // Update the document title to match the report.
   const withTitle = withLangAttr.replace(
     /<title>[\s\S]*?<\/title>/i,
@@ -124,6 +142,63 @@ function injectReportData(
   // so the data tags being last-in-head is functionally identical to
   // first-in-head from the entry's perspective.
   return withTitle.replace(/<\/head>/i, `    ${dataTag}\n    ${langTag}\n  </head>`);
+}
+
+/**
+ * Resolve a chosen set of languages into {@link LanguagePayload} pairs,
+ * suitable for baking into the standalone snapshot.
+ *
+ * <p>{@code report} is the report row in its authored language; the
+ * translate endpoint is server-side cache-warm so the extra round-trips
+ * for non-primary languages are fast (no Anthropic calls).
+ *
+ * <p>{@code include} is the user-selected subset (e.g. from the export
+ * modal's checkbox group). When undefined/empty the function defaults
+ * to every available language, matching the old behaviour for callers
+ * that don't expose the filter.
+ *
+ * <p>Returns a map keyed by every requested language → its payload.
+ * Languages not present in {@code report.availableLanguages} are
+ * silently dropped (can't materialise something that isn't cached).
+ */
+async function resolveLanguagePayloads(
+  report: ReportResponse,
+  kind: 'reports' | 'examples',
+  include: ExportLanguage[] | undefined,
+): Promise<Record<ExportLanguage, LanguagePayload>> {
+  const available = (report.availableLanguages ?? []) as ExportLanguage[];
+  const target: ExportLanguage[] = (
+    include && include.length > 0 ? include : available
+  ).filter((l): l is ExportLanguage => available.includes(l));
+
+  const out: Record<string, LanguagePayload> = {};
+  // Primary language payload is right on the report row — no fetch
+  // needed. Fan out cache-warm /translate calls for the rest in
+  // parallel.
+  const fetchTargets: ExportLanguage[] = [];
+  for (const lng of target) {
+    if (lng === report.primaryLanguage) {
+      out[lng] = { inputData: report.inputData, resultData: report.resultData };
+    } else {
+      fetchTargets.push(lng);
+    }
+  }
+  if (fetchTargets.length > 0) {
+    const entries = await Promise.all(
+      fetchTargets.map(async (lng) => {
+        const res = await api.post<LanguagePayload>(
+          `/${kind}/${report.id}/translate`,
+          null,
+          { params: { targetLanguage: lng } },
+        );
+        return [lng, res.data] as const;
+      }),
+    );
+    for (const [lng, payload] of entries) {
+      out[lng] = payload;
+    }
+  }
+  return out as Record<ExportLanguage, LanguagePayload>;
 }
 
 /* ── Public entry point ──────────────────────────────────────────── */
@@ -178,7 +253,7 @@ export async function exportReportHtml(
       '[exportReportHtml] You are exporting against the dev server. The downloaded file references dev-only module URLs and will only work while the dev server is running — opening it from disk will fail with CORS errors. To produce a truly standalone artefact, run `npm run build:snapshot && npm run preview` and export from the preview URL.',
     );
   }
-  const html = injectReportData(hostHtml, report, lang);
-  const filename = `${slugify(report.title)}-${lang}.html`;
+  const html = injectReportData(hostHtml, snapshotReport, openLang, translations);
+  const filename = `${slugify(report.title)}-${openLang}.html`;
   downloadBlob(filename, html, 'text/html;charset=utf-8');
 }

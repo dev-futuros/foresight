@@ -371,4 +371,47 @@ public class ReportService {
         if (entry == null || !entry.isObject()) return null;
         return entry;
     }
+
+    /**
+     * Replace the per-language entry in the report's {@code pdf_optimized} cache. The PDF
+     * export pipeline calls this once it has tightened every field it needs for a target
+     * layout; subsequent exports of the same report skip the {@code /api/ai/tighten} calls
+     * and reuse the cached strings here.
+     *
+     * <p>If {@code fields} is empty (no tightening was actually needed for the chosen
+     * layout) the language's cache entry is removed entirely — there's no point keeping a
+     * stale "empty" row that pretends optimisation has been done.
+     *
+     * @param id       report UUID
+     * @param userId   owner UUID — enforces ownership
+     * @param language target language tag ({@code "en"} or {@code "es"})
+     * @param fields   map of dotted JSON paths → tightened text; never {@code null}
+     */
+    @Transactional
+    public void updatePdfOptimized(
+            UUID id, UUID userId, String language, java.util.Map<String, String> fields) {
+        if (language == null || language.isBlank()) {
+            throw new BadRequestException("Language is required");
+        }
+        if (fields == null) {
+            throw new BadRequestException("Fields map is required");
+        }
+        Report report = getOwned(id, userId);
+        ObjectNode cache = (report.getPdfOptimized() != null && report.getPdfOptimized().isObject())
+                ? report.getPdfOptimized().deepCopy()
+                : objectMapper.createObjectNode();
+        if (fields.isEmpty()) {
+            cache.remove(language);
+        } else {
+            ObjectNode entry = objectMapper.createObjectNode();
+            entry.put("version", 1);
+            entry.put("generatedAt", Instant.now().toString());
+            ObjectNode fieldsNode = objectMapper.createObjectNode();
+            fields.forEach(fieldsNode::put);
+            entry.set("fields", fieldsNode);
+            cache.set(language, entry);
+        }
+        report.setPdfOptimized(cache);
+        reportRepository.save(report);
+    }
 }

@@ -16,6 +16,7 @@ import { exportReportHtml } from '../../lib/exportHtml';
 import ExportModal, {
   type ExportFormat,
   type ExportLanguage,
+  type ExportPdfTheme,
 } from '../../components/ExportModal';
 import LoadingOverlay from '../../components/LoadingOverlay';
 import ShareModal from '../../components/ShareModal';
@@ -280,17 +281,37 @@ export default function ReportPage() {
     return () => setAssistantContext(undefined);
   }, [setAssistantContext]);
 
-  function runExport(kind: ExportFormat, language: ExportLanguage) {
+  function runExport(
+    kind: ExportFormat,
+    language: ExportLanguage,
+    includeLanguages?: ExportLanguage[],
+    pdfTheme?: ExportPdfTheme,
+  ) {
     if (!report) return;
     setExporting(kind);
     // Yield to React so the overlay paints before the work begins. PDF
     // export awaits font loading (brand TTFs registered with jsPDF).
     setTimeout(async () => {
       try {
-        const exportReport = await resolveReportForLanguage(report, language);
-        if (kind === 'pdf') await exportReportPdf(exportReport, language);
-        else if (kind === 'ppt') exportReportPpt(exportReport);
-        else await exportReportHtml(exportReport, language);
+        if (kind === 'pdf') {
+          const exportReport = await resolveReportForLanguage(report, language);
+          await exportReportPdf(exportReport, language, pdfTheme ?? 'dark');
+        } else if (kind === 'ppt') {
+          const exportReport = await resolveReportForLanguage(report, language);
+          exportReportPpt(exportReport);
+        } else {
+          // HTML: bake the selected languages into the snapshot so the
+          // recipient can switch among them in-page. {@link
+          // exportReportHtml} materialises each via the cache-warm
+          // translate endpoint internally; we pass the original report
+          // plus the user's chosen default + include set.
+          await exportReportHtml(
+            report,
+            language,
+            isExample ? 'example' : 'report',
+            includeLanguages,
+          );
+        }
       } finally {
         setExporting(null);
       }
@@ -449,37 +470,11 @@ export default function ReportPage() {
               {input?.companyProfile?.sector && (
                 <span className="report-meta-item">· {input.companyProfile.sector}</span>
               )}
-              {/* Language switcher — segmented pill listing every
-                  cached translation. Only renders when ≥2 languages
-                  are available (no point showing a one-option toggle).
-                  Click writes {@code ?lang=XX} to the URL, the
-                  translation query above swaps the rendered payload.
-                  Disabled while the translation is loading so the
-                  user doesn't pile clicks during the swap. */}
-              {availableLangs.length > 1 && (
-                <span
-                  className="report-lang-switch"
-                  role="tablist"
-                  aria-label={t('report.lang.switcherAria', { defaultValue: 'View in language' })}
-                >
-                  {availableLangs.map((lng) => {
-                    const isActive = lng === activeLang;
-                    return (
-                      <button
-                        key={lng}
-                        type="button"
-                        role="tab"
-                        aria-selected={isActive}
-                        className={`report-lang-switch-btn${isActive ? ' active' : ''}`}
-                        disabled={translationQuery.isFetching && !isActive}
-                        onClick={() => chooseLanguage(lng)}
-                      >
-                        {lng.toUpperCase()}
-                      </button>
-                    );
-                  })}
-                </span>
-              )}
+              {/* Switcher used to live here. It's now passed into
+                  ReportContent's rightSlot so it sits aligned with the
+                  sticky tab row on the right edge — stays accessible
+                  during long-scroll reading and reads as a peer of
+                  the navigation, not a header metadata chip. */}
             </div>
           </div>
           <div className="report-actions">
@@ -540,7 +535,38 @@ export default function ReportPage() {
         </header>
 
         {result ? (
-          <ReportContent result={result} input={inputProjection} />
+          <ReportContent
+            result={result}
+            input={inputProjection}
+            rightSlot={
+              availableLangs.length > 1 ? (
+                <span
+                  className="report-lang-switch"
+                  role="tablist"
+                  aria-label={t('report.lang.switcherAria', {
+                    defaultValue: 'View in language',
+                  })}
+                >
+                  {availableLangs.map((lng) => {
+                    const isActive = lng === activeLang;
+                    return (
+                      <button
+                        key={lng}
+                        type="button"
+                        role="tab"
+                        aria-selected={isActive}
+                        className={`report-lang-switch-btn${isActive ? ' active' : ''}`}
+                        disabled={translationQuery.isFetching && !isActive}
+                        onClick={() => chooseLanguage(lng)}
+                      >
+                        {lng.toUpperCase()}
+                      </button>
+                    );
+                  })}
+                </span>
+              ) : undefined
+            }
+          />
         ) : (
           // Legacy fallback: reports created with the old wizard flow may
           // still exist as DRAFT (no resultData). New flow always generates
@@ -579,7 +605,9 @@ export default function ReportPage() {
         // reading") becomes a one-click flow.
         initialLanguage={activeLang}
         onClose={() => setExportOpen(false)}
-        onExport={(format, language) => runExport(format, language)}
+        onExport={(format, language, includeLanguages, pdfTheme) =>
+          runExport(format, language, includeLanguages, pdfTheme)
+        }
       />
       <PromoteToExampleModal
         open={promoteOpen}

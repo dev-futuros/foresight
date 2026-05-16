@@ -1,4 +1,10 @@
-import { useMemo, useRef, useState, type ReactElement } from 'react';
+import {
+  useMemo,
+  useRef,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import type {
   Backcasting,
@@ -169,6 +175,15 @@ const TABS: TabDef[] = [
 interface Props {
   result: ResultData;
   input?: InputProjection;
+  /**
+   * Optional content rendered on the right side of the sticky tab row.
+   * Typically the language-switcher pill — caller decides whether to
+   * show it (multi-language report) or omit it (single-language).
+   * Anchored to the right edge via {@code margin-left: auto}; pins
+   * with the row as the user scrolls so the language toggle stays
+   * accessible.
+   */
+  rightSlot?: ReactNode;
 }
 
 /**
@@ -180,7 +195,7 @@ interface Props {
  * (e.g. legacy or partial-failure) shows the remaining tabs without empty
  * placeholders.
  */
-export default function ReportContent({ result, input }: Props) {
+export default function ReportContent({ result, input, rightSlot }: Props) {
   const { t } = useTranslation();
   const tabRowRef = useRef<HTMLDivElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -269,6 +284,12 @@ export default function ReportContent({ result, input }: Props) {
             {t(tab.labelKey)}
           </button>
         ))}
+        {/* Right-anchored slot (typically the language switcher).
+            `margin-left: auto` on the slot pushes it to the right of
+            the flex row while leaving the tabs left-aligned. Pinned
+            with the row so it stays accessible during long-scroll
+            reads. Omitted when the caller has nothing to render. */}
+        {rightSlot && <div className="tab-row-right">{rightSlot}</div>}
       </div>
       {/* Keyed on the active tab id so React unmounts the previous tab's
           subtree and mounts a fresh one when the user switches — that

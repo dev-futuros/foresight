@@ -22,6 +22,13 @@ const es = {
     togglePassword: 'Mostrar/ocultar contraseña',
     brand: 'Foresight Strategy · Powered by Claude AI',
   },
+  cookies: {
+    title: 'Cookies y analítica',
+    body: 'Usamos PostHog para entender cómo se usa la herramienta y mejorarla. No compartimos datos con anunciantes ni terceros publicitarios.',
+    learn: 'Política de Privacidad',
+    accept: 'Aceptar',
+    reject: 'Rechazar',
+  },
   modals: {
     deleteReport: {
       title: '¿Eliminar este informe?',
@@ -58,6 +65,7 @@ const es = {
       ppt: 'PowerPoint — Diapositivas editables',
       html: 'HTML — Página autónoma (DEV)',
     },
+    htmlDefaultLanguage: 'Idioma por defecto',
     action: 'Exportar',
   },
   chat: {

@@ -1,0 +1,56 @@
+# syntax=docker/dockerfile:1.7
+#
+# Production Dockerfile — multi-stage build that compiles the Vite SPA and
+# serves the resulting dist/ with Caddy. Used ONLY by the Railway prod
+# environment (set Settings → Build → Dockerfile Path = Dockerfile.prod
+# on the frontend service). Dev / alpha environments keep using the
+# original Dockerfile (Vite dev server / Vite preview server).
+#
+# Pattern follows https://docs.railway.com/guides/react#deploy-from-a-github-repo —
+# Railway terminates TLS at its edge, so this container only speaks plain
+# HTTP on whatever port Railway injects via $PORT at runtime.
+
+# ─── Stage 1: build the SPA ───────────────────────────────────────
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Vite bakes VITE_* env vars into the bundle at BUILD time — they
+# CANNOT be set at runtime. Railway's Dockerfile builder forwards
+# service env vars as `--build-arg` automatically, but each var we
+# want exposed has to be declared as an ARG here first. Anything
+# not set in the Railway service env defaults to an empty string,
+# which Vite then bakes verbatim into the bundle (the analytics +
+# snippet handle empty values gracefully — see frontend/index.html).
+ARG VITE_API_URL
+ARG VITE_CLERK_PUBLISHABLE_KEY
+ARG VITE_POSTHOG_ENABLED
+ARG VITE_POSTHOG_KEY
+ARG VITE_POSTHOG_HOST
+
+# Install dependencies on manifest changes only — keeps the layer
+# cache warm across iterations that only touch source.
+COPY package.json package-lock.json ./
+RUN npm ci
+
+# Copy the rest of the source and build. `npm run build` runs:
+#   tsc -b
+#   vite build                                  → dist/index.html + dist/assets/*
+#   vite build --config vite.snapshot.config.ts → dist/share-snapshot.html
+# (the snapshot config has emptyOutDir:false so both outputs co-exist).
+COPY . .
+RUN npm run build
+
+# ─── Stage 2: serve dist/ with Caddy ──────────────────────────────
+FROM caddy:2-alpine
+
+# Caddy's default `caddy run` command reads /etc/caddy/Caddyfile, so
+# we just drop our config + the built assets at the locations the
+# Caddyfile references and let the base image's ENTRYPOINT do its job.
+COPY --from=builder /app/dist /usr/share/caddy
+COPY Caddyfile /etc/caddy/Caddyfile
+
+# Listening port is driven by $PORT (see Caddyfile) — Railway injects
+# it on the container at boot. EXPOSE is informational only; the
+# active port is decided at runtime.
+EXPOSE 80

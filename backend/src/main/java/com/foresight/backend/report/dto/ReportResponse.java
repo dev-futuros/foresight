@@ -28,6 +28,10 @@ import com.foresight.backend.report.ReportStatus;
  *                              translation row. The frontend's share / export dialogs use
  *                              this to decide whether picking a language triggers a translate
  *                              call or returns instantly
+ * @param pdfOptimized          per-language cache of "tightened" prose used by the PDF export
+ *                              pipeline. Shape per language entry:
+ *                              {@code {version, generatedAt, fields: {<dotted-path>: <text>}}}.
+ *                              {@code null} when no PDF has been exported yet for this report
  * @param createdAt             creation timestamp
  * @param updatedAt             last-modification timestamp
  */
@@ -39,6 +43,7 @@ public record ReportResponse(
         JsonNode resultData,
         String primaryLanguage,
         List<String> availableLanguages,
+        JsonNode pdfOptimized,
         Instant createdAt,
         Instant updatedAt) {
     /**
@@ -59,6 +64,7 @@ public record ReportResponse(
                 r.getResultData(),
                 r.getPrimaryLanguage(),
                 resolveAvailableLanguages(r),
+                r.getPdfOptimized(),
                 r.getCreatedAt(),
                 r.getUpdatedAt());
     }

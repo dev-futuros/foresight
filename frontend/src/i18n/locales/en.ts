@@ -14,6 +14,13 @@ const en = {
     collapseAll: 'Collapse all',
     all: 'All',
   },
+  cookies: {
+    title: 'Cookies & analytics',
+    body: "We use PostHog to understand how the tool is used and improve it. We don't share data with advertisers or ad-tech third parties.",
+    learn: 'Privacy Policy',
+    accept: 'Accept',
+    reject: 'Decline',
+  },
   loader: {
     metric: {
       sources_one: '~{{count}} source',
@@ -58,6 +65,7 @@ const en = {
       ppt: 'PowerPoint — Editable slides',
       html: 'HTML — Standalone web page (DEV)',
     },
+    htmlDefaultLanguage: 'Default language',
     action: 'Export',
   },
   chat: {

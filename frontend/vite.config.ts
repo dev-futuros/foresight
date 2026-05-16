@@ -26,14 +26,16 @@ export default defineConfig({
   // host can't reach it. The proxy mirrors the dev server's so the
   // built SPA can still call the backend at {@code /api/*} the same way.
   //
-  // Port is read from FRONTEND_PORT so it tracks whatever the deploy
-  // target injects: 4173 locally (via .env.preview), Railway's
-  // dynamically-assigned $PORT in production (via .env.railway), or
-  // any custom port a future profile sets. Falls back to 4173 so a
-  // bare `npm run preview` still works.
+  // Port resolves from, in order:
+  //   1. FRONTEND_PORT — explicit override (local .env.preview sets 4173)
+  //   2. PORT          — Railway / Heroku / Fly inject this directly on the
+  //                      container at runtime. Railway template refs like
+  //                      `${{PORT}}` don't resolve for the auto-injected
+  //                      PORT, so we must read it as a plain env var here.
+  //   3. 4173          — bare `npm run preview` fallback.
   preview: {
     host: '0.0.0.0',
-    port: Number(process.env.FRONTEND_PORT) || 4173,
+    port: Number(process.env.FRONTEND_PORT) || Number(process.env.PORT) || 4173,
     allowedHosts: true,
     proxy: {
       '/api': {

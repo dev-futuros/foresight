@@ -27,6 +27,9 @@ import com.foresight.backend.ai.dto.GlobalSteepDimRequest;
 import com.foresight.backend.ai.dto.GlobalSteepRequest;
 import com.foresight.backend.ai.dto.HorizonSuggestRequest;
 import com.foresight.backend.ai.dto.SteepSuggestRequest;
+import com.foresight.backend.ai.dto.TightenRequest;
+import com.foresight.backend.analytics.LlmCapture;
+import com.foresight.backend.analytics.LlmCaptureContext;
 
 import lombok.RequiredArgsConstructor;
 import reactor.core.publisher.Flux;
@@ -1250,6 +1253,7 @@ public class AiService {
     private final AnthropicClient anthropicClient;
     private final ObjectMapper objectMapper;
     private final AnthropicProperties properties;
+    private final LlmCapture llmCapture;
 
     /**
      * Generates a current global STEEP briefing for a given sector, grounded on live web
@@ -1270,8 +1274,16 @@ public class AiService {
             prompt += "\n\nReturn ONLY the \"%s\" key. Output exactly: {\"%s\":\"...\"}"
                     .formatted(request.dimension(), request.dimension());
         }
-        return anthropicClient
-                .sendMessageWithWebSearch(properties.sonnet(), GLOBAL_STEEP_SYSTEM, prompt, 1500)
+        String model = properties.sonnet();
+        var ctx = llmCapture
+                .contextFor("global-steep" + (request.dimension() == null ? "" : ":" + request.dimension()), null)
+                .model(model)
+                .systemPrompt(GLOBAL_STEEP_SYSTEM)
+                .userPrompt(prompt)
+                .maxTokens(1500)
+                .tools(WEB_SEARCH_TOOLS_FOR_CAPTURE);
+        return captureUnary(
+                        ctx, anthropicClient.sendMessageWithWebSearch(model, GLOBAL_STEEP_SYSTEM, prompt, 1500))
                 .map(AiResponseSanitizer::sanitize);
     }
 
@@ -1296,10 +1308,18 @@ public class AiService {
                         langInstruction(request.language()),
                         request.sector(),
                         java.time.Year.now().getValue());
-        return anthropicClient
-                // 4000 to match globalSteepScanStream — web_search tool
-                // rounds share the budget with the final JSON answer.
-                .sendMessageWithWebSearch(properties.sonnet(), GLOBAL_STEEP_SCAN_SYSTEM, prompt, 4000)
+        String model = properties.sonnet();
+        // 4000 to match globalSteepScanStream — web_search tool
+        // rounds share the budget with the final JSON answer.
+        var ctx = llmCapture
+                .contextFor("steep-global:scan", null)
+                .model(model)
+                .systemPrompt(GLOBAL_STEEP_SCAN_SYSTEM)
+                .userPrompt(prompt)
+                .maxTokens(4000)
+                .tools(WEB_SEARCH_TOOLS_FOR_CAPTURE);
+        return captureUnary(
+                        ctx, anthropicClient.sendMessageWithWebSearch(model, GLOBAL_STEEP_SCAN_SYSTEM, prompt, 4000))
                 .map(AiResponseSanitizer::sanitize);
     }
 
@@ -1323,8 +1343,14 @@ public class AiService {
                         request.sector(),
                         java.time.Year.now().getValue(),
                         snippet.isBlank() ? "(none — write a brief, plausible 2-3 sentence summary for this dimension and sector)" : snippet);
-        return anthropicClient
-                .sendMessage(properties.haiku(), GLOBAL_STEEP_DIM_SYSTEM, prompt, 600)
+        String model = properties.haiku();
+        var ctx = llmCapture
+                .contextFor("steep-global:dim:" + request.dimension(), null)
+                .model(model)
+                .systemPrompt(GLOBAL_STEEP_DIM_SYSTEM)
+                .userPrompt(prompt)
+                .maxTokens(600);
+        return captureUnary(ctx, anthropicClient.sendMessage(model, GLOBAL_STEEP_DIM_SYSTEM, prompt, 600))
                 .map(AiResponseSanitizer::sanitize);
     }
 
@@ -1337,8 +1363,14 @@ public class AiService {
     public Mono<JsonNode> suggestSteep(SteepSuggestRequest request) {
         String prompt = "%s\n\nDimension: %s\nCompany profile:\n%s"
                 .formatted(langInstruction(request.language()), request.dimension(), request.companyProfile());
-        return anthropicClient
-                .sendMessage(properties.haiku(), STEEP_SYSTEM, prompt, 700)
+        String model = properties.haiku();
+        var ctx = llmCapture
+                .contextFor("suggest-steep:" + request.dimension(), null)
+                .model(model)
+                .systemPrompt(STEEP_SYSTEM)
+                .userPrompt(prompt)
+                .maxTokens(700);
+        return captureUnary(ctx, anthropicClient.sendMessage(model, STEEP_SYSTEM, prompt, 700))
                 .map(AiResponseSanitizer::sanitize);
     }
 
@@ -1351,8 +1383,14 @@ public class AiService {
     public Mono<JsonNode> suggestHorizon(HorizonSuggestRequest request) {
         String prompt = "%s\n\nHorizon: %s\nCompany profile:\n%s"
                 .formatted(langInstruction(request.language()), request.horizon(), request.companyProfile());
-        return anthropicClient
-                .sendMessage(properties.haiku(), HORIZON_SYSTEM, prompt, 800)
+        String model = properties.haiku();
+        var ctx = llmCapture
+                .contextFor("suggest-horizon:" + request.horizon(), null)
+                .model(model)
+                .systemPrompt(HORIZON_SYSTEM)
+                .userPrompt(prompt)
+                .maxTokens(800);
+        return captureUnary(ctx, anthropicClient.sendMessage(model, HORIZON_SYSTEM, prompt, 800))
                 .map(AiResponseSanitizer::sanitize);
     }
 
@@ -1380,8 +1418,14 @@ public class AiService {
                                 request.companyProfile().toString(),
                                 request.steep().toString(),
                                 request.horizon().toString());
-        return anthropicClient
-                .sendMessage(properties.opus(), ANALYZE_SYSTEM, prompt, 16000)
+        String model = properties.opus();
+        var ctx = llmCapture
+                .contextFor("analyze:legacy", null)
+                .model(model)
+                .systemPrompt(ANALYZE_SYSTEM)
+                .userPrompt(prompt)
+                .maxTokens(16000);
+        return captureUnary(ctx, anthropicClient.sendMessage(model, ANALYZE_SYSTEM, prompt, 16000))
                 .map(AiResponseSanitizer::sanitize);
     }
 
@@ -1398,8 +1442,17 @@ public class AiService {
      * bullets. Frontend's loader surfaces this as the "research" row.
      */
     public Flux<JsonNode> analyzeScanStream(AnalyzeRequest request) {
-        return streamUpstream(anthropicClient.streamMessageWithWebSearch(
-                properties.opus(), ANALYZE_SCAN_SYSTEM, analyzePrompt(request), 4000));
+        String model = properties.opus();
+        String prompt = analyzePrompt(request);
+        var ctx = llmCapture
+                .contextFor("analyze:scan", null)
+                .model(model)
+                .systemPrompt(ANALYZE_SCAN_SYSTEM)
+                .userPrompt(prompt)
+                .maxTokens(4000)
+                .tools(WEB_SEARCH_TOOLS_FOR_CAPTURE);
+        return streamUpstream(
+                anthropicClient.streamMessageWithWebSearch(model, ANALYZE_SCAN_SYSTEM, prompt, 4000), ctx);
     }
 
     /**
@@ -1416,14 +1469,29 @@ public class AiService {
      * staying parallel.
      */
     public Flux<JsonNode> analyzeSummaryStream(AnalyzeRequest request) {
-        return streamUpstream(anthropicClient.streamMessageWithWebSearch(
-                properties.opus(), ANALYZE_SUMMARY_SYSTEM, analyzePrompt(request), 12000));
+        return streamSection(request, "analyze:summary", ANALYZE_SUMMARY_SYSTEM);
     }
 
     /** Phase-B — streamed 3P scenarios. Opus + web_search (parallel with the rest). */
     public Flux<JsonNode> analyzeScenariosStream(AnalyzeRequest request) {
-        return streamUpstream(anthropicClient.streamMessageWithWebSearch(
-                properties.opus(), ANALYZE_SCENARIOS_SYSTEM, analyzePrompt(request), 12000));
+        return streamSection(request, "analyze:scenarios", ANALYZE_SCENARIOS_SYSTEM);
+    }
+
+    /** Shared launcher for the parallel-5 analyze section streams. All five share the same
+     *  shape (Opus + web_search, prompt built from {@link #analyzePrompt}, 12000 max_tokens)
+     *  so the only thing that varies between them is the system prompt and the PostHog feature
+     *  label. Folding them through one helper keeps each public method a single line. */
+    private Flux<JsonNode> streamSection(AnalyzeRequest request, String feature, String systemPrompt) {
+        String model = properties.opus();
+        String prompt = analyzePrompt(request);
+        var ctx = llmCapture
+                .contextFor(feature, null)
+                .model(model)
+                .systemPrompt(systemPrompt)
+                .userPrompt(prompt)
+                .maxTokens(12000)
+                .tools(WEB_SEARCH_TOOLS_FOR_CAPTURE);
+        return streamUpstream(anthropicClient.streamMessageWithWebSearch(model, systemPrompt, prompt, 12000), ctx);
     }
 
     /** Shared user-turn prompt for the analyze section calls and the
@@ -1451,20 +1519,33 @@ public class AiService {
     /** Section-C — streamed scenario planning structure. Opus + web_search,
      *  runs in parallel with the other section calls (matches demo). */
     public Flux<JsonNode> scenarioPlanningStream(AnalyzeContextRequest request) {
-        return streamUpstream(anthropicClient.streamMessageWithWebSearch(
-                properties.opus(), SCENARIO_PLANNING_SYSTEM, contextPrompt(request), 12000));
+        return streamContextSection(request, "analyze:scenario-planning", SCENARIO_PLANNING_SYSTEM);
     }
 
     /** Section-E — streamed backcasting trajectories. Opus + web_search. */
     public Flux<JsonNode> backcastingStream(AnalyzeContextRequest request) {
-        return streamUpstream(anthropicClient.streamMessageWithWebSearch(
-                properties.opus(), BACKCASTING_SYSTEM, contextPrompt(request), 12000));
+        return streamContextSection(request, "analyze:backcasting", BACKCASTING_SYSTEM);
     }
 
     /** Section-D — streamed strategic priorities by horizon. Opus + web_search. */
     public Flux<JsonNode> strategicMapStream(AnalyzeContextRequest request) {
-        return streamUpstream(anthropicClient.streamMessageWithWebSearch(
-                properties.opus(), STRATEGIC_MAP_SYSTEM, contextPrompt(request), 12000));
+        return streamContextSection(request, "analyze:strategic-map", STRATEGIC_MAP_SYSTEM);
+    }
+
+    /** Shared launcher for sections C/D/E (the ones that take an {@link AnalyzeContextRequest}
+     *  carrying the chosen scenarios). Same Opus + web_search + 12000-max_tokens shape as
+     *  {@link #streamSection}; only the system prompt and feature label vary. */
+    private Flux<JsonNode> streamContextSection(AnalyzeContextRequest request, String feature, String systemPrompt) {
+        String model = properties.opus();
+        String prompt = contextPrompt(request);
+        var ctx = llmCapture
+                .contextFor(feature, null)
+                .model(model)
+                .systemPrompt(systemPrompt)
+                .userPrompt(prompt)
+                .maxTokens(12000)
+                .tools(WEB_SEARCH_TOOLS_FOR_CAPTURE);
+        return streamUpstream(anthropicClient.streamMessageWithWebSearch(model, systemPrompt, prompt, 12000), ctx);
     }
 
     /**
@@ -1512,9 +1593,16 @@ public class AiService {
         // we need web_search to fire. The system prompt instead leans
         // on very emphatic "no preamble, no markdown, JSON only" +
         // explicit bullet-length wording — see GLOBAL_STEEP_SCAN_SYSTEM.
+        String model = properties.sonnet();
+        var ctx = llmCapture
+                .contextFor("steep-global:scan", null)
+                .model(model)
+                .systemPrompt(GLOBAL_STEEP_SCAN_SYSTEM)
+                .userPrompt(prompt)
+                .maxTokens(2500)
+                .tools(WEB_SEARCH_TOOLS_FOR_CAPTURE);
         return streamUpstream(
-                anthropicClient.streamMessageWithWebSearch(
-                        properties.sonnet(), GLOBAL_STEEP_SCAN_SYSTEM, prompt, 2500));
+                anthropicClient.streamMessageWithWebSearch(model, GLOBAL_STEEP_SCAN_SYSTEM, prompt, 2500), ctx);
     }
 
     /**
@@ -1535,8 +1623,14 @@ public class AiService {
                         snippet.isBlank()
                                 ? "(none — write a brief, plausible 2-3 sentence summary for this dimension and sector)"
                                 : snippet);
-        return streamUpstream(
-                anthropicClient.streamMessage(properties.haiku(), GLOBAL_STEEP_DIM_SYSTEM, prompt, 600));
+        String model = properties.haiku();
+        var ctx = llmCapture
+                .contextFor("steep-global:dim:" + request.dimension(), null)
+                .model(model)
+                .systemPrompt(GLOBAL_STEEP_DIM_SYSTEM)
+                .userPrompt(prompt)
+                .maxTokens(600);
+        return streamUpstream(anthropicClient.streamMessage(model, GLOBAL_STEEP_DIM_SYSTEM, prompt, 600), ctx);
     }
 
     /**
@@ -1548,8 +1642,19 @@ public class AiService {
      * <p>Shared between the analyze sections (web_search-enabled) and
      * the Step 2 Global STEEP scan/dim flows (the scan uses web_search,
      * the dim calls don't — for those, citations stays empty).
+     *
+     * <p>The {@code captureBuilder} carries the per-call PostHog context
+     * (feature, model, system, user prompt, etc.). It's enriched during
+     * the stream — input/output tokens from {@code message_start} /
+     * {@code message_delta} events, the model name from
+     * {@code message_start.message.model}, and the assembled content
+     * blocks at completion — then fired as a single {@code $ai_generation}
+     * event in {@code doFinally}. Capture happens regardless of how the
+     * stream terminated (success, error, or downstream cancel), so we
+     * see every actual upstream call in the dashboard.
      */
-    private Flux<JsonNode> streamUpstream(Flux<ServerSentEvent<String>> upstream) {
+    private Flux<JsonNode> streamUpstream(
+            Flux<ServerSentEvent<String>> upstream, LlmCaptureContext.LlmCaptureContextBuilder captureBuilder) {
         StringBuilder accText = new StringBuilder();
         Set<String> seenUrls = new HashSet<>();
         ArrayNode citations = objectMapper.createArrayNode();
@@ -1561,6 +1666,15 @@ public class AiService {
                 new java.util.concurrent.atomic.AtomicInteger(0);
         java.util.concurrent.atomic.AtomicInteger deltaEvents =
                 new java.util.concurrent.atomic.AtomicInteger(0);
+
+        // PostHog accumulators (lifetime: this stream). Refs are mutated
+        // inside the per-event consumer below and read in doFinally.
+        StreamCaptureState ph = new StreamCaptureState();
+        // Content-block accumulator so $ai_output_choices ends up shaped like
+        // Anthropic's content array (text + server_tool_use entries),
+        // matching the demo's outputChoices contract.
+        Map<Integer, ContentBlockAcc> blocks = new HashMap<>();
+        long t0 = System.currentTimeMillis();
 
         Flux<JsonNode> progressFlux = upstream.concatMap(sse -> {
             int n = seenEvents.incrementAndGet();
@@ -1574,6 +1688,9 @@ public class AiService {
                         sse.event(),
                         d == null ? "<null>" : d.substring(0, Math.min(d.length(), 120)));
             }
+            // Side-channel: harvest model + usage + stop_reason from the
+            // event before / after we hand it to handleSseEvent.
+            absorbStreamMeta(sse, ph, blocks, accText);
             return handleSseEvent(sse, accText, seenUrls, citations, lastEmit, deltaEvents);
         });
 
@@ -1591,8 +1708,258 @@ public class AiService {
             return Flux.just((JsonNode) done);
         });
 
-        return progressFlux.concatWith(doneFlux);
+        // Fire one $ai_generation event per stream, regardless of outcome.
+        // doFinally runs on complete / error / cancel, so cancelled requests
+        // (user navigated away mid-stream) still show up — useful for
+        // distinguishing abandoned generations from completed ones.
+        java.util.concurrent.atomic.AtomicReference<Throwable> err = new java.util.concurrent.atomic.AtomicReference<>();
+        return progressFlux
+                .concatWith(doneFlux)
+                .doOnError(err::set)
+                .doFinally(signal -> {
+                    String error = null;
+                    int httpStatus = 200;
+                    if (signal == reactor.core.publisher.SignalType.ON_ERROR && err.get() != null) {
+                        error = err.get().getMessage();
+                        httpStatus = 0;
+                    } else if (signal == reactor.core.publisher.SignalType.CANCEL) {
+                        error = "cancelled";
+                        httpStatus = 0;
+                    }
+                    LlmCaptureContext ctx = captureBuilder
+                            .model(ph.model == null ? captureBuilder.build().model() : ph.model)
+                            .latencyMs(System.currentTimeMillis() - t0)
+                            .httpStatus(httpStatus)
+                            .error(error)
+                            .stopReason(ph.stopReason)
+                            .inputTokens(ph.inputTokens)
+                            .outputTokens(ph.outputTokens)
+                            .cacheReadTokens(ph.cacheReadTokens)
+                            .cacheCreationTokens(ph.cacheCreationTokens)
+                            .outputText(accText.toString())
+                            .outputContent(buildOutputContent(blocks))
+                            .sourcesCount(citations.size())
+                            .streamed(true)
+                            .build();
+                    llmCapture.capture(ctx);
+                });
     }
+
+    /** Mutable accumulator threaded through the streaming flux for PostHog capture. */
+    private static final class StreamCaptureState {
+        String model;
+        String stopReason;
+        Integer inputTokens;
+        Integer outputTokens;
+        Integer cacheReadTokens;
+        Integer cacheCreationTokens;
+    }
+
+    /** Per-content-block accumulator. {@code kind = "text" | "tool"}. */
+    private static final class ContentBlockAcc {
+        String kind;
+        String text = "";
+        String toolName;
+        JsonNode toolInput;
+        StringBuilder toolPartial = new StringBuilder();
+    }
+
+    /**
+     * Sidecar inspector that updates {@link StreamCaptureState} and the
+     * content-block accumulators from each upstream SSE event. Mirrors the
+     * demo's client-side {@code streamMessages} bookkeeping so the PostHog
+     * event emitted at the end has the same shape regardless of where the
+     * Anthropic call originated.
+     */
+    private void absorbStreamMeta(
+            ServerSentEvent<String> sse,
+            StreamCaptureState ph,
+            Map<Integer, ContentBlockAcc> blocks,
+            StringBuilder accText) {
+        String data = sse.data();
+        if (data == null) return;
+        JsonNode payload;
+        try {
+            payload = objectMapper.readTree(data);
+        } catch (Exception e) {
+            return;
+        }
+        String type = sse.event();
+        if (type == null || type.isBlank()) type = payload.path("type").asText("");
+        switch (type) {
+            case "message_start" -> {
+                JsonNode msg = payload.path("message");
+                if (!msg.isMissingNode()) {
+                    String m = msg.path("model").asText("");
+                    if (!m.isBlank()) ph.model = m;
+                    JsonNode usage = msg.path("usage");
+                    if (!usage.isMissingNode()) {
+                        if (usage.has("input_tokens")) ph.inputTokens = usage.get("input_tokens").asInt();
+                        if (usage.has("cache_read_input_tokens"))
+                            ph.cacheReadTokens = usage.get("cache_read_input_tokens").asInt();
+                        if (usage.has("cache_creation_input_tokens"))
+                            ph.cacheCreationTokens = usage.get("cache_creation_input_tokens").asInt();
+                    }
+                }
+            }
+            case "message_delta" -> {
+                JsonNode usage = payload.path("usage");
+                if (usage.has("output_tokens")) ph.outputTokens = usage.get("output_tokens").asInt();
+                JsonNode delta = payload.path("delta");
+                String stop = delta.path("stop_reason").asText("");
+                if (!stop.isBlank()) ph.stopReason = stop;
+            }
+            case "content_block_start" -> {
+                int idx = payload.path("index").asInt(-1);
+                if (idx < 0) return;
+                JsonNode cb = payload.path("content_block");
+                String cbType = cb.path("type").asText("");
+                if ("text".equals(cbType)) {
+                    ContentBlockAcc b = new ContentBlockAcc();
+                    b.kind = "text";
+                    b.text = cb.path("text").asText("");
+                    blocks.put(idx, b);
+                } else if ("tool_use".equals(cbType) || "server_tool_use".equals(cbType)) {
+                    ContentBlockAcc b = new ContentBlockAcc();
+                    b.kind = "tool";
+                    b.toolName = cb.path("name").asText("");
+                    b.toolInput = cb.path("input");
+                    blocks.put(idx, b);
+                }
+            }
+            case "content_block_delta" -> {
+                int idx = payload.path("index").asInt(-1);
+                if (idx < 0) return;
+                ContentBlockAcc b = blocks.get(idx);
+                if (b == null) return;
+                JsonNode delta = payload.path("delta");
+                String dType = delta.path("type").asText("");
+                if ("text_delta".equals(dType) && "text".equals(b.kind)) {
+                    b.text = b.text + delta.path("text").asText("");
+                } else if ("input_json_delta".equals(dType) && "tool".equals(b.kind)) {
+                    b.toolPartial.append(delta.path("partial_json").asText(""));
+                }
+            }
+            default -> {
+                // Ignore other event types — handleSseEvent already extracted
+                // what the SSE channel needs (text deltas, citation harvest).
+            }
+        }
+    }
+
+    /**
+     * Build the {@code $ai_output_choices.content} array PostHog ingests.
+     * Preserves block order via the sorted index keys so {@code text} blocks
+     * and {@code server_tool_use} / {@code tool_use} blocks interleave the
+     * same way Anthropic emitted them. Returns {@code null} when no blocks
+     * were captured so the caller can fall back to plain-text output.
+     */
+    private JsonNode buildOutputContent(Map<Integer, ContentBlockAcc> blocks) {
+        if (blocks.isEmpty()) return null;
+        ArrayNode out = objectMapper.createArrayNode();
+        blocks.keySet().stream().sorted().forEach(idx -> {
+            ContentBlockAcc b = blocks.get(idx);
+            if ("text".equals(b.kind)) {
+                ObjectNode node = objectMapper.createObjectNode();
+                node.put("type", "text");
+                node.put("text", b.text);
+                out.add(node);
+            } else if ("tool".equals(b.kind)) {
+                ObjectNode node = objectMapper.createObjectNode();
+                node.put("type", "function");
+                ObjectNode fn = objectMapper.createObjectNode();
+                fn.put("name", b.toolName == null ? "" : b.toolName);
+                if (b.toolPartial.length() > 0) {
+                    try {
+                        fn.set("arguments", objectMapper.readTree(b.toolPartial.toString()));
+                    } catch (Exception e) {
+                        fn.put("arguments", b.toolPartial.toString());
+                    }
+                } else if (b.toolInput != null && !b.toolInput.isMissingNode()) {
+                    fn.set("arguments", b.toolInput);
+                }
+                node.set("function", fn);
+                out.add(node);
+            }
+        });
+        return out;
+    }
+
+    /**
+     * Wrap a unary Anthropic call ({@code sendMessage} / {@code sendMessageWithWebSearch} /
+     * {@code sendConversation}) with PostHog instrumentation. Captures usage, content,
+     * stop_reason from the response JSON; captures error + zero usage on failure. Either
+     * way, exactly one {@code $ai_generation} event ships per call.
+     */
+    private Mono<JsonNode> captureUnary(LlmCaptureContext.LlmCaptureContextBuilder builder, Mono<JsonNode> raw) {
+        long t0 = System.currentTimeMillis();
+        return raw.doOnSuccess(response -> {
+                    LlmCaptureContext ctx = enrichUnary(builder, response, t0, null)
+                            .streamed(false)
+                            .build();
+                    llmCapture.capture(ctx);
+                })
+                .doOnError(err -> {
+                    LlmCaptureContext ctx = builder.latencyMs(System.currentTimeMillis() - t0)
+                            .httpStatus(0)
+                            .error(err.getMessage() == null ? err.getClass().getSimpleName() : err.getMessage())
+                            .streamed(false)
+                            .build();
+                    llmCapture.capture(ctx);
+                });
+    }
+
+    /**
+     * Pull {@code model}, {@code usage}, {@code stop_reason}, and the {@code content} blocks out
+     * of an Anthropic unary response and stuff them into the {@link LlmCaptureContext} builder.
+     * Tolerates missing fields — e.g. errored responses that arrive as plain JSON without a
+     * usage block.
+     */
+    private LlmCaptureContext.LlmCaptureContextBuilder enrichUnary(
+            LlmCaptureContext.LlmCaptureContextBuilder builder, JsonNode response, long t0, String error) {
+        builder.latencyMs(System.currentTimeMillis() - t0).httpStatus(200).error(error);
+        if (response == null) return builder;
+        String model = response.path("model").asText("");
+        if (!model.isBlank()) builder.model(model);
+        JsonNode usage = response.path("usage");
+        if (!usage.isMissingNode()) {
+            if (usage.has("input_tokens")) builder.inputTokens(usage.get("input_tokens").asInt());
+            if (usage.has("output_tokens")) builder.outputTokens(usage.get("output_tokens").asInt());
+            if (usage.has("cache_read_input_tokens"))
+                builder.cacheReadTokens(usage.get("cache_read_input_tokens").asInt());
+            if (usage.has("cache_creation_input_tokens"))
+                builder.cacheCreationTokens(usage.get("cache_creation_input_tokens").asInt());
+        }
+        String stopReason = response.path("stop_reason").asText("");
+        if (!stopReason.isBlank()) builder.stopReason(stopReason);
+        JsonNode content = response.path("content");
+        if (content.isArray() && !content.isEmpty()) {
+            builder.outputContent(content);
+            // Also derive a plain-text fallback by joining every text block — useful for
+            // dashboards that don't render the structured content view.
+            StringBuilder txt = new StringBuilder();
+            for (JsonNode block : content) {
+                if ("text".equals(block.path("type").asText())) txt.append(block.path("text").asText(""));
+            }
+            builder.outputText(txt.toString());
+        }
+        int sources = 0;
+        if (content.isArray()) {
+            for (JsonNode block : content) {
+                if ("web_search_tool_result".equals(block.path("type").asText())) {
+                    JsonNode inner = block.path("content");
+                    if (inner.isArray()) sources += inner.size();
+                }
+            }
+        }
+        builder.sourcesCount(sources);
+        return builder;
+    }
+
+    /** Web-search tools list, mirrored from {@link AnthropicClient#WEB_SEARCH_TOOLS} so the
+     *  {@code $ai_tools} property in PostHog reflects what the model was actually given. */
+    private static final List<Map<String, Object>> WEB_SEARCH_TOOLS_FOR_CAPTURE =
+            List.of(Map.of("type", "web_search_20250305", "name", "web_search", "max_uses", 5));
 
     /**
      * Translates one upstream Anthropic SSE event into 0..1 downstream
@@ -1686,8 +2053,15 @@ public class AiService {
      */
     public Mono<JsonNode> sources(AnalyzeContextRequest request) {
         String prompt = contextPrompt(request);
-        return anthropicClient
-                .sendMessageWithWebSearch(properties.opus(), SOURCES_SYSTEM, prompt, 4000)
+        String model = properties.opus();
+        var ctx = llmCapture
+                .contextFor("analyze:sources", null)
+                .model(model)
+                .systemPrompt(SOURCES_SYSTEM)
+                .userPrompt(prompt)
+                .maxTokens(4000)
+                .tools(WEB_SEARCH_TOOLS_FOR_CAPTURE);
+        return captureUnary(ctx, anthropicClient.sendMessageWithWebSearch(model, SOURCES_SYSTEM, prompt, 4000))
                 .map(AiResponseSanitizer::sanitize);
     }
 
@@ -1739,6 +2113,10 @@ public class AiService {
                 "[translate] fan-out → {} chunks, totalInputChars={}",
                 chunks.size(),
                 chunks.stream().mapToInt(c -> c.envelopeJson().length()).sum());
+        // One PostHog trace id shared across every chunk so the dashboard groups the whole
+        // translation under a single trace (matches how the demo bundles its parallel
+        // analysis sections).
+        final String translateTrace = llmCapture.newTraceId();
         List<Mono<Map.Entry<String, JsonNode>>> chunkMonos = new ArrayList<>(chunks.size());
         for (TranslationChunk chunk : chunks) {
             long chunkInputChars = chunk.envelopeJson().length();
@@ -1749,12 +2127,17 @@ public class AiService {
                                 chunk.key(),
                                 subscribeAt - fanOutStart,
                                 chunkInputChars);
-                        return streamMessageToText(
-                                        anthropicClient.streamMessage(
-                                                properties.haiku(),
-                                                TRANSLATE_SYSTEM,
-                                                translateUserPrompt(target, chunk.envelopeJson()),
-                                                12000))
+                        String model = properties.haiku();
+                        String userPrompt = translateUserPrompt(target, chunk.envelopeJson());
+                        var captureCtx = llmCapture
+                                .contextFor("translate:" + chunk.key(), translateTrace)
+                                .model(model)
+                                .systemPrompt(TRANSLATE_SYSTEM)
+                                .userPrompt(userPrompt)
+                                .maxTokens(12000);
+                        return streamMessageToTextWithCapture(
+                                        anthropicClient.streamMessage(model, TRANSLATE_SYSTEM, userPrompt, 12000),
+                                        captureCtx)
                                 .map(this::parseTranslationJson)
                                 .map(parsed -> (Map.Entry<String, JsonNode>) Map.entry(chunk.key(), parsed))
                                 .doOnSuccess(e -> log.info(
@@ -1910,9 +2293,24 @@ public class AiService {
      * final concatenated text.
      */
     private Mono<String> streamMessageToText(Flux<ServerSentEvent<String>> upstream) {
+        return streamMessageToTextWithCapture(upstream, null);
+    }
+
+    /**
+     * Same as {@link #streamMessageToText} but also fires a single PostHog {@code $ai_generation}
+     * event when the stream terminates, using {@code captureBuilder} for the per-call context.
+     * Pass {@code null} to skip capture (e.g. from the legacy unary translate path that doesn't
+     * want analytics double-counting).
+     */
+    private Mono<String> streamMessageToTextWithCapture(
+            Flux<ServerSentEvent<String>> upstream, LlmCaptureContext.LlmCaptureContextBuilder captureBuilder) {
         StringBuilder acc = new StringBuilder();
-        return upstream
+        StreamCaptureState ph = new StreamCaptureState();
+        Map<Integer, ContentBlockAcc> blocks = new HashMap<>();
+        long t0 = System.currentTimeMillis();
+        Mono<String> body = upstream
                 .doOnNext(sse -> {
+                    if (captureBuilder != null) absorbStreamMeta(sse, ph, blocks, acc);
                     String data = sse.data();
                     if (data == null) return;
                     JsonNode payload;
@@ -1933,6 +2331,34 @@ public class AiService {
                     }
                 })
                 .then(Mono.fromCallable(acc::toString));
+        if (captureBuilder == null) return body;
+        java.util.concurrent.atomic.AtomicReference<Throwable> err = new java.util.concurrent.atomic.AtomicReference<>();
+        return body.doOnError(err::set).doFinally(signal -> {
+            String error = null;
+            int httpStatus = 200;
+            if (signal == reactor.core.publisher.SignalType.ON_ERROR && err.get() != null) {
+                error = err.get().getMessage();
+                httpStatus = 0;
+            } else if (signal == reactor.core.publisher.SignalType.CANCEL) {
+                error = "cancelled";
+                httpStatus = 0;
+            }
+            LlmCaptureContext ctx = captureBuilder
+                    .model(ph.model == null ? captureBuilder.build().model() : ph.model)
+                    .latencyMs(System.currentTimeMillis() - t0)
+                    .httpStatus(httpStatus)
+                    .error(error)
+                    .stopReason(ph.stopReason)
+                    .inputTokens(ph.inputTokens)
+                    .outputTokens(ph.outputTokens)
+                    .cacheReadTokens(ph.cacheReadTokens)
+                    .cacheCreationTokens(ph.cacheCreationTokens)
+                    .outputText(acc.toString())
+                    .outputContent(buildOutputContent(blocks))
+                    .streamed(true)
+                    .build();
+            llmCapture.capture(ctx);
+        });
     }
 
     /**
@@ -1997,18 +2423,33 @@ public class AiService {
                 "[translate-stream] fan-out → {} chunks, totalInputChars={}",
                 chunks.size(),
                 inputChars);
+        // Trace id shared across every translation chunk so the PostHog dashboard groups
+        // them under one $ai_trace_id (matches translateReport's unary fan-out behaviour).
+        final String translateTrace = llmCapture.newTraceId();
         List<Flux<Object>> chunkFluxes = new ArrayList<>(chunks.size());
         for (TranslationChunk chunk : chunks) {
             outputBytesByKey.put(chunk.key(), new AtomicInteger(0));
             StringBuilder acc = new StringBuilder();
             long[] subscribeAt = new long[1];
-            Flux<Object> events = anthropicClient.streamMessage(
-                            properties.haiku(),
-                            TRANSLATE_SYSTEM,
-                            translateUserPrompt(target, chunk.envelopeJson()),
-                            12000)
+            String model = properties.haiku();
+            String userPrompt = translateUserPrompt(target, chunk.envelopeJson());
+            // Per-chunk capture state — built fresh for each chunk so accumulators are
+            // isolated when the fan-out interleaves on multiple Reactor threads.
+            StreamCaptureState ph = new StreamCaptureState();
+            Map<Integer, ContentBlockAcc> blocks = new HashMap<>();
+            long[] chunkT0 = new long[1];
+            var captureCtx = llmCapture
+                    .contextFor("translate-stream:" + chunk.key(), translateTrace)
+                    .model(model)
+                    .systemPrompt(TRANSLATE_SYSTEM)
+                    .userPrompt(userPrompt)
+                    .maxTokens(12000);
+            java.util.concurrent.atomic.AtomicReference<Throwable> chunkErr =
+                    new java.util.concurrent.atomic.AtomicReference<>();
+            Flux<Object> events = anthropicClient.streamMessage(model, TRANSLATE_SYSTEM, userPrompt, 12000)
                     .doOnSubscribe(s -> {
                         subscribeAt[0] = System.currentTimeMillis();
+                        chunkT0[0] = subscribeAt[0];
                         log.info(
                                 "[translate-stream]  chunk {} subscribed ({}ms after fan-out, {} chars in)",
                                 chunk.key(),
@@ -2021,6 +2462,10 @@ public class AiService {
                             System.currentTimeMillis() - subscribeAt[0],
                             acc.length()))
                     .<Object>concatMap(sse -> {
+                        // Sidecar: harvest model + usage + content blocks for PostHog. Runs
+                        // BEFORE the early-return filters below so we still see message_start /
+                        // message_delta events even when they're not content_block_delta.
+                        absorbStreamMeta(sse, ph, blocks, acc);
                         String data = sse.data();
                         if (data == null) return Flux.empty();
                         JsonNode payload;
@@ -2050,6 +2495,9 @@ public class AiService {
                             log.error("Translation chunk {} failed: {}", chunk.key(), t.getMessage());
                         }
                     }))
+                    // doOnError fires BEFORE onErrorResume so chunkErr captures the original
+                    // throwable before it's normalised to Mono.empty() below.
+                    .doOnError(chunkErr::set)
                     .onErrorResume(err -> {
                         // Network / upstream errors land here. Record and
                         // continue so the other chunks aren't cancelled.
@@ -2058,6 +2506,34 @@ public class AiService {
                         }
                         log.error("Translation chunk {} stream errored: {}", chunk.key(), err.getMessage());
                         return Mono.empty();
+                    })
+                    // Emit one $ai_generation per chunk on settle (complete / cancel). Failures
+                    // already record via doOnError above; the doFinally inspects chunkErr.
+                    .doFinally(signal -> {
+                        String error = null;
+                        int httpStatus = 200;
+                        if (chunkErr.get() != null) {
+                            error = chunkErr.get().getMessage();
+                            httpStatus = 0;
+                        } else if (signal == reactor.core.publisher.SignalType.CANCEL) {
+                            error = "cancelled";
+                            httpStatus = 0;
+                        }
+                        LlmCaptureContext finalCtx = captureCtx
+                                .model(ph.model == null ? model : ph.model)
+                                .latencyMs(System.currentTimeMillis() - chunkT0[0])
+                                .httpStatus(httpStatus)
+                                .error(error)
+                                .stopReason(ph.stopReason)
+                                .inputTokens(ph.inputTokens)
+                                .outputTokens(ph.outputTokens)
+                                .cacheReadTokens(ph.cacheReadTokens)
+                                .cacheCreationTokens(ph.cacheCreationTokens)
+                                .outputText(acc.toString())
+                                .outputContent(buildOutputContent(blocks))
+                                .streamed(true)
+                                .build();
+                        llmCapture.capture(finalCtx);
                     });
             chunkFluxes.add(events);
         }
@@ -2222,9 +2698,37 @@ public class AiService {
         // tax on early conversation that's no longer relevant — Clerk's
         // / Anthropic's per-request charges scale with input length.
         List<? extends Object> bounded = boundHistory(request.messages(), 20);
-        return anthropicClient
-                .sendConversation(properties.sonnet(), systemPrompt, bounded, List.of(), 1500)
+        String model = properties.sonnet();
+        var ctx = llmCapture
+                .contextFor("chat", null)
+                .model(model)
+                .systemPrompt(systemPrompt)
+                .messages(toCaptureMessages(bounded))
+                .maxTokens(1500);
+        return captureUnary(ctx, anthropicClient.sendConversation(model, systemPrompt, bounded, List.of(), 1500))
                 .map(AiResponseSanitizer::sanitize);
+    }
+
+    /**
+     * Adapt the multi-turn message list passed to {@link AnthropicClient#sendConversation} into
+     * the {@code Map} shape PostHog's {@code $ai_input} array expects. Best-effort: turns that
+     * can't be cleanly serialised (unexpected shapes) get skipped rather than failing the call,
+     * since analytics must never break the chat flow.
+     */
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> toCaptureMessages(List<? extends Object> messages) {
+        if (messages == null || messages.isEmpty()) return List.of();
+        List<Map<String, Object>> out = new ArrayList<>(messages.size());
+        for (Object msg : messages) {
+            if (msg instanceof Map<?, ?> raw) {
+                Map<String, Object> casted = new LinkedHashMap<>();
+                raw.forEach((k, v) -> {
+                    if (k instanceof String s) casted.put(s, v);
+                });
+                if (!casted.isEmpty()) out.add(casted);
+            }
+        }
+        return out;
     }
 
     /**
@@ -2278,12 +2782,26 @@ public class AiService {
                                 + (t.getMessage() == null ? "" : (" — " + t.getMessage()))));
             }
 
-            Flux<ServerSentEvent<String>> upstream = anthropicClient.streamConversation(
-                    properties.sonnet(), systemPrompt, bounded, List.of(), 1500);
+            String chatModel = properties.sonnet();
+            Flux<ServerSentEvent<String>> upstream =
+                    anthropicClient.streamConversation(chatModel, systemPrompt, bounded, List.of(), 1500);
 
             StringBuilder accText = new StringBuilder();
+            // PostHog accumulators — same shape as streamUpstream's.
+            StreamCaptureState ph = new StreamCaptureState();
+            Map<Integer, ContentBlockAcc> blocks = new HashMap<>();
+            var captureCtx = llmCapture
+                    .contextFor("chat", null)
+                    .model(chatModel)
+                    .systemPrompt(systemPrompt)
+                    .messages(toCaptureMessages(bounded))
+                    .maxTokens(1500);
+            long t0 = System.currentTimeMillis();
+            java.util.concurrent.atomic.AtomicReference<Throwable> chatErr =
+                    new java.util.concurrent.atomic.AtomicReference<>();
 
             Flux<JsonNode> deltaFlux = upstream.concatMap(sse -> {
+                absorbStreamMeta(sse, ph, blocks, accText);
                 String data = sse.data();
                 if (data == null) return Flux.empty();
                 JsonNode payload;
@@ -2320,13 +2838,135 @@ public class AiService {
             // AiException, so it still routes through the 502 mapper rather
             // than producing the silent empty 500 we've been chasing.
             return deltaFlux.concatWith(doneFlux)
+                    .doOnError(chatErr::set)
                     .onErrorResume(t -> !(t instanceof AiException), t -> {
                         log.error("chatStream pipeline error: {}", t.getMessage(), t);
                         return Flux.error(new AiException(
                                 "Chat stream failed: " + t.getClass().getSimpleName()
                                         + (t.getMessage() == null ? "" : (" — " + t.getMessage()))));
+                    })
+                    .doFinally(signal -> {
+                        String error = null;
+                        int httpStatus = 200;
+                        if (chatErr.get() != null) {
+                            error = chatErr.get().getMessage();
+                            httpStatus = 0;
+                        } else if (signal == reactor.core.publisher.SignalType.CANCEL) {
+                            error = "cancelled";
+                            httpStatus = 0;
+                        }
+                        LlmCaptureContext ctx = captureCtx
+                                .model(ph.model == null ? chatModel : ph.model)
+                                .latencyMs(System.currentTimeMillis() - t0)
+                                .httpStatus(httpStatus)
+                                .error(error)
+                                .stopReason(ph.stopReason)
+                                .inputTokens(ph.inputTokens)
+                                .outputTokens(ph.outputTokens)
+                                .cacheReadTokens(ph.cacheReadTokens)
+                                .cacheCreationTokens(ph.cacheCreationTokens)
+                                .outputText(accText.toString())
+                                .outputContent(buildOutputContent(blocks))
+                                .streamed(true)
+                                .build();
+                        llmCapture.capture(ctx);
                     });
         });
+    }
+
+    /**
+     * System prompt for {@link #tighten}. The model must rewrite the given prose under a hard
+     * character budget while preserving meaning, factual claims, and any caller-supplied
+     * verbatim terms. No commentary or wrapping — the response IS the rewritten text.
+     */
+    private static final String TIGHTEN_SYSTEM =
+            """
+            You rewrite report prose to fit a strict character budget while preserving:
+              (a) the original meaning and analytical conclusions,
+              (b) all factual claims, statistics, percentages, dates, and proper nouns,
+              (c) every term in the PRESERVE list verbatim — these must appear in your output.
+
+            Length rules:
+              - Your response MUST be at or below the target character count. Aim ~5-10% under.
+              - Tighten by removing redundancy, hedging, and rhetorical scaffolding — not by
+                cutting facts or substantive analysis.
+              - Keep paragraph structure (preserve `\\n\\n` paragraph breaks if present).
+
+            Style rules:
+              - Match the original register (formal / analytical / report-style).
+              - Output the SAME language as the input.
+              - Do NOT add commentary, preamble, or post-script. Your entire response IS the
+                rewritten text — nothing else.
+              - Do NOT wrap in quotes or code fences.
+              - Do NOT use the literal phrase "in summary" or "to summarize".
+
+            If the source is already at or below the target, return it essentially unchanged
+            (only fixing typography if you spot any).
+            """;
+
+    /**
+     * Shorten the given prose to fit a target character budget.
+     *
+     * <p>Used by the PDF export pipeline to make report content fit specific magazine-style
+     * layouts. The model is told to preserve meaning + key terms and stay under the budget; in
+     * practice it often comes in slightly under, which is desirable for typesetting.
+     *
+     * @param request validated source text, target char count, language, optional preserve terms
+     * @return Mono emitting JSON of the form {@code {"text": "<shortened>"}}
+     */
+    public Mono<JsonNode> tighten(TightenRequest request) {
+        String preserve = (request.preserveTerms() == null || request.preserveTerms().isEmpty())
+                ? "(none)"
+                : String.join(", ", request.preserveTerms());
+        String userPrompt =
+                """
+                %s
+
+                TARGET CHARACTER COUNT: %d (your response MUST be at or below this).
+                PRESERVE VERBATIM: %s
+
+                SOURCE TEXT:
+                %s
+                """
+                        .formatted(
+                                langInstruction(request.language()),
+                                request.targetChars(),
+                                preserve,
+                                request.text());
+        String model = properties.haiku();
+        // Budget the response to roughly 2× targetChars in tokens (very loose upper bound — 1
+        // token ≈ 3-4 chars for Latin text, so 2× chars is ~5-7× the actual needed token count
+        // and acts as a safety net rather than a real constraint).
+        int maxTokens = Math.max(400, Math.min(4000, request.targetChars() * 2));
+        var ctx = llmCapture
+                .contextFor("tighten", null)
+                .model(model)
+                .systemPrompt(TIGHTEN_SYSTEM)
+                .userPrompt(userPrompt)
+                .maxTokens(maxTokens);
+        return captureUnary(ctx, anthropicClient.sendMessage(model, TIGHTEN_SYSTEM, userPrompt, maxTokens))
+                .map(AiResponseSanitizer::sanitize)
+                .map(this::extractTextEnvelope);
+    }
+
+    /**
+     * Extract the assistant's text reply from an Anthropic Messages-API response and wrap it
+     * in {@code {"text": "..."}} for the tighten endpoint. Joins multiple text blocks in the
+     * (rare) event the model split its output across blocks.
+     */
+    private JsonNode extractTextEnvelope(JsonNode response) {
+        StringBuilder out = new StringBuilder();
+        JsonNode content = response.path("content");
+        if (content.isArray()) {
+            for (JsonNode block : content) {
+                if ("text".equals(block.path("type").asText())) {
+                    out.append(block.path("text").asText(""));
+                }
+            }
+        }
+        com.fasterxml.jackson.databind.node.ObjectNode env = objectMapper.createObjectNode();
+        env.put("text", out.toString().trim());
+        return env;
     }
 
     /** Keep only the most recent {@code maxMessages} entries. Always

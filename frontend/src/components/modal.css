@@ -328,11 +328,16 @@
   padding: 18px 0;
   text-align: center;
 }
+/* URL row sits in the same right column as the form rows above, so
+   the Copy button's right edge lines up with the dropdowns' right
+   edges. We use margin-left rather than a grid layout because the
+   row itself is a flex container — simpler and still keeps the
+   alignment promise. */
 .share-url-row {
   display: flex;
   gap: 8px;
   align-items: stretch;
-  margin-bottom: 10px;
+  margin: 0 0 10px var(--share-modal-controls-offset, 0);
 }
 .share-url-row input {
   flex: 1;
@@ -350,18 +355,92 @@
 .share-url-row input:focus {
   border-color: var(--gold-soft);
 }
+/* Icon-only Copy button — same height as the URL input, square so
+   it reads as an action affordance instead of a wide CTA. Swaps to
+   a check icon once the URL is on the clipboard (state held in
+   ShareModal). */
+.share-copy-btn {
+  appearance: none;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gold);
+  color: #1a1812;
+  border: 1px solid var(--gold);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  padding: 0;
+  transition: background 150ms var(--ease), border-color 150ms var(--ease),
+    color 150ms var(--ease);
+}
+.share-copy-btn:hover {
+  background: var(--gold-soft);
+  border-color: var(--gold-soft);
+}
+.share-copy-btn:disabled,
+.share-copy-btn:disabled:hover {
+  background: var(--surface-3);
+  border-color: var(--line-strong);
+  color: var(--ink-mute);
+  cursor: not-allowed;
+}
+.share-copy-btn svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.share-copy-btn--ok {
+  background: var(--green);
+  border-color: var(--green);
+  color: #102216;
+}
+.share-copy-btn--ok:hover {
+  background: var(--green);
+  border-color: var(--green);
+}
 .share-meta {
   font-family: var(--mono);
   font-size: 10.5px;
   color: var(--ink-mute);
   letter-spacing: 0.06em;
-  margin-bottom: 18px;
+  margin: 0 0 18px var(--share-modal-controls-offset, 0);
 }
+/* Shared column geometry for the share/export modal form rows.
+   Centralised as vars so the URL row + meta line can offset
+   themselves by the same amount as the form rows' label column —
+   the dropdown's right edge then lines up with the Copy button's
+   right edge, and the meta caption sits under the URL input
+   instead of starting back at the modal's left edge. */
+.modal-dialog--share {
+  --share-modal-label-col: 140px;
+  --share-modal-col-gap: 12px;
+  --share-modal-controls-offset: calc(
+    var(--share-modal-label-col) + var(--share-modal-col-gap)
+  );
+}
+/* Row layout for the language controls in ShareModal / ExportModal.
+   Two-column grid keeps the labels right-aligned at a consistent
+   column AND the controls left-aligned at a consistent column, so
+   rows stack cleanly even when label and option text varies in
+   length. The first row gets extra top spacing so the controls
+   breathe away from the modal's title; subsequent rows ride a
+   smaller, uniform gap. */
 .share-lang-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: var(--share-modal-label-col) minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
-  margin: 12px 0 14px;
+  gap: 10px var(--share-modal-col-gap);
+  margin: 14px 0;
+}
+.share-lang-row:first-of-type {
+  margin-top: 22px;
 }
 .share-lang-label {
   font-family: var(--mono);
@@ -381,9 +460,71 @@
   outline: none;
   cursor: pointer;
   transition: border-color 150ms;
+  /* Stretch to fill the row's control column so all selects align
+     to the same width, regardless of option-text length. The
+     native <select> still ellipses long options at the dropdown
+     caret on all major browsers. */
+  width: 100%;
 }
 .share-lang-select:focus { border-color: var(--gold-soft); }
 .share-lang-select:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Variant of .share-lang-row that hosts the "Include languages"
+   checkbox group. align-items:flex-start so the label baseline-
+   aligns with the first row of pills if the group wraps. */
+.share-lang-row--checks {
+  align-items: start;
+}
+/* Tiny lift so the row text caps to the top of the first checkbox
+   pill — without it the label looks visually low against the
+   pill's vertical centre. */
+.share-lang-row--checks .share-lang-label {
+  padding-top: 5px;
+}
+.share-lang-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.share-lang-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-mute);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 140ms var(--ease), color 140ms var(--ease),
+    background 140ms var(--ease);
+}
+.share-lang-check input[type="checkbox"] {
+  accent-color: var(--gold);
+  margin: 0;
+  cursor: pointer;
+}
+.share-lang-check:hover {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+/* Checked state matches the dashboard's gold language chip so the
+   two surfaces feel like one design system. */
+.share-lang-check.is-checked {
+  border-color: var(--line-accent);
+  background: var(--gold-bg);
+  color: var(--gold);
+}
+.share-lang-check input:disabled,
+.share-lang-check:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
 
 /* ── Fullscreen overlay parts (PDF / export spinner) ───────── */
 .pdf-ov-spinner {
