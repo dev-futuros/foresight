@@ -934,6 +934,47 @@ export async function chat(args: {
 }
 
 /**
+ * Shorten a piece of report prose to fit a strict character budget, preserving
+ * meaning + any supplied verbatim terms. Used exclusively by the PDF export
+ * pipeline when content overflows a chosen magazine layout. Returns the new
+ * text (the backend wraps it in `{text}` and we unwrap here).
+ *
+ * <p>Mirrors {@code POST /api/ai/tighten}. The endpoint uses Haiku and
+ * typically responds in 1-3s; callers should fire multiple tighten requests
+ * in parallel via {@code Promise.all} when they need to tighten several
+ * fields for the same export.
+ */
+export async function tighten(args: {
+  text: string;
+  targetChars: number;
+  language: 'es' | 'en';
+  /** Optional terms (proper nouns, percentages, regulation names…) the
+   *  model MUST keep verbatim in the output. Up to 32 entries. */
+  preserveTerms?: string[];
+}): Promise<string> {
+  const { data } = await api.post<{ text: string }>('ai/tighten', args);
+  return data.text ?? '';
+}
+
+/**
+ * Persist the per-language PDF-optimized tighten cache. Called by the export
+ * pipeline after it has finished asking {@code /api/ai/tighten} for every
+ * field it needs to shorten — the cached strings let repeat exports skip the
+ * LLM round-trip entirely. Pass an empty {@code fields} map to clear the
+ * cache for that language (used when the chosen layout didn't need
+ * tightening, so we don't leave a stale empty row behind).
+ *
+ * <p>Backend route: {@code PUT /api/reports/{id}/pdf-optimized/{language}}.
+ */
+export async function savePdfOptimized(
+  reportId: string,
+  language: 'es' | 'en',
+  fields: Record<string, string>,
+): Promise<void> {
+  await api.put(`reports/${reportId}/pdf-optimized/${language}`, { fields });
+}
+
+/**
  * Streaming variant of {@link chat}. Posts to {@code /api/ai/chat/stream}
  * and consumes the SSE flux of {@code {type:'delta', text}} events,
  * firing {@code onDelta} for each incoming text fragment so the chat

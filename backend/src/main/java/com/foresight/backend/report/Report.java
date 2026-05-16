@@ -100,4 +100,33 @@ public class Report extends BaseEntity {
     @Type(JsonBinaryType.class)
     @Column(name = "translations", columnDefinition = "jsonb")
     private JsonNode translations;
+
+    /**
+     * PDF-export "tighten" cache. Populated by the export pipeline when it asks the
+     * {@code /api/ai/tighten} endpoint to shorten report prose so it fits a specific
+     * magazine-style layout budget. Shape:
+     * <pre>
+     * {
+     *   "en": {
+     *     "version": 1,
+     *     "generatedAt": "ISO-8601",
+     *     "fields": {
+     *       "executiveSummary":         "...",
+     *       "steep.global.S":           "...",
+     *       "scenarios.0.description":  "...",
+     *       "scenarios.0.firstMove":    "..."
+     *     }
+     *   },
+     *   "es": { ... }
+     * }
+     * </pre>
+     *
+     * <p>Field paths are dotted and mirror the {@link #resultData} / {@link #inputData}
+     * JSON structure (array indices appear as integers). Entries are simple strings — no
+     * structural rewrites, just shorter prose. Stale when the source text changes; we
+     * accept that for v1 rather than tracking content hashes.
+     */
+    @Type(JsonBinaryType.class)
+    @Column(name = "pdf_optimized", columnDefinition = "jsonb")
+    private JsonNode pdfOptimized;
 }

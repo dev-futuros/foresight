@@ -16,6 +16,7 @@ import { exportReportHtml } from '../../lib/exportHtml';
 import ExportModal, {
   type ExportFormat,
   type ExportLanguage,
+  type ExportPdfTheme,
 } from '../../components/ExportModal';
 import LoadingOverlay from '../../components/LoadingOverlay';
 import ShareModal from '../../components/ShareModal';
@@ -284,6 +285,7 @@ export default function ReportPage() {
     kind: ExportFormat,
     language: ExportLanguage,
     includeLanguages?: ExportLanguage[],
+    pdfTheme?: ExportPdfTheme,
   ) {
     if (!report) return;
     setExporting(kind);
@@ -293,7 +295,7 @@ export default function ReportPage() {
       try {
         if (kind === 'pdf') {
           const exportReport = await resolveReportForLanguage(report, language);
-          await exportReportPdf(exportReport, language);
+          await exportReportPdf(exportReport, language, pdfTheme ?? 'dark');
         } else if (kind === 'ppt') {
           const exportReport = await resolveReportForLanguage(report, language);
           exportReportPpt(exportReport);
@@ -603,8 +605,8 @@ export default function ReportPage() {
         // reading") becomes a one-click flow.
         initialLanguage={activeLang}
         onClose={() => setExportOpen(false)}
-        onExport={(format, language, includeLanguages) =>
-          runExport(format, language, includeLanguages)
+        onExport={(format, language, includeLanguages, pdfTheme) =>
+          runExport(format, language, includeLanguages, pdfTheme)
         }
       />
       <PromoteToExampleModal

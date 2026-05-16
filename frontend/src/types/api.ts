@@ -47,9 +47,35 @@ export interface ReportResponse {
    * available") or trigger a translation call.
    */
   availableLanguages: string[];
+  /**
+   * Per-language cache of "tightened" prose used by the PDF export
+   * pipeline. The export picks a magazine-style layout, asks the
+   * /api/ai/tighten endpoint to shorten anything that overflows, and
+   * writes the result back here so repeat exports skip the LLM round-
+   * trip. {@code null} on reports that have never been exported.
+   */
+  pdfOptimized: PdfOptimizedCache | null;
   createdAt: string;
   updatedAt: string;
 }
+
+/**
+ * One language entry inside {@link ReportResponse#pdfOptimized}.
+ *
+ * <p>{@code fields} maps dotted JSON paths into the report's resultData /
+ * inputData (e.g. {@code "executiveSummary"},
+ * {@code "scenarios.0.firstMove"}) to the tightened string that the PDF
+ * pipeline should render in place of the original text. Paths missing
+ * from this map fall back to the source text at render time.
+ */
+export interface PdfOptimizedEntry {
+  version: number;
+  generatedAt: string;
+  fields: Record<string, string>;
+}
+
+/** Map of language code → tightened-entry. Cleared per-language when the source text changes. */
+export type PdfOptimizedCache = Partial<Record<'es' | 'en', PdfOptimizedEntry>>;
 
 /** Payload returned by the `POST /api/reports/{id}/translate` endpoint. */
 export interface TranslatedReport {
