@@ -71,46 +71,61 @@ A user can sign up via Clerk, create a report through the wizard, see the AI-gen
 
 ---
 
-## M3 — Payments (Stripe)
+## M3 — Payments 🚧 (in progress)
 
-Goal: gate AI functionality behind a paid subscription (with trial).
+Goal: gate paid functionality behind an active subscription.
 
-### Deliverables
+The shape changed during execution: rather than implementing Stripe directly, the gate is wired against **Clerk Billing**, which sits in front of Stripe and handles checkout + customer portal UI. The Stripe direct-integration branch (`feature/stripe`) is parallel work for environments where Clerk Billing isn't an option.
 
-- [ ] New entities: `SubscriptionPlan`, `Subscription`, `PaymentEvent`
-- [ ] Flyway migration for billing tables
-- [ ] Plans seeded (e.g. Starter / Pro / Enterprise)
-- [ ] `POST /api/billing/checkout-session` — create Stripe Checkout session
-- [ ] `POST /api/billing/webhook` — handle `customer.subscription.*` events
-- [ ] `GET /api/billing/status` — current user's plan + status
+### Landed on `develop`
+
+- [x] `subscription/` package: `SubscriptionService`, `SubscriptionPlan`, `SubscriptionStatus`, `SubscriptionRequiredException` (402), `ReportLimitExceededException` (429)
+- [x] `V5__subscription.sql`: `users.subscription_plan` + `subscription_current_period_start/end`, CHECK constraint on plan whitelist, composite index on `(user_id, created_at DESC)` for period-window counting
+- [x] Gate on `POST /api/reports` — enforces plan + period quota (10 reports / period on `FUTUROS_PLATAFORMA`), returns enriched 429 body (`limit`, `used`, `periodEnd`)
+- [x] `UserRole.DEV` bypass for the internal team (promotion by direct SQL only)
+- [x] Clerk Billing mirror through `/api/webhooks/clerk` — plan + period bounds updated as Clerk reports them
+- [x] Frontend `useSubscription` hook surfacing current plan, usage, period bounds
+- [x] Paywall UI states (banner when quota exhausted, lock when no plan / period expired)
+
+### In flight on `feature/stripe`
+
+- [ ] `POST /api/billing/checkout-session` — Stripe Checkout session create
+- [ ] `POST /api/billing/webhook` — handle `customer.subscription.*` events (signature-verified)
+- [ ] `GET /api/billing/status` — explicit endpoint for plan + status (today the status is bundled into user-context responses)
 - [ ] 14-day free trial on signup (no credit card required)
-- [ ] Subscription gate middleware: block `/api/ai/**` if user is not on an active plan or trial
 - [ ] Frontend screens: `/pricing`, `/account/billing`, post-checkout success page
 - [ ] Stripe test-mode keys in `.env.example`, local webhook setup via Stripe CLI
 
 ### Done when
 
-A new user can sign up → use the product free for 14 days → be prompted to subscribe → complete checkout → regain access to AI features. Billing state survives reloads and is the source of truth for access.
+A new user can sign up → start a trial → be prompted to subscribe → complete checkout → continue using paid features. Billing state survives reloads and is the source of truth for access. The gating is already live; the open work is the direct-Stripe path for the deploy targets where Clerk Billing isn't used.
 
 ---
 
-## M4 — Polish, hardening, deploy
+## M4 — Polish, hardening, deploy 🚧 (partially landed)
 
 Goal: ship to production.
 
-### Deliverables
+### Already landed
 
 - [x] Rate limiting on `/api/ai/**` (Bucket4j, per-user) — landed early in M1
+- [x] LLM observability via PostHog (`$ai_generation` events server-side, `posthog-js` in the browser, shared distinct id by Clerk user id)
+- [x] Privacy page (`/privacy`) and cookie consent overlay (`CookieConsent`, gates analytics until accepted)
+- [x] Production frontend image: multi-stage `Dockerfile.prod` (Node 20 build → Caddy 2 alpine serve) with SPA fallback in `Caddyfile`
+- [x] Static asset cache policy (`/assets/*` 1y, `index.html` / `share-snapshot.html` no-cache)
+
+### Still open
+
 - [ ] Structured JSON logging with correlation IDs
 - [ ] Micrometer metrics + `/actuator/prometheus`
 - [ ] Full integration test suite (reports, webhook, billing flows)
-- [ ] Production Dockerfile optimisations (layered JAR, smaller base)
+- [ ] Production backend Dockerfile optimisations (layered JAR, smaller base)
 - [ ] CI pipeline (GitHub Actions): test, build, push image
-- [ ] Deployment (Railway / Fly.io / VPS — to decide)
+- [ ] Deployment target (Railway / Fly.io / VPS — to decide)
 - [ ] Domain + HTTPS, including a Clerk **production** instance bound to a custom domain (`clerk.<yourdomain>`) with its own webhook signing secret
 - [ ] Error tracking (Sentry or similar)
 - [ ] Basic admin endpoints for observability
-- [ ] Privacy policy / terms of service pages
+- [ ] Terms of service page (privacy is done)
 - [ ] Transactional emails for billing events (signup / password-reset emails are already handled by Clerk)
 
 ### Done when
@@ -119,16 +134,36 @@ The product is publicly reachable at a domain, users can sign up and pay, and we
 
 ---
 
+## Shipped beyond the M1–M4 plan
+
+These features weren't part of the original linear roadmap but landed because the product needed them. They're called out here so the milestone view stays honest:
+
+- **Public share tokens** (multilingual) — `share/` package + V6/V9/V10 migrations + `vite.snapshot.config.ts` single-file build. Lets users hand a client a self-contained HTML report without exposing app access. See [ARCHITECTURE.md → Share tokens](ARCHITECTURE.md#share-tokens-public-snapshots).
+- **Examples** (DEV-curated report templates) — `example/` package + V8. Read-only snapshots that show new users what a finished analysis looks like; promoted/demoted by the team via DEV-only endpoints.
+- **Chat assistant with tool use** — `AssistantTools.java` + `features/chat/` + `commandBus.ts`. Stateless agent with 15 frontend tools (navigation, wizard control, generation). Stitched USER STATE snapshot replaces a RAG layer.
+- **Phased streaming analysis pipeline** — 8 SSE endpoints (`/api/ai/analyze/*` + `/api/ai/global-steep-*`) replacing the single legacy `/api/ai/analyze` call. The legacy endpoint stays for backwards compatibility.
+- **Report translations** (V7) + **example translations** (V8) + **share token translations** (V10) — on-demand Claude translation cached per-language at every level of the share chain.
+- **PDF export with light/dark themes + AI-assisted "tighten" cache** (V11) — `lib/exportPdf.ts` + `lib/pdfFit.ts` + `POST /api/ai/tighten` + the `pdf_optimized` JSONB column. Multi-page editorial layout generated entirely client-side.
+- **PowerPoint export** — `lib/exportPpt.ts`. Editable slide deck, dark theme with gold accent.
+- **HTML export** — `lib/exportHtml.tsx` reuses the share-snapshot build to produce a stand-alone offline report.
+- **Per-tier model selection** — `foresight.ai.anthropic.models.{haiku,sonnet,opus}` so cost/quality trade-offs are tunable per environment without code changes.
+- **PostHog LLM observability** — `LlmCapture` wraps every Anthropic call with `$ai_generation` events (tokens, latency, citations, errors, stop reason). Default-off, fail-fast on misconfig.
+
+These are all production code today, not experiments — they're treated as such by the rest of the docs (ARCHITECTURE / API / CHANGELOG).
+
+---
+
 ## Out of MVP scope (future)
 
 These are intentionally **not** in the MVP but are worth noting so we don't build ourselves into a corner:
 
-- **Multi-user organisations / teams** — sharing reports across users
-- **Report versioning** — track edits over time
-- **Server-side PDF/PPTX generation** — as a fallback if client-side gets too heavy for large reports
-- **Streaming AI responses** — show Claude's output progressively as it arrives
-- **Alternative LLM providers** — swap Claude for OpenAI/Gemini if needed
-- **Fine-grained roles & permissions** — beyond USER/ADMIN
-- **Mobile app**
+- **Multi-user organisations / teams** — sharing reports inside an org (note: public share tokens already cover one-off sharing with clients). Maps cleanly onto Clerk Organizations when needed.
+- **Report versioning** — track edits over time.
+- **Server-side PDF/PPTX generation** — as a fallback if client-side gets too heavy for large reports.
+- **Alternative LLM providers** — swap Claude for OpenAI/Gemini if needed.
+- **Fine-grained roles & permissions** — beyond `USER` / `DEV` / `ADMIN`.
+- **Mobile app**.
 
 If any of these becomes a hard requirement mid-way, we'll slot them into the relevant milestone rather than tacking them on at the end.
+
+> Note: **streaming AI responses** was on this list and has since landed — see "Shipped beyond the M1–M4 plan" above.

@@ -170,11 +170,26 @@ Package structure follows **package-by-feature** (`user/`, `report/`, `ai/`, `we
 
 ### ✅ M2 — Frontend (React + i18n)
 
-React 19 + TypeScript frontend with Clerk-hosted auth, three-step report wizard, full i18n (ES/EN), and PDF / PPTX exports. See [ROADMAP.md](docs/ROADMAP.md).
+React 19 + TypeScript frontend with Clerk-hosted auth, a 4-step report wizard, full i18n (ES/EN), and PDF / PPTX / HTML exports. See [ROADMAP.md](docs/ROADMAP.md).
 
-### 🔜 M3 — Payments (Stripe)
+### 🚧 M3 — Payments (in progress)
 
-Subscription gating on `/api/ai/**`. See [ROADMAP.md](docs/ROADMAP.md).
+Subscription gating on `POST /api/reports` is **live** against Clerk Billing — quota enforcement (10 reports / period), `402` when no plan, enriched `429` (`limit`, `used`, `periodEnd`) when the quota is burned, `UserRole.DEV` bypass for the team. The direct Stripe integration (`/api/billing/*` endpoints) is the in-flight work on the `feature/stripe` branch. See [ROADMAP.md](docs/ROADMAP.md).
+
+### 🚧 M4 — Polish, hardening, deploy
+
+Production frontend image (Caddy + multi-stage Docker), privacy page, cookie consent, and PostHog LLM observability already landed. Open: structured logging, Metrics, CI, hosting target, error tracking. See [ROADMAP.md](docs/ROADMAP.md).
+
+### ➕ Shipped beyond the original M1–M4 plan
+
+The product picked up several features that weren't in the linear roadmap. They're all production code today — full detail in [ARCHITECTURE.md](docs/ARCHITECTURE.md) and the [CHANGELOG.md](docs/CHANGELOG.md) `[Unreleased]` block:
+
+- **Public share tokens** (multilingual, 7-day expiry) — clients receive a self-contained HTML snapshot
+- **Examples** — DEV-curated report templates visible to all authenticated users
+- **Chat assistant with tool use** — 15 frontend tools the model can call to drive the UI
+- **Phased streaming analysis pipeline** — 8 SSE endpoints replacing the legacy `POST /api/ai/analyze`
+- **Server-side report translations** + PDF "tighten" cache for export polish
+- **Per-tier model selection** (haiku / sonnet / opus) tunable per environment
 
 ---
 
@@ -228,7 +243,7 @@ Add new migrations under `backend/src/main/resources/db/migration/` following Fl
 - `V5__add_subscription_table.sql` ✅
 - `V5_add_subscription_table.sql` ❌ (silently ignored)
 
-Current migrations: `V1__init`, `V2__auth_tokens`, `V3__clerk_auth`, `V4__fix_user_constraints_for_clerk`. See [ARCHITECTURE.md](docs/ARCHITECTURE.md#database-migrations) for what each does.
+Current migrations: `V1__init` through `V11__report_pdf_optimized` — auth (V1–V4), subscriptions (V5), share tokens (V6/V9/V10), translations (V7), examples (V8), PDF cache (V11). See [ARCHITECTURE.md](docs/ARCHITECTURE.md#database-migrations) for what each one does.
 
 Never modify an already-applied migration — always add a new one.
 

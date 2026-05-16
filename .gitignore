@@ -34,3 +34,4 @@ docker-data/
 
 # --- Token Sonar ---
 sonarToken.txt
+/stripe_backup_code.txt

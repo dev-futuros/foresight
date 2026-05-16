@@ -5,7 +5,136 @@ Format: `[version/milestone] — date — description`.
 
 ---
 
-## [Unreleased — M2 in progress]
+## [Unreleased — post-M2, M3 en curso]
+
+Bloque consolidado de cambios que han aterrizado entre `2026-05-04` y hoy, agrupados por área. La pista en git está en `develop` (ver `git log` para fechas exactas por commit).
+
+### 2026-05-16 (Migración Clerk → Kinde — `feature/kinde`)
+
+- **Decisión tomada**: migrar de Clerk a **Kinde** para auth (y eventualmente billing, en una fase posterior). Motivo principal: Clerk Billing no es viable en EU (USD-only, sin IVA, beta, SCA dudoso, planes no sincronizados con Stripe). Kinde resuelve los cuatro puntos manteniendo el modelo "auth + billing en un solo vendor". La alternativa "Clerk + Stripe directo" se evaluó y descartó por preferencia de stack consolidado.
+- **Scope de esta rama**: solo auth. La parte de billing (pricing page, plan en Kinde, conexión Stripe) queda diferida. Durante esta fase, los usuarios nuevos no tendrán `subscription_plan` y el gate de `SubscriptionService.assertCanCreateReport()` los bloqueará — workaround: usar `UserRole.DEV` para testing interno o activar `auth-disabled=true` con el perfil `local`.
+- **Setup Kinde Dashboard completado**: tenant `https://futuros.kinde.com`, app SPA "Futuros FE" (Client ID público), app M2M "Futuros BE" con scope `read:users`, webhook endpoint apuntando a `https://dev.futuros.io/api/webhooks/kinde`.
+- **Configuración añadida**:
+  - `.env.example` y `frontend/.env.example` con bloque `KINDE_*` documentado al lado del bloque `CLERK_*` (que se retira al final de la migración).
+  - Nuevas variables: `KINDE_DOMAIN`, `KINDE_ISSUER`, `KINDE_JWKS_URI`, `KINDE_TOKEN_ENDPOINT`, `KINDE_MANAGEMENT_API_BASE_URL`, `KINDE_M2M_CLIENT_ID`, `KINDE_M2M_CLIENT_SECRET` (backend) y `VITE_KINDE_DOMAIN`, `VITE_KINDE_CLIENT_ID`, `VITE_KINDE_REDIRECT_URI`, `VITE_KINDE_LOGOUT_REDIRECT_URI` (frontend).
+  - **NO** se añade `KINDE_WEBHOOK_SIGNING_SECRET`: a diferencia de Clerk/Svix, Kinde firma los webhooks con JWT verificable contra la misma JWKS que usa la auth normal — un solo decoder cubre ambos casos.
+- **Doc nuevo**: [docs/MIGRATION_CLERK_TO_KINDE.md](MIGRATION_CLERK_TO_KINDE.md) como checklist vivo de la migración (decisión, scope, setup dashboard, fases de código, gotchas). Se archivará/eliminará cuando la migración aterrice en `develop`.
+
+### M3 — Subscription gate (sin Stripe directo todavía)
+
+- Nuevo paquete `subscription/`: `SubscriptionService`, `SubscriptionPlan`, `SubscriptionStatus`, `SubscriptionRequiredException` (HTTP 402), `ReportLimitExceededException` (HTTP 429 con `limit` / `used` / `periodEnd` en el body).
+- Migración `V5__subscription.sql`: `users.subscription_plan` + `subscription_current_period_start/end`, CHECK constraint sobre la whitelist de planes (`FUTUROS_PLATAFORMA`), índice compuesto `(user_id, created_at DESC)` en `reports` para contar el periodo en O(log n).
+- Gate en `POST /api/reports` — bloquea sin plan / fuera de periodo / con cuota agotada (10 informes / periodo).
+- `UserRole.DEV` añadido al enum — bypass total del gate para el equipo, no asignable desde UI (sólo `UPDATE users SET role='DEV'` directo).
+- Mirror de Clerk Billing a través del receiver `/api/webhooks/clerk` existente — plan + bounds se sincronizan automáticamente.
+- Frontend `useSubscription` + estados de paywall (banner cuando se llega al límite, lock cuando no hay plan / periodo expirado).
+- Integración Stripe directa pendiente — vive en `feature/stripe`, no en `develop`.
+
+### Pipeline de análisis fasificado (streaming SSE)
+
+- Ocho endpoints nuevos sustituyendo la llamada monolítica `POST /api/ai/analyze` (que sigue vivo por compatibilidad):
+  - `POST /api/ai/global-steep-scan` (sonnet + web_search), `POST /api/ai/global-steep-dim` (haiku) — Step 2 del wizard
+  - `POST /api/ai/analyze/scan` (opus + web_search), `/api/ai/analyze/summary`, `/api/ai/analyze/scenarios`, `/api/ai/analyze/scenario-planning`, `/api/ai/analyze/strategic-map`, `/api/ai/analyze/backcasting` — secciones del informe final
+  - `POST /api/ai/analyze/sources` — Mono no-stream que recoge citaciones
+- Todos devuelven `Flux<JsonNode>` envuelto como `text/event-stream` con eventos `progress` (~5×/sec, con `chars` y `sources`) y `done` (terminal). Desconexión del cliente cancela la llamada Anthropic.
+- Endpoints no-stream que aún llaman a IA (`/api/reports/{id}/translate`, `/api/reports/{id}/share`) devuelven `Callable<T>` y aprovechan `spring.mvc.async.request-timeout=480000ms` para no morir con `AsyncRequestTimeoutException`.
+- Selección de modelo por tier vía `foresight.ai.anthropic.models.{haiku,sonnet,opus}` — tunable por entorno sin tocar código.
+- Mejoras iterativas en los prompts globales y sectoriales (commits "Improving global and sectorial prompts", "Hardening against 500 errors and adding extra logging").
+
+### Chat assistant con tool use
+
+- `POST /api/ai/chat` y `POST /api/ai/chat/stream` — agente conversacional stateless (el frontend envía la historia completa cada turno). Modelo: sonnet.
+- `AssistantTools.java` declara 15 tools que el modelo puede invocar para dirigir la UI: navegación (`goTo`, `openDashboard`, `closeDashboard`, `newReport`, `loadReport`), wizard (`wizardNext`, `wizardBack`, `setField`), informes (`editReport`, `deleteReport`, `refreshReports`), generación con confirmación (`generateGlobalSteep`, `runAnalysis`), locale (`setLang`).
+- Frontend: `features/chat/` (`ChatAssistant`, `AssistantCommands`, `AssistantContextProvider`) + `lib/commandBus.ts` + `lib/useCommands.ts` + `lib/assistantBridge.ts` + `lib/buildAssistantSnapshot.ts` (serializa el bloque USER STATE que se cuela en el system prompt).
+- Modales de confirmación para tools destructivos / caros.
+- Fixes a workflows del assistant (commit "Fixes to assistant workflows").
+
+### Public share tokens (multilingüe)
+
+- Nuevo paquete `share/`: `ShareController`, `PublicShareController`, `ShareService`, `ShareToken`.
+- Migraciones:
+  - `V6__share_tokens.sql` — tabla `share_tokens` con `token` URL-safe, snapshot congelado (`title`, `input_data`, `result_data`), `expires_at` (default 7 días).
+  - `V9__share_tokens_for_examples.sql` — soporte para examples: `report_id` nullable, `example_id` añadido, CHECK XOR.
+  - `V10__share_token_translations.sql` — `translations` JSONB + `primary_language` en `share_tokens` (multilingual shares).
+- `POST /api/reports/{id}/share?language=&languages=` mintea token; `POST /api/examples/{id}/share` para examples.
+- `GET /api/public/share/{token}` — sin auth, devuelve snapshot + traducciones cacheadas en el momento del mint. 404 silencioso si expirado o desconocido.
+- Frontend: `features/publicShare/PublicSharePage.tsx` + `ShareView.tsx` (mismo body que `ReportPage`).
+- Build dual de Vite: `vite.snapshot.config.ts` + `share-snapshot.html` + `src/share-snapshot.tsx` → single-file HTML auto-contenido vía `vite-plugin-singlefile` (el "Informe cliente digital" del landing).
+- `lib/exportHtml.tsx` reusa el snapshot para exportar el informe offline.
+
+### Examples (snapshots curados por el equipo)
+
+- Nuevo paquete `example/`: `Example`, `ExampleController`, `ExampleService`, `ExampleRepository`, DTOs.
+- Migración `V8__examples.sql` — tabla `examples` con `slug` único (upsert key), `title`, `description`, `primary_language`, `input_data`, `result_data`, `translations`.
+- Endpoints (todos `/api/examples/*`):
+  - `GET /api/examples`, `GET /api/examples/{id}` — open a todos los usuarios autenticados.
+  - `POST /api/reports/{reportId}/promote-to-example` (DEV only) — upsert por slug.
+  - `DELETE /api/examples/{id}` (DEV).
+  - `POST /api/examples/{id}/translate` + `/translate/stream` + `DELETE /api/examples/{id}/translations/{language}` (DEV para los cache-cold; lecturas open).
+  - `POST /api/examples/{id}/demote` (DEV) — convierte el example en un report privado del que llama.
+  - `POST /api/examples/{id}/share` — cualquier usuario autenticado puede compartir.
+
+### Traducciones de informes (server-side)
+
+- Migración `V7__report_translations.sql` — añade `translations` JSONB (`{ "<lang>": {inputData, resultData, generatedAt} }`) y `primary_language` a `reports`.
+- `POST /api/reports/{id}/translate?targetLanguage=&force=` (Callable) y `/translate/stream` (SSE) — Claude traduce el informe completo, cacheado en el row.
+- `DELETE /api/reports/{id}/translations/{language}` — evicción puntual.
+- Traducción paralelizable (commits "Parallelizing translation", "Allow for parallel translation of reports").
+- Frontend: dashboard de traducciones por informe + toggle de idioma en `ReportPage`.
+- Fix de detección del idioma primario (commit "Fixing primary language of reports").
+
+### Export PDF profesional (AI-assisted)
+
+- `lib/exportPdf.ts` — generación multi-página con jsPDF, temas light/dark, portada y contraportada.
+- `lib/pdfFit.ts` — layout engine que mide overflow y pide a `POST /api/ai/tighten` que acorte los bloques que no caben.
+- `POST /api/ai/tighten` (haiku) — devuelve una versión más corta de un bloque de prosa.
+- Migración `V11__report_pdf_optimized.sql` — añade `pdf_optimized` JSONB a `reports` (`{ "<lang>": {version, generatedAt, fields: {"<dotted.path>": "..."}} }`).
+- `PUT /api/reports/{id}/pdf-optimized/{language}` — escribe la cache de campos tightened.
+
+### Export HTML / PPT
+
+- `lib/exportPpt.ts` — slides editables con pptxgenjs, tema oscuro con acento dorado.
+- `lib/exportHtml.tsx` — descarga el snapshot single-file con el payload del informe spliced.
+
+### PostHog LLM observability
+
+- Nuevo paquete `analytics/`: `LlmCapture`, `LlmCaptureContext`, `PostHogConfig`, `AnalyticsProperties`.
+- `LlmCapture.capture()` invocado desde `AiService` tras cada llamada Anthropic — emite `$ai_generation` con el esquema canónico (model, tokens, latency, citations, stop_reason, error, tools, cache hit/miss).
+- Distinct id = `clerkUserId` para correlacionar con eventos del frontend (`posthog-js`).
+- Default-off (`foresight.analytics.posthog.enabled=false`). Con flag a true pero key vacía, el backend **no arranca** (fail-fast deliberado). El frontend instala un stub no-op en su lugar.
+- `frontend/src/lib/posthog.ts` + bootstrap en `main.tsx`.
+- Commits: "Adding posthog instrumentation" (x2), "Fixing bug in instrumentation", "Disabling posthog by default".
+
+### Privacy + cookie consent
+
+- `features/privacy/PrivacyPage.tsx` — ruta pública `/privacy`.
+- `features/cookies/CookieConsent.tsx` — overlay global montado en `App.tsx` (fuera de `<AppRoutes>` para cubrir todas las rutas incluidas las públicas). Gating de analytics hasta que el usuario acepta. Persistido en localStorage.
+
+### App shell + UI
+
+- `features/shell/` — `AppShell`, `TopBar`, `AppFooter`, `Stepper`, `StepperContext` (extrae la layout del shell del resto de pages).
+- Step 4 nuevo en el wizard: `StepGlobal.tsx` (consumido por la pipeline global-steep).
+- 8 tabs en `ReportPage`: `TabSummary`, `TabScenarios`, `TabScenarioPlanning`, `TabBackcasting`, `TabStrategicMap`, `TabSignals`, `TabSources`, `ImpactMatrix`.
+- `features/translations/TranslationsContext.tsx` — capa de toggle de idioma por informe encima de i18next.
+- Componentes nuevos: `ConfirmDialog`, `ExportModal`, `ShareModal`, `PromoteToExampleModal`, `OnboardingDialog`, `Modal`, `InfoTooltip`, `LineClamp`, `LoadingOverlay`, `LoadingPanel`, `SplitButton`, `IconSprite`, `LanguageToggle`.
+
+### Producción
+
+- `frontend/Dockerfile.prod` — multi-stage Node 20-alpine builder → Caddy 2-alpine server.
+- `frontend/Caddyfile` — SPA fallback a `/index.html`, cache 1y para `/assets/*` (hashed), no-cache para `index.html` y `share-snapshot.html`.
+- `frontend/docker-entrypoint.sh` para el modo dev/preview alternable vía env var (`FRONTEND_MODE`).
+- `backend/Dockerfile` con debugger JDWP expuesto en `DEBUG_PORT`.
+- Backend acepta `PORT` además de `SERVER_PORT` para encajar con Railway / Heroku / Fly que inyectan `PORT` directamente.
+- Commit "Adding production server files".
+
+### Trabajo de mantenimiento
+
+- Hardening contra 500s + logging extra (commit "Hardening against 500 errors and adding extra logging").
+- Tests añadidos: `AiResponseSanitizerTest`, `AiServiceTest`, `AiRateLimitFilterTest`, `SubscriptionServiceTest`.
+
+---
+
+## [Anteriormente — Unreleased — M2 in progress]
 
 ### 2026-05-03 (Clerk Backend API — `feature/clerk`)
 - **Recuperar `name` desde Clerk en el primer login**, sin depender de configurar un JWT template ni de tener el webhook funcionando.
