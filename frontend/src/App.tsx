@@ -16,6 +16,7 @@ import PublicSharePage from './features/publicShare/PublicSharePage';
 import AuthLayout from './features/auth/AuthLayout';
 import AppShell from './features/shell/AppShell';
 import CookieConsent from './features/cookies/CookieConsent';
+import { LOGOUT_IN_PROGRESS_KEY } from './hooks/useAuth';
 import './features/auth/auth.css';
 
 /**
@@ -34,6 +35,16 @@ import './features/auth/auth.css';
 function LoggedOutRoute() {
   const { t } = useTranslation();
   const { isLoading, isAuthenticated } = useKindeAuth();
+  // We've arrived at /logged-out — logout actually completed. Clear the
+  // in-progress flag so ProtectedRoute resumes its normal "redirect
+  // unauthenticated users to Kinde" behaviour on subsequent navigation.
+  useEffect(() => {
+    try {
+      sessionStorage.removeItem(LOGOUT_IN_PROGRESS_KEY);
+    } catch {
+      /* ignore */
+    }
+  }, []);
   if (!isLoading && isAuthenticated) return <Navigate to="/reports/new" replace />;
   return (
     <AuthLayout>
