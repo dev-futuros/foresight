@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
-import { useTranslation } from 'react-i18next';
 import api from '../lib/api';
 import type { UserResponse } from '../types/api';
 
@@ -42,31 +41,31 @@ export function useIsDev(): boolean {
 
 /**
  * Returns a function that signs the user out of Kinde and redirects to the
- * configured logout URI with `?lang=<current-language>` appended, so the
- * branded /logged-out page can render in the user's current language.
+ * configured logout URI (`VITE_KINDE_LOGOUT_REDIRECT_URI`).
  *
- * <p>The Kinde React SDK's `logout({ redirectUrl })` option overrides the
- * static `logoutUri` prop on KindeProvider for this single call. The base
- * URL still comes from `VITE_KINDE_LOGOUT_REDIRECT_URI` so prod/dev paths
- * stay configurable; we just append the language at call time.
+ * <p>Language carrying across the logout hop is handled by the
+ * `futuros_lang` cookie scoped to `.futuros.io` — i18next-browser-languagedetector
+ * keeps it in sync with `i18n.language` automatically (see i18n/index.ts).
+ * When /logged-out loads, the detector reads the cookie and renders in the
+ * right language.
+ *
+ * <p>We intentionally do *not* pass `?lang=` on the redirect URL via the
+ * SDK's `redirectUrl` override — Kinde validates the URL against the
+ * "Allowed Logout Redirect URLs" list in the dashboard, and a per-call URL
+ * with query params won't match an entry without them. The cookie does the
+ * same job without that constraint.
  *
  * <p>Side effect: clears the per-session "onboarding seen" flag so the next
- * login re-shows the welcome dialog. Without this, a user who logs out and
- * back in within the same browser tab keeps the sessionStorage flag and
- * never sees onboarding again — only persistent dismissal (the "don't
- * show again" checkbox) should silence it across logins.
+ * login re-shows the welcome dialog.
  */
 export function useLogout() {
   const { logout } = useKindeAuth();
-  const { i18n } = useTranslation();
   return () => {
     try {
       sessionStorage.removeItem('fs_onboarding_seen_this_session');
     } catch {
       /* private mode / quota — ignore */
     }
-    const base =
-      import.meta.env.VITE_KINDE_LOGOUT_REDIRECT_URI ?? globalThis.location.origin;
-    return logout({ redirectUrl: `${base}?lang=${i18n.language}` });
+    return logout();
   };
 }
