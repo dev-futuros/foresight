@@ -12,17 +12,12 @@ import { useTranslation } from 'react-i18next';
  *   - Hydrated and signed-in: render the children.
  *   - Hydrated and signed-out: trigger Kinde's hosted login flow directly.
  *     No intermediate React splash — Kinde's own pages are themselves
- *     branded (via the foresight-kinde custom-UI repo), so a buffer route
- *     would just be a needless extra click.
+ *     branded (via the foresight-kinde custom-UI repo).
  *
- * Language passing is deliberately *not* done here. The futuros_lang cookie
- * (scoped to .futuros.io and written by i18next's languagedetector) is the
- * cross-subdomain carrier — Kinde reads it (or falls back to the browser's
- * Accept-Language). Threading authUrlParams.lang through every login() call
- * adds complexity for a marginal edge case (session expiring while the user
- * is mid-flow in a non-default language) and we accept that briefly seeing
- * Kinde in the wrong language is fine, because they'll bounce back to the
- * app where the cookie still carries the correct language.
+ * Language is intentionally NOT forwarded here. The homepage is the
+ * authoritative source for which language Kinde renders in — the app
+ * doesn't (yet) participate in the language handoff. When the post-login
+ * profile-read work lands, this guard may need to revisit that.
  */
 export default function ProtectedRoute({ children }: Readonly<{ children: React.ReactNode }>) {
   const { t } = useTranslation();

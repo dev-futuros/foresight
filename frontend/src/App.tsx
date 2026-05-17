@@ -16,7 +16,6 @@ import PublicSharePage from './features/publicShare/PublicSharePage';
 import AuthLayout from './features/auth/AuthLayout';
 import AppShell from './features/shell/AppShell';
 import CookieConsent from './features/cookies/CookieConsent';
-import { useLanguageSync } from './hooks/useLanguageSync';
 import './features/auth/auth.css';
 
 /**
@@ -38,11 +37,10 @@ function LoggedOutRoute() {
   if (!isLoading && isAuthenticated) return <Navigate to="/reports/new" replace />;
   return (
     <AuthLayout>
-      {/* No authUrlParams — Kinde will detect the language from the futuros_lang
-          cookie (scoped to .futuros.io, written by i18next's languagedetector)
-          or fall back to the browser's Accept-Language. The homepage is the
-          authoritative source for language at the start of the auth flow; the
-          app only needs to keep the cookie fresh for the cross-subdomain hop. */}
+      {/* No lang prop — the app doesn't participate in language handoff
+          to Kinde yet. Kinde will fall back to its default (or whatever
+          the user picked last on a Kinde page). When the post-login
+          profile-read work lands, we may want to forward i18n.language. */}
       <LoginLink className="kinde-continue-btn">
         {t('auth.loggedOut.signInAgain')}
       </LoginLink>
@@ -78,7 +76,13 @@ function CallbackRoute() {
 }
 
 function AppRoutes() {
-  useLanguageSync();
+  // No useLanguageSync here. The language is driven entirely by
+  // i18next-browser-languagedetector (URL ?lang= → futuros_lang cookie →
+  // localStorage → navigator → fallback 'es'). User-initiated language
+  // changes go through AccountModal, which calls both i18n.changeLanguage()
+  // and PATCH /users/me — i18n is the local source of truth, and the
+  // server preference is updated explicitly when the user picks a new
+  // language in-app.
   return (
     <Routes>
       <Route path="/logged-out" element={<LoggedOutRoute />} />
