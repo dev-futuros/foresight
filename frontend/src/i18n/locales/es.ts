@@ -281,6 +281,12 @@ const es = {
       goDashboard: 'Ir al dashboard →',
       goLogin: 'Ir a iniciar sesión →',
     },
+    loggedOut: {
+      eyebrow: 'Sesión cerrada',
+      title: 'Has cerrado sesión',
+      description: 'Tu sesión se ha cerrado de forma segura. Vuelve a iniciar sesión cuando quieras continuar mapeando tu horizonte estratégico.',
+      signInAgain: 'Iniciar sesión de nuevo →',
+    },
   },
   wizard: {
     back: '← Volver',

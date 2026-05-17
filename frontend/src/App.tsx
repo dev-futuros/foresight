@@ -55,6 +55,27 @@ function SignUpRoute() {
 }
 
 /**
+ * Logged-out landing page. Kinde redirects here after a successful sign-out
+ * (configured via VITE_KINDE_LOGOUT_REDIRECT_URI → '<origin>/logged-out') so
+ * the user lands on a branded confirmation instead of Kinde's stock template.
+ *
+ * If the user is somehow still authenticated when this loads (e.g. opened in
+ * a new tab while logged in elsewhere), bounce them to the wizard.
+ */
+function LoggedOutRoute() {
+  const { t } = useTranslation();
+  const { isLoading, isAuthenticated } = useKindeAuth();
+  if (!isLoading && isAuthenticated) return <Navigate to="/reports/new" replace />;
+  return (
+    <AuthLayout copyKey="auth.loggedOut">
+      <LoginLink className="kinde-continue-btn">
+        {t('auth.loggedOut.signInAgain')}
+      </LoginLink>
+    </AuthLayout>
+  );
+}
+
+/**
  * OAuth callback landing page. Kinde redirects here after the user authenticates;
  * the SDK consumes the OAuth params from the URL and flips `isAuthenticated`. We
  * render a loading state until that's done, then navigate to the wizard (or back
@@ -77,6 +98,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/sign-in/*" element={<SignInRoute />} />
       <Route path="/sign-up/*" element={<SignUpRoute />} />
+      <Route path="/logged-out" element={<LoggedOutRoute />} />
       <Route path="/callback" element={<CallbackRoute />} />
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/share/:token" element={<PublicSharePage />} />

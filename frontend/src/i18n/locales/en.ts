@@ -287,6 +287,12 @@ const en = {
       goDashboard: 'Go to dashboard →',
       goLogin: 'Go to sign in →',
     },
+    loggedOut: {
+      eyebrow: 'Session ended',
+      title: 'You’ve signed out',
+      description: 'Your session has been closed securely. Sign back in when you’re ready to continue mapping your strategic horizon.',
+      signInAgain: 'Sign in again →',
+    },
   },
   wizard: {
     back: '← Back',

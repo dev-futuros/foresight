@@ -4,7 +4,7 @@ import LanguageToggle from '../../components/LanguageToggle';
 
 type AuthLayoutProps = {
   /** Translation key root for the eyebrow / title / description copy. */
-  copyKey: 'auth.login' | 'auth.register';
+  copyKey: 'auth.login' | 'auth.register' | 'auth.loggedOut';
   /** The Clerk component (or any auth form) to render inside the card. */
   children: ReactNode;
 };
