@@ -24,6 +24,12 @@ interface Props {
    *  generate-analysis pipeline (create → analyze → update) fails. */
   error?: string | null;
   /**
+   * Optional CTA rendered inside the error box when the parent wants to suggest
+   * a follow-up action (e.g. "Ver planes →" for 402/429 billing-gate failures).
+   * The button only renders when {@link Props#error} is also set — no orphan CTAs.
+   */
+  errorAction?: { label: string; onClick: () => void } | null;
+  /**
    * True when the wizard's report already has analysis output. Swaps
    * the primary action from "Generate" to "Continue" (which jumps
    * straight to the report viewer via {@link Props#onContinueToReport})
@@ -62,6 +68,7 @@ export default function StepHorizon({
   onBack,
   isSubmitting,
   error,
+  errorAction,
   hasReport,
   onContinueToReport,
   disableGenerate = false,
@@ -197,7 +204,16 @@ export default function StepHorizon({
         })}
       </div>
 
-      {error && <div className="err-box">{error}</div>}
+      {error && (
+        <div className="err-box err-box--with-action">
+          <span>{error}</span>
+          {errorAction && (
+            <button type="button" className="btn-link-inline" onClick={errorAction.onClick}>
+              {errorAction.label}
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="btn-row">
         <button type="button" className="btn" onClick={onBack} disabled={isSubmitting}>

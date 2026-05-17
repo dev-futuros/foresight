@@ -7,6 +7,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -90,9 +92,13 @@ public class KindeBackendClient {
         }
         try {
             String token = ensureAccessToken();
+            // `expand=billing` is required to populate `billing.customer_id` in the response
+            // — without it Kinde returns the user without the billing block at all, and
+            // our meter-push chain trips with "User has no billing.customer_id". The expand
+            // is a no-op cost when the user isn't subscribed (just returns billing: null).
             KindeUser user = restClient
                     .get()
-                    .uri(kinde.managementApiBaseUrl() + "/user?id={id}", externalUserId)
+                    .uri(kinde.managementApiBaseUrl() + "/user?id={id}&expand=billing", externalUserId)
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                     .retrieve()
                     .body(KindeUser.class);
@@ -306,6 +312,194 @@ public class KindeBackendClient {
     }
 
     /**
+     * Caches the resolved {@code customer_agreement_id} per
+     * {@code (externalUserId, featureCode)} so the meter-push hot path is a single HTTP
+     * call after the first resolution. No TTL: agreement ids are stable for the life of a
+     * subscription. If the user changes plan, the entry can become stale and the next
+     * meter push will fail with 4xx; that surfaces in the log but doesn't break the app
+     * (meter pushes are best-effort). A restart clears the cache for now — when we add
+     * plan-change webhooks we'll wire invalidation here.
+     */
+    private final ConcurrentMap<String, String> agreementCache = new ConcurrentHashMap<>();
+
+    /**
+     * Reports {@code delta} units of consumption against the user's billing meter for the
+     * given {@code featureCode}. Best-effort: any error is logged and swallowed. The
+     * authoritative usage counter for our app is the
+     * {@code reports_used_this_period} Kinde Property written by {@code BillingService}
+     * — this meter push only feeds Kinde's own dashboard view and is the foundation for
+     * the eventual overage-billing flow.
+     *
+     * <p>Resolves the {@code customer_agreement_id} the meter records expect by
+     * (a) looking up the user's {@code billing.customer_id}, then (b) listing agreements
+     * filtered by {@code feature_code}. Both lookups are cached per
+     * {@code (user, feature)} pair, so the steady-state cost is one HTTP call per
+     * generation event.
+     *
+     * <p>Requires the M2M app to have {@code read:users}, {@code read:billing_agreements},
+     * and {@code create:meter_usage} scopes granted in Kinde Dashboard.
+     */
+    public void recordMeterUsage(String externalUserId, String featureCode, int delta) {
+        if (!enabled || externalUserId == null || externalUserId.isBlank() || featureCode == null) {
+            return;
+        }
+        try {
+            String agreementId = resolveAgreementId(externalUserId, featureCode);
+            if (agreementId == null) {
+                log.debug(
+                        "No billing agreement found for user {} (feature {}); skipping meter push",
+                        externalUserId,
+                        featureCode);
+                return;
+            }
+            String token = ensureAccessToken();
+            // Kinde wants the meter_value as a string and the type as one of {"absolute","delta"}.
+            // "delta" means "increment by this much" — matches our +1 per generation event.
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("customer_agreement_id", agreementId);
+            body.put("billing_feature_code", featureCode);
+            body.put("meter_value", String.valueOf(delta));
+            body.put("meter_type_code", "delta");
+            restClient
+                    .post()
+                    .uri(kinde.managementApiBaseUrl() + "/billing/meter_usage")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .toBodilessEntity();
+            log.debug("Pushed meter usage user={} feature={} delta={}", externalUserId, featureCode, delta);
+        } catch (Exception e) {
+            log.warn(
+                    "Failed to push meter usage for user {} (feature {}): {}",
+                    externalUserId,
+                    featureCode,
+                    e.getMessage());
+        }
+    }
+
+    /**
+     * Debug variant of {@link #recordMeterUsage} that surfaces every intermediate value
+     * (customer id, agreement id) and the actual error instead of swallowing it. Used by
+     * the test button in the account modal to figure out which step of the meter-push
+     * chain is failing without reading backend logs.
+     *
+     * <p>Don't call from production paths — use {@link #recordMeterUsage} which is
+     * best-effort + non-throwing.
+     */
+    public MeterPushDiagnostics diagnoseMeterPush(String externalUserId, String featureCode, int delta) {
+        if (!enabled) {
+            return new MeterPushDiagnostics(false, null, null, "Kinde Backend client disabled (M2M creds blank)");
+        }
+        String customerId = null;
+        String agreementId = null;
+        try {
+            Optional<KindeUser> user = fetchUser(externalUserId);
+            if (user.isEmpty()) {
+                return new MeterPushDiagnostics(false, null, null, "fetchUser returned empty for " + externalUserId);
+            }
+            KindeBilling billing = user.get().billing();
+            customerId = billing == null ? null : billing.customerId();
+            if (customerId == null || customerId.isBlank()) {
+                return new MeterPushDiagnostics(false, null, null, "User has no billing.customer_id (not subscribed via Kinde Billing?)");
+            }
+
+            String token = ensureAccessToken();
+            KindeAgreementsResponse agreements = restClient
+                    .get()
+                    .uri(
+                            kinde.managementApiBaseUrl() + "/billing/agreements?customer_id={cid}&feature_code={fc}",
+                            customerId,
+                            featureCode)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                    .retrieve()
+                    .body(KindeAgreementsResponse.class);
+            if (agreements == null || agreements.agreements().isEmpty()) {
+                return new MeterPushDiagnostics(
+                        false,
+                        customerId,
+                        null,
+                        "No agreements found for customer " + customerId + " + feature " + featureCode);
+            }
+            agreementId = agreements.agreements().get(0).id();
+            if (agreementId == null || agreementId.isBlank()) {
+                return new MeterPushDiagnostics(false, customerId, null, "Agreement returned has no id");
+            }
+
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("customer_agreement_id", agreementId);
+            body.put("billing_feature_code", featureCode);
+            body.put("meter_value", String.valueOf(delta));
+            body.put("meter_type_code", "delta");
+            restClient
+                    .post()
+                    .uri(kinde.managementApiBaseUrl() + "/billing/meter_usage")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .toBodilessEntity();
+
+            // Also seed the cache for the production path so subsequent (normal) pushes are fast.
+            agreementCache.put(externalUserId + "::" + featureCode, agreementId);
+            return new MeterPushDiagnostics(true, customerId, agreementId, null);
+        } catch (Exception e) {
+            return new MeterPushDiagnostics(
+                    false, customerId, agreementId, e.getClass().getSimpleName() + ": " + e.getMessage());
+        }
+    }
+
+    /** Result envelope for the debug meter push. {@code error} is null on success. */
+    public record MeterPushDiagnostics(boolean pushed, String customerId, String agreementId, String error) {}
+
+    /**
+     * Returns the {@code customer_agreement_id} for the given user + feature, hitting the
+     * cache first. Cache misses do two Management API calls (user → customer_id, then
+     * agreements lookup filtered by feature_code).
+     */
+    private String resolveAgreementId(String externalUserId, String featureCode) {
+        String cacheKey = externalUserId + "::" + featureCode;
+        String cached = agreementCache.get(cacheKey);
+        if (cached != null) return cached;
+
+        Optional<KindeUser> user = fetchUser(externalUserId);
+        if (user.isEmpty()) return null;
+        KindeBilling billing = user.get().billing();
+        if (billing == null || billing.customerId() == null || billing.customerId().isBlank()) {
+            return null;
+        }
+
+        String token = ensureAccessToken();
+        KindeAgreementsResponse response = restClient
+                .get()
+                .uri(
+                        kinde.managementApiBaseUrl() + "/billing/agreements?customer_id={cid}&feature_code={fc}",
+                        billing.customerId(),
+                        featureCode)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .retrieve()
+                .body(KindeAgreementsResponse.class);
+        if (response == null || response.agreements().isEmpty()) return null;
+        String agreementId = response.agreements().get(0).id();
+        if (agreementId != null && !agreementId.isBlank()) {
+            agreementCache.put(cacheKey, agreementId);
+        }
+        return agreementId;
+    }
+
+    /** Envelope returned by {@code GET /api/v1/billing/agreements}. Only the list matters. */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record KindeAgreementsResponse(List<KindeAgreement> agreements) {
+        public List<KindeAgreement> agreements() {
+            return agreements == null ? Collections.emptyList() : agreements;
+        }
+    }
+
+    /** One billing agreement. We only need its id for the meter-usage POST. */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record KindeAgreement(String id) {}
+
+    /**
      * Subset of Kinde's user response — only the fields we read on our side.
      *
      * <p>Kinde's documentation is inconsistent about which naming convention the Management API
@@ -323,7 +517,8 @@ public class KindeBackendClient {
             @JsonProperty("first_name") @JsonAlias("given_name") String firstName,
             @JsonProperty("last_name") @JsonAlias("family_name") String lastName,
             @JsonProperty("preferred_email") @JsonAlias({"email"}) String preferredEmail,
-            String picture) {
+            String picture,
+            KindeBilling billing) {
 
         /**
          * Composes a display name from the first/last fields, returning {@code null} if both
@@ -338,6 +533,14 @@ public class KindeBackendClient {
             return firstName + " " + lastName;
         }
     }
+
+    /**
+     * Nested {@code billing} block on Kinde's user object. The {@code customer_id} is the
+     * handle we need to look up billing agreements (so we can push usage to the meter on
+     * each generation). Null when the user has never been subscribed.
+     */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record KindeBilling(@JsonProperty("customer_id") String customerId) {}
 
     /**
      * Envelope returned by {@code GET /api/v1/users/{user_id}/properties}. We only consume

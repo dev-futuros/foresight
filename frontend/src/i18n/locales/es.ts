@@ -559,6 +559,9 @@ const es = {
       generateBtn: '✦ Generar análisis con IA',
       analyzing: 'Generando análisis estratégico…',
       errorDefault: 'No se pudo generar el análisis. Inténtalo de nuevo.',
+      errorSubscriptionRequired: 'Necesitas una suscripción activa para generar informes.',
+      errorLimitExceeded:
+        'Has llegado al límite de informes de este mes. Espera al próximo periodo o contacta con soporte.',
       empty: 'Esta sección no está disponible para este informe.',
       scenarios: 'Escenarios 3P',
       uncertainties: 'Incertidumbres clave',
@@ -671,6 +674,20 @@ const es = {
       successMsg: 'Preferencias actualizadas correctamente.',
       errorMsg: 'No se pudieron actualizar las preferencias.',
     },
+    billing: {
+      title: 'Facturación',
+      plan: 'Plan',
+      noPlan: 'Sin plan activo',
+      usage: 'Informes este mes',
+      usageValue: '{{used}} / {{limit}}',
+      subscribe: 'Suscribirse →',
+      manage: 'Gestionar en Kinde →',
+      opening: 'Abriendo…',
+      planNames: {
+        pro: 'Futuros Pro',
+        dev: 'Dev (ilimitado)',
+      },
+    },
     signIn: {
       title: 'Inicio de sesión',
       email: 'Email',
@@ -690,6 +707,28 @@ const es = {
     lede: 'Cómo tratamos tu información cuando usas Futuros.',
     updated: 'Última actualización: 6 de mayo de 2026',
     backLink: '← Volver',
+  },
+  pricing: {
+    eyebrow: 'Planes',
+    title: 'Precios',
+    lede: 'Elige un plan para empezar a generar informes de foresight.',
+    currentPlan: 'Plan actual',
+    subscribe: 'Suscribirse →',
+    manage: 'Gestionar suscripción →',
+    opening: 'Abriendo…',
+    backToApp: '← Volver a la app',
+    errorCta: 'Suscribirse →',
+    plans: {
+      pro: {
+        name: 'Futuros Pro',
+        amount: '99 €',
+        cadence: '/ mes',
+        features: {
+          reports: '10 informes IA al mes',
+          trial: '7 días de prueba gratis',
+        },
+      },
+    },
   },
 } as const;
 

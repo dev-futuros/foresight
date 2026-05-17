@@ -1,6 +1,8 @@
 package com.foresight.backend.common.exception;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -14,6 +16,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 
 import com.foresight.backend.ai.AiException;
+import com.foresight.backend.billing.ReportLimitExceededException;
+import com.foresight.backend.billing.SubscriptionRequiredException;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -110,6 +114,44 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({BadRequestException.class, IllegalArgumentException.class})
     public ResponseEntity<ApiError> handleBadRequest(Exception ex, HttpServletRequest req) {
         return ResponseEntity.badRequest().body(ApiError.of(400, "Bad Request", ex.getMessage(), req.getRequestURI()));
+    }
+
+    /**
+     * Maps {@link SubscriptionRequiredException} to HTTP 402 (Payment Required). Fired by the
+     * billing gate when an authenticated user without an active plan tries to use a paid
+     * feature (currently: report generation).
+     *
+     * @param ex  the thrown exception
+     * @param req current HTTP request
+     * @return 402 response with the standard {@link ApiError} body (no extra details — the
+     *         frontend's reaction is "show the pricing page", which doesn't need extra data)
+     */
+    @ExceptionHandler(SubscriptionRequiredException.class)
+    public ResponseEntity<ApiError> handleSubscriptionRequired(
+            SubscriptionRequiredException ex, HttpServletRequest req) {
+        return ResponseEntity.status(HttpStatus.PAYMENT_REQUIRED)
+                .body(ApiError.of(402, "Payment Required", ex.getMessage(), req.getRequestURI()));
+    }
+
+    /**
+     * Maps {@link ReportLimitExceededException} to HTTP 429 with structured details the
+     * frontend needs to render the paywall: {@code limit}, {@code used}, and the ISO-8601
+     * {@code periodEnd}. The standard envelope (timestamp/status/error/message/path) keeps
+     * the shape uniform with every other error.
+     *
+     * @param ex  the thrown exception carrying limit / used / periodEnd
+     * @param req current HTTP request
+     * @return 429 response with an enriched {@link ApiError} body
+     */
+    @ExceptionHandler(ReportLimitExceededException.class)
+    public ResponseEntity<ApiError> handleReportLimit(ReportLimitExceededException ex, HttpServletRequest req) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("limit", ex.getLimit());
+        details.put("used", ex.getUsed());
+        details.put("periodEnd", ex.getPeriodEnd().toString());
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(ApiError.withDetails(
+                        429, "Too Many Requests", ex.getMessage(), req.getRequestURI(), details));
     }
 
     /**

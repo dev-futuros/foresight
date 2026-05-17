@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useCreateReport, useReport, useUpdateReport } from '../../hooks/useReports';
+import { useCreateReport, useReport, useStartGeneration, useUpdateReport } from '../../hooks/useReports';
 import Modal from '../../components/Modal';
 import { useCurrentUser } from '../../hooks/useAuth';
 import { useSetStepper } from '../shell/useStepper';
@@ -95,6 +95,7 @@ export default function NewReportPage() {
   const navigate = useNavigate();
   const createReport = useCreateReport();
   const updateReport = useUpdateReport();
+  const startGeneration = useStartGeneration();
   const { data: user } = useCurrentUser();
 
   // Mode detection. The /reports/:id/edit route renders this same component
@@ -126,6 +127,11 @@ export default function NewReportPage() {
   // report is fully built (we navigate away) or the pipeline errors.
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
+  // True when the most recent generate-error was a billing gate (402 no plan / 429
+  // limit reached). The wizard's error box renders a "Ver planes →" CTA in that
+  // case so the user can navigate to /pricing themselves — we deliberately don't
+  // auto-redirect any more so the message has a chance to be read.
+  const [generateErrorIsBilling, setGenerateErrorIsBilling] = useState(false);
   // Per-row status for the analysis loader checklist. Matches the
   // demo's pattern: 5 parallel section rows, each running its own
   // Opus + web_search call. The earlier "research" row that ran a
@@ -689,6 +695,7 @@ export default function NewReportPage() {
       debounceTimerRef.current = null;
     }
     setGenerateError(null);
+    setGenerateErrorIsBilling(false);
     setIsGenerating(true);
     // Reset loader state — all 5 sections start running immediately in
     // parallel (each does its own web_search now, matching the demo).
@@ -737,6 +744,37 @@ export default function NewReportPage() {
         setReportId(created.id);
       }
       const targetReportId = reportIdRef.current!;
+
+      // Billing gate — record the generation event in Kinde Properties via the backend
+      // BEFORE we fire any Anthropic calls. This is the "click Generate" moment that
+      // consumes a slot from the user's plan (drafts above were free; this is the paid
+      // action). On 429 (period quota exceeded) or 402 (no active plan) we bounce the
+      // user to /pricing without spending any AI tokens.
+      try {
+        await startGeneration.mutateAsync(targetReportId);
+      } catch (err) {
+        const status = (err as { response?: { status?: number } } | null)?.response?.status;
+        // Tell the user WHY the gate rejected, not just "something went wrong".
+        // 402 = no active plan; 429 = period quota hit. Both have localized strings;
+        // anything else falls back to whatever the server's message was (or the
+        // generic default copy). For billing-gate errors the wizard renders a
+        // "Ver planes →" CTA next to the message; the user clicks if they want to
+        // act on it. No auto-navigate — the message needs to be readable.
+        let msg: string;
+        const isBilling = status === 402 || status === 429;
+        if (status === 402) {
+          msg = t('report.results.errorSubscriptionRequired');
+        } else if (status === 429) {
+          msg = t('report.results.errorLimitExceeded');
+        } else {
+          msg = extractApiErrorMessage(err, t('report.results.errorDefault'));
+        }
+        setGenerateError(msg);
+        setGenerateErrorIsBilling(isBilling);
+        setIsGenerating(false);
+        return;
+      }
+
       const args = { companyProfile: empresa, steep, horizon, language };
 
       // ALL FIVE analysis calls fire in parallel — each does its OWN
@@ -886,6 +924,7 @@ export default function NewReportPage() {
       }, 50);
     } catch (e) {
       setGenerateError(extractApiErrorMessage(e, t('report.results.errorDefault')));
+      setGenerateErrorIsBilling(false);
       setIsGenerating(false);
     }
   }
@@ -1132,6 +1171,7 @@ export default function NewReportPage() {
         setMaxReached(1);
         setIsGenerating(false);
         setGenerateError(null);
+        setGenerateErrorIsBilling(false);
         // Reset the wizard-session refs so guards behave as if this is a
         // fresh mount: another sector won't be confused with the cleared
         // one for auto-fetch purposes, and prefill won't reapply if the
@@ -1300,6 +1340,11 @@ export default function NewReportPage() {
                 onBack={() => goToStep(3)}
                 isSubmitting={isGenerating}
                 error={generateError}
+                errorAction={
+                  generateErrorIsBilling
+                    ? { label: t('pricing.errorCta'), onClick: () => navigate('/pricing') }
+                    : null
+                }
                 // Only edit-mode reports can have a pre-existing analysis;
                 // a fresh wizard run starts with empty resultData. Drive
                 // the SplitButton's primary action off whether the loaded

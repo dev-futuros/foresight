@@ -565,6 +565,9 @@ const en = {
       generateBtn: '✦ Generate AI analysis',
       analyzing: 'Generating strategic analysis…',
       errorDefault: 'Could not generate the analysis. Please try again.',
+      errorSubscriptionRequired: 'You need an active subscription to generate reports.',
+      errorLimitExceeded:
+        "You've reached your monthly report limit. Wait until the next period or contact support.",
       empty: 'This section is not available for this report.',
       scenarios: '3P Scenarios',
       uncertainties: 'Key uncertainties',
@@ -677,6 +680,20 @@ const en = {
       successMsg: 'Preferences updated successfully.',
       errorMsg: 'Could not update preferences.',
     },
+    billing: {
+      title: 'Billing',
+      plan: 'Plan',
+      noPlan: 'No active plan',
+      usage: 'Reports this month',
+      usageValue: '{{used}} / {{limit}}',
+      subscribe: 'Subscribe →',
+      manage: 'Manage in Kinde →',
+      opening: 'Opening…',
+      planNames: {
+        pro: 'Futuros Pro',
+        dev: 'Dev (unlimited)',
+      },
+    },
     signIn: {
       title: 'Sign-in',
       email: 'Email',
@@ -696,6 +713,28 @@ const en = {
     lede: 'How we handle your information when you use Futuros.',
     updated: 'Last updated: 6 May 2026',
     backLink: '← Back',
+  },
+  pricing: {
+    eyebrow: 'Plans',
+    title: 'Pricing',
+    lede: 'Pick a plan to start generating foresight reports.',
+    currentPlan: 'Current plan',
+    subscribe: 'Subscribe →',
+    manage: 'Manage subscription →',
+    opening: 'Opening…',
+    backToApp: '← Back to the app',
+    errorCta: 'Subscribe →',
+    plans: {
+      pro: {
+        name: 'Futuros Pro',
+        amount: '€99',
+        cadence: '/ month',
+        features: {
+          reports: '10 AI reports per month',
+          trial: '7-day free trial',
+        },
+      },
+    },
   },
 } as const;
 

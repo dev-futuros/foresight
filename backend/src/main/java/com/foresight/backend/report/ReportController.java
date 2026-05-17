@@ -14,6 +14,7 @@ import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.*;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.foresight.backend.billing.BillingService;
 import com.foresight.backend.common.security.AuthenticatedUser;
 import com.foresight.backend.common.security.CurrentUser;
 import com.foresight.backend.report.dto.CreateReportRequest;
@@ -37,10 +38,17 @@ import reactor.core.publisher.Flux;
 @RequiredArgsConstructor
 public class ReportController {
 
+    /** Length of the {@code "Bearer "} prefix in the {@code Authorization} header. */
+    private static final int BEARER_PREFIX_LENGTH = "Bearer ".length();
+
     private final ReportService reportService;
+    private final BillingService billingService;
 
     /**
-     * Creates a new report for the caller.
+     * Creates a new (draft) report for the caller. <b>Drafts are free</b> — no billing gate
+     * runs here. The cost event is the user clicking "Generate" at the end of the wizard,
+     * which is handled by {@link #startGeneration} below. Until then, the user can create,
+     * autosave, and abandon drafts without consuming a slot.
      *
      * @param principal authenticated caller
      * @param request   validated creation payload
@@ -50,6 +58,52 @@ public class ReportController {
     public ResponseEntity<ReportResponse> create(
             @CurrentUser AuthenticatedUser principal, @Valid @RequestBody CreateReportRequest request) {
         return ResponseEntity.status(201).body(ReportResponse.from(reportService.create(principal.id(), request)));
+    }
+
+    /**
+     * Records the "click Generate" event for the given report and gates against the
+     * per-period quota from the user's Kinde plan ({@code reports_per_periodo}
+     * entitlement). Called by the frontend right before it fires the parallel Anthropic
+     * batch — no AI tokens are spent if the gate rejects.
+     *
+     * <p>Every call counts (intentionally — no idempotency on report status). Regenerating
+     * a COMPLETED report also triggers the AI batch and so consumes a fresh slot. The
+     * counter lives in Kinde Properties (no local DB column); see {@link BillingService}
+     * for the read/write logic.
+     *
+     * <p>Response codes:
+     * <ul>
+     *   <li>200 — gate passed, counter incremented; the frontend should now fire the AI batch.</li>
+     *   <li>402 — caller has no active subscription.</li>
+     *   <li>429 — period quota exceeded; body's {@code details} carries
+     *       {@code limit / used / periodEnd} so the frontend can render the paywall.</li>
+     *   <li>404 — report doesn't exist or isn't owned by the caller.</li>
+     * </ul>
+     *
+     * @param principal  authenticated caller
+     * @param id         report UUID
+     * @param authHeader incoming {@code Authorization} header — forwarded to Kinde's
+     *                   Account API by {@link BillingService} to read the caller's entitlements
+     * @return HTTP 200 on success (empty body — caller already has the report context)
+     */
+    @PostMapping("/{id}/generate")
+    public ResponseEntity<Void> startGeneration(
+            @CurrentUser AuthenticatedUser principal,
+            @PathVariable UUID id,
+            @RequestHeader("Authorization") String authHeader) {
+        // Ownership check first — fires 404 on missing/foreign report BEFORE we charge.
+        reportService.getOwned(id, principal.id());
+        billingService.recordGeneration(principal.id(), principal.externalUserId(), stripBearer(authHeader));
+        return ResponseEntity.ok().build();
+    }
+
+    /** Strips the {@code "Bearer "} prefix so we can forward just the raw JWT downstream. */
+    private static String stripBearer(String authHeader) {
+        if (authHeader == null) return null;
+        if (authHeader.regionMatches(true, 0, "Bearer ", 0, BEARER_PREFIX_LENGTH)) {
+            return authHeader.substring(BEARER_PREFIX_LENGTH).trim();
+        }
+        return authHeader.trim();
     }
 
     /**

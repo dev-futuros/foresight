@@ -53,6 +53,11 @@ public record SecurityProperties(boolean authDisabled, Kinde kinde, Cors cors, R
      *                               {@code <workspace>.kinde.com/api} even when all the URLs
      *                               above can be served via the custom domain. Mismatches yield
      *                               {@code "audience not whitelisted"} from the token endpoint.
+     * @param accountApiBaseUrl      base URL of the user-token-scoped Account API used for
+     *                               billing entitlements + per-user profile reads (e.g.
+     *                               {@code <domain>/account_api/v1}). Distinct from the
+     *                               Management API: scoped to "the user the token is for",
+     *                               called with the caller's own access token (no M2M creds).
      * @param m2mClientId            Client ID of the Machine-to-Machine app created in the Kinde
      *                               Dashboard. Granted the {@code read:users} scope on the
      *                               Management API. Blank disables the backend client (lazy-
@@ -66,6 +71,7 @@ public record SecurityProperties(boolean authDisabled, Kinde kinde, Cors cors, R
             String tokenEndpoint,
             String managementApiBaseUrl,
             String managementApiAudience,
+            String accountApiBaseUrl,
             String m2mClientId,
             String m2mClientSecret) {}
 

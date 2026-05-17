@@ -115,6 +115,25 @@ export function useUpdateReport() {
   });
 }
 
+/**
+ * Records a "click Generate" event for a report — gates against the user's per-period quota
+ * on the Kinde plan and increments the counter when the gate passes. Called by the wizard's
+ * Generate handler RIGHT BEFORE the parallel Anthropic batch fires, so no AI tokens are
+ * spent when the gate rejects (HTTP 429 or 402).
+ *
+ * <p>Every call counts on purpose — regenerating a completed report also consumes a slot.
+ * On success, invalidates the billing cache so the AccountModal's usage chip refreshes.
+ */
+export function useStartGeneration() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (reportId: string) => {
+      await api.post(`/reports/${reportId}/generate`);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['billing'] }),
+  });
+}
+
 export function useDeleteReport() {
   const qc = useQueryClient();
   return useMutation({

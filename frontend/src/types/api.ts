@@ -16,6 +16,24 @@ export interface UserResponse {
   language: string;
 }
 
+/**
+ * Composed billing snapshot returned by `GET /api/billing/entitlements`. Joins Kinde Account
+ * API data (plan + per-feature limits) with the local report count for the current period.
+ */
+export interface BillingProfileResponse {
+  userId: string;
+  /** Kinde plan key (e.g. "pro") or null when the user has no active subscription. */
+  plan: string | null;
+  /** Per-period cap from `reports_per_periodo`. Null when `plan` is null. */
+  reportsLimit: number | null;
+  /** Reports the user has created since `periodStart` (counted locally). */
+  reportsUsed: number;
+  /** ISO-8601 timestamp the current monthly period began. */
+  periodStart: string;
+  /** ISO-8601 timestamp the current period ends. */
+  periodEnd: string;
+}
+
 export interface ReportSummary {
   id: string;
   title: string;
@@ -147,6 +165,12 @@ export interface ApiError {
   message: string;
   path: string;
   fieldErrors: { field: string; message: string }[] | null;
+  /**
+   * Status-specific structured details. Populated by the backend on errors that need extra
+   * data alongside the standard envelope — e.g. `{ limit, used, periodEnd }` on the 429
+   * from the billing gate, so the frontend can render a richer paywall.
+   */
+  details?: Record<string, unknown> | null;
 }
 
 // Share

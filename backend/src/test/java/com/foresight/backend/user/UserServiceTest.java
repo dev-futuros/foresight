@@ -73,7 +73,7 @@ class UserServiceTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(kindeBackendClient.fetchUser(user.getExternalUserId()))
                 .thenReturn(Optional.of(new KindeBackendClient.KindeUser(
-                        "kp_remote", "Alice", "Anders", "alice@example.com", "https://cdn/pic.png")));
+                        "kp_remote", "Alice", "Anders", "alice@example.com", "https://cdn/pic.png", null)));
         when(kindeBackendClient.fetchUserProperties(user.getExternalUserId()))
                 .thenReturn(Map.of(UserService.LANGUAGE_PROPERTY_KEY, "en"));
 

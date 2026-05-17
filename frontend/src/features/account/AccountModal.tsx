@@ -1,10 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
+import { useQueryClient } from '@tanstack/react-query';
+import type { PortalPage } from '@kinde/js-utils';
 import Modal from '../../components/Modal';
 import { useUpdateProfile } from '../../hooks/useAccount';
 import { useCurrentUser } from '../../hooks/useAuth';
+import { useBillingProfile } from '../../hooks/useBilling';
+import api from '../../lib/api';
 import { extractApiErrorMessage } from '../../lib/apiError';
+import type { BillingProfileResponse } from '../../types/api';
 import Avatar from './Avatar';
 import './account.css';
 
@@ -49,7 +55,10 @@ type StatusMsg = { type: 'ok' | 'err'; text: string } | null;
  */
 export default function AccountModal({ open, onClose }: Readonly<Props>) {
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { data: user, isLoading } = useCurrentUser();
+  const { data: billing } = useBillingProfile();
   const { generatePortalUrl } = useKindeAuth();
   const updateProfile = useUpdateProfile();
 
@@ -64,23 +73,48 @@ export default function AccountModal({ open, onClose }: Readonly<Props>) {
   // button during the request keeps the user from firing multiple windows.
   const [portalOpening, setPortalOpening] = useState(false);
 
+  // ─── DEBUG: meter push test ───────────────────────────────────────────────
+  // Temporary button that fires the FULL recordGeneration flow on the backend
+  // (Property counter +1 + meter push +1), exactly like a real wizard Generate
+  // click but without the AI batch. The response is the freshly composed
+  // BillingProfileResponse so we can see both counters move in one shot.
+  // Remove once the wizard flow is reliable end-to-end.
+  const [meterDebug, setMeterDebug] = useState<string | null>(null);
+  const [meterDebugPending, setMeterDebugPending] = useState(false);
+  async function debugMeterPush() {
+    setMeterDebugPending(true);
+    setMeterDebug(null);
+    try {
+      const res = await api.post<BillingProfileResponse>('/billing/_debug/push-meter');
+      setMeterDebug(JSON.stringify(res.data, null, 2));
+      // Make the modal's quota chip refresh too — TanStack Query won't know on its own
+      // that this request mutated billing state.
+      await queryClient.invalidateQueries({ queryKey: ['billing'] });
+    } catch (err) {
+      setMeterDebug('Request failed: ' + extractApiErrorMessage(err, 'unknown'));
+    } finally {
+      setMeterDebugPending(false);
+    }
+  }
+
   /**
-   * Opens Kinde's hosted account page in a new tab so the user can manage password,
-   * MFA, and active sessions without losing app state. We bypass the SDK's
+   * Opens Kinde's hosted account page in a new tab. We bypass the SDK's
    * `<PortalLink>` component (which forces same-tab navigation) and call
-   * `generatePortalUrl` directly, then `window.open(..., '_blank')`.
+   * `generatePortalUrl` directly, then `window.open(..., '_blank')`. New tab
+   * keeps the user signed in on our side and preserves app state behind it.
    *
-   * <p>{@code subNav} is omitted on purpose: Kinde's enum only exposes {@code profile}
-   * as a useful target and lands on the same page as the default anyway, so passing
-   * it adds a typed-enum import for no behavioural gain. {@code returnUrl} only
-   * matters if the user returns via Kinde's in-page "back" button rather than
-   * closing the tab; we pass the current href as a sensible default.
+   * <p>{@code subNav} accepts Kinde's {@code PortalPage} enum values (typed via the
+   * type-only import) to deep-link to a specific tab — e.g. {@code plan_details}
+   * for the billing section. Default (omitted) lands on the profile page.
+   * {@code returnUrl} only matters if the user navigates back via Kinde's in-page
+   * "back" button rather than closing the tab; we pass the current href.
    */
-  async function openKindePortal() {
+  async function openKindePortal(subNav?: PortalPage) {
     if (portalOpening) return;
     setPortalOpening(true);
     try {
       const result = await generatePortalUrl({
+        ...(subNav ? { subNav } : {}),
         returnUrl: window.location.href,
       });
       window.open(result.url.toString(), '_blank', 'noopener,noreferrer');
@@ -275,6 +309,111 @@ export default function AccountModal({ open, onClose }: Readonly<Props>) {
                 </button>
               </div>
             </form>
+          </section>
+
+          {/* BILLING — current plan + per-period usage, both read-only. CTA branches on
+              subscription state: no plan → "Subscribe" routes in-app to /pricing (we want
+              the user to see what they're paying for before hitting Kinde's flow); active
+              plan → "Manage in Kinde" opens the portal on plan-details (cancel / change
+              card / invoices). */}
+          <section className="account-modal-section">
+            <h3 className="account-modal-section-title">{t('account.billing.title')}</h3>
+            <div className="account-modal-form">
+              <div className="account-modal-field">
+                <label htmlFor="account-modal-plan">{t('account.billing.plan')}</label>
+                <input
+                  id="account-modal-plan"
+                  className="account-modal-input--readonly"
+                  value={
+                    billing?.plan
+                      ? t(`account.billing.planNames.${billing.plan}`, {
+                          defaultValue: billing.plan,
+                        })
+                      : t('account.billing.noPlan')
+                  }
+                  readOnly
+                />
+              </div>
+              {billing?.plan && billing.reportsLimit != null && (
+                <div className="account-modal-field">
+                  <label htmlFor="account-modal-usage">{t('account.billing.usage')}</label>
+                  <input
+                    id="account-modal-usage"
+                    className="account-modal-input--readonly"
+                    value={t('account.billing.usageValue', {
+                      used: billing.reportsUsed,
+                      limit: billing.reportsLimit,
+                    })}
+                    readOnly
+                  />
+                </div>
+              )}
+              {/* DEBUG — remove once meter push is reliable. Surfaces the exact failure
+                  step (no customer_id / no agreement / scope missing / etc.) instead of
+                  swallowing it like the production path does. */}
+              {billing?.plan && (
+                <div className="account-modal-field">
+                  <button
+                    type="button"
+                    className="modal-btn"
+                    onClick={() => {
+                      void debugMeterPush();
+                    }}
+                    disabled={meterDebugPending}
+                    style={{ alignSelf: 'flex-start' }}
+                  >
+                    {meterDebugPending ? '⏳ Pushing…' : '🔧 Test meter push'}
+                  </button>
+                  {meterDebug && (
+                    <pre
+                      style={{
+                        marginTop: 8,
+                        padding: 10,
+                        background: 'var(--surface-3)',
+                        border: '1px solid var(--line)',
+                        borderRadius: 4,
+                        fontFamily: 'var(--mono)',
+                        fontSize: 11,
+                        color: 'var(--ink)',
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                        maxHeight: 200,
+                        overflow: 'auto',
+                      }}
+                    >
+                      {meterDebug}
+                    </pre>
+                  )}
+                </div>
+              )}
+              <div className="account-modal-section-actions">
+                {billing?.plan ? (
+                  <button
+                    type="button"
+                    className="modal-btn"
+                    onClick={() => {
+                      void openKindePortal('plan_details' as PortalPage);
+                    }}
+                    disabled={portalOpening}
+                  >
+                    {portalOpening
+                      ? t('account.billing.opening')
+                      : t('account.billing.manage')}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="modal-btn modal-btn--primary"
+                    onClick={() => {
+                      onClose();
+                      navigate('/pricing');
+                    }}
+                  >
+                    {t('account.billing.subscribe')}
+                  </button>
+                )}
+              </div>
+            </div>
           </section>
 
           {/* SIGN-IN — email shown read-only (it's Kinde-managed) + a single
