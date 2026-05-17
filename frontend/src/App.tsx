@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { KindeProvider, useKindeAuth } from '@kinde-oss/kinde-auth-react';
@@ -98,10 +98,21 @@ function AppRoutes() {
       {/* Unknown / bare paths land on the new-report wizard. ProtectedRoute
           intercepts guests and triggers a direct redirect to Kinde — there
           is no React-side sign-in splash anymore. Authenticated users see
-          /reports/new with the welcome modal. */}
-      <Route path="*" element={<Navigate to="/reports/new" replace />} />
+          /reports/new with the welcome modal.
+          The search string is forwarded so a guest hitting `/?lang=es` still
+          carries `?lang=es` into ProtectedRoute, where it gets passed to
+          Kinde's login() as the requested language. A literal
+          `<Navigate to="/reports/new" />` would strip the query. */}
+      <Route path="*" element={<CatchAllRedirect />} />
     </Routes>
   );
+}
+
+/** Catch-all that preserves the URL's query string when redirecting to
+ * `/reports/new`. See the comment on the route above for why this matters. */
+function CatchAllRedirect() {
+  const location = useLocation();
+  return <Navigate to={{ pathname: '/reports/new', search: location.search }} replace />;
 }
 
 const KINDE_DOMAIN = import.meta.env.VITE_KINDE_DOMAIN;
