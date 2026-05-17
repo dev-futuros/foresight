@@ -11,13 +11,18 @@ import { useTranslation } from 'react-i18next';
  *     restored on a hard reload.
  *   - Hydrated and signed-in: render the children.
  *   - Hydrated and signed-out: trigger Kinde's hosted login flow directly.
- *     No intermediate React splash — Kinde's own pages are themselves
- *     branded (via the foresight-kinde custom-UI repo).
  *
- * Language is intentionally NOT forwarded here. The homepage is the
- * authoritative source for which language Kinde renders in — the app
- * doesn't (yet) participate in the language handoff. When the post-login
- * profile-read work lands, this guard may need to revisit that.
+ * <p><b>Language forwarding (option B in the language-routing discussion):</b>
+ * If the URL has `?lang=`, pass it through to Kinde's `login()` so the
+ * hosted auth page renders in the requested language. This is the ONLY
+ * place we read the URL param; it's not threaded into i18n. Without this
+ * hop, Kinde never sees the language because it only honours `lang` when
+ * supplied to the OAuth flow start — see Kinde's docs on language
+ * detection priority.
+ *
+ * <p>Catalan is hijacked onto Kinde's Polish slot (`pl`) because Kinde
+ * doesn't natively support `ca` — see `foresight-kinde/src/i18n.ts` for
+ * the reverse mapping that picks Catalan back up on the Kinde side.
  */
 export default function ProtectedRoute({ children }: Readonly<{ children: React.ReactNode }>) {
   const { t } = useTranslation();
@@ -25,7 +30,9 @@ export default function ProtectedRoute({ children }: Readonly<{ children: React.
 
   useEffect(() => {
     if (isLoading || isAuthenticated) return;
-    void login();
+    const urlLang = new URLSearchParams(globalThis.location.search).get('lang');
+    const kindeLang = urlLang === 'ca' ? 'pl' : urlLang;
+    void login(kindeLang ? { lang: kindeLang } : undefined);
   }, [isLoading, isAuthenticated, login]);
 
   if (isLoading || !isAuthenticated) {
