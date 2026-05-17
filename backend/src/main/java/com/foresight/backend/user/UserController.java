@@ -32,28 +32,32 @@ public class UserController {
     private final UserService userService;
 
     /**
-     * Returns the caller's profile.
+     * Returns the caller's composed profile — local row joined with Kinde stock fields and
+     * Properties. See {@link UserService#getProfile(java.util.UUID)} for the composition.
      *
      * @param principal automatically resolved from the JWT
      * @return a {@link UserResponse} projection of the current user
      */
     @GetMapping("/me")
     public UserResponse me(@CurrentUser AuthenticatedUser principal) {
-        return UserResponse.from(userService.getById(principal.id()));
+        return userService.getProfile(principal.id());
     }
 
     /**
-     * Partially updates the caller's profile. Only {@code name} and {@code language} can be
-     * changed from here; credentials and role changes go through dedicated flows.
+     * Partially updates the caller's profile. {@code name} is pushed to Kinde stock
+     * ({@code first_name}/{@code last_name}); {@code language} is pushed to the Kinde Property
+     * {@code language}. Local row is not touched — Kinde owns the data. Credentials, email,
+     * and role changes still go through their own dedicated flows (Kinde-hosted in the case
+     * of credentials/email).
      *
      * @param principal authenticated caller
      * @param request   validated partial update
-     * @return the updated profile projection
+     * @return the updated profile projection (re-fetched after the Kinde write)
      */
     @PatchMapping("/me")
     public UserResponse updateMe(
             @CurrentUser AuthenticatedUser principal, @Valid @RequestBody UpdateUserRequest request) {
-        return UserResponse.from(userService.updateProfile(principal.id(), request.name(), request.language()));
+        return userService.updateProfile(principal.id(), request.name(), request.language());
     }
 
     /**

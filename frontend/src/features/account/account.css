@@ -1,11 +1,14 @@
 /* ============================================================
    ACCOUNT MODAL
    Layout for AccountModal — the overlay opened from the topbar
-   avatar button. Carries language preferences, role view, the
-   "manage account in Kinde" link out, and sign-out. The Modal
-   primitive (components/Modal.tsx + components/modal.css) owns
-   the backdrop, dialog body, ESC handling, focus trap, and
-   entrance animation; this stylesheet only paints the interior.
+   avatar dropdown's "Profile" item. Carries the editable
+   identity block (avatar + name + email + role) and the
+   language preferences. Sign-out and Kinde-portal navigation
+   live in the avatar dropdown menu (see accountMenu.css), not
+   in this modal. The Modal primitive (components/Modal.tsx +
+   components/modal.css) owns the backdrop, dialog body, ESC
+   handling, focus trap, and entrance animation; this stylesheet
+   only paints the interior.
 
    Tokens come from src/index.css.
    ============================================================ */
@@ -119,6 +122,58 @@
   flex-wrap: wrap;
 }
 
+/* ── Identity block (avatar + name + role badge at top of modal) ────
+   Sits above all sections, not inside one — it's "who you are", not
+   editable data. Email used to live here as a small subtitle under
+   the name; it now has its own field in the sign-in section below,
+   so we don't duplicate it here. */
+.account-modal-identity {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 4px 0 18px;
+}
+.account-modal-identity-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0; /* allow flex child to shrink so long names truncate */
+}
+.account-modal-identity-name {
+  font-family: var(--serif, var(--sans));
+  font-size: 16px;
+  color: var(--ink);
+  margin: 0;
+  /* Truncate long names so the row stays one line at any width.
+     The role badge is inline-block so it stays on the same line. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Small pill next to the name showing the user's role. Subtle (gold
+   tint on translucent background) so it reads as metadata, not as
+   a primary affordance. The role isn't editable from anywhere in the
+   app — promoting it to a form field made the modal feel emptier. */
+.account-modal-role-badge {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 2px 8px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold);
+  background: var(--gold-bg);
+  border: 1px solid hsla(40, 60%, 56%, 0.25);
+  border-radius: 4px;
+  /* Nudge up so the small caps sit on the name's baseline. */
+  vertical-align: middle;
+  position: relative;
+  top: -1px;
+}
+
 /* ── Form fields (preferences) ───────────────────────────── */
 .account-modal-form {
   display: flex;
@@ -182,12 +237,3 @@
   border: 1px solid hsla(0, 80%, 70%, 0.30);
 }
 
-/* PortalLink renders an <a>; align it visually with the .modal-btn
-   palette so all three section actions feel uniform. The .modal-btn
-   class itself already provides padding / border / hover, this just
-   strips the link defaults. */
-.account-modal-section-actions a.modal-btn {
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-}

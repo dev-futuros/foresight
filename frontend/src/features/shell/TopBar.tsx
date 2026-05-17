@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { dispatch as dispatchCommand } from '../../lib/commandBus';
+import AccountMenu from '../account/AccountMenu';
 
 type TopBarProps = {
   /**
@@ -15,10 +16,10 @@ type TopBarProps = {
 
 /**
  * Sticky top bar — brand on the left, action cluster on the right:
- * new-report icon (gold) → dashboard icon → account icon. The account icon
- * opens an overlay modal (mounted in {@link AppShell}) with language
- * preferences, role view, a link out to Kinde's hosted portal for
- * email/password/MFA management, and the sign-out button.
+ * new-report icon (gold) → dashboard icon → account avatar menu. The avatar
+ * opens a small dropdown with "Profile" (which opens the {@link AccountModal}
+ * overlay mounted in {@link AppShell}) and "Logout" (which delegates to
+ * Kinde's hosted logout flow).
  *
  * <p>The autosave chip used to live here, but it now sits inline above
  * the wizard's input form (see {@code wizard-save-row} in
@@ -71,21 +72,11 @@ export default function TopBar({ onOpenAccount }: Readonly<TopBarProps>) {
               <use href="#i-grid" />
             </svg>
           </Link>
-          {/* Account — opens the AccountModal overlay (mounted in AppShell).
-              Hosts language settings, role view, "manage account" out to
-              Kinde's hosted portal for email/password/MFA, and sign-out. */}
-          <button
-            type="button"
-            className="btn-ghost btn-ghost--icon"
-            data-tooltip={t('nav.account')}
-            data-tooltip-pos="below"
-            aria-label={t('nav.account')}
-            onClick={onOpenAccount}
-          >
-            <svg className="btn-ghost-ico" aria-hidden>
-              <use href="#i-user" />
-            </svg>
-          </button>
+          {/* Account — avatar trigger that opens a small dropdown with
+              Profile (which itself opens the AccountModal overlay mounted in
+              AppShell) and Logout. Replaces the previous bare icon button
+              so the affordance matches mainstream SaaS account menus. */}
+          <AccountMenu onProfileClick={onOpenAccount} />
         </div>
       </div>
     </header>

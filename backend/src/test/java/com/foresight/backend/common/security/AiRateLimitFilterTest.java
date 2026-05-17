@@ -33,6 +33,7 @@ class AiRateLimitFilterTest {
                         "https://test.kinde.com/.well-known/jwks",
                         "https://test.kinde.com/oauth2/token",
                         "https://test.kinde.com/api/v1",
+                        "https://test.kinde.com/api",
                         "",
                         ""),
                 new SecurityProperties.Cors(List.of()),

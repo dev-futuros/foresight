@@ -100,7 +100,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 if (externalUserId == null || externalUserId.isBlank()) {
                     log.debug("JWT decoded but `sub` claim is empty");
                 } else {
-                    User user = userService.findOrCreateByExternalUserId(externalUserId, jwt);
+                    User user = userService.findOrCreateByExternalUserId(externalUserId);
                     authenticate(user);
                 }
             } catch (JwtException ex) {

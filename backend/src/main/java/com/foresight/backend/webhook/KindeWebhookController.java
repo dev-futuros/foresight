@@ -81,7 +81,13 @@ public class KindeWebhookController {
                     log.warn("Kinde {} webhook payload missing data.userId", type);
                     return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
                 }
-                userService.upsertFromExternal(externalUserId, composedName(data));
+                // user.created → idempotent insert so the local row exists for FKs even
+                // before the user logs in for the first time.
+                // user.updated → effectively a no-op for us now: profile fields (name,
+                // language, email) live in Kinde, so there's nothing local to update.
+                // We still call upsertFromExternal to handle the redelivery case where
+                // the original user.created was lost.
+                userService.upsertFromExternal(externalUserId);
             }
             case "user.deleted" -> {
                 String externalUserId = stringOrNull(data, "userId");
@@ -106,19 +112,5 @@ public class KindeWebhookController {
         if (value == null) return null;
         String str = value.toString();
         return str.isBlank() ? null : str;
-    }
-
-    /**
-     * Composes a display name from {@code data.firstName} / {@code data.lastName}, returning
-     * {@code null} when neither is present so {@code UserService.upsertFromExternal} can leave
-     * the existing value alone.
-     */
-    private static String composedName(Map<String, Object> data) {
-        String first = stringOrNull(data, "firstName");
-        String last = stringOrNull(data, "lastName");
-        if (first == null && last == null) return null;
-        if (first == null) return last;
-        if (last == null) return first;
-        return first + " " + last;
     }
 }

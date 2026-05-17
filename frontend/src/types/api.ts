@@ -5,8 +5,14 @@ export type ReportStatus = 'DRAFT' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 
 export interface UserResponse {
   id: string;
+  /** Composed from Kinde first_name + last_name. May be null on first sign-in before the user fills it in. */
   name: string | null;
+  /** Kinde `preferred_email`. Read-only on our side — change via Kinde's hosted account flow. */
+  email: string | null;
+  /** Kinde `picture` URL. Null when the user hasn't set a profile picture. */
+  picture: string | null;
   role: UserRole;
+  /** Kinde Property `language`. Defaults to "es" when unset. */
   language: string;
 }
 

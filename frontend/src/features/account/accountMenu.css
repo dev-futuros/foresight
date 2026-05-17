@@ -1,0 +1,129 @@
+/* ============================================================
+   ACCOUNT MENU
+   Topbar trigger (avatar circle) + dropdown popover with two
+   items: Profile and Logout. Anchored relative to the trigger
+   so it floats below the topbar without a portal — keeps the
+   topbar component self-contained.
+
+   Tokens come from src/index.css.
+   ============================================================ */
+
+.account-menu {
+  position: relative;
+  display: inline-flex;
+}
+
+/* ── Trigger button (wraps the Avatar) ───────────────────── */
+.account-menu-trigger {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 50%;
+  /* The visible ring around the avatar comes from .avatar's
+     box-shadow; the trigger only adds a focus ring on keyboard
+     focus so mouse users don't see a flash on click. */
+  transition: box-shadow 150ms var(--ease);
+}
+.account-menu-trigger:focus {
+  outline: none;
+}
+.account-menu-trigger:focus-visible {
+  box-shadow: 0 0 0 2px var(--gold-soft);
+}
+.account-menu-trigger:hover .avatar {
+  /* Subtle gold tint on hover so the avatar reads as interactive,
+     matching the .btn-ghost--icon hover pattern elsewhere in the
+     topbar. */
+  box-shadow: inset 0 0 0 1px var(--line-accent);
+}
+
+/* ── Popover (dropdown panel) ────────────────────────────── */
+.account-menu-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 180px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  /* Lift the panel above page content. Same shadow profile as the
+     modal so floating surfaces feel like one family. */
+  box-shadow: 0 12px 32px hsla(0, 0%, 0%, 0.32);
+  padding: 6px;
+  /* Above the sticky topbar's own z-context but below the modal
+     overlay (1000+); 100 leaves room above the wizard's sticky
+     stepper (which lives in the same shell). */
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  /* Entrance: tiny fade + drop so the popover doesn't pop hard. */
+  animation: account-menu-in 120ms var(--ease) both;
+  transform-origin: top right;
+}
+@keyframes account-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ── Menu items ──────────────────────────────────────────── */
+.account-menu-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: var(--r-sm);
+  padding: 8px 12px;
+  font-family: var(--sans);
+  font-size: 13px;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 120ms var(--ease), color 120ms var(--ease);
+}
+.account-menu-item:hover,
+.account-menu-item:focus-visible {
+  background: var(--surface-3);
+  outline: none;
+}
+.account-menu-item:focus-visible {
+  /* Keyboard-only ring inside the popover. Subtle because the row
+     already has a hover background. */
+  box-shadow: inset 0 0 0 1px var(--line-accent);
+}
+.account-menu-item-ico {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+  color: var(--ink-mute);
+}
+.account-menu-item:hover .account-menu-item-ico,
+.account-menu-item:focus-visible .account-menu-item-ico {
+  color: var(--gold);
+}
+
+/* Danger variant — Logout. Same shape, red palette on interaction
+   so the destructive action reads at a glance. */
+.account-menu-item--danger:hover,
+.account-menu-item--danger:focus-visible {
+  background: var(--red-bg);
+  color: var(--red);
+}
+.account-menu-item--danger:hover .account-menu-item-ico,
+.account-menu-item--danger:focus-visible .account-menu-item-ico {
+  color: var(--red);
+}

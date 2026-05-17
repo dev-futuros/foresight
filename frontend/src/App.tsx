@@ -71,6 +71,23 @@ function CallbackRoute() {
   return <div className="loading-screen">{t('common.loading')}</div>;
 }
 
+/**
+ * Catch-all route that decides where to land based on auth state, so an
+ * unauthenticated user hitting `/` (or any unknown path) sees the sign-in
+ * page directly instead of flashing through `/reports/new` and being bounced
+ * by {@link ProtectedRoute}.
+ *
+ * Authenticated users land on `/reports/new` (the onboarding wizard), matching
+ * the previous behaviour. We wait for Kinde to finish hydrating before deciding
+ * so a hard reload with a live session doesn't bounce to sign-in by mistake.
+ */
+function RootRoute() {
+  const { t } = useTranslation();
+  const { isLoading, isAuthenticated } = useKindeAuth();
+  if (isLoading) return <div className="loading-screen">{t('common.loading')}</div>;
+  return <Navigate to={isAuthenticated ? '/reports/new' : '/sign-in'} replace />;
+}
+
 function AppRoutes() {
   useLanguageSync();
   return (
@@ -86,11 +103,12 @@ function AppRoutes() {
         <Route path="/reports/:id/edit" element={<NewReportPage />} />
         <Route path="/reports/:id" element={<ReportPage />} />
       </Route>
-      {/* Unknown / bare paths land on the new-report wizard so a freshly
-          loaded app shows the onboarding dialog instead of the dashboard.
-          ProtectedRoute will intercept and bounce to /sign-in for guests;
-          authenticated users see /reports/new with the welcome modal. */}
-      <Route path="*" element={<Navigate to="/reports/new" replace />} />
+      {/* Unknown / bare paths defer to RootRoute, which picks the landing page
+          based on auth state — sign-in for guests, the onboarding wizard for
+          authenticated users. Routed this way (instead of `Navigate to=
+          "/reports/new"` + ProtectedRoute bounce) so guests don't see the
+          wizard URL flash before being redirected. */}
+      <Route path="*" element={<RootRoute />} />
     </Routes>
   );
 }

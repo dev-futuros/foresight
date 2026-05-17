@@ -2,7 +2,9 @@ package com.foresight.backend.common.security;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -182,14 +184,16 @@ public class KindeBackendClient {
      * Performs an OAuth2 {@code client_credentials} request against Kinde's token endpoint to
      * obtain a fresh Management API access token. The {@code audience} parameter pins the token
      * to the Management API (Kinde routes tokens by audience). For stock Kinde tenants the
-     * audience is always {@code <domain>/api}.
+     * audience is {@code <domain>/api} (the default). For tenants with a custom domain the
+     * audience stays as the canonical {@code <workspace>.kinde.com/api} — see
+     * {@link SecurityProperties.Kinde#managementApiAudience()}.
      */
     private CachedToken fetchNewAccessToken() {
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
         form.add("grant_type", "client_credentials");
         form.add("client_id", kinde.m2mClientId());
         form.add("client_secret", kinde.m2mClientSecret());
-        form.add("audience", kinde.domain() + "/api");
+        form.add("audience", kinde.managementApiAudience());
 
         TokenResponse response = restClient
                 .post()
@@ -225,7 +229,84 @@ public class KindeBackendClient {
     }
 
     /**
-     * Subset of Kinde's user response — only the fields we currently mirror locally.
+     * Fetches the user's custom Properties from Kinde. Returns an empty map if the client is
+     * disabled, the user doesn't exist, or any error happens — same best-effort semantics as
+     * {@link #fetchUser}. The caller decides how to fall back when a key is missing (typically
+     * by applying a service-side default like {@code "es"} for {@code language}).
+     *
+     * <p>Properties are defined per-tenant in Kinde Dashboard → Settings → Properties; reading a
+     * key that hasn't been defined yields a missing entry (not an error). Values come back as
+     * strings — Kinde's Property values are always stringly-typed even when the property is
+     * declared as a boolean / integer in the dashboard.
+     *
+     * <p>Requires the M2M app to have {@code read:user_properties} granted.
+     */
+    public Map<String, String> fetchUserProperties(String externalUserId) {
+        if (!enabled || externalUserId == null || externalUserId.isBlank()) {
+            return Map.of();
+        }
+        try {
+            String token = ensureAccessToken();
+            KindePropertyValuesResponse response = restClient
+                    .get()
+                    .uri(kinde.managementApiBaseUrl() + "/users/{id}/properties", externalUserId)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                    .retrieve()
+                    .body(KindePropertyValuesResponse.class);
+            if (response == null || response.properties() == null) {
+                return Map.of();
+            }
+            // Kinde returns an array of {key, value} pairs; flatten to a map so callers can do
+            // O(1) lookups. Last-wins on key collisions, which shouldn't happen in practice
+            // (Kinde's dashboard enforces unique keys).
+            Map<String, String> out = new LinkedHashMap<>();
+            for (KindeProperty p : response.properties()) {
+                if (p.key() != null) out.put(p.key(), p.value());
+            }
+            return out;
+        } catch (Exception e) {
+            log.warn("Could not fetch Kinde properties for user {}: {}", externalUserId, e.getMessage());
+            return Map.of();
+        }
+    }
+
+    /**
+     * Updates one or more Kinde Properties for the user in a single PATCH. The map's keys must
+     * match Property keys defined in Kinde Dashboard → Settings → Properties; updating a key
+     * that doesn't exist yields a 400 from Kinde. Values are coerced to strings on the wire
+     * (Kinde stores Property values as strings regardless of declared type).
+     *
+     * <p>Unlike {@link #fetchUserProperties}, failures here are propagated as runtime exceptions
+     * so the caller can surface them to the user (same reasoning as {@link #updateUser}: a
+     * silent swallow would let the next webhook overwrite the intended change with the stale
+     * value, which the user would experience as data loss).
+     *
+     * <p>No-op when the map is empty so callers can build it conditionally without guarding.
+     * Disabled-mode is also a no-op, matching {@link #fetchUser}.
+     *
+     * <p>Requires the M2M app to have {@code update:user_properties} granted.
+     */
+    public void updateUserProperties(String externalUserId, Map<String, String> properties) {
+        if (!enabled || externalUserId == null || externalUserId.isBlank() || properties == null || properties.isEmpty()) {
+            return;
+        }
+        String token = ensureAccessToken();
+        // Wrap the flat map in the {properties: {…}} envelope Kinde's PATCH expects — see
+        // https://github.com/kinde-oss/management-api-js (lib/api/sdk.gen.ts, updateUserProperties).
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("properties", properties);
+        restClient
+                .patch()
+                .uri(kinde.managementApiBaseUrl() + "/users/{id}/properties", externalUserId)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body)
+                .retrieve()
+                .toBodilessEntity();
+    }
+
+    /**
+     * Subset of Kinde's user response — only the fields we read on our side.
      *
      * <p>Kinde's documentation is inconsistent about which naming convention the Management API
      * GET response uses: some sources say snake_case OIDC ({@code given_name}/{@code family_name}),
@@ -240,7 +321,9 @@ public class KindeBackendClient {
     public record KindeUser(
             String id,
             @JsonProperty("first_name") @JsonAlias("given_name") String firstName,
-            @JsonProperty("last_name") @JsonAlias("family_name") String lastName) {
+            @JsonProperty("last_name") @JsonAlias("family_name") String lastName,
+            @JsonProperty("preferred_email") @JsonAlias({"email"}) String preferredEmail,
+            String picture) {
 
         /**
          * Composes a display name from the first/last fields, returning {@code null} if both
@@ -255,4 +338,26 @@ public class KindeBackendClient {
             return firstName + " " + lastName;
         }
     }
+
+    /**
+     * Envelope returned by {@code GET /api/v1/users/{user_id}/properties}. We only consume
+     * {@code properties}; the {@code code} / {@code message} / {@code next_token} fields are
+     * informational and dropped via {@code @JsonIgnoreProperties}. Pagination isn't relevant in
+     * practice — even a heavy app would have a handful of Properties, well under Kinde's page
+     * size — so we read the first page only.
+     */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record KindePropertyValuesResponse(List<KindeProperty> properties) {
+        public List<KindeProperty> properties() {
+            return properties == null ? Collections.emptyList() : properties;
+        }
+    }
+
+    /**
+     * Single Property entry inside the {@link KindePropertyValuesResponse} array. We only need
+     * {@code key} and {@code value}; the {@code id} / {@code name} / {@code description}
+     * descriptors are dashboard metadata, not data we'd surface to the user.
+     */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record KindeProperty(String key, String value) {}
 }

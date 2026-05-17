@@ -34,10 +34,12 @@ public class DevUserSeeder {
             }
             User user = User.builder()
                     .externalUserId(DevPrincipal.EXTERNAL_USER_ID)
-                    .name(DevPrincipal.NAME)
                     .role(UserRole.USER)
-                    .language("es")
                     .build();
+            // Name + language are no longer mirrored locally (V13 dropped the columns).
+            // The dev profile gets its display name from {@link DevPrincipal#NAME} via
+            // the synthetic-user short-circuit in UserService.getProfile, and its
+            // language defaults to "es" via the same path.
             user.setId(DevPrincipal.ID);
             users.save(user);
             log.info("Seeded dev user id={} externalId={}", DevPrincipal.ID, DevPrincipal.EXTERNAL_USER_ID);

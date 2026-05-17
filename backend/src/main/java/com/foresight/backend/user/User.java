@@ -19,12 +19,23 @@ import lombok.Setter;
  *
  * <p>Inherits {@code id} (UUID), {@code createdAt} and {@code updatedAt} from {@link BaseEntity}.
  *
- * <p>Authentication is delegated to an external identity provider (Kinde): passwords, email
- * verification, MFA, and session management all live there.
- * Email is also the provider's responsibility — the local row only mirrors the profile fields
- * the app actually consumes (name, role, language) plus a stable {@code externalUserId} that
- * links the local row to the provider's user. That id is what we look up when validating an
- * incoming session JWT.
+ * <p>Authentication AND profile data are delegated to Kinde — the local row is intentionally
+ * thin: it only holds what we need to join business data (reports, subscriptions) and to
+ * enforce authorization. Specifically:
+ *
+ * <ul>
+ *   <li>{@code id} (UUID, inherited) — foreign-key target for every owned resource.</li>
+ *   <li>{@code externalUserId} — pointer back into Kinde's user store.</li>
+ *   <li>{@code role} — authorization concern; checked on every request, would be too
+ *       expensive to fetch from Kinde Properties each time.</li>
+ *   <li>{@code createdAt} / {@code updatedAt} (inherited) — local audit timestamps.</li>
+ * </ul>
+ *
+ * <p>Profile fields that used to live here — {@code name} (V1) and {@code language} (V1) —
+ * moved out in V13. {@code name} is now read from Kinde's stock {@code first_name} /
+ * {@code last_name} fields; {@code language} is now a Kinde Property
+ * ({@code GET /api/v1/users/{user_id}/properties}). See {@code UserService.getProfile}
+ * for how these are joined back together into the {@code UserResponse} surface.
  */
 @Entity
 @Table(name = "users")
@@ -49,15 +60,8 @@ public class User extends BaseEntity {
     @Column(name = "external_user_id", nullable = false, unique = true)
     private String externalUserId;
 
-    /** Optional display name, mirrored from Clerk. */
-    private String name;
-
     /** Authorization role (currently {@code USER} or {@code ADMIN}). */
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private UserRole role;
-
-    /** Preferred UI language (e.g. {@code "es"}, {@code "en"}). */
-    @Column(nullable = false)
-    private String language;
 }

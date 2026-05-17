@@ -31,8 +31,10 @@ public record SecurityProperties(boolean authDisabled, Kinde kinde, Cors cors, R
      * the auth JWTs — there is intentionally no separate webhook signing secret to configure.
      *
      * @param domain                 Kinde tenant URL with scheme, no trailing slash
-     *                               (e.g. {@code https://futuros.kinde.com}). Used to derive
-     *                               the Management API audience (domain + {@code /api}).
+     *                               (e.g. {@code https://futuros.kinde.com}, or a custom domain
+     *                               like {@code https://auth.futuros.io}). Used as the canonical
+     *                               tenant root for any URL derivations that aren't overridden
+     *                               by the more specific fields below.
      * @param issuer                 the {@code iss} claim value Kinde puts in every session JWT
      *                               (same value as {@code domain} for stock Kinde tenants).
      *                               Used by the strict issuer validator on incoming tokens.
@@ -44,6 +46,13 @@ public record SecurityProperties(boolean authDisabled, Kinde kinde, Cors cors, R
      *                               (e.g. {@code <domain>/oauth2/token}).
      * @param managementApiBaseUrl   base URL of the Management API
      *                               (e.g. {@code <domain>/api/v1}) — appended to per-call paths.
+     * @param managementApiAudience  audience identifier of the Management API as registered
+     *                               against the M2M app in Kinde. For stock tenants equal to
+     *                               {@code <domain>/api}. For tenants with a custom domain,
+     *                               Kinde keeps the audience as the original canonical
+     *                               {@code <workspace>.kinde.com/api} even when all the URLs
+     *                               above can be served via the custom domain. Mismatches yield
+     *                               {@code "audience not whitelisted"} from the token endpoint.
      * @param m2mClientId            Client ID of the Machine-to-Machine app created in the Kinde
      *                               Dashboard. Granted the {@code read:users} scope on the
      *                               Management API. Blank disables the backend client (lazy-
@@ -56,6 +65,7 @@ public record SecurityProperties(boolean authDisabled, Kinde kinde, Cors cors, R
             String jwksUri,
             String tokenEndpoint,
             String managementApiBaseUrl,
+            String managementApiAudience,
             String m2mClientId,
             String m2mClientSecret) {}
 
