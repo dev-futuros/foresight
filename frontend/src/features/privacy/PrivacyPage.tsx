@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import LanguageToggle from '../../components/LanguageToggle';
 import './privacy.css';
 
 /**
@@ -23,7 +22,11 @@ export default function PrivacyPage() {
             <span className="privacy-brand-tag">{t('auth.shell.brandTag')}</span>
           </Link>
           <div className="privacy-bar-actions">
-            <LanguageToggle />
+            {/* No in-page language switcher — language is detected from the
+                ?lang= URL param (linker's job), the futuros_lang cookie set
+                on .futuros.io, localStorage, or the browser default, in
+                that order. The active language drives the body copy
+                rendered below (PrivacyES vs PrivacyEN). */}
             <Link to="/" className="privacy-back-link">
               {t('privacy.backLink')}
             </Link>

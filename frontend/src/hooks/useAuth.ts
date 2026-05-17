@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
+import { useTranslation } from 'react-i18next';
 import api from '../lib/api';
 import type { UserResponse } from '../types/api';
 
@@ -40,8 +41,14 @@ export function useIsDev(): boolean {
 }
 
 /**
- * Returns a function that signs the user out of Kinde and redirects to the configured
- * logout URI (Kinde's hosted logout flow handles the actual redirect).
+ * Returns a function that signs the user out of Kinde and redirects to the
+ * configured logout URI with `?lang=<current-language>` appended, so the
+ * branded /logged-out page can render in the user's current language.
+ *
+ * <p>The Kinde React SDK's `logout({ redirectUrl })` option overrides the
+ * static `logoutUri` prop on KindeProvider for this single call. The base
+ * URL still comes from `VITE_KINDE_LOGOUT_REDIRECT_URI` so prod/dev paths
+ * stay configurable; we just append the language at call time.
  *
  * <p>Side effect: clears the per-session "onboarding seen" flag so the next
  * login re-shows the welcome dialog. Without this, a user who logs out and
@@ -51,12 +58,15 @@ export function useIsDev(): boolean {
  */
 export function useLogout() {
   const { logout } = useKindeAuth();
+  const { i18n } = useTranslation();
   return () => {
     try {
       sessionStorage.removeItem('fs_onboarding_seen_this_session');
     } catch {
       /* private mode / quota — ignore */
     }
-    return logout();
+    const base =
+      import.meta.env.VITE_KINDE_LOGOUT_REDIRECT_URI ?? globalThis.location.origin;
+    return logout({ redirectUrl: `${base}?lang=${i18n.language}` });
   };
 }

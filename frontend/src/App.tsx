@@ -17,7 +17,6 @@ import AuthLayout from './features/auth/AuthLayout';
 import AppShell from './features/shell/AppShell';
 import CookieConsent from './features/cookies/CookieConsent';
 import { useLanguageSync } from './hooks/useLanguageSync';
-import { toKindeLang } from './lib/kindeLang';
 import './features/auth/auth.css';
 
 /**
@@ -34,19 +33,17 @@ import './features/auth/auth.css';
  * the wizard.
  */
 function LoggedOutRoute() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { isLoading, isAuthenticated } = useKindeAuth();
   if (!isLoading && isAuthenticated) return <Navigate to="/reports/new" replace />;
   return (
     <AuthLayout>
-      {/* authUrlParams.lang threads the user's current language across the
-          origin boundary into the Kinde-hosted sign-in page so it renders
-          in the same locale they were just reading on /logged-out.
-          toKindeLang() maps our 'ca' to Kinde's 'pl' slot — see kindeLang.ts. */}
-      <LoginLink
-        className="kinde-continue-btn"
-        authUrlParams={{ lang: toKindeLang(i18n.language) }}
-      >
+      {/* No authUrlParams — Kinde will detect the language from the futuros_lang
+          cookie (scoped to .futuros.io, written by i18next's languagedetector)
+          or fall back to the browser's Accept-Language. The homepage is the
+          authoritative source for language at the start of the auth flow; the
+          app only needs to keep the cookie fresh for the cross-subdomain hop. */}
+      <LoginLink className="kinde-continue-btn">
         {t('auth.loggedOut.signInAgain')}
       </LoginLink>
     </AuthLayout>

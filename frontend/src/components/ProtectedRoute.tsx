@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
 import { useTranslation } from 'react-i18next';
-import { toKindeLang } from '../lib/kindeLang';
 
 /**
  * Route guard that defers to Kinde for the auth check.
@@ -16,21 +15,23 @@ import { toKindeLang } from '../lib/kindeLang';
  *     branded (via the foresight-kinde custom-UI repo), so a buffer route
  *     would just be a needless extra click.
  *
- * `authUrlParams.lang` threads the user's current language across the
- * origin boundary into the Kinde-hosted sign-in page so it renders in the
- * locale i18next currently has selected (URL `?lang=`, localStorage, or
- * the browser default — whichever the detector resolved).
+ * Language passing is deliberately *not* done here. The futuros_lang cookie
+ * (scoped to .futuros.io and written by i18next's languagedetector) is the
+ * cross-subdomain carrier — Kinde reads it (or falls back to the browser's
+ * Accept-Language). Threading authUrlParams.lang through every login() call
+ * adds complexity for a marginal edge case (session expiring while the user
+ * is mid-flow in a non-default language) and we accept that briefly seeing
+ * Kinde in the wrong language is fine, because they'll bounce back to the
+ * app where the cookie still carries the correct language.
  */
 export default function ProtectedRoute({ children }: Readonly<{ children: React.ReactNode }>) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { isLoading, isAuthenticated, login } = useKindeAuth();
 
   useEffect(() => {
     if (isLoading || isAuthenticated) return;
-    // toKindeLang maps app 'ca' → Kinde 'pl' (our Polish-slot-as-Catalan
-    // hijack); other languages pass through unchanged. See kindeLang.ts.
-    void login({ authUrlParams: { lang: toKindeLang(i18n.language) } });
-  }, [isLoading, isAuthenticated, login, i18n.language]);
+    void login();
+  }, [isLoading, isAuthenticated, login]);
 
   if (isLoading || !isAuthenticated) {
     return <div className="loading-screen">{t('common.loading')}</div>;
