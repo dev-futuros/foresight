@@ -223,8 +223,8 @@ export default function AssistantCommands() {
       },
     },
 
-    // End the Clerk session and bounce to /sign-in. Confirm-mode because it
-    // unambiguously destroys the current working session — the assistant
+    // End the Kinde session and let the post-logout flow take over. Confirm-mode
+    // because it unambiguously destroys the current working session — the assistant
     // shouldn't be able to log a user out as a side-effect of a misread.
     {
       name: 'logout',

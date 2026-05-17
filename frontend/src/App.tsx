@@ -2,7 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-route
 import { useEffect } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { KindeProvider, useKindeAuth } from '@kinde-oss/kinde-auth-react';
-import { LoginLink, RegisterLink } from '@kinde-oss/kinde-auth-react/components';
+import { LoginLink } from '@kinde-oss/kinde-auth-react/components';
 import { useTranslation } from 'react-i18next';
 import { queryClient } from './lib/queryClient';
 import AuthBridge from './components/AuthBridge';
@@ -17,58 +17,36 @@ import AuthLayout from './features/auth/AuthLayout';
 import AppShell from './features/shell/AppShell';
 import CookieConsent from './features/cookies/CookieConsent';
 import { useLanguageSync } from './hooks/useLanguageSync';
+import { toKindeLang } from './lib/kindeLang';
 import './features/auth/auth.css';
 
 /**
- * Sign-in route — renders the branded auth shell with a "Continue with Kinde →"
- * button that redirects to Kinde's hosted login page. We keep the shell instead
- * of auto-redirecting so the user sees the brand before bouncing off-site.
+ * Logged-out landing page. Kinde redirects here after sign-out (configured
+ * via VITE_KINDE_LOGOUT_REDIRECT_URI → '<origin>/logged-out') so the user
+ * lands on a branded confirmation rather than Kinde's stock template.
  *
- * If a session is already live (e.g. user opens /sign-in in a new tab while
- * authenticated elsewhere), short-circuit straight to the wizard.
- */
-function SignInRoute() {
-  const { t } = useTranslation();
-  const { isLoading, isAuthenticated } = useKindeAuth();
-  if (!isLoading && isAuthenticated) return <Navigate to="/reports/new" replace />;
-  return (
-    <AuthLayout copyKey="auth.login">
-      <LoginLink className="kinde-continue-btn">
-        {t('auth.login.continueWithKinde')}
-      </LoginLink>
-    </AuthLayout>
-  );
-}
-
-/** Sign-up — same shape as sign-in but starts the registration flow. */
-function SignUpRoute() {
-  const { t } = useTranslation();
-  const { isLoading, isAuthenticated } = useKindeAuth();
-  if (!isLoading && isAuthenticated) return <Navigate to="/reports/new" replace />;
-  return (
-    <AuthLayout copyKey="auth.register">
-      <RegisterLink className="kinde-continue-btn">
-        {t('auth.register.continueWithKinde')}
-      </RegisterLink>
-    </AuthLayout>
-  );
-}
-
-/**
- * Logged-out landing page. Kinde redirects here after a successful sign-out
- * (configured via VITE_KINDE_LOGOUT_REDIRECT_URI → '<origin>/logged-out') so
- * the user lands on a branded confirmation instead of Kinde's stock template.
+ * This is the only React-side "auth" page now — sign-in and sign-up bounce
+ * directly to the Kinde-hosted pages (which we style via the foresight-kinde
+ * custom-UI repo), so no intermediate splash exists.
  *
- * If the user is somehow still authenticated when this loads (e.g. opened in
- * a new tab while logged in elsewhere), bounce them to the wizard.
+ * If the user is somehow already authenticated when they land here (e.g.
+ * opened in a new tab while still logged in elsewhere), short-circuit to
+ * the wizard.
  */
 function LoggedOutRoute() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { isLoading, isAuthenticated } = useKindeAuth();
   if (!isLoading && isAuthenticated) return <Navigate to="/reports/new" replace />;
   return (
-    <AuthLayout copyKey="auth.loggedOut">
-      <LoginLink className="kinde-continue-btn">
+    <AuthLayout>
+      {/* authUrlParams.lang threads the user's current language across the
+          origin boundary into the Kinde-hosted sign-in page so it renders
+          in the same locale they were just reading on /logged-out.
+          toKindeLang() maps our 'ca' to Kinde's 'pl' slot — see kindeLang.ts. */}
+      <LoginLink
+        className="kinde-continue-btn"
+        authUrlParams={{ lang: toKindeLang(i18n.language) }}
+      >
         {t('auth.loggedOut.signInAgain')}
       </LoginLink>
     </AuthLayout>
@@ -76,10 +54,16 @@ function LoggedOutRoute() {
 }
 
 /**
- * OAuth callback landing page. Kinde redirects here after the user authenticates;
- * the SDK consumes the OAuth params from the URL and flips `isAuthenticated`. We
- * render a loading state until that's done, then navigate to the wizard (or back
- * to sign-in if something went wrong).
+ * OAuth callback landing page. Kinde redirects here after the user
+ * authenticates; the SDK consumes the OAuth params from the URL and flips
+ * `isAuthenticated`. We render a loading state until that's done, then
+ * forward to the wizard.
+ *
+ * On failure (e.g. user denied consent on Kinde, state mismatch, network
+ * blip), redirect to the marketing homepage rather than looping back into
+ * a protected route — ProtectedRoute would just bounce them straight back
+ * into the Kinde login flow, which is the wrong UX after a deliberate
+ * denial.
  */
 function CallbackRoute() {
   const { t } = useTranslation();
@@ -87,7 +71,11 @@ function CallbackRoute() {
   const navigate = useNavigate();
   useEffect(() => {
     if (isLoading) return;
-    navigate(isAuthenticated ? '/reports/new' : '/sign-in', { replace: true });
+    if (isAuthenticated) {
+      navigate('/reports/new', { replace: true });
+    } else {
+      globalThis.location.replace('https://futuros.io');
+    }
   }, [isLoading, isAuthenticated, navigate]);
   return <div className="loading-screen">{t('common.loading')}</div>;
 }
@@ -96,8 +84,6 @@ function AppRoutes() {
   useLanguageSync();
   return (
     <Routes>
-      <Route path="/sign-in/*" element={<SignInRoute />} />
-      <Route path="/sign-up/*" element={<SignUpRoute />} />
       <Route path="/logged-out" element={<LoggedOutRoute />} />
       <Route path="/callback" element={<CallbackRoute />} />
       <Route path="/privacy" element={<PrivacyPage />} />
@@ -108,10 +94,10 @@ function AppRoutes() {
         <Route path="/reports/:id/edit" element={<NewReportPage />} />
         <Route path="/reports/:id" element={<ReportPage />} />
       </Route>
-      {/* Unknown / bare paths land on the new-report wizard so a freshly
-          loaded app shows the onboarding dialog instead of the dashboard.
-          ProtectedRoute will intercept and bounce to /sign-in for guests;
-          authenticated users see /reports/new with the welcome modal. */}
+      {/* Unknown / bare paths land on the new-report wizard. ProtectedRoute
+          intercepts guests and triggers a direct redirect to Kinde — there
+          is no React-side sign-in splash anymore. Authenticated users see
+          /reports/new with the welcome modal. */}
       <Route path="*" element={<Navigate to="/reports/new" replace />} />
     </Routes>
   );

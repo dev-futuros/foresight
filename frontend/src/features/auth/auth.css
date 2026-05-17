@@ -150,86 +150,6 @@
 }
 .consent-line a:hover { color: var(--gold); }
 
-/* ── Footer (outside card) ────────────────────────────────── */
-.auth-bg .footer-note {
-  margin-top: 26px;
-  font-family: var(--mono);
-  font-size: 9.5px;
-  color: var(--ink-mute);
-  opacity: 0.5;
-  text-align: center;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  position: relative;
-  z-index: 1;
-}
-.auth-bg .footer-meta {
-  margin-top: 14px;
-  font-family: var(--mono);
-  font-size: 10px;
-  color: var(--ink-mute);
-  opacity: 0.7;
-  text-align: center;
-  letter-spacing: 0.06em;
-  position: relative;
-  z-index: 1;
-}
-.auth-bg .footer-meta a {
-  color: var(--ink-mute);
-  text-decoration: none;
-  border-bottom: 1px solid rgba(110, 106, 100, 0.3);
-  transition: color 200ms, border-color 200ms;
-  padding-bottom: 1px;
-}
-.auth-bg .footer-meta a:hover {
-  color: var(--gold);
-  border-bottom-color: rgba(212, 168, 83, 0.5);
-}
-.auth-bg .footer-meta .sep {
-  margin: 0 10px;
-  opacity: 0.4;
-}
-
-/* ── Language toggle (in-card pill, top-right) ────────────── */
-.lang-toggle {
-  position: absolute;
-  top: 22px;
-  right: 22px;
-  z-index: 2;
-  display: inline-flex;
-  align-items: center;
-  background: var(--surface-2);
-  border: 1px solid var(--line);
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  padding: 3px 4px;
-  border-radius: var(--r-pill);
-  user-select: none;
-  transition: border-color 180ms;
-}
-.lang-toggle:hover { border-color: var(--line-accent); }
-.lang-toggle .l-opt {
-  cursor: pointer;
-  padding: 3px 9px;
-  border-radius: var(--r-pill);
-  background: none;
-  border: none;
-  color: var(--ink-mute);
-  font: inherit;
-  letter-spacing: inherit;
-  transition: color 150ms, background 150ms;
-}
-.lang-toggle .l-opt.active {
-  color: var(--gold);
-  background: var(--gold-bg-2);
-}
-.lang-toggle .l-opt:not(.active):hover { color: var(--ink); }
-.lang-toggle .l-sep {
-  color: var(--ink-faint);
-  margin: 0 1px;
-  cursor: default;
-}
 
 /* ============================================================
    CLERK COMPONENT OVERRIDES
@@ -395,10 +315,10 @@
    !important is needed throughout because Clerk computes inline hover styles
    from `variables.colorPrimary` and applies them directly to the element.
    Without !important the gold glow gets clobbered by Clerk's auto-darken. */
-/* "Continue →" button on /sign-in and /sign-up — wraps Kinde's <LoginLink> /
-   <RegisterLink>, which render as plain anchors. No `!important` needed (was
-   only there in the old Clerk-era rule to override Clerk's auto-generated
-   inline styles; the Kinde SDK doesn't inject any). */
+/* "Sign in again →" button on /logged-out — wraps Kinde's <LoginLink>, which
+   renders as a plain anchor. No `!important` needed (was only there in the
+   old Clerk-era rule to override Clerk's auto-generated inline styles; the
+   Kinde SDK doesn't inject any). */
 .kinde-continue-btn {
   width: 100%;
   margin-top: 0;

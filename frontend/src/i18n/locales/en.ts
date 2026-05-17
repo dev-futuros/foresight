@@ -238,54 +238,15 @@ const en = {
   },
   auth: {
     shell: {
+      // `brandTag` and `consent` are rendered by AuthLayout on /logged-out.
+      // `copyright`, `privacyLink`, `contact` are used by AppFooter inside
+      // the main app shell — kept here because they share the "footer-ish
+      // legal copy" naming.
       brandTag: 'Foresight Strategy',
-      langAria: 'Language',
       consent: 'By signing in you accept our <a href="/privacy">Privacy Policy and Terms</a>.',
-      footerLine: 'FUTUROS · FORESIGHT STRATEGY · RESTRICTED USE TOOL · BETA',
       copyright: '© 2026 Futuros',
       privacyLink: 'Privacy and Terms',
       contact: 'hello@futuros.io',
-    },
-    login: {
-      eyebrow: 'Private access',
-      title: 'Welcome to Futuros',
-      description: 'We use Kinde as our identity provider — continue to sign in securely.',
-      continueWithKinde: 'Continue →',
-      email: 'Email address',
-      emailPlaceholder: 'alice@example.com',
-      password: 'Password',
-      passwordPlaceholder: 'Your password',
-      submit: 'Sign in →',
-      noAccount: "Don't have an account?",
-      createAccount: 'Create account',
-      errorDefault: 'Invalid credentials.',
-    },
-    register: {
-      eyebrow: 'New account',
-      title: 'Create your access',
-      description: 'We use Kinde as our identity provider — continue to create your account.',
-      continueWithKinde: 'Continue →',
-      name: 'Name (optional)',
-      namePlaceholder: 'Alice Analyst',
-      email: 'Email address',
-      emailPlaceholder: 'alice@example.com',
-      password: 'Password',
-      passwordPlaceholder: 'At least 8 characters',
-      submit: 'Create account →',
-      haveAccount: 'Already have an account?',
-      signIn: 'Sign in',
-      errorDefault: 'Could not create account.',
-    },
-    verifyEmail: {
-      eyebrow: 'Verification',
-      title: 'Verify your email',
-      pending: 'Checking your verification link…',
-      success: 'All set! Your email has been verified.',
-      errorDefault: 'Could not verify your email.',
-      errorHelp: 'The link may have expired or already been used. Sign in and request a new verification email.',
-      missingToken: 'No verification token was provided.',
-      goDashboard: 'Go to dashboard →',
-      goLogin: 'Go to sign in →',
     },
     loggedOut: {
       eyebrow: 'Session ended',
