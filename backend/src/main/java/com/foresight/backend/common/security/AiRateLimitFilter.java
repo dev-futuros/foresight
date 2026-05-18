@@ -1,7 +1,6 @@
 package com.foresight.backend.common.security;
 
 import java.io.IOException;
-import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -40,9 +39,17 @@ import lombok.extern.slf4j.Slf4j;
  *       attacker rotating IPs shouldn't get fresh buckets per IP.</li>
  * </ul>
  *
- * <p>Sized in {@link SecurityProperties.RateLimit#ai()} (capacity / refill tokens / refill
- * period). Defaults are deliberately tight: tens of calls per hour is plenty for genuine
- * wizard use and immediately strangles scripted abuse.
+ * <p>Two separate buckets per user, dispatched by path:
+ * <ul>
+ *   <li><b>{@code /api/ai/tighten}</b> — wider bucket (sized via
+ *       {@link SecurityProperties.RateLimit#tighten()}). Tighten is a Haiku-tier layout helper
+ *       called once per text field during PDF export; one legitimate export of a long report
+ *       can fire 60+ requests in a single {@code Promise.all} burst.</li>
+ *   <li><b>Every other {@code /api/ai/*}</b> — tight bucket (sized via
+ *       {@link SecurityProperties.RateLimit#ai()}). Content-generation endpoints (analyze,
+ *       suggest, chat) hit Opus/Sonnet — each call non-trivially expensive, so the bucket
+ *       stays small enough to strangle scripted abuse.</li>
+ * </ul>
  *
  * <p>Runs after {@link JwtAuthFilter} so the principal is already on the security context.
  * If somehow a request reaches us anonymously (auth disabled in dev), we let it through —
@@ -55,16 +62,18 @@ public class AiRateLimitFilter extends OncePerRequestFilter {
     /** Path prefix protected by this filter. Matches every AI proxy endpoint. */
     private static final String AI_PATH_PREFIX = "/api/ai/";
 
-    private final Map<UUID, Bucket> buckets = new ConcurrentHashMap<>();
-    private final long capacity;
-    private final long refillTokens;
-    private final Duration refillPeriod;
+    /** Exact path for the layout-helper tighten endpoint — gets the wider bucket. */
+    private static final String TIGHTEN_PATH = "/api/ai/tighten";
+
+    private final Map<UUID, Bucket> aiBuckets = new ConcurrentHashMap<>();
+    private final Map<UUID, Bucket> tightenBuckets = new ConcurrentHashMap<>();
+    private final SecurityProperties.RateLimit.Bucket aiConfig;
+    private final SecurityProperties.RateLimit.Bucket tightenConfig;
 
     public AiRateLimitFilter(SecurityProperties properties) {
-        SecurityProperties.RateLimit.Bucket cfg = properties.rateLimit().ai();
-        this.capacity = cfg.capacity();
-        this.refillTokens = cfg.refillTokens();
-        this.refillPeriod = cfg.refillPeriod();
+        SecurityProperties.RateLimit cfg = properties.rateLimit();
+        this.aiConfig = cfg.ai();
+        this.tightenConfig = cfg.tighten();
     }
 
     @Override
@@ -86,13 +95,21 @@ public class AiRateLimitFilter extends OncePerRequestFilter {
             return;
         }
 
-        Bucket bucket = buckets.computeIfAbsent(userId, this::newBucket);
+        boolean isTighten = TIGHTEN_PATH.equals(request.getRequestURI());
+        Bucket bucket = isTighten
+                ? tightenBuckets.computeIfAbsent(userId, id -> newBucket(tightenConfig))
+                : aiBuckets.computeIfAbsent(userId, id -> newBucket(aiConfig));
+
         if (bucket.tryConsume(1)) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        log.warn("AI rate limit exceeded: user={} path={}", userId, request.getRequestURI());
+        log.warn(
+                "AI rate limit exceeded: user={} path={} flavor={}",
+                userId,
+                request.getRequestURI(),
+                isTighten ? "tighten" : "ai");
         response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.getWriter()
@@ -100,11 +117,11 @@ public class AiRateLimitFilter extends OncePerRequestFilter {
                         + "\"message\":\"You have hit the AI usage limit. Try again later.\"}");
     }
 
-    private Bucket newBucket(UUID key) {
+    private static Bucket newBucket(SecurityProperties.RateLimit.Bucket cfg) {
         return Bucket.builder()
                 .addLimit(Bandwidth.builder()
-                        .capacity(capacity)
-                        .refillGreedy(refillTokens, refillPeriod)
+                        .capacity(cfg.capacity())
+                        .refillGreedy(cfg.refillTokens(), cfg.refillPeriod())
                         .build())
                 .build();
     }

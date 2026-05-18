@@ -82,10 +82,18 @@ public record SecurityProperties(boolean authDisabled, Kinde kinde, Cors cors, R
     public record Cors(List<String> allowedOrigins) {}
 
     /**
-     * @param ai bucket sizing for AI endpoints (suggest-steep, suggest-horizon, global-steep,
-     *     analyze) — keyed by authenticated user id, not IP, since the calls require auth
+     * Per-user buckets for the {@code /api/ai/*} family. Two flavours because the cost / volume
+     * profile of the layout-helper {@code /api/ai/tighten} endpoint is fundamentally different
+     * from the expensive content-generation endpoints:
+     *
+     * @param ai bucket sizing for content-generation endpoints (suggest-steep, suggest-horizon,
+     *     global-steep, analyze, chat) — Opus / Sonnet tier, each call non-trivially expensive,
+     *     so the bucket stays tight
+     * @param tighten separate, wider bucket for {@code /api/ai/tighten} — Haiku tier, called
+     *     dozens of times per PDF export as a per-field layout helper, so a single legitimate
+     *     export can fire 60+ requests in one burst
      */
-    public record RateLimit(Bucket ai) {
+    public record RateLimit(Bucket ai, Bucket tighten) {
 
         /**
          * @param capacity maximum tokens the bucket holds; determines burst tolerance
