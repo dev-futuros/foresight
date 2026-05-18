@@ -1,3 +1,4 @@
+import type { LanguageCode } from '../../../i18n/languages';
 /**
  * Wizard suggestion endpoints — used by the STEEP and horizon wizard
  * steps to populate the "give me ideas" panels. Each returns a small
@@ -11,7 +12,7 @@ import type { SuggestionItem } from '../../../types/api';
 export async function suggestSteep(args: {
   dimension: 'social' | 'technological' | 'economic' | 'environmental' | 'political';
   companyProfile: string;
-  language: 'es' | 'en' | 'ca';
+  language: LanguageCode;
 }): Promise<SuggestionItem[]> {
   const { data } = await api.post<AnthropicResponse>('ai/suggest-steep', args);
   const parsed = parseJson<{ factors?: SuggestionItem[] }>(data);
@@ -21,7 +22,7 @@ export async function suggestSteep(args: {
 export async function suggestHorizon(args: {
   horizon: 'H1' | 'H2' | 'H3';
   companyProfile: string;
-  language: 'es' | 'en' | 'ca';
+  language: LanguageCode;
 }): Promise<SuggestionItem[]> {
   const { data } = await api.post<AnthropicResponse>('ai/suggest-horizon', args);
   const parsed = parseJson<{ signals?: SuggestionItem[] }>(data);

@@ -1,3 +1,4 @@
+import type { LanguageCode } from '../../../i18n/languages';
 /**
  * Pure HTTP fetchers for the examples feature. Same pattern as
  * features/report/api/fetchers.ts.
@@ -60,7 +61,7 @@ export async function deleteExample(id: string) {
  */
 export async function translateExample(args: {
   id: string;
-  targetLanguage: 'es' | 'en' | 'ca';
+  targetLanguage: LanguageCode;
   force?: boolean;
 }) {
   const { id, targetLanguage, force = false } = args;
@@ -73,7 +74,7 @@ export async function translateExample(args: {
 /** Drop a cached translation from an example. DEV-only. */
 export async function deleteExampleTranslation(args: {
   id: string;
-  language: 'es' | 'en' | 'ca';
+  language: LanguageCode;
 }) {
   await api.delete(`/examples/${args.id}/translations/${args.language}`);
 }

@@ -1,3 +1,4 @@
+import type { LanguageCode } from '../i18n/languages';
 import type { EmpresaData } from '../features/report/steps/StepEmpresa';
 import type { GlobalSteepData } from '../features/report/steps/StepGlobal';
 import type { SteepData } from '../features/report/steps/StepSteep';
@@ -36,7 +37,7 @@ export interface ReportResultSnapshot {
  * IDs it can write to.
  */
 export interface AssistantSnapshotInput {
-  language: 'es' | 'en' | 'ca';
+  language: LanguageCode;
   /** Wizard step the user is currently on (1-6). When the user is on a
    *  non-wizard route, pass the closest meaningful step:
    *  - dashboard or account → 1 (the typical first step they'd return to)
@@ -72,7 +73,7 @@ export interface AssistantSnapshotInput {
     title: string;
     status: 'DRAFT' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
     /** ISO-639-1 of the report's primary content language. */
-    primaryLanguage: 'es' | 'en' | 'ca';
+    primaryLanguage: LanguageCode;
     /** Languages the report is materialised in. */
     availableLanguages: string[];
     /** Whether the route is the read-only viewer ({@code /reports/:id})

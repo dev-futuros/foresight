@@ -1,9 +1,10 @@
+import { isLanguageCode, type LanguageCode } from './i18n/languages';
 import { useEffect, useMemo, useState } from 'react';
 import i18n from './i18n';
 import IconSprite from './components/IconSprite';
 import ShareView, { type ShareReport } from './features/publicShare/ShareView';
 
-export type SnapshotLang = 'es' | 'en' | 'ca';
+export type SnapshotLang = LanguageCode;
 
 export interface LanguagePayload {
   inputData: Record<string, unknown>;
@@ -34,9 +35,7 @@ export function SnapshotApp({ report }: { report: SnapshotReport }) {
   const primaryLang: SnapshotLang = report.primaryLanguage ?? 'es';
   const availableLangs = useMemo<SnapshotLang[]>(() => {
     const fromTranslations = report.translations
-      ? (Object.keys(report.translations) as SnapshotLang[]).filter(
-          (l) => l === 'es' || l === 'en' || l === 'ca',
-        )
+      ? (Object.keys(report.translations) as SnapshotLang[]).filter(isLanguageCode)
       : [];
     const set = new Set<SnapshotLang>([primaryLang, ...fromTranslations]);
     // Stable order: primary first, others alphabetical.
@@ -53,16 +52,14 @@ export function SnapshotApp({ report }: { report: SnapshotReport }) {
   const storageKey = report.id ? `snapshot-lang:${report.id}` : null;
   const defaultLang: SnapshotLang = (() => {
     const fromTag = readTextTag('report-lang');
-    if (fromTag === 'es' || fromTag === 'en' || fromTag === 'ca') return fromTag;
+    if (isLanguageCode(fromTag)) return fromTag;
     return primaryLang;
   })();
   const initialLang: SnapshotLang = (() => {
     if (typeof window === 'undefined' || !storageKey) return defaultLang;
     try {
       const stored = window.localStorage.getItem(storageKey);
-      if (stored === 'es' || stored === 'en' || stored === 'ca') {
-        if (availableLangs.includes(stored)) return stored;
-      }
+      if (isLanguageCode(stored) && availableLangs.includes(stored)) return stored;
     } catch {
       /* private-browsing / storage-disabled — fall through. */
     }

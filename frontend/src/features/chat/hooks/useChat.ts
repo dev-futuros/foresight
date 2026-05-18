@@ -1,3 +1,4 @@
+import type { LanguageCode } from '../../../i18n/languages';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { chatStream, type ChatMessage } from '../api';
 import { dispatch, get as getCommandSpec } from '../../../lib/commandBus';
@@ -60,7 +61,7 @@ export interface ChatMessageView {
 
 interface ChatContextSnapshot {
   context?: string;
-  language: 'es' | 'en' | 'ca';
+  language: LanguageCode;
 }
 
 const COMMAND_TAG_RE = /<command\s+name\s*=\s*"([^"]+)"\s*>([\s\S]*?)<\/command>/g;

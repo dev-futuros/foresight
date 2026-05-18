@@ -1,3 +1,4 @@
+import type { LanguageCode } from '../../../i18n/languages';
 /**
  * PDF-export support endpoints.
  *
@@ -14,7 +15,7 @@ import api from '../../../lib/api';
 export async function tighten(args: {
   text: string;
   targetChars: number;
-  language: 'es' | 'en' | 'ca';
+  language: LanguageCode;
   /** Optional terms (proper nouns, percentages, regulation names…) the
    *  model MUST keep verbatim in the output. Up to 32 entries. */
   preserveTerms?: string[];
@@ -32,7 +33,7 @@ export async function tighten(args: {
  */
 export async function savePdfOptimized(
   reportId: string,
-  language: 'es' | 'en' | 'ca',
+  language: LanguageCode,
   fields: Record<string, string>,
 ): Promise<void> {
   await api.put(`reports/${reportId}/pdf-optimized/${language}`, { fields });

@@ -1,3 +1,4 @@
+import type { LanguageCode } from '../../../i18n/languages';
 import { useEffect, useState } from 'react';
 import type { MutableRefObject } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -21,7 +22,7 @@ export type GlobalSteepData = GlobalSteep;
 interface Props {
   data: GlobalSteepData;
   sector: string;
-  language: 'es' | 'en' | 'ca';
+  language: LanguageCode;
   onChange: (data: GlobalSteepData) => void;
   /**
    * Optional sink for the web_search citations harvested during the scan.

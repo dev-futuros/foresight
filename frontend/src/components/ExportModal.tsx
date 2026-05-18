@@ -1,3 +1,4 @@
+import type { LanguageCode } from '../i18n/languages';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Modal from './Modal';
@@ -5,7 +6,7 @@ import { useReport } from '../features/report/api';
 import { useExample } from '../features/examples/api';
 import { useIsDev } from '../features/account/api';
 
-export type ExportLanguage = 'es' | 'en' | 'ca';
+export type ExportLanguage = LanguageCode;
 /**
  * The {@code 'html'} option is gated to DEV users in the picker UI
  * (see {@link useIsDev}); the type stays open so the exporter can be

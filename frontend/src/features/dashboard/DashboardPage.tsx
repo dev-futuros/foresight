@@ -1,3 +1,4 @@
+import { languageSpec, SUPPORTED_LANGUAGES as REGISTRY_SUPPORTED } from '../../i18n/languages';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -29,8 +30,8 @@ import type { ExampleSummary, ReportResponse, ReportStatus, ReportSummary } from
 import DashboardStats from './components/DashboardStats';
 import './dashboard.css';
 
-/** Supported translation targets — kept in sync with the backend's allow-list. */
-const SUPPORTED_LANGUAGES: readonly ExportLanguage[] = ['es', 'en', 'ca'] as const;
+/** Supported translation targets — sourced from the language registry. */
+const SUPPORTED_LANGUAGES = REGISTRY_SUPPORTED;
 
 /** Action a card might be running. {@code null} when no card is busy. */
 type ExportingState = { id: string; kind: ExportFormat } | null;
@@ -77,7 +78,7 @@ export default function DashboardPage() {
   const { translations, startTranslation } = useTranslations();
   const navigate = useNavigate();
 
-  const dateLocale = i18n.language === 'en' ? 'en-GB' : i18n.language === 'ca' ? 'ca-ES' : 'es-ES';
+  const dateLocale = languageSpec(i18n.language).dateLocale;
 
   // ── Recently-translated flash tracker ─────────────────────────
   // When a translation completes (i.e. an entry in `translations`

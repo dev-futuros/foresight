@@ -1,3 +1,4 @@
+import type { LanguageCode } from '../../../i18n/languages';
 /**
  * Global STEEP endpoints — the macro context scan that pre-fills step 2
  * of the wizard. Three variants:
@@ -25,7 +26,7 @@ import type {
 
 export async function globalSteep(args: {
   sector: string;
-  language: 'es' | 'en' | 'ca';
+  language: LanguageCode;
   dimension?: GlobalSteepDimension;
 }): Promise<Partial<GlobalSteep>> {
   // When `dimension` is set the backend returns a single-key payload
@@ -40,7 +41,7 @@ export async function globalSteep(args: {
  * a single JSON. Pair with {@link globalSteepDim}.
  */
 export async function globalSteepScan(
-  args: { sector: string; language: 'es' | 'en' | 'ca' },
+  args: { sector: string; language: LanguageCode },
   onProgress?: ProgressCallback,
 ): Promise<{ result: Partial<GlobalSteep>; citations: SourceItem[] }> {
   return streamSse<typeof args, Partial<GlobalSteep>>(
@@ -61,7 +62,7 @@ export async function globalSteepScan(
 export async function globalSteepDim(
   args: {
     sector: string;
-    language: 'es' | 'en' | 'ca';
+    language: LanguageCode;
     dimension: GlobalSteepDimension;
     snippet: string;
   },

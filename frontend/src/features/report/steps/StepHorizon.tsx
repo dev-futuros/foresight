@@ -1,3 +1,4 @@
+import type { LanguageCode } from '../../../i18n/languages';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { suggestHorizon } from '../api';
@@ -16,7 +17,7 @@ export type HorizonData = Record<HorizonKey, string>;
 interface Props {
   data: HorizonData;
   companyProfile: string;
-  language: 'es' | 'en' | 'ca';
+  language: LanguageCode;
   onChange: (data: HorizonData) => void;
   onSubmit: () => void;
   onBack: () => void;

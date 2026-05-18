@@ -1,3 +1,4 @@
+import type { LanguageCode } from '../../../i18n/languages';
 import jsPDF from 'jspdf';
 import i18n from '../../../i18n';
 import type {
@@ -4859,7 +4860,7 @@ function collectFieldNeeds(
  */
 export async function exportReportPdf(
   report: ReportResponse,
-  language?: 'es' | 'en' | 'ca',
+  language?: LanguageCode,
   theme: PdfTheme = 'dark',
 ) {
   const originalLang = i18n.language;
@@ -4896,7 +4897,7 @@ async function renderReport(report: ReportResponse) {
   const input = sanitizeTree<InputData>((report.inputData ?? {}) as InputData);
   const result = sanitizeTree<ResultData | null>(report.resultData as ResultData | null);
   const cp = input.companyProfile ?? {};
-  const exportLang: 'es' | 'en' | 'ca' = isEnLang() ? 'en' : isCaLang() ? 'ca' : 'es';
+  const exportLang: LanguageCode = isEnLang() ? 'en' : isCaLang() ? 'ca' : 'es';
 
   // ── Layout planning + fit pass ─────────────────────────────────────
   // Step 1: measure each section's source content and pick the closest

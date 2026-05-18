@@ -1,3 +1,4 @@
+import { LANGUAGES, type LanguageCode } from '../../i18n/languages';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
@@ -12,11 +13,12 @@ import type { BillingProfileResponse } from '../../types/api';
 import Avatar from './Avatar';
 import './account.css';
 
-const LANGUAGE_OPTIONS = [
-  { value: 'es' as const, label: 'Español' },
-  { value: 'en' as const, label: 'English' },
-  { value: 'ca' as const, label: 'Català' },
-];
+// Derived from the language registry — adding a language to LANGUAGES
+// in i18n/languages.ts automatically extends this picker.
+const LANGUAGE_OPTIONS = Object.values(LANGUAGES).map((l) => ({
+  value: l.code,
+  label: l.label,
+}));
 
 interface Props {
   open: boolean;
@@ -124,7 +126,7 @@ export default function AccountModal({ open, onClose }: Readonly<Props>) {
   // Language is the only editable field left in this modal. The Preferences
   // section's Save button pushes to the backend, which mirrors the value to
   // Kinde Property `language`.
-  const [language, setLanguage] = useState<'es' | 'en' | 'ca'>('es');
+  const [language, setLanguage] = useState<LanguageCode>('es');
   const [prefsMsg, setPrefsMsg] = useState<StatusMsg>(null);
 
   // Mirror the API-owned language into local state once it arrives, and whenever a
@@ -132,7 +134,7 @@ export default function AccountModal({ open, onClose }: Readonly<Props>) {
   useEffect(() => {
     if (user?.id) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- sync API-owned preference into editable local state when the row identity changes
-      setLanguage((user.language as 'es' | 'en' | 'ca') ?? 'es');
+      setLanguage((user.language as LanguageCode) ?? 'es');
     }
   }, [user?.id, user?.language]);
 
@@ -304,7 +306,7 @@ export default function AccountModal({ open, onClose }: Readonly<Props>) {
                 <select
                   id="account-modal-language"
                   value={language}
-                  onChange={(e) => setLanguage(e.target.value as 'es' | 'en' | 'ca')}
+                  onChange={(e) => setLanguage(e.target.value as LanguageCode)}
                 >
                   {LANGUAGE_OPTIONS.map((o) => (
                     <option key={o.value} value={o.value}>

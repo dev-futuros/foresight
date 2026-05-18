@@ -1,3 +1,4 @@
+import { isLanguageCode, languageSpec } from '../../i18n/languages';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -82,7 +83,7 @@ export default function ReportPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const langParam = searchParams.get('lang');
   const requestedLang: ExportLanguage | null =
-    langParam === 'es' || langParam === 'en' || langParam === 'ca' ? langParam : null;
+    isLanguageCode(langParam) ? langParam : null;
   const primaryLang = (report?.primaryLanguage) ?? 'es';
   const availableLangs = useMemo<ExportLanguage[]>(
     () => (report?.availableLanguages as ExportLanguage[] | undefined) ?? [primaryLang],
@@ -97,7 +98,7 @@ export default function ReportPage() {
     if (typeof window === 'undefined' || !storageKey) return null;
     try {
       const v = window.localStorage.getItem(storageKey);
-      return v === 'es' || v === 'en' || v === 'ca' ? v : null;
+      return isLanguageCode(v) ? v : null;
     } catch {
       return null;
     }
@@ -437,7 +438,7 @@ export default function ReportPage() {
   };
 
   const formattedDate = new Date(report.createdAt).toLocaleDateString(
-    i18n.language === 'en' ? 'en-GB' : i18n.language === 'ca' ? 'ca-ES' : 'es-ES',
+    languageSpec(i18n.language).dateLocale,
     { day: '2-digit', month: 'short', year: 'numeric' },
   );
 

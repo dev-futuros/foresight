@@ -1,3 +1,4 @@
+import type { LanguageCode } from '../../../i18n/languages';
 /**
  * Pure HTTP fetchers for the report feature. No React, no React Query —
  * each function is an async wrapper over a single backend endpoint that
@@ -110,7 +111,7 @@ export async function startGeneration(reportId: string) {
  */
 export async function translateReport(args: {
   id: string;
-  targetLanguage: 'es' | 'en' | 'ca';
+  targetLanguage: LanguageCode;
   force?: boolean;
 }) {
   const { id, targetLanguage, force = false } = args;
@@ -125,6 +126,6 @@ export async function translateReport(args: {
  * when the language isn't materialised) and refuses to delete the
  * primary language.
  */
-export async function deleteTranslation(args: { id: string; language: 'es' | 'en' | 'ca' }) {
+export async function deleteTranslation(args: { id: string; language: LanguageCode }) {
   await api.delete(`/reports/${args.id}/translations/${args.language}`);
 }
