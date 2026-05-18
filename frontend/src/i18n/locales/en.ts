@@ -1,4 +1,10 @@
 const en = {
+  errorBoundary: {
+    title: 'Something went wrong',
+    body: "We're sorry — an unexpected error occurred. The team has been notified.",
+    retry: 'Try again',
+    reset: 'Back to start',
+  },
   common: {
     loading: 'Loading…',
     retry: 'Retry',
