@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import Modal from './Modal';
 import { useReport } from '../features/report/api';
 import { useExample } from '../features/examples/api';
-import { useIsDev } from '../hooks/useAuth';
+import { useIsDev } from '../features/account/api';
 
 export type ExportLanguage = 'es' | 'en' | 'ca';
 /**

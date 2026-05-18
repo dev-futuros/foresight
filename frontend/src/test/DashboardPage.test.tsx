@@ -33,7 +33,7 @@ vi.mock('../features/examples/api', () => ({
   useTranslateExample: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
   useDeleteExampleTranslation: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
 }));
-vi.mock('../hooks/useAuth', () => ({
+vi.mock('../features/account/api', () => ({
   useIsDev: () => false,
   useCurrentUser: () => ({ data: undefined, isLoading: false }),
   useLogout: () => vi.fn(),

@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { type CommandSpec } from '../../lib/commandBus';
 import { useCommands } from '../../lib/useCommands';
 import { useDeleteReport } from '../report/api';
-import { useLogout } from '../../hooks/useAuth';
+import { useLogout } from '../account/api';
 import { resetAssistant } from '../../lib/assistantBridge';
 import api from '../../lib/api';
 

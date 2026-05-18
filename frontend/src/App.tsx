@@ -18,7 +18,7 @@ import PublicSharePage from './features/publicShare/PublicSharePage';
 import AuthLayout from './features/auth/AuthLayout';
 import AppShell from './features/shell/AppShell';
 import CookieConsent from './features/cookies/CookieConsent';
-import { LOGOUT_IN_PROGRESS_KEY } from './hooks/useAuth';
+import { LOGOUT_IN_PROGRESS_KEY } from './features/account/api';
 import './features/auth/auth.css';
 
 /**

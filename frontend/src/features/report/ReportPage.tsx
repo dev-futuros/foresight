@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import api from '../../lib/api';
 import { useReport, useTranslateReport } from './api';
 import { useDemoteExample, useTranslateExample } from '../examples/api';
-import { useIsDev } from '../../hooks/useAuth';
+import { useIsDev } from '../account/api';
 import { useSetStepper } from '../shell/useStepper';
 import { useCommands } from '../../lib/useCommands';
 import { useSetAssistantContext } from '../chat/useAssistantContext';
