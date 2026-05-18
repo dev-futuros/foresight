@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react';
-import type { TranslateProgress } from '../../hooks/useReports';
+import type { TranslateProgress } from '../report/api';
 import type { ExportLanguage } from '../../components/ExportModal';
 
 /**

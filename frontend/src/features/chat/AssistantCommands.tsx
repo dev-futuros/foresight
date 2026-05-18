@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { type CommandSpec } from '../../lib/commandBus';
 import { useCommands } from '../../lib/useCommands';
-import { useDeleteReport } from '../../hooks/useReports';
+import { useDeleteReport } from '../report/api';
 import { useLogout } from '../../hooks/useAuth';
 import { resetAssistant } from '../../lib/assistantBridge';
 import api from '../../lib/api';

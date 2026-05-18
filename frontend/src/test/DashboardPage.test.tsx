@@ -14,7 +14,7 @@ const mockMutate = vi.fn();
 // renders without standing up a real query client / Kinde provider. Inlined
 // `{ mutate, mutateAsync, isPending }` stubs because vi.mock factories are hoisted
 // above top-level const declarations and can't reference local helpers.
-vi.mock('../hooks/useReports', () => ({
+vi.mock('../features/report/api', () => ({
   useReports: vi.fn(),
   useReport: () => ({ data: undefined, isLoading: false }),
   useCreateReport: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
@@ -39,7 +39,7 @@ vi.mock('../hooks/useAuth', () => ({
   useLogout: () => vi.fn(),
 }));
 
-import { useReports } from '../hooks/useReports';
+import { useReports } from '../features/report/api';
 
 /** Default the new ReportSummary translation fields so individual tests
  *  don't have to spell them out. Every fixture is treated as a Spanish

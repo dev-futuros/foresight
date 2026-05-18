@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState, type PropsWithChildren } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { translateReportStream } from '../../hooks/useReports';
+import { translateReportStream } from '../report/api';
 import type { ExportLanguage } from '../../components/ExportModal';
 import {
   TranslationsContext,

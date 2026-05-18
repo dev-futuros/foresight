@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createElement } from 'react';
-import { useReports, useCreateReport, useDeleteReport } from '../hooks/useReports';
+import { useReports, useCreateReport, useDeleteReport } from '../features/report/api';
 import api from '../lib/api';
 
 vi.mock('../lib/api', () => ({

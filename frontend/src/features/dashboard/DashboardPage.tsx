@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
-import { useReports, useDeleteReport, useDeleteTranslation } from '../../hooks/useReports';
+import { useReports, useDeleteReport, useDeleteTranslation } from '../report/api';
 import {
   useExamples,
   useDeleteExample,
