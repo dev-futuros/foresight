@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { usePublicShare } from '../../hooks/useShare';
+import { usePublicShare } from './api';
 import ShareView, { type ShareReport } from './ShareView';
 import type { PublicShareResponse } from '../../types/api';
 import '../report/report.css';
