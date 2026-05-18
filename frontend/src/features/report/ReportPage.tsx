@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../lib/api';
-import { useReport, useTranslateReport } from '../../hooks/useReports';
+import { useReport, useTranslateReport } from './api';
 import { useDemoteExample, useTranslateExample } from '../../hooks/useExamples';
 import { useIsDev } from '../../hooks/useAuth';
 import { useSetStepper } from '../shell/useStepper';

@@ -1,4 +1,10 @@
 const es = {
+  errorBoundary: {
+    title: 'Algo ha fallado',
+    body: 'Lo sentimos — ha ocurrido un error inesperado. El equipo ha sido notificado.',
+    retry: 'Reintentar',
+    reset: 'Volver al inicio',
+  },
   loader: {
     metric: {
       sources_one: '~{{count}} fuente',

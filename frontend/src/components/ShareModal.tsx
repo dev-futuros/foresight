@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Modal from './Modal';
 import { useCreateShare } from '../hooks/useShare';
-import { useReport } from '../hooks/useReports';
+import { useReport } from '../features/report/api';
 import { useExample } from '../hooks/useExamples';
 import { extractApiErrorMessage } from '../lib/apiError';
 

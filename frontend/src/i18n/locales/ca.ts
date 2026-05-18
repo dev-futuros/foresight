@@ -1,4 +1,10 @@
 const ca = {
+  errorBoundary: {
+    title: 'Quelcom ha fallat',
+    body: 'Ho sentim — ha ocorregut un error inesperat. L’equip n’ha estat notificat.',
+    retry: 'Reintentar',
+    reset: 'Tornar a l’inici',
+  },
   loader: {
     metric: {
       sources_one: '~{{count}} font',

@@ -1,11 +1,13 @@
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
+import { ErrorBoundary } from 'react-error-boundary';
 import { KindeProvider, useKindeAuth } from '@kinde-oss/kinde-auth-react';
 import { LoginLink } from '@kinde-oss/kinde-auth-react/components';
 import { useTranslation } from 'react-i18next';
 import { queryClient } from './lib/queryClient';
 import AuthBridge from './components/AuthBridge';
+import ErrorFallback from './components/ErrorFallback';
 import IconSprite from './components/IconSprite';
 import ProtectedRoute from './components/ProtectedRoute';
 import DashboardPage from './features/dashboard/DashboardPage';
@@ -149,7 +151,13 @@ export default function App() {
         <BrowserRouter>
           <IconSprite />
           <AuthBridge />
-          <AppRoutes />
+          {/* Tier-3 error handling per docs/REFACTOR_PROPOSAL.md — catches
+              render-time crashes inside any route and shows the global
+              fallback UI. Mounted INSIDE <BrowserRouter> so the fallback
+              can use router hooks (useNavigate etc.) if it needs to. */}
+          <ErrorBoundary FallbackComponent={ErrorFallback}>
+            <AppRoutes />
+          </ErrorBoundary>
           {/* Mounted outside <AppRoutes> so it overlays every page — auth, dashboard,
               public share, privacy. CookieConsent only renders once consent is missing
               from localStorage, so authenticated users who already opted in never see it. */}
