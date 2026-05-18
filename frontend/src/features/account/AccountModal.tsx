@@ -6,7 +6,7 @@ import type { PortalPage } from '@kinde/js-utils';
 import Modal from '../../components/Modal';
 import { useUpdateProfile } from '../../hooks/useAccount';
 import { useCurrentUser } from '../../hooks/useAuth';
-import { useBillingProfile } from '../../hooks/useBilling';
+import { useBillingProfile } from '../billing/api';
 import api from '../../lib/api';
 import { extractApiErrorMessage } from '../../lib/apiError';
 import type { BillingProfileResponse } from '../../types/api';

@@ -10,6 +10,7 @@
  *     stays true until the refetched data lands
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { billingKeys } from '../../billing/api';
 import type { UpdateReportRequest } from '../../../types/api';
 import {
   createReport,
@@ -55,7 +56,7 @@ export function useStartGeneration() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: startGeneration,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['billing'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: billingKeys.all }),
   });
 }
 
