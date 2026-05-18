@@ -15,7 +15,7 @@ export type HorizonData = Record<HorizonKey, string>;
 interface Props {
   data: HorizonData;
   companyProfile: string;
-  language: 'es' | 'en';
+  language: 'es' | 'en' | 'ca';
   onChange: (data: HorizonData) => void;
   onSubmit: () => void;
   onBack: () => void;

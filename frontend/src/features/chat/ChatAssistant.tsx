@@ -125,7 +125,11 @@ const EMPTY_HORIZON: HorizonData = { H1: '', H2: '', H3: '' };
 export default function ChatAssistant() {
   const { t, i18n } = useTranslation();
   const ctx = useAssistantContext() as PublishedWizardContext | undefined;
-  const language: 'es' | 'en' = i18n.language?.startsWith('en') ? 'en' : 'es';
+  const language: 'es' | 'en' | 'ca' = i18n.language?.startsWith('en')
+    ? 'en'
+    : i18n.language?.startsWith('ca')
+      ? 'ca'
+      : 'es';
   const location = useLocation();
 
   const {
@@ -228,7 +232,7 @@ export default function ChatAssistant() {
   // without forcing a re-register on every wizard-state change. This lets
   // the wizard fire a notification at any moment with an up-to-date
   // user-state block in the system prompt.
-  const snapshotRef = useRef<{ context: string; language: 'es' | 'en' }>({
+  const snapshotRef = useRef<{ context: string; language: 'es' | 'en' | 'ca' }>({
     context: snapshot,
     language,
   });

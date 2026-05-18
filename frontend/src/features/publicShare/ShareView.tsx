@@ -59,7 +59,7 @@ interface Props {
 export default function ShareView({ report, languageSwitcher }: Props): ReactElement {
   const { t, i18n } = useTranslation();
   const formattedDate = new Date(report.createdAt).toLocaleDateString(
-    i18n.language === 'en' ? 'en-GB' : 'es-ES',
+    i18n.language === 'en' ? 'en-GB' : i18n.language === 'ca' ? 'ca-ES' : 'es-ES',
     { day: '2-digit', month: 'short', year: 'numeric' },
   );
   const input = (report.inputData ?? {}) as InputData;

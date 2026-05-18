@@ -274,7 +274,7 @@ export default function NewReportPage() {
   // translation buttons) labels as "the authored language". The value
   // is computed lower in the component and written into the ref on
   // every render via the assignment after the `language` const.
-  const languageRef = useRef<'es' | 'en'>('es');
+  const languageRef = useRef<'es' | 'en' | 'ca'>('es');
 
   // Example mode — the user is exploring a global example through the
   // wizard. Inputs render exactly like a real report's, but every
@@ -422,8 +422,11 @@ export default function NewReportPage() {
     void flushAutosave();
   }, [flushAutosave]);
 
-  const language: 'es' | 'en' =
-    user?.language === 'en' || i18n.language === 'en' ? 'en' : 'es';
+  const language: 'es' | 'en' | 'ca' = (() => {
+    if (user?.language === 'en' || i18n.language === 'en') return 'en';
+    if (user?.language === 'ca' || i18n.language === 'ca') return 'ca';
+    return 'es';
+  })();
 
   const [empresa, setEmpresa] = useState<EmpresaData>(EMPTY_EMPRESA);
   const [globalData, setGlobalData] = useState<GlobalSteepData>(EMPTY_GLOBAL_STEEP);

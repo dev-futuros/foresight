@@ -66,7 +66,7 @@ export type TightenedMap = Record<string, string>;
  */
 export async function runFitPass(
   needs: FieldNeed[],
-  language: 'es' | 'en',
+  language: 'es' | 'en' | 'ca',
   cache: PdfOptimizedCache | null,
 ): Promise<TightenedMap> {
   if (needs.length === 0) return {};
@@ -133,7 +133,7 @@ export function pickText(
  */
 export async function persistTightened(
   reportId: string,
-  language: 'es' | 'en',
+  language: 'es' | 'en' | 'ca',
   tightened: TightenedMap,
 ): Promise<void> {
   if (Object.keys(tightened).length === 0) return;

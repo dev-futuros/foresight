@@ -117,7 +117,7 @@ export function useTranslateExample() {
   return useMutation<
     TranslatedReport,
     Error,
-    { id: string; targetLanguage: 'es' | 'en'; force?: boolean }
+    { id: string; targetLanguage: 'es' | 'en' | 'ca'; force?: boolean }
   >({
     mutationFn: async ({ id, targetLanguage, force = false }) => {
       const res = await api.post<TranslatedReport>(
@@ -137,7 +137,7 @@ export function useTranslateExample() {
 /** Drop a cached translation from an example. DEV-only. */
 export function useDeleteExampleTranslation() {
   const qc = useQueryClient();
-  return useMutation<void, Error, { id: string; language: 'es' | 'en' }>({
+  return useMutation<void, Error, { id: string; language: 'es' | 'en' | 'ca' }>({
     mutationFn: async ({ id, language }) => {
       await api.delete(`/examples/${id}/translations/${language}`);
     },

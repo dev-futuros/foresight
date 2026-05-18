@@ -24,13 +24,13 @@ export function useCreateShare() {
     Error,
     {
       reportId: string;
-      language?: 'es' | 'en';
+      language?: 'es' | 'en' | 'ca';
       /** Languages to bake into the share snapshot. When set, the
        *  backend snapshots only these (plus an implicit fallback to
        *  the chosen {@code language} as the share's primary). When
        *  omitted, the backend defaults to "every language the source
        *  has" — useful for callers that don't need the filter. */
-      languages?: ('es' | 'en')[];
+      languages?: ('es' | 'en' | 'ca')[];
       kind?: 'report' | 'example';
     }
   >({

@@ -82,7 +82,7 @@ export default function ReportPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const langParam = searchParams.get('lang');
   const requestedLang: ExportLanguage | null =
-    langParam === 'es' || langParam === 'en' ? langParam : null;
+    langParam === 'es' || langParam === 'en' || langParam === 'ca' ? langParam : null;
   const primaryLang = (report?.primaryLanguage as ExportLanguage | undefined) ?? 'es';
   const availableLangs = useMemo<ExportLanguage[]>(
     () => (report?.availableLanguages as ExportLanguage[] | undefined) ?? [primaryLang],
@@ -97,7 +97,7 @@ export default function ReportPage() {
     if (typeof window === 'undefined' || !storageKey) return null;
     try {
       const v = window.localStorage.getItem(storageKey);
-      return v === 'es' || v === 'en' ? v : null;
+      return v === 'es' || v === 'en' || v === 'ca' ? v : null;
     } catch {
       return null;
     }
@@ -442,7 +442,7 @@ export default function ReportPage() {
   };
 
   const formattedDate = new Date(report.createdAt).toLocaleDateString(
-    i18n.language === 'en' ? 'en-GB' : 'es-ES',
+    i18n.language === 'en' ? 'en-GB' : i18n.language === 'ca' ? 'ca-ES' : 'es-ES',
     { day: '2-digit', month: 'short', year: 'numeric' },
   );
 

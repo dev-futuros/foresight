@@ -7,7 +7,7 @@ import type { PublicShareResponse } from '../../types/api';
 import '../report/report.css';
 import './publicShare.css';
 
-type ShareLang = 'es' | 'en';
+type ShareLang = 'es' | 'en' | 'ca';
 
 /**
  * Anonymous, read-only view of a shared report. Reachable at {@code /share/:token}
@@ -32,7 +32,7 @@ export default function PublicSharePage() {
 
   const langParam = searchParams.get('lang');
   const requestedLang: ShareLang | null =
-    langParam === 'es' || langParam === 'en' ? langParam : null;
+    langParam === 'es' || langParam === 'en' || langParam === 'ca' ? langParam : null;
 
   // Per-token localStorage memory of the recipient's last language
   // choice, so navigating away from the share and back (or hard
@@ -44,7 +44,7 @@ export default function PublicSharePage() {
     if (typeof window === 'undefined' || !storageKey) return null;
     try {
       const v = window.localStorage.getItem(storageKey);
-      return v === 'es' || v === 'en' ? v : null;
+      return v === 'es' || v === 'en' || v === 'ca' ? v : null;
     } catch {
       return null;
     }

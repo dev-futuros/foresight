@@ -1342,6 +1342,16 @@ const tx = (k: string, fallback?: string): string => {
 };
 
 const isEnLang = () => !!i18n.language?.startsWith('en');
+const isCaLang = () => !!i18n.language?.startsWith('ca');
+/**
+ * Three-arm language picker for the inline PDF chrome strings. Returns the
+ * English value when i18n is English, the Catalan value when Catalan,
+ * otherwise the Spanish value (which is the application's default locale).
+ * Used in place of the older `isEnLang() ? 'EN' : 'ES'` ternaries so every
+ * label, section heading and date string can carry its Catalan translation.
+ */
+const t3 = <T,>(en: T, es: T, ca: T): T =>
+  isEnLang() ? en : isCaLang() ? ca : es;
 
 function steepLabel(k: 'S' | 'T' | 'E' | 'ENV' | 'P'): string {
   switch (k) {
@@ -1526,13 +1536,13 @@ function renderCover(doc: jsPDF, report: ReportResponse, result: ResultData | nu
   doc.text('FUTUROS', MARGIN_X, MARGIN_TOP);
   setText(doc, INK_MUTE, 7.5, 'normal', FONT_MONO);
   doc.text(
-    (en ? 'Strategic Foresight' : 'Foresight Estratégico').toUpperCase(),
+    t3('Strategic Foresight', 'Foresight Estratégico', 'Foresight Estratègic').toUpperCase(),
     MARGIN_X,
     MARGIN_TOP + 5,
   );
 
   // Issue meta in the top-right.
-  const lang = en ? 'en-GB' : 'es-ES';
+  const lang = t3('en-GB', 'es-ES', 'ca-ES');
   const dateStr = new Date(report.createdAt).toLocaleDateString(lang, {
     day: '2-digit',
     month: 'long',
@@ -1563,7 +1573,7 @@ function renderCover(doc: jsPDF, report: ReportResponse, result: ResultData | nu
   const eyebrowParts = [tx('report.eyebrow', 'Strategic foresight report')];
   if (cp.horizon) {
     eyebrowParts.push(
-      `${cp.horizon}-${en ? 'year horizon' : 'años de horizonte'}`,
+      `${cp.horizon}-${t3('year horizon', 'años de horizonte', 'anys d’horitzó')}`,
     );
   }
   setText(doc, GOLD, 9.5, 'bold', FONT_MONO);
@@ -1635,7 +1645,7 @@ function renderCover(doc: jsPDF, report: ReportResponse, result: ResultData | nu
   if (cp.consultantName || cp.consultantCompany) {
     const consultant = [cp.consultantName, cp.consultantCompany].filter(Boolean).join(' — ');
     setText(doc, INK_MUTE, 7.5, 'bold', FONT_MONO);
-    doc.text((en ? 'Prepared by' : 'Preparado por').toUpperCase(), MARGIN_X, PAGE_H - 30);
+    doc.text(t3('Prepared by', 'Preparado por', 'Preparat per').toUpperCase(), MARGIN_X, PAGE_H - 30);
     setText(doc, INK_SOFT, 13, 'italic', FONT_SERIF);
     doc.text(consultant, MARGIN_X, PAGE_H - 22);
   }
@@ -1675,9 +1685,11 @@ function renderBackCover(doc: jsPDF) {
   doc.line(cx - 14, centerY - 26, cx + 14, centerY - 26);
 
   // ── Tagline. Split at the comma so the accent clause can render in gold.
-  const tagline = en
-    ? { lead: 'The future is not predicted,', accent: 'it is designed.' }
-    : { lead: 'El futuro no se predice,', accent: 'se diseña.' };
+  const tagline = t3(
+    { lead: 'The future is not predicted,', accent: 'it is designed.' },
+    { lead: 'El futuro no se predice,', accent: 'se diseña.' },
+    { lead: 'El futur no es prediu,', accent: 'es dissenya.' },
+  );
 
   // Auto-shrink so both lines fit CONTENT_W at the chosen size.
   let taglineSize = 26;
@@ -1730,14 +1742,14 @@ function collectCoverStats(
   if (scenarioCount > 0) {
     out.push({
       value: String(scenarioCount),
-      label: en ? 'Scenarios' : 'Escenarios',
+      label: t3('Scenarios', 'Escenarios', 'Escenaris'),
     });
   }
   const forcesCount = result?.scenarioPlanning?.drivingForces?.length ?? 0;
   if (forcesCount > 0) {
     out.push({
       value: String(forcesCount),
-      label: en ? 'Driving forces' : 'Fuerzas motrices',
+      label: t3('Driving forces', 'Fuerzas motrices', 'Forces motrius'),
     });
   }
   // Sources count — sum across globalSteep + bySection (or fall back).
@@ -1756,7 +1768,7 @@ function collectCoverStats(
   if (sourcesTotal > 0) {
     out.push({
       value: String(sourcesTotal),
-      label: en ? 'Sources cited' : 'Fuentes citadas',
+      label: t3('Sources cited', 'Fuentes citadas', 'Fonts citades'),
     });
   }
   return out.slice(0, 3);
@@ -1799,10 +1811,10 @@ function renderToc(
   // (the user's policy is "use colours only for accents"; gold is reserved
   // for brand elements on the cover / back cover).
   let y = MARGIN_TOP + 8;
-  kicker(doc, MARGIN_X, y, en ? 'Inside this report' : 'Dentro de este informe', INK_MUTE, 8);
+  kicker(doc, MARGIN_X, y, t3('Inside this report', 'Dentro de este informe', 'Dins d’aquest informe'), INK_MUTE, 8);
   y += 8;
   setText(doc, INK, 28, 'bold', FONT_SERIF);
-  doc.text(en ? 'Contents' : 'Contenidos', MARGIN_X, y + 12);
+  doc.text(t3('Contents', 'Contenidos', 'Continguts'), MARGIN_X, y + 12);
   y += 18;
   doc.setDrawColor(LINE_STRONG);
   doc.setLineWidth(0.4);
@@ -1875,7 +1887,7 @@ function renderToc(
   // Footer credit
   setText(doc, INK_FAINT, 7, 'normal', FONT_MONO);
   doc.text(
-    (en ? 'Read in the order shown' : 'Leer en el orden mostrado').toUpperCase(),
+    t3('Read in the order shown', 'Leer en el orden mostrado', 'Llegir en l’ordre mostrat').toUpperCase(),
     MARGIN_X,
     PAGE_H - 28,
   );
@@ -1905,9 +1917,11 @@ function buildTocTeasers(
   // 01: Brief — pushed whenever the brief+exec spread renders.
   if (result?.executiveSummary || input.companyProfile) {
     put(
-      en
-        ? 'Organisation, sector, challenge and capabilities at a glance.'
-        : 'Organización, sector, reto y capacidades de un vistazo.',
+      t3(
+        'Organisation, sector, challenge and capabilities at a glance.',
+        'Organización, sector, reto y capacidades de un vistazo.',
+        'Organització, sector, repte i capacitats d’un cop d’ull.',
+      ),
     );
     // 02: Executive summary — same spread but its own TOC entry.
     if (result?.executiveSummary) {
@@ -1917,9 +1931,11 @@ function buildTocTeasers(
       put(
         first && first.length < 220
           ? first
-          : en
-            ? 'The lead narrative — what the analysis means for this organisation.'
-            : 'La narrativa principal — qué significa este análisis para la organización.',
+          : t3(
+              'The lead narrative — what the analysis means for this organisation.',
+              'La narrativa principal — qué significa este análisis para la organización.',
+              'La narrativa principal — què significa aquesta anàlisi per a aquesta organització.',
+            ),
       );
     }
   }
@@ -1932,9 +1948,11 @@ function buildTocTeasers(
     !!input.steep && Object.values(input.steep).some((v) => (v ?? '').trim().length > 0);
   if (hasGlobal || hasSect) {
     put(
-      en
-        ? 'Five-dimension scan of the global and sectorial context.'
-        : 'Escaneo en cinco dimensiones del contexto global y sectorial.',
+      t3(
+        'Five-dimension scan of the global and sectorial context.',
+        'Escaneo en cinco dimensiones del contexto global y sectorial.',
+        'Escaneig en cinc dimensions del context global i sectorial.',
+      ),
     );
   }
 
@@ -1942,9 +1960,11 @@ function buildTocTeasers(
   if (result?.keyUncertainties?.length) {
     const n = result.keyUncertainties.length;
     put(
-      en
-        ? `${n} open questions that shape what futures are possible.`
-        : `${n} preguntas abiertas que delimitan los futuros posibles.`,
+      t3(
+        `${n} open questions that shape what futures are possible.`,
+        `${n} preguntas abiertas que delimitan los futuros posibles.`,
+        `${n} preguntes obertes que delimiten els futurs possibles.`,
+      ),
     );
   }
 
@@ -1954,9 +1974,11 @@ function buildTocTeasers(
     put(
       names.length > 0
         ? names.slice(0, 3).join(' · ')
-        : en
-          ? 'Probable, plausible and possible futures explored in depth.'
-          : 'Futuros probable, plausible y posible explorados en profundidad.',
+        : t3(
+            'Probable, plausible and possible futures explored in depth.',
+            'Futuros probable, plausible y posible explorados en profundidad.',
+            'Futurs probable, plausible i possible explorats en profunditat.',
+          ),
     );
   }
 
@@ -1970,9 +1992,11 @@ function buildTocTeasers(
     const fc = result.scenarioPlanning.drivingForces?.length ?? 0;
     const ac = result.scenarioPlanning.axes?.length ?? 0;
     put(
-      en
-        ? `${fc} driving forces, ${ac} uncertainty axes, and the narrative logic linking them.`
-        : `${fc} fuerzas motrices, ${ac} ejes de incertidumbre y la lógica narrativa que los conecta.`,
+      t3(
+        `${fc} driving forces, ${ac} uncertainty axes, and the narrative logic linking them.`,
+        `${fc} fuerzas motrices, ${ac} ejes de incertidumbre y la lógica narrativa que los conecta.`,
+        `${fc} forces motrius, ${ac} eixos d’incertesa i la lògica narrativa que els connecta.`,
+      ),
     );
   }
 
@@ -1983,9 +2007,11 @@ function buildTocTeasers(
       0,
     );
     put(
-      en
-        ? `${total} milestones traced back from each scenario's vision.`
-        : `${total} hitos trazados desde la visión de cada escenario.`,
+      t3(
+        `${total} milestones traced back from each scenario's vision.`,
+        `${total} hitos trazados desde la visión de cada escenario.`,
+        `${total} fites traçades enrere des de la visió de cada escenari.`,
+      ),
     );
   }
 
@@ -1993,9 +2019,11 @@ function buildTocTeasers(
   if (result?.strategicMap?.length) {
     const n = result.strategicMap.length;
     put(
-      en
-        ? `${n} priorities laid out across the H1 / H2 / H3 horizons.`
-        : `${n} prioridades distribuidas en los horizontes H1 / H2 / H3.`,
+      t3(
+        `${n} priorities laid out across the H1 / H2 / H3 horizons.`,
+        `${n} prioridades distribuidas en los horizontes H1 / H2 / H3.`,
+        `${n} prioritats distribuïdes en els horitzons H1 / H2 / H3.`,
+      ),
     );
   }
 
@@ -2004,9 +2032,11 @@ function buildTocTeasers(
     const sn = result?.weakSignals?.length ?? 0;
     const wn = result?.wildcards?.length ?? 0;
     put(
-      en
-        ? `${sn} weak signals and ${wn} wildcards — the edge cases to watch.`
-        : `${sn} señales débiles y ${wn} wildcards — los casos límite a vigilar.`,
+      t3(
+        `${sn} weak signals and ${wn} wildcards — the edge cases to watch.`,
+        `${sn} señales débiles y ${wn} wildcards — los casos límite a vigilar.`,
+        `${sn} senyals febles i ${wn} wildcards — els casos límit a vigilar.`,
+      ),
     );
   }
 
@@ -2020,9 +2050,11 @@ function buildTocTeasers(
         Object.values(result.sources.bySection).some((v) => (v?.length ?? 0) > 0)))
   ) {
     put(
-      en
-        ? 'Public sources consulted via web search during generation.'
-        : 'Fuentes públicas consultadas mediante búsqueda web durante la generación.',
+      t3(
+        'Public sources consulted via web search during generation.',
+        'Fuentes públicas consultadas mediante búsqueda web durante la generación.',
+        'Fonts públiques consultades mitjançant cerca web durant la generació.',
+      ),
     );
   }
   return teasers;
@@ -2076,7 +2108,7 @@ function renderBriefAndExec(
   const en = isEnLang();
   // Set BEFORE addPage so the new page captures the section context for
   // its rotated eyebrow + chip.
-  setSection(doc, en ? 'Brief' : 'Resumen', INK_MUTE);
+  setSection(doc, t3('Brief', 'Resumen', 'Resum'), INK_MUTE);
   const y = addPage(doc);
   drawRunningHead(doc);
   const cp = input.companyProfile ?? {};
@@ -2086,7 +2118,7 @@ function renderBriefAndExec(
   const page = (doc.getCurrentPageInfo() as { pageNumber: number }).pageNumber;
   tocEntries.push({
     num: briefNum,
-    title: en ? 'Brief' : 'Brief',
+    title: 'Brief',
     page,
     color: INK_MUTE,
   });
@@ -2135,7 +2167,7 @@ function renderBriefAndExec(
   setText(doc, INK_SOFT, 22, 'bold', FONT_SERIF);
   doc.text(briefNum, sidebarX, startY + 4);
   setText(doc, INK_MUTE, 7, 'bold', FONT_MONO);
-  doc.text((en ? 'Brief' : 'Brief').toUpperCase(), sidebarX, startY + 11);
+  doc.text('BRIEF', sidebarX, startY + 11);
   // Short structural rule under "01 BRIEF"
   doc.setDrawColor(LINE_STRONG);
   doc.setLineWidth(0.4);
@@ -2147,7 +2179,7 @@ function renderBriefAndExec(
     setText(doc, INK_SOFT, 22, 'bold', FONT_SERIF);
     doc.text(execNum, mainX, my + 4);
     setText(doc, INK_MUTE, 7, 'bold', FONT_MONO);
-    doc.text((en ? 'Lead' : 'Líder').toUpperCase(), mainX, my + 11);
+    doc.text(t3('Lead', 'Líder', 'Líder').toUpperCase(), mainX, my + 11);
     my += 18;
     setText(doc, INK, 26, 'bold', FONT_SERIF);
     const titleLines = doc.splitTextToSize(
@@ -2182,15 +2214,18 @@ function renderBriefAndExec(
     }
     sy += 4;
   };
-  sidebarRow(en ? 'Organisation' : 'Organización', cp.name);
-  sidebarRow(en ? 'Sector' : 'Sector', cp.sector);
+  sidebarRow(t3('Organisation', 'Organización', 'Organització'), cp.name);
+  sidebarRow('Sector', cp.sector);
   if (cp.horizon) {
-    sidebarRow(en ? 'Horizon' : 'Horizonte', `${cp.horizon} ${en ? 'years' : 'años'}`);
+    sidebarRow(
+      t3('Horizon', 'Horizonte', 'Horitzó'),
+      `${cp.horizon} ${t3('years', 'años', 'anys')}`,
+    );
   }
   if (cp.challenge) {
     if (sy + 8 <= clampMaxY) {
       setText(doc, INK_MUTE, 6.8, 'bold', FONT_MONO);
-      doc.text((en ? 'Challenge' : 'Reto').toUpperCase(), sidebarX, sy);
+      doc.text(t3('Challenge', 'Reto', 'Repte').toUpperCase(), sidebarX, sy);
       sy += 4;
       sy = bodyClamped(doc, sy, cp.challenge, {
         indent: sidebarX,
@@ -2206,7 +2241,7 @@ function renderBriefAndExec(
   if (cp.strengths) {
     if (sy + 8 <= clampMaxY) {
       setText(doc, INK_MUTE, 6.8, 'bold', FONT_MONO);
-      doc.text((en ? 'Strengths' : 'Capacidades').toUpperCase(), sidebarX, sy);
+      doc.text(t3('Strengths', 'Capacidades', 'Capacitats').toUpperCase(), sidebarX, sy);
       sy += 4;
       sy = bodyClamped(doc, sy, cp.strengths, {
         indent: sidebarX,
@@ -2222,7 +2257,7 @@ function renderBriefAndExec(
   if ((cp.consultantName || cp.consultantCompany) && sy + 10 <= clampMaxY) {
     const consultant = [cp.consultantName, cp.consultantCompany].filter(Boolean).join(' — ');
     setText(doc, INK_MUTE, 6.8, 'bold', FONT_MONO);
-    doc.text((en ? 'Consultant' : 'Consultor').toUpperCase(), sidebarX, sy);
+    doc.text(t3('Consultant', 'Consultor', 'Consultor').toUpperCase(), sidebarX, sy);
     sy += 4;
     setText(doc, INK_SOFT, 10, 'italic', FONT_SERIF);
     const lines = doc.splitTextToSize(consultant, sidebarW) as string[];
@@ -2409,7 +2444,7 @@ function renderSteepInputs(
     doc,
     yIn,
     tx('report.results.steep.title', 'STEEP analysis'),
-    isEnLang() ? 'Context' : 'Contexto',
+    t3('Context', 'Contexto', 'Context'),
     INK_MUTE,
   );
 
@@ -2657,7 +2692,7 @@ function renderUncertainties(doc: jsPDF, yIn: number, items: KeyUncertainty[]): 
     doc,
     yIn,
     tx('report.results.uncertainties', 'Key uncertainties'),
-    isEnLang() ? 'Open questions' : 'Preguntas abiertas',
+    t3('Open questions', 'Preguntas abiertas', 'Preguntes obertes'),
     INK_MUTE,
   );
   const gap = 6;
@@ -2745,7 +2780,7 @@ function renderScenarios(doc: jsPDF, scenarios: Scenario[]): number {
     doc,
     y,
     tx('report.results.tabs.scenarios', '3P Scenarios'),
-    isEnLang() ? 'Futures' : 'Futuros',
+    t3('Futures', 'Futuros', 'Futurs'),
     GREEN,
   );
   // Standfirst describing the 3P frame.
@@ -2888,7 +2923,7 @@ function renderScenarioFeature(doc: jsPDF, yIn: number, s: Scenario, idx: number
   doc.text(numStr, PAGE_W - MARGIN_X - nw, yIn + 8);
   setText(doc, INK_MUTE, 6.5, 'bold', FONT_MONO);
   doc.text(
-    (en ? 'Scenario' : 'Escenario').toUpperCase(),
+    t3('Scenario', 'Escenario', 'Escenari').toUpperCase(),
     PAGE_W - MARGIN_X - nw,
     yIn + 12,
   );
@@ -2940,7 +2975,7 @@ function renderScenarioFeature(doc: jsPDF, yIn: number, s: Scenario, idx: number
     bar(doc, statX, heroTop + 21, statW, pct, colors.fg);
     setText(doc, INK_MUTE, 6, 'normal', FONT_MONO);
     doc.text(
-      (en ? 'Model likelihood' : 'Probabilidad').toUpperCase(),
+      t3('Model likelihood', 'Probabilidad', 'Probabilitat').toUpperCase(),
       statX,
       heroTop + 26,
     );
@@ -3260,7 +3295,7 @@ function extractTimeframeHeadline(
 ): { head: string; bodyText: string } {
   const trimmed = text.trim();
   if (!trimmed) {
-    return { head: en ? 'Now' : 'Inmediato', bodyText: '' };
+    return { head: t3('Now', 'Inmediato', 'Immediat'), bodyText: '' };
   }
 
   // 1) Leading clause split — "Within 30 days, …" / "En los próximos 90 días, …".
@@ -3302,7 +3337,7 @@ function extractTimeframeHeadline(
   // 3) Locale fallback. "Primer paso" / "First step" reads as a clear opener even
   //    when no explicit timeframe is in the source text.
   return {
-    head: en ? 'First step' : 'Primer paso',
+    head: t3('First step', 'Primer paso', 'Primer pas'),
     bodyText: trimmed,
   };
 }
@@ -3333,14 +3368,14 @@ function looksTemporal(s: string): boolean {
  * cards in a row. Everything keyed to fit on roughly 1-2 pages.
  */
 function renderScenarioPlanning(doc: jsPDF, sp: ScenarioPlanning): number {
-  setSection(doc, isEnLang() ? 'Scenario Planning' : 'Planificación', BLUE);
+  setSection(doc, t3('Scenario Planning', 'Planificación', 'Planificació'), BLUE);
   let y = addPage(doc);
   drawRunningHead(doc);
   y = pageHeader(
     doc,
     y,
     tx('report.results.tabs.sp', 'Scenario Planning'),
-    isEnLang() ? 'Structure' : 'Estructura',
+    t3('Structure', 'Estructura', 'Estructura'),
     BLUE,
   );
 
@@ -3626,7 +3661,11 @@ function renderDrivingForcesFeaturePage(doc: jsPDF, entries: Array<{ force: Driv
   setText(doc, BLUE, 7.5, 'bold', FONT_MONO);
   const en = isEnLang();
   doc.text(
-    (en ? 'Scenario planning · Driving forces' : 'Planificación · Fuerzas motrices').toUpperCase(),
+    t3(
+      'Scenario planning · Driving forces',
+      'Planificación · Fuerzas motrices',
+      'Planificació · Forces motrius',
+    ).toUpperCase(),
     MARGIN_X,
     y,
   );
@@ -3686,7 +3725,7 @@ function renderDrivingForceHero(
   // Kicker under the numeral
   setText(doc, INK_MUTE, 7, 'bold', FONT_MONO);
   doc.text(
-    (en ? 'Driving force' : 'Fuerza motriz').toUpperCase(),
+    t3('Driving force', 'Fuerza motriz', 'Força motriu').toUpperCase(),
     MARGIN_X,
     y + numSize * 0.7 + 5,
   );
@@ -3710,7 +3749,7 @@ function renderDrivingForceHero(
   bar(doc, textX + pctW + 4, ty + scoreSize * 0.4 - 2, barW, score, colors.fg);
   setText(doc, INK_MUTE, 7, 'bold', FONT_MONO);
   doc.text(
-    (en ? 'Impact score' : 'Impacto').toUpperCase(),
+    t3('Impact score', 'Impacto', 'Impacte').toUpperCase(),
     textX + pctW + 4,
     ty + scoreSize * 0.4 + 4,
   );
@@ -3762,7 +3801,7 @@ function renderDrivingForceRow(doc: jsPDF, yIn: number, f: DrivingForce, idx: nu
     eyebrowNum: String(f.rank).padStart(2, '0'),
     label: f.title,
     rightStat: scoreStr,
-    rightStatLabel: isEnLang() ? 'Impact' : 'Impacto',
+    rightStatLabel: t3('Impact', 'Impacto', 'Impacte'),
     body: desc,
   });
 }
@@ -3894,7 +3933,7 @@ function renderBackcasting(doc: jsPDF, entries: BackcastingEntry[]): number {
     const colors = scenarioColors(e.scenarioType, i);
     setSection(
       doc,
-      `${isEnLang() ? 'Backcasting' : 'Backcasting'} · ${e.scenarioType ?? `Scenario ${i + 1}`}`,
+      `Backcasting · ${e.scenarioType ?? `Scenario ${i + 1}`}`,
       colors.fg,
     );
     y = addPage(doc);
@@ -3933,7 +3972,7 @@ function renderBackcastingEntry(
   // stays quiet (per "colours only for accents" policy).
   setText(doc, INK_MUTE, 7.5, 'bold', FONT_MONO);
   doc.text(
-    `${(en ? 'Backcasting' : 'Backcasting').toUpperCase()} · ${(e.scenarioType ?? '').toUpperCase()}`,
+    `BACKCASTING · ${(e.scenarioType ?? '').toUpperCase()}`,
     MARGIN_X,
     y + 2,
   );
@@ -3980,7 +4019,7 @@ function renderBackcastingEntry(
     const railX = MARGIN_X + YEAR_COL_W - 1;
 
     // subLabel for the timeline opener
-    y = subheadCap(doc, MARGIN_X, y, en ? 'Trajectory' : 'Trayectoria', colors.fg);
+    y = subheadCap(doc, MARGIN_X, y, t3('Trajectory', 'Trayectoria', 'Trajectòria'), colors.fg);
     y += 3;
     const railStart = y;
 
@@ -4150,9 +4189,9 @@ function renderStrategicMap(doc: jsPDF, items: StrategicPriority[]): number {
     H3: PURPLE,
   };
   const horizonLabels: Record<'H1' | 'H2' | 'H3', string> = {
-    H1: isEnLang() ? 'Horizon 1' : 'Horizonte 1',
-    H2: isEnLang() ? 'Horizon 2' : 'Horizonte 2',
-    H3: isEnLang() ? 'Horizon 3' : 'Horizonte 3',
+    H1: t3('Horizon 1', 'Horizonte 1', 'Horitzó 1'),
+    H2: t3('Horizon 2', 'Horizonte 2', 'Horitzó 2'),
+    H3: t3('Horizon 3', 'Horizonte 3', 'Horitzó 3'),
   };
   // Each horizon owns its own page so the H1 / H2 / H3 lockup never collides
   // with the previous horizon's priorities mid-page. Within a horizon, priorities
@@ -4164,7 +4203,7 @@ function renderStrategicMap(doc: jsPDF, items: StrategicPriority[]): number {
   for (const h of order) {
     const group = items.filter((it) => it.horizon === h);
     if (group.length === 0) continue;
-    setSection(doc, `${isEnLang() ? 'Strategic Map' : 'Mapa Estratégico'} · ${horizonLabels[h]}`, horizonColors[h]);
+    setSection(doc, `${t3('Strategic Map', 'Mapa Estratégico', 'Mapa Estratègic')} · ${horizonLabels[h]}`, horizonColors[h]);
     y = addPage(doc);
     drawRunningHead(doc);
     if (first) {
@@ -4174,7 +4213,7 @@ function renderStrategicMap(doc: jsPDF, items: StrategicPriority[]): number {
         doc,
         y,
         tx('report.results.tabs.str', 'Strategic map'),
-        isEnLang() ? 'Priorities' : 'Prioridades',
+        t3('Priorities', 'Prioridades', 'Prioritats'),
         PURPLE,
       );
       first = false;
@@ -4243,7 +4282,7 @@ function renderHorizonHeaderCompact(
   doc.text(h, MARGIN_X, yIn + 8);
   setText(doc, INK_MUTE, 7.5, 'bold', FONT_MONO);
   doc.text(
-    `${(en ? 'Horizon' : 'Horizonte').toUpperCase()} ${h.slice(1)} · ${(en ? 'Continued' : 'Continuación').toUpperCase()}`,
+    `${t3('Horizon', 'Horizonte', 'Horitzó').toUpperCase()} ${h.slice(1)} · ${t3('Continued', 'Continuación', 'Continuació').toUpperCase()}`,
     MARGIN_X + 10,
     yIn + 8,
   );
@@ -4276,7 +4315,7 @@ function renderHorizonHeader(doc: jsPDF, yIn: number, h: 'H1' | 'H2' | 'H3', col
   const kx = MARGIN_X + codeW + 6;
   setText(doc, INK_MUTE, 7.5, 'bold', FONT_MONO);
   doc.text(
-    `${(en ? 'Horizon' : 'Horizonte').toUpperCase()} ${h.slice(1)}`,
+    `${t3('Horizon', 'Horizonte', 'Horitzó').toUpperCase()} ${h.slice(1)}`,
     kx,
     y + 6,
   );
@@ -4365,14 +4404,14 @@ function renderPriorityCardWide(
 /* ── Section: Signals & Wildcards ─────────────────────────────────── */
 
 function renderSignals(doc: jsPDF, signals: WeakSignal[], wildcards: Wildcard[]): number {
-  setSection(doc, isEnLang() ? 'Signals & Wildcards' : 'Señales y Wildcards', PURPLE);
+  setSection(doc, t3('Signals & Wildcards', 'Señales y Wildcards', 'Senyals i Wildcards'), PURPLE);
   let y = addPage(doc);
   drawRunningHead(doc);
   y = pageHeader(
     doc,
     y,
     tx('report.results.tabs.signals', 'Signals & wildcards'),
-    isEnLang() ? 'Edge cases' : 'Casos límite',
+    t3('Edge cases', 'Casos límite', 'Casos límit'),
     PURPLE,
   );
   if (signals.length) {
@@ -4536,14 +4575,14 @@ function renderWildcardCard(doc: jsPDF, yIn: number, w: Wildcard, idx: number): 
 /* ── Section: Sources ─────────────────────────────────────────────── */
 
 function renderSources(doc: jsPDF, src: Sources): number {
-  setSection(doc, isEnLang() ? 'Sources' : 'Fuentes', INK_MUTE);
+  setSection(doc, t3('Sources', 'Fuentes', 'Fonts'), INK_MUTE);
   let y = addPage(doc);
   drawRunningHead(doc);
   y = pageHeader(
     doc,
     y,
     tx('report.results.tabs.sources', 'Sources'),
-    isEnLang() ? 'References' : 'Referencias',
+    t3('References', 'Referencias', 'Referències'),
     INK_MUTE,
   );
   const intro = tx('report.results.sources.intro', '');
@@ -4804,7 +4843,7 @@ function collectFieldNeeds(
  */
 export async function exportReportPdf(
   report: ReportResponse,
-  language?: 'es' | 'en',
+  language?: 'es' | 'en' | 'ca',
   theme: PdfTheme = 'dark',
 ) {
   const originalLang = i18n.language;
@@ -4839,7 +4878,7 @@ async function renderReport(report: ReportResponse) {
   const result = sanitizeTree(report.resultData ?? null) as ResultData | null;
   const cp = input.companyProfile ?? {};
   const en = isEnLang();
-  const exportLang: 'es' | 'en' = en ? 'en' : 'es';
+  const exportLang: 'es' | 'en' | 'ca' = isEnLang() ? 'en' : isCaLang() ? 'ca' : 'es';
 
   // ── Layout planning + fit pass ─────────────────────────────────────
   // Step 1: measure each section's source content and pick the closest
@@ -4892,7 +4931,7 @@ async function renderReport(report: ReportResponse) {
   const gN = normalizeSteepKeys(input.globalSteep);
   const sN = normalizeSteepKeys(input.steep);
   if (Object.keys(gN).length > 0 || Object.keys(sN).length > 0) {
-    setSection(doc, isEnLang() ? 'STEEP Context' : 'Contexto STEEP', INK_MUTE);
+    setSection(doc, t3('STEEP Context', 'Contexto STEEP', 'Context STEEP'), INK_MUTE);
     const yStart = addPage(doc);
     drawRunningHead(doc);
     renderSteepInputs(doc, yStart, input, tightened);
@@ -4900,7 +4939,7 @@ async function renderReport(report: ReportResponse) {
 
   if (result) {
     if (result.keyUncertainties?.length) {
-      setSection(doc, isEnLang() ? 'Key Uncertainties' : 'Incertidumbres', INK_MUTE);
+      setSection(doc, t3('Key Uncertainties', 'Incertidumbres', 'Incerteses'), INK_MUTE);
       const yStart = addPage(doc);
       drawRunningHead(doc);
       renderUncertainties(doc, yStart, result.keyUncertainties);

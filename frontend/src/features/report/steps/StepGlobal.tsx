@@ -26,7 +26,7 @@ export type GlobalSteepData = GlobalSteep;
 interface Props {
   data: GlobalSteepData;
   sector: string;
-  language: 'es' | 'en';
+  language: 'es' | 'en' | 'ca';
   onChange: (data: GlobalSteepData) => void;
   /**
    * Optional sink for the web_search citations harvested during the scan.

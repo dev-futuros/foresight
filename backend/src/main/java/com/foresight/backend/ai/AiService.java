@@ -2862,13 +2862,15 @@ public class AiService {
     }
 
     /**
-     * Normalizes the language hint to either {@code "en"} or {@code "es"} (default).
+     * Normalizes the language hint to one of the supported ISO codes.
      *
      * @param language raw language tag from the request (may be {@code null})
-     * @return {@code "en"} if explicitly English, otherwise {@code "es"}
+     * @return {@code "en"} or {@code "ca"} if explicitly requested, otherwise {@code "es"} (default)
      */
     private String lang(String language) {
-        return (language != null && language.equals("en")) ? "en" : "es";
+        if (language != null && language.equals("en")) return "en";
+        if (language != null && language.equals("ca")) return "ca";
+        return "es";
     }
 
     /**
@@ -2881,18 +2883,22 @@ public class AiService {
      *
      * <p>This helper bakes three reinforcements that survive that drift:
      * <ul>
-     *   <li>spells the language out by name (Spanish / English) so the model isn't
-     *       parsing an ISO code;</li>
+     *   <li>spells the language out by name (Spanish / English / Catalan) so the model
+     *       isn't parsing an ISO code;</li>
      *   <li>lives at the head of the user turn (recency) so it survives long tool loops;</li>
      *   <li>explicitly tells the model to translate source material rather than echo it.</li>
      * </ul>
      */
     private String langInstruction(String language) {
-        boolean en = language != null && language.equals("en");
-        if (en) {
+        if (language != null && language.equals("en")) {
             return "Output language: ENGLISH. Reply ENTIRELY in English. If web search "
                     + "or any other source returns content in another language, translate "
                     + "the findings to English before writing the response.";
+        }
+        if (language != null && language.equals("ca")) {
+            return "Idioma de sortida: CATALÀ. Respon ÍNTEGRAMENT en català. Si la "
+                    + "cerca web o qualsevol altra font retorna contingut en un altre idioma, "
+                    + "tradueix les troballes al català abans de redactar la resposta.";
         }
         return "Idioma de salida: ESPAÑOL. Responde ÍNTEGRAMENTE en español. Si la "
                 + "búsqueda web o cualquier otra fuente devuelve contenido en otro idioma, "

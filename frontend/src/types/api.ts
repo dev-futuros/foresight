@@ -39,7 +39,7 @@ export interface ReportSummary {
   title: string;
   status: ReportStatus;
   /** ISO-639-1 code of the language the wizard used. Mirrors `ReportResponse`. */
-  primaryLanguage: 'es' | 'en';
+  primaryLanguage: 'es' | 'en' | 'ca';
   /**
    * Languages this report is available in. Always contains {@link primaryLanguage};
    * additional entries appear after a translation has been materialised. Driven by
@@ -62,7 +62,7 @@ export interface ReportResponse {
    * other languages are produced on demand from the share / export
    * dialogs — see {@link availableLanguages}.
    */
-  primaryLanguage: 'es' | 'en';
+  primaryLanguage: 'es' | 'en' | 'ca';
   /**
    * Languages this report is available in. Always contains
    * {@link primaryLanguage}; additional entries appear after a
@@ -99,7 +99,7 @@ export interface PdfOptimizedEntry {
 }
 
 /** Map of language code → tightened-entry. Cleared per-language when the source text changes. */
-export type PdfOptimizedCache = Partial<Record<'es' | 'en', PdfOptimizedEntry>>;
+export type PdfOptimizedCache = Partial<Record<'es' | 'en' | 'ca', PdfOptimizedEntry>>;
 
 /** Payload returned by the `POST /api/reports/{id}/translate` endpoint. */
 export interface TranslatedReport {
@@ -119,7 +119,7 @@ export interface ExampleSummary {
   slug: string;
   title: string;
   description?: string | null;
-  primaryLanguage: 'es' | 'en';
+  primaryLanguage: 'es' | 'en' | 'ca';
   availableLanguages: string[];
   createdAt: string;
   updatedAt: string;
@@ -131,7 +131,7 @@ export interface ExampleResponse {
   slug: string;
   title: string;
   description?: string | null;
-  primaryLanguage: 'es' | 'en';
+  primaryLanguage: 'es' | 'en' | 'ca';
   availableLanguages: string[];
   inputData: Record<string, unknown>;
   resultData: Record<string, unknown> | null;
@@ -194,9 +194,9 @@ export interface SharedTranslationEntry {
 export interface PublicShareResponse {
   title: string;
   /** ISO-639-1 of the language carried in {@code inputData}/{@code resultData}. */
-  primaryLanguage: 'es' | 'en';
+  primaryLanguage: 'es' | 'en' | 'ca';
   /** Union of {@code primaryLanguage} and the keys of {@code translations}, primary first. */
-  availableLanguages: ('es' | 'en')[];
+  availableLanguages: ('es' | 'en' | 'ca')[];
   inputData: Record<string, unknown>;
   resultData: Record<string, unknown> | null;
   /** Cached translations frozen at share creation. {@code null} on
@@ -211,7 +211,7 @@ export interface CreateReportRequest {
   title: string;
   inputData: Record<string, unknown>;
   /** ISO-639-1 code identifying the wizard's language. Defaults to 'es' server-side. */
-  primaryLanguage?: 'es' | 'en';
+  primaryLanguage?: 'es' | 'en' | 'ca';
 }
 
 export interface UpdateReportRequest {
@@ -222,5 +222,5 @@ export interface UpdateReportRequest {
 
 export interface UpdateUserRequest {
   name?: string;
-  language?: 'es' | 'en';
+  language?: 'es' | 'en' | 'ca';
 }

@@ -16,6 +16,7 @@ import './account.css';
 const LANGUAGE_OPTIONS = [
   { value: 'es' as const, label: 'Español' },
   { value: 'en' as const, label: 'English' },
+  { value: 'ca' as const, label: 'Català' },
 ];
 
 type Props = {
@@ -124,7 +125,7 @@ export default function AccountModal({ open, onClose }: Readonly<Props>) {
   // Language is the only editable field left in this modal. The Preferences
   // section's Save button pushes to the backend, which mirrors the value to
   // Kinde Property `language`.
-  const [language, setLanguage] = useState<'es' | 'en'>('es');
+  const [language, setLanguage] = useState<'es' | 'en' | 'ca'>('es');
   const [prefsMsg, setPrefsMsg] = useState<StatusMsg>(null);
 
   // Mirror the API-owned language into local state once it arrives, and whenever a
@@ -132,7 +133,7 @@ export default function AccountModal({ open, onClose }: Readonly<Props>) {
   useEffect(() => {
     if (user?.id) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- sync API-owned preference into editable local state when the row identity changes
-      setLanguage((user.language as 'es' | 'en') ?? 'es');
+      setLanguage((user.language as 'es' | 'en' | 'ca') ?? 'es');
     }
   }, [user?.id, user?.language]);
 
@@ -308,7 +309,7 @@ export default function AccountModal({ open, onClose }: Readonly<Props>) {
                 <select
                   id="account-modal-language"
                   value={language}
-                  onChange={(e) => setLanguage(e.target.value as 'es' | 'en')}
+                  onChange={(e) => setLanguage(e.target.value as 'es' | 'en' | 'ca')}
                 >
                   {LANGUAGE_OPTIONS.map((o) => (
                     <option key={o.value} value={o.value}>

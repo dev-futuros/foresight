@@ -8,10 +8,9 @@ import es from './locales/es';
 // detection in the app right now. Language is changed explicitly via the
 // AccountModal (which calls i18n.changeLanguage and PATCH /users/me).
 //
-// `ca` is registered as a resource so AccountModal's Catalan option works,
-// but only the `auth.*` namespace is translated today — every other key
-// falls back to Spanish per `fallbackLng`. Full-app Catalan is a separate
-// follow-up task.
+// Three first-class languages: Spanish (default + fallback), English, and
+// Catalan. Any missing key in `ca` or `en` falls back to `es` per
+// `fallbackLng` so partial translations degrade gracefully.
 //
 // Cross-subdomain language handoff (futuros.io → dev/app.futuros.io) is
 // intentionally NOT done here. The marketing site + Kinde-hosted auth

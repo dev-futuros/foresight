@@ -43,7 +43,7 @@ import reactor.core.scheduler.Schedulers;
 public class ExampleService {
 
     /** Languages currently accepted by the on-demand translator. */
-    private static final Set<String> SUPPORTED_LANGUAGES = Set.of("es", "en");
+    private static final Set<String> SUPPORTED_LANGUAGES = Set.of("es", "en", "ca");
 
     private final ExampleRepository exampleRepository;
     private final ReportRepository reportRepository;

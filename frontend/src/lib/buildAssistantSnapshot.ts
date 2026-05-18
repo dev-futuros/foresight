@@ -35,7 +35,7 @@ export interface ReportResultSnapshot {
  * IDs it can write to.
  */
 export interface AssistantSnapshotInput {
-  language: 'es' | 'en';
+  language: 'es' | 'en' | 'ca';
   /** Wizard step the user is currently on (1-6). When the user is on a
    *  non-wizard route, pass the closest meaningful step:
    *  - dashboard or account → 1 (the typical first step they'd return to)
@@ -71,7 +71,7 @@ export interface AssistantSnapshotInput {
     title: string;
     status: 'DRAFT' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
     /** ISO-639-1 of the report's primary content language. */
-    primaryLanguage: 'es' | 'en';
+    primaryLanguage: 'es' | 'en' | 'ca';
     /** Languages the report is materialised in. */
     availableLanguages: string[];
     /** Whether the route is the read-only viewer ({@code /reports/:id})
