@@ -1031,19 +1031,22 @@ public class AiService {
             - Preserve paragraph breaks "\\n\\n" exactly as they appear.
             - Preserve bullet markers ("•") at the start of lines exactly.
             - Maintain editorial tone, sentence rhythm and approximate length.
-            - Scenario type tokens are pinned: when translating ES→EN, "Posible"
-              becomes "Possible"; when translating EN→ES, "Possible" becomes "Posible".
-              "Probable" and "Plausible" are identical in both languages — keep them
-              unchanged.
-            - STEEP dimension names (only in resultData.weakSignals[].dimension):
-              ES↔EN map is Social↔Social, Tecnológico↔Technological,
-              Económico↔Economic, Medioambiental↔Environmental, Político↔Political.
-              Use the target language's form.
-            - Horizon labels ("H1", "H2", "H3", and their full names like
-              "Corto plazo" / "Short term"): keep "H1/H2/H3" identical; translate
-              the full-name labels using the target language's standard horizon
-              naming (Corto plazo ↔ Short term, Medio plazo ↔ Medium term, Largo
-              plazo ↔ Long term).
+            - Scenario type tokens are pinned: "Posible" (ES), "Possible" (EN)
+              and "Possible" (CA) are the same concept — use the target
+              language's form ("Posible" for ES, "Possible" for EN and CA).
+              "Probable" and "Plausible" are identical across all three
+              languages — keep them unchanged.
+            - STEEP dimension names (only in resultData.weakSignals[].dimension).
+              Use the target language's form:
+                ES: Social, Tecnológico, Económico, Medioambiental, Político
+                EN: Social, Technological, Economic, Environmental, Political
+                CA: Social, Tecnològic, Econòmic, Mediambiental, Polític
+            - Horizon labels ("H1", "H2", "H3", and their full names): keep
+              "H1/H2/H3" identical; translate the full-name labels using the
+              target language's standard horizon naming:
+                ES: Corto plazo, Medio plazo, Largo plazo
+                EN: Short term, Medium term, Long term
+                CA: Curt termini, Mitjà termini, Llarg termini
             - Impact level tokens (resultData.strategicMap[].impact): preserve
               EXACTLY one of "low" / "medium" / "high" — these are enum codes,
               not localised labels.
@@ -1962,12 +1965,18 @@ public class AiService {
      * directions, parameterised on the target language.
      */
     private static String translateUserPrompt(String target, String envelopeJson) {
-        return (target.equals("en")
-                        ? "Target language: ENGLISH. Translate the following foresight report "
-                                + "envelope into English following the strict rules above.\n\n"
-                        : "Idioma destino: ESPAÑOL. Traduce el siguiente sobre de informe de "
-                                + "foresight al español siguiendo las reglas estrictas anteriores.\n\n")
-                + envelopeJson;
+        final String prefix;
+        if (target.equals("en")) {
+            prefix = "Target language: ENGLISH. Translate the following foresight report "
+                    + "envelope into English following the strict rules above.\n\n";
+        } else if (target.equals("ca")) {
+            prefix = "Idioma de destinació: CATALÀ. Tradueix el següent sobre d'informe de "
+                    + "foresight al català seguint les regles estrictes anteriors.\n\n";
+        } else {
+            prefix = "Idioma destino: ESPAÑOL. Traduce el siguiente sobre de informe de "
+                    + "foresight al español siguiendo las reglas estrictas anteriores.\n\n";
+        }
+        return prefix + envelopeJson;
     }
 
     /**
@@ -2861,13 +2870,15 @@ public class AiService {
     }
 
     /**
-     * Normalizes the language hint to either {@code "en"} or {@code "es"} (default).
+     * Normalizes the language hint to one of the supported ISO codes.
      *
      * @param language raw language tag from the request (may be {@code null})
-     * @return {@code "en"} if explicitly English, otherwise {@code "es"}
+     * @return {@code "en"} or {@code "ca"} if explicitly requested, otherwise {@code "es"} (default)
      */
     private String lang(String language) {
-        return (language != null && language.equals("en")) ? "en" : "es";
+        if (language != null && language.equals("en")) return "en";
+        if (language != null && language.equals("ca")) return "ca";
+        return "es";
     }
 
     /**
@@ -2880,18 +2891,22 @@ public class AiService {
      *
      * <p>This helper bakes three reinforcements that survive that drift:
      * <ul>
-     *   <li>spells the language out by name (Spanish / English) so the model isn't
-     *       parsing an ISO code;</li>
+     *   <li>spells the language out by name (Spanish / English / Catalan) so the model
+     *       isn't parsing an ISO code;</li>
      *   <li>lives at the head of the user turn (recency) so it survives long tool loops;</li>
      *   <li>explicitly tells the model to translate source material rather than echo it.</li>
      * </ul>
      */
     private String langInstruction(String language) {
-        boolean en = language != null && language.equals("en");
-        if (en) {
+        if (language != null && language.equals("en")) {
             return "Output language: ENGLISH. Reply ENTIRELY in English. If web search "
                     + "or any other source returns content in another language, translate "
                     + "the findings to English before writing the response.";
+        }
+        if (language != null && language.equals("ca")) {
+            return "Idioma de sortida: CATALÀ. Respon ÍNTEGRAMENT en català. Si la "
+                    + "cerca web o qualsevol altra font retorna contingut en un altre idioma, "
+                    + "tradueix les troballes al català abans de redactar la resposta.";
         }
         return "Idioma de salida: ESPAÑOL. Responde ÍNTEGRAMENTE en español. Si la "
                 + "búsqueda web o cualquier otra fuente devuelve contenido en otro idioma, "

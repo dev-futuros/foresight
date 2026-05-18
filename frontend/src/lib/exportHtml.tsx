@@ -1,7 +1,7 @@
 import api from './api';
 import type { ReportResponse } from '../types/api';
 
-type ExportLanguage = 'es' | 'en';
+type ExportLanguage = 'es' | 'en' | 'ca';
 
 /**
  * Per-language slice baked into the standalone HTML snapshot. Mirrors the

@@ -269,7 +269,7 @@ function parseJson<T>(payload: AnthropicResponse): T {
 export async function suggestSteep(args: {
   dimension: 'social' | 'technological' | 'economic' | 'environmental' | 'political';
   companyProfile: string;
-  language: 'es' | 'en';
+  language: 'es' | 'en' | 'ca';
 }): Promise<SuggestionItem[]> {
   const { data } = await api.post<AnthropicResponse>('ai/suggest-steep', args);
   const parsed = parseJson<{ factors?: SuggestionItem[] }>(data);
@@ -279,7 +279,7 @@ export async function suggestSteep(args: {
 export async function suggestHorizon(args: {
   horizon: 'H1' | 'H2' | 'H3';
   companyProfile: string;
-  language: 'es' | 'en';
+  language: 'es' | 'en' | 'ca';
 }): Promise<SuggestionItem[]> {
   const { data } = await api.post<AnthropicResponse>('ai/suggest-horizon', args);
   const parsed = parseJson<{ signals?: SuggestionItem[] }>(data);
@@ -290,7 +290,7 @@ export type GlobalSteepDimension = keyof GlobalSteep;
 
 export async function globalSteep(args: {
   sector: string;
-  language: 'es' | 'en';
+  language: 'es' | 'en' | 'ca';
   dimension?: GlobalSteepDimension;
 }): Promise<Partial<GlobalSteep>> {
   // When `dimension` is set the backend returns a single-key payload
@@ -307,7 +307,7 @@ export async function globalSteep(args: {
  * reformulation phase (5 parallel calls, no further search).
  */
 export async function globalSteepScan(
-  args: { sector: string; language: 'es' | 'en' },
+  args: { sector: string; language: 'es' | 'en' | 'ca' },
   onProgress?: ProgressCallback,
 ): Promise<{ result: Partial<GlobalSteep>; citations: SourceItem[] }> {
   return streamSse<typeof args, Partial<GlobalSteep>>(
@@ -332,7 +332,7 @@ export async function globalSteepScan(
 export async function globalSteepDim(
   args: {
     sector: string;
-    language: 'es' | 'en';
+    language: 'es' | 'en' | 'ca';
     dimension: GlobalSteepDimension;
     snippet: string;
   },
@@ -528,7 +528,7 @@ interface AnalyzeArgs {
    * produces it.
    */
   research?: string;
-  language: 'es' | 'en';
+  language: 'es' | 'en' | 'ca';
 }
 
 export async function analyze(args: AnalyzeArgs): Promise<AnalyzeReport> {
@@ -927,7 +927,7 @@ export async function chat(args: {
   /** Pre-formatted USER STATE block (see {@link buildAssistantSnapshot}).
    *  The backend stitches it verbatim into the system prompt. */
   context?: string;
-  language: 'es' | 'en';
+  language: 'es' | 'en' | 'ca';
 }): Promise<ChatResponse> {
   const { data } = await api.post<ChatResponse>('ai/chat', args);
   return data;
@@ -947,7 +947,7 @@ export async function chat(args: {
 export async function tighten(args: {
   text: string;
   targetChars: number;
-  language: 'es' | 'en';
+  language: 'es' | 'en' | 'ca';
   /** Optional terms (proper nouns, percentages, regulation names…) the
    *  model MUST keep verbatim in the output. Up to 32 entries. */
   preserveTerms?: string[];
@@ -968,7 +968,7 @@ export async function tighten(args: {
  */
 export async function savePdfOptimized(
   reportId: string,
-  language: 'es' | 'en',
+  language: 'es' | 'en' | 'ca',
   fields: Record<string, string>,
 ): Promise<void> {
   await api.put(`reports/${reportId}/pdf-optimized/${language}`, { fields });
@@ -990,7 +990,7 @@ export async function chatStream(
   args: {
     messages: ChatMessage[];
     context?: string;
-    language: 'es' | 'en';
+    language: 'es' | 'en' | 'ca';
   },
   onDelta: (chunk: string) => void,
 ): Promise<{ text: string }> {

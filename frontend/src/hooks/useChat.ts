@@ -60,7 +60,7 @@ export interface ChatMessageView {
 
 interface ChatContextSnapshot {
   context?: string;
-  language: 'es' | 'en';
+  language: 'es' | 'en' | 'ca';
 }
 
 const COMMAND_TAG_RE =

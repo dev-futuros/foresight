@@ -189,7 +189,7 @@ const es = {
     language: 'Idioma',
     includeLanguages: 'Idiomas a incluir',
     defaultLanguage: 'Idioma por defecto',
-    lang: { es: 'Español', en: 'Inglés' },
+    lang: { es: 'Español', en: 'Inglés', ca: 'Catalán' },
     urlLabel: 'URL pública del informe',
     copy: 'Copiar',
     copied: '¡Copiado!',

@@ -34,7 +34,7 @@ import type {
 import './dashboard.css';
 
 /** Supported translation targets — kept in sync with the backend's allow-list. */
-const SUPPORTED_LANGUAGES: readonly ExportLanguage[] = ['es', 'en'] as const;
+const SUPPORTED_LANGUAGES: readonly ExportLanguage[] = ['es', 'en', 'ca'] as const;
 
 /** Action a card might be running. {@code null} when no card is busy. */
 type ExportingState = { id: string; kind: ExportFormat } | null;
@@ -83,7 +83,8 @@ export default function DashboardPage() {
   const { translations, startTranslation } = useTranslations();
   const navigate = useNavigate();
 
-  const dateLocale = i18n.language === 'en' ? 'en-GB' : 'es-ES';
+  const dateLocale =
+    i18n.language === 'en' ? 'en-GB' : i18n.language === 'ca' ? 'ca-ES' : 'es-ES';
 
   // ── Recently-translated flash tracker ─────────────────────────
   // When a translation completes (i.e. an entry in `translations`
