@@ -26,6 +26,7 @@ import { exportReportPpt } from '../../lib/exportPpt';
 import { exportReportHtml } from '../../lib/exportHtml';
 import { useTranslations } from '../translations/useTranslations';
 import type { ExampleSummary, ReportResponse, ReportStatus, ReportSummary } from '../../types/api';
+import DashboardStats from './components/DashboardStats';
 import './dashboard.css';
 
 /** Supported translation targets — kept in sync with the backend's allow-list. */
@@ -336,24 +337,12 @@ export default function DashboardPage() {
         </div>
 
         {!isLoading && !isError && (
-          <div className="db-stats">
-            <div className="db-stat">
-              <div className="db-stat-n">{total}</div>
-              <div className="db-stat-l">{t('dashboard.stat.reports')}</div>
-            </div>
-            <div className="db-stat">
-              <div className="db-stat-n">{completed}</div>
-              <div className="db-stat-l">{t('dashboard.stat.completed')}</div>
-            </div>
-            <div className="db-stat">
-              <div className="db-stat-n">{inProgress}</div>
-              <div className="db-stat-l">{t('dashboard.stat.inProgress')}</div>
-            </div>
-            <div className="db-stat">
-              <div className="db-stat-n">{failed}</div>
-              <div className="db-stat-l">{t('dashboard.stat.failed')}</div>
-            </div>
-          </div>
+          <DashboardStats
+            total={total}
+            completed={completed}
+            inProgress={inProgress}
+            failed={failed}
+          />
         )}
 
         <p className="section-label">{t('dashboard.savedLabel')}</p>
