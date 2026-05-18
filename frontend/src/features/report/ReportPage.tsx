@@ -24,10 +24,10 @@ import PromoteToExampleModal from '../../components/PromoteToExampleModal';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import ReportContent, { type InputProjection, type ResultData } from './ReportContent';
 import '../../components/modal.css';
-import type { ReportResponse, ReportStatus } from '../../types/api';
+import type { ReportResponse } from '../../types/api';
 import './report.css';
 
-type InputData = {
+interface InputData {
   companyProfile?: {
     name?: string;
     sector?: string;
@@ -49,7 +49,7 @@ type InputData = {
     political: string;
   }>;
   horizon?: Partial<Record<'H1' | 'H2' | 'H3' | 'h1' | 'h2' | 'h3', string>>;
-};
+}
 
 export default function ReportPage() {
   const { t, i18n } = useTranslation();
@@ -83,7 +83,7 @@ export default function ReportPage() {
   const langParam = searchParams.get('lang');
   const requestedLang: ExportLanguage | null =
     langParam === 'es' || langParam === 'en' || langParam === 'ca' ? langParam : null;
-  const primaryLang = (report?.primaryLanguage as ExportLanguage | undefined) ?? 'es';
+  const primaryLang = (report?.primaryLanguage) ?? 'es';
   const availableLangs = useMemo<ExportLanguage[]>(
     () => (report?.availableLanguages as ExportLanguage[] | undefined) ?? [primaryLang],
     [report?.availableLanguages, primaryLang],
@@ -366,8 +366,8 @@ export default function ReportPage() {
       : await translateReport.mutateAsync({ id: base.id, targetLanguage: language });
     return {
       ...base,
-      inputData: translated.inputData as Record<string, unknown>,
-      resultData: translated.resultData as Record<string, unknown> | null,
+      inputData: translated.inputData,
+      resultData: translated.resultData,
     };
   }
 
@@ -383,7 +383,6 @@ export default function ReportPage() {
       // No navigation needed — same URL, new shape.
       await refetch();
     } catch (err) {
-       
       console.error('[report] demote failed', err);
     }
   }
@@ -418,14 +417,10 @@ export default function ReportPage() {
   // tabs — the swap happens once the fetch resolves.
   const translatedPayload = translationQuery.data;
   const input = (
-    needsTranslationFetch && translatedPayload
-      ? translatedPayload.inputData
-      : report.inputData
+    needsTranslationFetch && translatedPayload ? translatedPayload.inputData : report.inputData
   ) as InputData;
   const result = (
-    needsTranslationFetch && translatedPayload
-      ? translatedPayload.resultData
-      : report.resultData
+    needsTranslationFetch && translatedPayload ? translatedPayload.resultData : report.resultData
   ) as ResultData | null;
   // `inputData.steep` is the sectorial STEEP captured in step 3 (the
   // wizard stores it under the bare `steep` key, not `sectorialSteep`).
@@ -452,14 +447,12 @@ export default function ReportPage() {
         <header className="report-header">
           <div className="report-heading">
             <p className="report-eyebrow">
-              {isExample
-                ? t('example.eyebrow', { defaultValue: 'Example' })
-                : t('report.eyebrow')}
+              {isExample ? t('example.eyebrow', { defaultValue: 'Example' }) : t('report.eyebrow')}
             </p>
             <h1 className="report-main-title">{report.title}</h1>
             <div className="report-meta">
               <span className={`status-badge ${report.status}`}>
-                {t(`report.status.${report.status}` as `report.status.${ReportStatus}`)}
+                {t(`report.status.${report.status}`)}
               </span>
               <span className="report-meta-item">
                 {t('report.meta.created', { date: formattedDate })}
@@ -504,7 +497,9 @@ export default function ReportPage() {
                 type="button"
                 className="btn"
                 onClick={() => setPendingDemote(true)}
-                title={t('dashboard.actions.demote', { defaultValue: 'Convert back to a private report' })}
+                title={t('dashboard.actions.demote', {
+                  defaultValue: 'Convert back to a private report',
+                })}
               >
                 ↩ {t('dashboard.actions.demote', { defaultValue: 'Report' })}
               </button>
@@ -630,4 +625,3 @@ export default function ReportPage() {
     </div>
   );
 }
-

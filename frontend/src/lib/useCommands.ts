@@ -70,8 +70,7 @@ export function useCommands(factory: () => AnyCommandSpec[]) {
             ? (args: Record<string, unknown>): string =>
                 resolveLatest(spec.name).preview?.(args) ?? ''
             : undefined,
-        handler: (args: Record<string, unknown>) =>
-          resolveLatest(spec.name).handler(args),
+        handler: (args: Record<string, unknown>) => resolveLatest(spec.name).handler(args),
       });
     }
 
@@ -100,6 +99,5 @@ export function useCommands(factory: () => AnyCommandSpec[]) {
     }
     // Empty deps on purpose — the bus must be wired exactly once per mount.
     // Handlers stay fresh by re-resolving through factoryRef on every call.
-     
   }, []);
 }

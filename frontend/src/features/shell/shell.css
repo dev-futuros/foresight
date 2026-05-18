@@ -91,8 +91,14 @@ body.app-busy .stepper-item {
   /* Override the global <a> rule so the brand never picks up :hover gold. */
   text-decoration: none;
 }
-.topbar .brand:hover { color: inherit; }
-.topbar .brand-text { display: flex; flex-direction: column; line-height: 1.1; }
+.topbar .brand:hover {
+  color: inherit;
+}
+.topbar .brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
 .topbar .brand-name {
   font-family: var(--serif);
   font-size: 26px;
@@ -108,7 +114,9 @@ body.app-busy .stepper-item {
   text-transform: uppercase;
   margin-top: 5px;
 }
-.topbar-spacer { flex: 1; }
+.topbar-spacer {
+  flex: 1;
+}
 .topbar-actions {
   display: flex;
   align-items: center;
@@ -185,7 +193,9 @@ body.app-busy .stepper-item {
   align-items: center;
   justify-content: center;
   cursor: help;
-  transition: border-color 200ms var(--ease), color 200ms var(--ease),
+  transition:
+    border-color 200ms var(--ease),
+    color 200ms var(--ease),
     background 200ms var(--ease);
 }
 .topbar-save-status--dirty {
@@ -224,7 +234,9 @@ body.app-busy .stepper-item {
   animation: topbar-save-spin 0.9s linear infinite;
 }
 @keyframes topbar-save-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ── Topbar user avatar ─────────────────────────────────────
@@ -300,7 +312,9 @@ body.app-busy .stepper-item {
   flex-shrink: 0;
   transition: all 220ms;
 }
-.stepper-item.active { color: var(--gold); }
+.stepper-item.active {
+  color: var(--gold);
+}
 .stepper-item.active .stepper-num {
   background: var(--gold);
   border-color: var(--gold);
@@ -317,8 +331,12 @@ body.app-busy .stepper-item {
 /* Hover + cursor + focus styling only on .done items that are actually
    clickable (page passed an onSelect handler). Read-only "done" steps
    stay visually completed but behave as static markers. */
-.stepper-item.done.clickable { cursor: pointer; }
-.stepper-item.done.clickable:hover { color: var(--ink); }
+.stepper-item.done.clickable {
+  cursor: pointer;
+}
+.stepper-item.done.clickable:hover {
+  color: var(--ink);
+}
 .stepper-item.done.clickable:hover .stepper-num {
   border-color: var(--ink);
   background: hsla(0, 0%, 100%, 0.06);
@@ -398,7 +416,9 @@ body.app-busy .stepper-item {
   color: var(--ink-mute);
   text-decoration: none;
   border-bottom: 1px solid rgba(110, 106, 100, 0.3);
-  transition: color 200ms, border-color 200ms;
+  transition:
+    color 200ms,
+    border-color 200ms;
   padding-bottom: 1px;
 }
 .app-footer a:hover {
@@ -417,13 +437,26 @@ body.app-busy .stepper-item {
    RESPONSIVE
    ============================================================ */
 @media (max-width: 980px) {
-  .stepper-list { display: none; }
-  .stepper-mobile { display: flex; }
+  .stepper-list {
+    display: none;
+  }
+  .stepper-mobile {
+    display: flex;
+  }
 }
 
 @media (max-width: 720px) {
-  .topbar-inner { padding: 12px 16px; }
-  .stepper-inner { padding: 0 16px; }
-  .topbar-actions { gap: 6px; }
-  .btn-ghost { padding: 7px 10px; font-size: 11px; }
+  .topbar-inner {
+    padding: 12px 16px;
+  }
+  .stepper-inner {
+    padding: 0 16px;
+  }
+  .topbar-actions {
+    gap: 6px;
+  }
+  .btn-ghost {
+    padding: 7px 10px;
+    font-size: 11px;
+  }
 }

@@ -52,9 +52,18 @@ describe('useReports', () => {
     vi.mocked(api.get).mockResolvedValue({
       data: {
         content: [
-          { id: 'r1', title: 'Informe Q1', status: 'DRAFT', createdAt: '2026-04-01T00:00:00Z', updatedAt: '2026-04-01T00:00:00Z' },
+          {
+            id: 'r1',
+            title: 'Informe Q1',
+            status: 'DRAFT',
+            createdAt: '2026-04-01T00:00:00Z',
+            updatedAt: '2026-04-01T00:00:00Z',
+          },
         ],
-        totalElements: 1, totalPages: 1, size: 20, number: 0,
+        totalElements: 1,
+        totalPages: 1,
+        size: 20,
+        number: 0,
       },
     });
 

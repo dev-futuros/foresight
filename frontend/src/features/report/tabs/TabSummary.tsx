@@ -56,16 +56,12 @@ export default function TabSummary({
           >
             {hasExec && (
               <div className="summary-hero-left">
-                <div className="summary-hero-eyebrow">
-                  {t('report.results.summary.execTitle')}
-                </div>
+                <div className="summary-hero-eyebrow">{t('report.results.summary.execTitle')}</div>
                 <div className="summary-exec">
                   {execParagraphs.map((p, i) => (
                     <p
                       key={i}
-                      className={`summary-exec-para${
-                        i === 0 ? ' summary-exec-para--lead' : ''
-                      }`}
+                      className={`summary-exec-para${i === 0 ? ' summary-exec-para--lead' : ''}`}
                     >
                       {p}
                     </p>
@@ -77,9 +73,7 @@ export default function TabSummary({
             {hasUnc && (
               <aside className="summary-hero-right">
                 <div className="summary-unc-head">
-                  <span className="summary-unc-title">
-                    {t('report.results.uncertainties')}
-                  </span>
+                  <span className="summary-unc-title">{t('report.results.uncertainties')}</span>
                   <span className="summary-unc-count">{uncertainties.length}</span>
                 </div>
                 <UncertaintyExplorer items={uncertainties} />
@@ -173,11 +167,7 @@ function SteepEcho({ input }: { input: InputProjection }) {
         <span className="section-label steep-echo-section-label">
           {t('report.results.steep.title')}
         </span>
-        <button
-          type="button"
-          className="steep-echo-toggle-all"
-          onClick={toggleAll}
-        >
+        <button type="button" className="steep-echo-toggle-all" onClick={toggleAll}>
           {allOpen ? t('common.collapseAll') : t('common.expandAll')}
         </button>
       </div>
@@ -196,19 +186,21 @@ function SteepEcho({ input }: { input: InputProjection }) {
               <button
                 type="button"
                 className="steep-echo-trigger"
-                onClick={() =>
-                  setOpenDims((p) => ({ ...p, [k]: !p[k] }))
-                }
+                onClick={() => setOpenDims((p) => ({ ...p, [k]: !p[k] }))}
                 aria-expanded={open}
               >
                 <span className="steep-echo-icon" aria-hidden>
-                  <svg fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={1.5}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <use href={steepIconHref(k)} />
                   </svg>
                 </span>
-                <span className="steep-echo-name">
-                  {t(steepDimensionLabelKey(k))}
-                </span>
+                <span className="steep-echo-name">{t(steepDimensionLabelKey(k))}</span>
                 <svg
                   className={`steep-echo-chevron${open ? ' steep-echo-chevron--up' : ''}`}
                   viewBox="0 0 12 12"
@@ -225,9 +217,7 @@ function SteepEcho({ input }: { input: InputProjection }) {
               {open && (
                 <div className="steep-echo-body">
                   <div className="steep-echo-cell steep-echo-cell--global">
-                    <div className="steep-echo-cell-label">
-                      {t('report.results.steep.global')}
-                    </div>
+                    <div className="steep-echo-cell-label">{t('report.results.steep.global')}</div>
                     {valueOrDash(globalVal)}
                   </div>
                   <div className="steep-echo-cell steep-echo-cell--sectorial">

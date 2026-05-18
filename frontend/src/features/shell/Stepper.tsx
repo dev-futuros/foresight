@@ -1,8 +1,8 @@
 import type { StepperState } from './useStepper';
 
-type Props = {
+interface Props {
   state: StepperState;
-};
+}
 
 /**
  * Sticky step indicator — desktop list + mobile compact bar.
@@ -44,20 +44,18 @@ export default function Stepper({ state }: Props) {
             // (b) the step is in the "done" lane, and (c) the step itself
             // hasn't opted out via `clickable: false`.
             const clickable =
-              s.clickable !== false &&
-              status === 'done' &&
-              typeof onSelect === 'function';
+              s.clickable !== false && status === 'done' && typeof onSelect === 'function';
             return (
               <li
                 key={s.n}
                 className={`stepper-item ${status}${clickable ? ' clickable' : ''}`}
-                onClick={clickable ? () => onSelect!(s.n) : undefined}
+                onClick={clickable ? () => onSelect(s.n) : undefined}
                 onKeyDown={
                   clickable
                     ? (e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault();
-                          onSelect!(s.n);
+                          onSelect(s.n);
                         }
                       }
                     : undefined

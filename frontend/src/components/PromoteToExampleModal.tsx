@@ -201,11 +201,7 @@ export default function PromoteToExampleModal({ open, reportId, onClose }: Props
           >
             {t('common.close')}
           </button>
-          <button
-            type="submit"
-            className="modal-btn modal-btn--primary"
-            disabled={!canSubmit}
-          >
+          <button type="submit" className="modal-btn modal-btn--primary" disabled={!canSubmit}>
             {promote.isPending
               ? t('promoteExample.submitting', { defaultValue: 'Promoting…' })
               : t('promoteExample.submit', { defaultValue: 'Promote' })}

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { CSSProperties, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 interface Props {
@@ -70,7 +70,7 @@ export default function LineClamp({ lines = 3, className, children }: Props) {
         ref={contentRef}
         className={`line-clamp-content${expanded ? ' line-clamp-content--expanded' : ''}`}
         // Custom property is read by `.line-clamp-content`'s -webkit-line-clamp rule.
-        style={{ ['--lc-lines' as string]: lines } as CSSProperties}
+        style={{ ['--lc-lines' as string]: lines }}
       >
         {children}
       </div>

@@ -104,7 +104,9 @@ export default function TabBackcasting({ result }: { result: ResultData }) {
               {selected.actions && selected.actions.length > 0 && (
                 <ul className="bc-m-actions">
                   {selected.actions.map((a, j) => (
-                    <li key={j} className="bc-action">{a}</li>
+                    <li key={j} className="bc-action">
+                      {a}
+                    </li>
                   ))}
                 </ul>
               )}

@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import Modal from './Modal';
 
-type Props = {
+interface Props {
   open: boolean;
   title: string;
   description?: string;
@@ -13,7 +13,7 @@ type Props = {
   destructive?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
-};
+}
 
 /**
  * Styled replacement for native `confirm()` — backed by the Modal primitive.

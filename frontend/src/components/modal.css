@@ -18,7 +18,14 @@
   backdrop-filter: blur(8px);
   animation: modal-fade 200ms var(--ease);
 }
-@keyframes modal-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes modal-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
 
 /* Fullscreen variant — strongly see-through to match the demo, where
    the loading panel lives inline against the page (no opaque backdrop).
@@ -51,8 +58,14 @@
   outline: none;
 }
 @keyframes modal-rise {
-  from { opacity: 0; transform: translateY(8px) scale(0.98); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .modal-dialog--fullscreen {
@@ -114,9 +127,18 @@
   white-space: nowrap;
   user-select: none;
 }
-.modal-btn:hover { background: var(--surface-3); border-color: var(--line-accent); }
-.modal-btn:active { transform: scale(0.985); }
-.modal-btn:disabled { opacity: 0.42; cursor: not-allowed; transform: none; }
+.modal-btn:hover {
+  background: var(--surface-3);
+  border-color: var(--line-accent);
+}
+.modal-btn:active {
+  transform: scale(0.985);
+}
+.modal-btn:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+  transform: none;
+}
 
 /* Primary (confirm) — gold */
 .modal-btn--primary {
@@ -239,7 +261,10 @@
   margin-top: 1px;
   background: var(--gold-bg);
 }
-.onboarding-step strong { color: var(--ink); font-weight: 500; }
+.onboarding-step strong {
+  color: var(--ink);
+  font-weight: 500;
+}
 
 .onboarding-actions {
   display: flex;
@@ -261,7 +286,9 @@
   user-select: none;
   transition: color 150ms;
 }
-.onboarding-checkbox:hover { color: var(--ink-soft); }
+.onboarding-checkbox:hover {
+  color: var(--ink-soft);
+}
 
 /* Custom-styled checkbox — native default looks bright/jarring on the dark
    theme. We hide the native control and draw a gold-accent box + inline
@@ -277,7 +304,9 @@
   background: var(--surface-3);
   cursor: pointer;
   flex-shrink: 0;
-  transition: border-color 150ms, background 150ms;
+  transition:
+    border-color 150ms,
+    background 150ms;
   /* Position the checkmark glyph centered when :checked applies the bg-image. */
   background-position: center;
   background-repeat: no-repeat;
@@ -299,8 +328,12 @@
 }
 
 @media (max-width: 600px) {
-  .modal-dialog.modal-dialog--onboarding { padding: 28px 22px 22px; }
-  .onboarding-title { font-size: 24px; }
+  .modal-dialog.modal-dialog--onboarding {
+    padding: 28px 22px 22px;
+  }
+  .onboarding-title {
+    font-size: 24px;
+  }
 }
 
 /* ============================================================
@@ -373,7 +406,9 @@
   border-radius: var(--r-md);
   cursor: pointer;
   padding: 0;
-  transition: background 150ms var(--ease), border-color 150ms var(--ease),
+  transition:
+    background 150ms var(--ease),
+    border-color 150ms var(--ease),
     color 150ms var(--ease);
 }
 .share-copy-btn:hover {
@@ -421,9 +456,7 @@
 .modal-dialog--share {
   --share-modal-label-col: 140px;
   --share-modal-col-gap: 12px;
-  --share-modal-controls-offset: calc(
-    var(--share-modal-label-col) + var(--share-modal-col-gap)
-  );
+  --share-modal-controls-offset: calc(var(--share-modal-label-col) + var(--share-modal-col-gap));
 }
 /* Row layout for the language controls in ShareModal / ExportModal.
    Two-column grid keeps the labels right-aligned at a consistent
@@ -466,8 +499,13 @@
      caret on all major browsers. */
   width: 100%;
 }
-.share-lang-select:focus { border-color: var(--gold-soft); }
-.share-lang-select:disabled { opacity: 0.5; cursor: not-allowed; }
+.share-lang-select:focus {
+  border-color: var(--gold-soft);
+}
+.share-lang-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
 /* Variant of .share-lang-row that hosts the "Include languages"
    checkbox group. align-items:flex-start so the label baseline-
@@ -501,10 +539,12 @@
   text-transform: uppercase;
   cursor: pointer;
   user-select: none;
-  transition: border-color 140ms var(--ease), color 140ms var(--ease),
+  transition:
+    border-color 140ms var(--ease),
+    color 140ms var(--ease),
     background 140ms var(--ease);
 }
-.share-lang-check input[type="checkbox"] {
+.share-lang-check input[type='checkbox'] {
   accent-color: var(--gold);
   margin: 0;
   cursor: pointer;
@@ -542,4 +582,8 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
-@keyframes modal-spin { to { transform: rotate(360deg); } }
+@keyframes modal-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

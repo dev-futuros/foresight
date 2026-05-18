@@ -1,14 +1,14 @@
 import PptxGenJS from 'pptxgenjs';
 import type { ReportResponse } from '../types/api';
 
-type ResultData = {
+interface ResultData {
   scenarios?: { type: string; title: string; description: string }[];
   weakSignals?: string[];
   wildcards?: string[];
   keyUncertainties?: string[];
-};
+}
 
-type CompanyProfile = {
+interface CompanyProfile {
   name?: string;
   sector?: string;
   size?: string;
@@ -18,13 +18,13 @@ type CompanyProfile = {
   strengths?: string;
   consultantName?: string;
   consultantCompany?: string;
-};
+}
 
-type InputData = {
+interface InputData {
   companyProfile?: CompanyProfile;
   steep?: Record<string, string>;
   horizon?: Record<string, string>;
-};
+}
 
 // Dark theme. The slide background uses `fill` (pptxgenjs v4 honours both `color`
 // and `fill`, but `fill` is the canonical name in the schema). Text colours are
@@ -91,13 +91,23 @@ function addHeader(slide: Slide, title: string) {
   });
 }
 
-function addLabelValue(slide: Slide, label: string, value: string, x: number, y: number, w: number) {
+function addLabelValue(
+  slide: Slide,
+  label: string,
+  value: string,
+  x: number,
+  y: number,
+  w: number,
+) {
   slide.addText(
     [
-      { text: label.toUpperCase(), options: { fontSize: 8, color: ACCENT, bold: true, breakLine: true } },
+      {
+        text: label.toUpperCase(),
+        options: { fontSize: 8, color: ACCENT, bold: true, breakLine: true },
+      },
       { text: value, options: { fontSize: 11, color: TEXT, bold: false } },
     ],
-    { x, y, w, h: 1.0, valign: 'top' }
+    { x, y, w, h: 1.0, valign: 'top' },
   );
 }
 
@@ -243,7 +253,7 @@ export function exportReportPpt(report: ReportResponse) {
               },
               { text: v, options: { fontSize: 10, color: TEXT, bold: false } },
             ],
-            { x, y, w, h: 1.6, valign: 'top' }
+            { x, y, w, h: 1.6, valign: 'top' },
           );
           const lines = Math.max(2, Math.ceil(v.length / 55));
           y += 0.35 + lines * 0.22;
@@ -271,7 +281,7 @@ export function exportReportPpt(report: ReportResponse) {
             },
             { text: v, options: { fontSize: 10, color: TEXT, bold: false } },
           ],
-          { x: 0.4, y, w: 9.2, h: 1.4, valign: 'top' }
+          { x: 0.4, y, w: 9.2, h: 1.4, valign: 'top' },
         );
         const lines = Math.max(2, Math.ceil(v.length / 110));
         y += 0.35 + lines * 0.22;
@@ -290,12 +300,15 @@ export function exportReportPpt(report: ReportResponse) {
         const x = 0.4 + i * (colW + 0.15);
         scenSlide.addText(
           [
-            { text: s.type.toUpperCase(), options: { fontSize: 8, color: ACCENT, bold: true, breakLine: true } },
+            {
+              text: s.type.toUpperCase(),
+              options: { fontSize: 8, color: ACCENT, bold: true, breakLine: true },
+            },
             { text: s.title, options: { fontSize: 12, color: TEXT, bold: true, breakLine: true } },
             { text: '\n', options: { fontSize: 6, color: TEXT } },
             { text: s.description, options: { fontSize: 10, color: MUTED, bold: false } },
           ],
-          { x, y: 0.9, w: colW, h: 4.0, valign: 'top' }
+          { x, y: 0.9, w: colW, h: 4.0, valign: 'top' },
         );
       });
     }

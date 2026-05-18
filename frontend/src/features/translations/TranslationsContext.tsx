@@ -58,7 +58,7 @@ export function TranslationsProvider({ children }: PropsWithChildren) {
         kind,
         onProgress: (p) =>
           setTranslations((prev) =>
-            prev[id] && prev[id].language === language
+            prev[id]?.language === language
               ? { ...prev, [id]: { language, progress: p, kind } }
               : prev,
           ),

@@ -39,11 +39,11 @@ interface Props {
 /** Maps STEEP dimensions to (a) the icon-sprite symbol id and (b) the
  *  dim-icon / steep-dim class modifier, both defined in wizard.css. */
 const DIM_META: Record<DimensionKey, { icon: string; modifier: string }> = {
-  social:        { icon: 'i-s',   modifier: 's'   },
-  technological: { icon: 'i-t',   modifier: 't'   },
-  economic:      { icon: 'i-e',   modifier: 'e'   },
+  social: { icon: 'i-s', modifier: 's' },
+  technological: { icon: 'i-t', modifier: 't' },
+  economic: { icon: 'i-e', modifier: 'e' },
   environmental: { icon: 'i-env', modifier: 'env' },
-  political:     { icon: 'i-p',   modifier: 'p'   },
+  political: { icon: 'i-p', modifier: 'p' },
 };
 
 /** Suggestions are capped at 5 per dimension — AI prompt asks for 3–5 but may
@@ -104,9 +104,7 @@ export default function StepSteep({
 
   return (
     <div>
-      {max.activeKey && (
-        <div className="maximize-backdrop" onClick={max.minimize} aria-hidden />
-      )}
+      {max.activeKey && <div className="maximize-backdrop" onClick={max.minimize} aria-hidden />}
       <div className="eyebrow">{t('wizard.steep.eyebrow')}</div>
       <h1 className="page-title">{t('wizard.steep.title')}</h1>
       <p className="page-desc">{t('wizard.steep.description')}</p>
@@ -146,9 +144,7 @@ export default function StepSteep({
                     onClick={() => requestSuggestions(key)}
                     disabled={dimLoading || dimUsed || !canSuggest}
                     title={
-                      canSuggest
-                        ? t('wizard.steep.aiTooltip')
-                        : t('wizard.steep.aiTooltipDisabled')
+                      canSuggest ? t('wizard.steep.aiTooltip') : t('wizard.steep.aiTooltipDisabled')
                     }
                   >
                     {dimLoading ? <span className="btn-ai-spinner" /> : '✦'}{' '}
@@ -205,12 +201,7 @@ export default function StepSteep({
         <button type="button" className="btn" onClick={onBack}>
           {t('wizard.back')}
         </button>
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={onNext}
-          disabled={!hasAny}
-        >
+        <button type="button" className="btn btn-primary" onClick={onNext} disabled={!hasAny}>
           {t('wizard.steep.next')}
         </button>
       </div>

@@ -88,7 +88,9 @@
   font-size: 13px;
   color: var(--ink);
   cursor: pointer;
-  transition: background 120ms var(--ease), color 120ms var(--ease);
+  transition:
+    background 120ms var(--ease),
+    color 120ms var(--ease);
 }
 .account-menu-item:hover,
 .account-menu-item:focus-visible {

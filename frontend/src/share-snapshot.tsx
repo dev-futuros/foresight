@@ -29,7 +29,7 @@ import { SnapshotApp, type SnapshotLang, type SnapshotReport } from './share-sna
 
 function readJsonTag<T>(id: string): T | null {
   const el = document.getElementById(id);
-  if (!el || !el.textContent) return null;
+  if (!el?.textContent) return null;
   try {
     return JSON.parse(el.textContent) as T;
   } catch {
@@ -59,9 +59,7 @@ async function boot(): Promise<void> {
   // primary-language content for shares opened with a non-primary
   // default.
   const defaultLang =
-    (readTextTag('report-lang') as SnapshotLang | null) ??
-    report.primaryLanguage ??
-    'es';
+    (readTextTag('report-lang') as SnapshotLang | null) ?? report.primaryLanguage ?? 'es';
   if (i18n.language?.slice(0, 2) !== defaultLang.slice(0, 2)) {
     await i18n.changeLanguage(defaultLang);
   }

@@ -37,7 +37,9 @@
   line-height: 1.15;
   text-decoration: none;
 }
-.privacy-brand-block:hover { color: inherit; }
+.privacy-brand-block:hover {
+  color: inherit;
+}
 .privacy-brand-name {
   font-family: var(--serif);
   color: var(--gold);
@@ -67,7 +69,9 @@
   text-transform: uppercase;
   transition: color 200ms;
 }
-.privacy-back-link:hover { color: var(--ink-soft); }
+.privacy-back-link:hover {
+  color: var(--ink-soft);
+}
 
 /* ── Body ──────────────────────────────────────────────────── */
 .privacy-wrap {
@@ -140,23 +144,37 @@
   font-size: 0.96rem;
   line-height: 1.65;
 }
-.privacy-wrap strong { color: var(--ink); font-weight: 500; }
-.privacy-wrap em { color: var(--gold); font-style: normal; font-weight: 500; }
-.privacy-wrap ul { margin-bottom: 1rem; padding-left: 1.4rem; }
+.privacy-wrap strong {
+  color: var(--ink);
+  font-weight: 500;
+}
+.privacy-wrap em {
+  color: var(--gold);
+  font-style: normal;
+  font-weight: 500;
+}
+.privacy-wrap ul {
+  margin-bottom: 1rem;
+  padding-left: 1.4rem;
+}
 .privacy-wrap li {
   color: var(--ink-soft);
   font-size: 0.94rem;
   margin-bottom: 0.5rem;
   line-height: 1.7;
 }
-.privacy-wrap li::marker { color: var(--gold); }
+.privacy-wrap li::marker {
+  color: var(--gold);
+}
 .privacy-wrap a {
   color: var(--gold);
   text-decoration: none;
   border-bottom: 1px solid rgba(212, 168, 83, 0.3);
   transition: border-color 200ms;
 }
-.privacy-wrap a:hover { border-bottom-color: var(--gold); }
+.privacy-wrap a:hover {
+  border-bottom-color: var(--gold);
+}
 
 /* ── Callouts ──────────────────────────────────────────────── */
 .privacy-callout {
@@ -167,8 +185,13 @@
   padding: 1.3rem 1.5rem;
   margin: 1.5rem 0;
 }
-.privacy-callout p { margin-bottom: 0; color: var(--ink); }
-.privacy-callout strong { color: var(--gold); }
+.privacy-callout p {
+  margin-bottom: 0;
+  color: var(--ink);
+}
+.privacy-callout strong {
+  color: var(--gold);
+}
 
 .privacy-demo-notice {
   background: rgba(245, 158, 11, 0.06);
@@ -208,8 +231,16 @@
 }
 
 @media (max-width: 600px) {
-  .privacy-bar-inner { padding: 1.2rem 1.4rem; }
-  .privacy-wrap { padding: 2rem 1.4rem 3rem; }
-  .privacy-title { font-size: 2rem; }
-  .privacy-wrap h2 { font-size: 1.3rem; }
+  .privacy-bar-inner {
+    padding: 1.2rem 1.4rem;
+  }
+  .privacy-wrap {
+    padding: 2rem 1.4rem 3rem;
+  }
+  .privacy-title {
+    font-size: 2rem;
+  }
+  .privacy-wrap h2 {
+    font-size: 1.3rem;
+  }
 }

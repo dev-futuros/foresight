@@ -5,7 +5,7 @@ import { TranslationsProvider } from '../features/translations/TranslationsConte
 
 export function renderWithProviders(
   ui: React.ReactElement,
-  { initialEntries = ['/'] }: MemoryRouterProps = {}
+  { initialEntries = ['/'] }: MemoryRouterProps = {},
 ) {
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -16,6 +16,6 @@ export function renderWithProviders(
       <MemoryRouter initialEntries={initialEntries}>
         <TranslationsProvider>{ui}</TranslationsProvider>
       </MemoryRouter>
-    </QueryClientProvider>
+    </QueryClientProvider>,
   );
 }

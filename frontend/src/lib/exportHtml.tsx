@@ -124,7 +124,10 @@ function injectReportData(
   // it; the snapshot entry just reads {@code textContent}.
   const langTag = `<script id="report-lang" type="text/plain">${escapeHtml(defaultLanguage)}</script>`;
   // Set the document language too so screen readers pick it up.
-  const withLangAttr = hostHtml.replace(/<html\s+lang="[^"]*"/i, `<html lang="${escapeHtml(defaultLanguage)}"`);
+  const withLangAttr = hostHtml.replace(
+    /<html\s+lang="[^"]*"/i,
+    `<html lang="${escapeHtml(defaultLanguage)}"`,
+  );
   // Update the document title to match the report.
   const withTitle = withLangAttr.replace(
     /<title>[\s\S]*?<\/title>/i,
@@ -168,9 +171,9 @@ async function resolveLanguagePayloads(
   include: ExportLanguage[] | undefined,
 ): Promise<Record<ExportLanguage, LanguagePayload>> {
   const available = (report.availableLanguages ?? []) as ExportLanguage[];
-  const target: ExportLanguage[] = (
-    include && include.length > 0 ? include : available
-  ).filter((l): l is ExportLanguage => available.includes(l));
+  const target: ExportLanguage[] = (include && include.length > 0 ? include : available).filter(
+    (l): l is ExportLanguage => available.includes(l),
+  );
 
   const out: Record<string, LanguagePayload> = {};
   // Primary language payload is right on the report row — no fetch
@@ -187,11 +190,9 @@ async function resolveLanguagePayloads(
   if (fetchTargets.length > 0) {
     const entries = await Promise.all(
       fetchTargets.map(async (lng) => {
-        const res = await api.post<LanguagePayload>(
-          `/${kind}/${report.id}/translate`,
-          null,
-          { params: { targetLanguage: lng } },
-        );
+        const res = await api.post<LanguagePayload>(`/${kind}/${report.id}/translate`, null, {
+          params: { targetLanguage: lng },
+        });
         return [lng, res.data] as const;
       }),
     );
@@ -199,7 +200,7 @@ async function resolveLanguagePayloads(
       out[lng] = payload;
     }
   }
-  return out as Record<ExportLanguage, LanguagePayload>;
+  return out;
 }
 
 /* ── Public entry point ──────────────────────────────────────────── */
@@ -234,8 +235,7 @@ export async function exportReportHtml(
   // the default-open view. inputData/resultData hold that payload at
   // the top level; the other selected languages ride along in the
   // translations map.
-  const reportPrimary: ExportLanguage =
-    (report.primaryLanguage as ExportLanguage) ?? 'es';
+  const reportPrimary: ExportLanguage = (report.primaryLanguage) ?? 'es';
   const openLang: ExportLanguage = defaultLanguage ?? reportPrimary;
   const apiBase = kind === 'example' ? 'examples' : 'reports';
 
@@ -244,9 +244,9 @@ export async function exportReportHtml(
   // language. The modal already enforces this, but the function-level
   // guard makes the contract explicit for any future callers.
   const include: ExportLanguage[] | undefined = includeLanguages
-    ? (includeLanguages.includes(openLang)
-        ? includeLanguages
-        : [openLang, ...includeLanguages])
+    ? includeLanguages.includes(openLang)
+      ? includeLanguages
+      : [openLang, ...includeLanguages]
     : undefined;
 
   // Resolve every requested language's payload BEFORE we touch the
@@ -295,7 +295,6 @@ export async function exportReportHtml(
   // dev with a clear hint instead of letting them stare at a CORS
   // failure in the console.
   if (hostHtml.includes('/@vite/client') || hostHtml.includes('/@react-refresh')) {
-     
     console.warn(
       '[exportReportHtml] You are exporting against the dev server. The downloaded file references dev-only module URLs and will only work while the dev server is running — opening it from disk will fail with CORS errors. To produce a truly standalone artefact, run `npm run build:snapshot && npm run preview` and export from the preview URL.',
     );

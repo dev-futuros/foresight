@@ -61,8 +61,7 @@ export default function StepEmpresa({
   disableGenerate = false,
 }: Props) {
   const { t } = useTranslation();
-  const valid =
-    data.name.trim() && data.sector.trim() && data.challenge.trim();
+  const valid = data.name.trim() && data.sector.trim() && data.challenge.trim();
 
   // Enter-key fallback inside text fields. Always runs the "default" path
   // for the current state (Continue when full, Generate when empty), so
@@ -210,9 +209,7 @@ export default function StepEmpresa({
             id="f-title"
             type="text"
             placeholder={t('wizard.empresa.titlePlaceholder', {
-              fallback: data.name
-                ? `${data.name} — Foresight ${new Date().getFullYear()}`
-                : '',
+              fallback: data.name ? `${data.name} — Foresight ${new Date().getFullYear()}` : '',
             })}
             value={data.title}
             onChange={(e) => onChange({ ...data, title: e.target.value })}
@@ -246,8 +243,8 @@ export default function StepEmpresa({
           // empty so the chevron doesn't render).
           const primaryOption = hasGlobalSteep || disableGenerate ? continueOption : generateOption;
           const altOptions = disableGenerate
-              ? []
-              : [hasGlobalSteep ? generateOption : continueOption];
+            ? []
+            : [hasGlobalSteep ? generateOption : continueOption];
           return (
             <SplitButton
               disabled={!valid}

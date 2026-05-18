@@ -77,7 +77,8 @@ const en = {
     send: 'Send',
     placeholder: 'Ask me about the tool…',
     typing: 'The assistant is typing',
-    intro: 'Hi — I am the Foresight assistant. I can help you navigate the wizard, suggest values for the fields, launch the analysis or explain the methodology. Ask anything.',
+    intro:
+      'Hi — I am the Foresight assistant. I can help you navigate the wizard, suggest values for the fields, launch the analysis or explain the methodology. Ask anything.',
     disclaimer: 'Answers may contain errors',
     /**
      * Three context-aware starter questions shown under the welcome
@@ -106,11 +107,7 @@ const en = {
         'Explain H1, H2 and H3',
         'What signals should I look for in each horizon?',
       ],
-      report: [
-        'What are the 3P scenarios?',
-        'Explain backcasting',
-        'How do I export the report?',
-      ],
+      report: ['What are the 3P scenarios?', 'Explain backcasting', 'How do I export the report?'],
       dashboard: [
         'How do I start a new report?',
         'What can I do with my saved reports?',
@@ -215,12 +212,30 @@ const en = {
     titleLine2: 'Design better strategies.',
     desc: 'This tool combines professional foresight methodology with AI to generate scenario analysis, backcasting and strategic maps in minutes. Follow these steps for your first report:',
     steps: {
-      s1: { title: 'Company profile', desc: '— name, sector, time horizon and strategic challenge to explore' },
-      s2: { title: 'Global Context', desc: '— AI-generated global STEEP. The environment map before entering the sector' },
-      s3: { title: 'Sectorial STEEP', desc: '— sector-specific environmental factors. Use the ✦ AI button for contextualised suggestions' },
-      s4: { title: 'Horizon Scan', desc: '— change signals by horizon H1 / H2 / H3. Feeds the scenarios with greater richness' },
-      s5: { title: 'AI Analysis', desc: '— automatically generates 3P scenarios, scenario planning, backcasting and strategic map' },
-      s6: { title: 'Results', desc: '— full report exportable as PDF, PowerPoint and client report' },
+      s1: {
+        title: 'Company profile',
+        desc: '— name, sector, time horizon and strategic challenge to explore',
+      },
+      s2: {
+        title: 'Global Context',
+        desc: '— AI-generated global STEEP. The environment map before entering the sector',
+      },
+      s3: {
+        title: 'Sectorial STEEP',
+        desc: '— sector-specific environmental factors. Use the ✦ AI button for contextualised suggestions',
+      },
+      s4: {
+        title: 'Horizon Scan',
+        desc: '— change signals by horizon H1 / H2 / H3. Feeds the scenarios with greater richness',
+      },
+      s5: {
+        title: 'AI Analysis',
+        desc: '— automatically generates 3P scenarios, scenario planning, backcasting and strategic map',
+      },
+      s6: {
+        title: 'Results',
+        desc: '— full report exportable as PDF, PowerPoint and client report',
+      },
     },
     startBtn: 'Start →',
     noShow: "Don't show again",
@@ -253,7 +268,8 @@ const en = {
     loggedOut: {
       eyebrow: 'Session ended',
       title: 'You’ve signed out',
-      description: 'Your session has been closed securely. Sign back in when you’re ready to continue mapping your strategic horizon.',
+      description:
+        'Your session has been closed securely. Sign back in when you’re ready to continue mapping your strategic horizon.',
       signInAgain: 'Sign in again →',
     },
   },
@@ -286,7 +302,8 @@ const en = {
     empresa: {
       eyebrow: 'Step 01 — Context',
       title: 'Company profile',
-      description: 'Define the organisational context and the strategic challenge you want to explore with the foresight analysis.',
+      description:
+        'Define the organisational context and the strategic challenge you want to explore with the foresight analysis.',
       name: 'Company name',
       namePlaceholder: 'E.g. Innovatech Ltd.',
       sector: 'Sector / Industry',
@@ -308,9 +325,11 @@ const en = {
         global: 'Global',
       },
       challenge: 'Strategic challenge — foresight question',
-      challengePlaceholder: 'What strategic challenge or question do you want to explore? E.g. How do we adapt our business model to sector automation?',
+      challengePlaceholder:
+        'What strategic challenge or question do you want to explore? E.g. How do we adapt our business model to sector automation?',
       strengths: 'Current capabilities and competitive advantages (optional)',
-      strengthsPlaceholder: 'E.g. Owned distribution network, differential technical know-how, loyal customer base…',
+      strengthsPlaceholder:
+        'E.g. Owned distribution network, differential technical know-how, loyal customer base…',
       consultantLabel: 'Consultant details — these will appear on the report cover',
       consultantName: 'Consultant name',
       consultantNamePlaceholder: 'E.g. Ana García',
@@ -326,7 +345,8 @@ const en = {
     global: {
       eyebrow: 'Step 02 — Global environment',
       title: 'Global STEEP Context',
-      description: 'The macro environment around your client. AI generates it with current data filtered by sector — review and adjust before moving to the sector analysis.',
+      description:
+        'The macro environment around your client. AI generates it with current data filtered by sector — review and adjust before moving to the sector analysis.',
       banner: 'GLOBAL MACRO — Editable. These factors will frame the sector analysis.',
       regenerate: 'Regenerate',
       regenerateTitle: 'Re-generate the global STEEP with current data',
@@ -340,7 +360,8 @@ const en = {
       progressItems: {
         scan: 'Research — gathering current sources',
       },
-      errorDefault: 'Could not generate the global context automatically. You can fill it manually or continue without it.',
+      errorDefault:
+        'Could not generate the global context automatically. You can fill it manually or continue without it.',
       next: 'Continue — Sector STEEP →',
       dimensions: {
         S: 'Social',
@@ -367,17 +388,22 @@ const en = {
     steep: {
       eyebrow: 'Step 03 — Sector environment',
       title: 'STEEP Analysis',
-      description: 'Enter the key factors for each dimension of your client\'s sector. Use the AI button to receive specific suggestions.',
+      description:
+        "Enter the key factors for each dimension of your client's sector. Use the AI button to receive specific suggestions.",
       aiSuggest: 'AI',
       aiTooltip: 'Generate 3-5 key factors for this dimension',
       aiTooltipDisabled: 'Complete the company profile first',
       errorDefault: 'Could not generate suggestions. Please try again.',
       placeholders: {
         social: 'E.g. ageing population, Gen Z as consumers, new ways of working…',
-        technological: 'E.g. generative AI, robotic automation, quantum computing, cloud platforms…',
-        economic: 'E.g. high interest rates, industrial reshoring, circular economy, access to capital…',
-        environmental: 'E.g. ESG regulation, raw-material scarcity, carbon footprint, energy transition…',
-        political: 'E.g. geopolitical tensions, AI regulation, energy transition policy, trade protectionism…',
+        technological:
+          'E.g. generative AI, robotic automation, quantum computing, cloud platforms…',
+        economic:
+          'E.g. high interest rates, industrial reshoring, circular economy, access to capital…',
+        environmental:
+          'E.g. ESG regulation, raw-material scarcity, carbon footprint, energy transition…',
+        political:
+          'E.g. geopolitical tensions, AI regulation, energy transition policy, trade protectionism…',
       },
       dimensions: {
         social: 'Social',
@@ -398,7 +424,8 @@ const en = {
     horizon: {
       eyebrow: 'Step 04 — Signals of change',
       title: 'Horizon Scanning',
-      description: 'Explore signals of change by time horizon. H1 is what is already happening, H2 what is emerging, H3 what could transform the sector in the long term.',
+      description:
+        'Explore signals of change by time horizon. H1 is what is already happening, H2 what is emerging, H3 what could transform the sector in the long term.',
       aiSuggest: 'AI',
       aiTooltip: 'Generate 3-5 key signals for this horizon',
       aiTooltipDisabled: 'Complete the company profile first',
@@ -409,9 +436,18 @@ const en = {
         H3: 'What could transform everything? E.g. radical technological shifts, geopolitical reconfiguration, new social or economic paradigms…',
       },
       bands: {
-        H1: { label: 'Extended present', desc: '0–2 years · Visible signals, trends already materialising' },
-        H2: { label: 'Emerging future', desc: '2–5 years · Weak signals that could become dominant trends' },
-        H3: { label: 'Possible future', desc: '5+ years · Speculative ideas, wildcards and deep systemic change' },
+        H1: {
+          label: 'Extended present',
+          desc: '0–2 years · Visible signals, trends already materialising',
+        },
+        H2: {
+          label: 'Emerging future',
+          desc: '2–5 years · Weak signals that could become dominant trends',
+        },
+        H3: {
+          label: 'Possible future',
+          desc: '5+ years · Speculative ideas, wildcards and deep systemic change',
+        },
       },
       submit: '✦ Generate report →',
       submitContinue: 'Continue — Report →',
@@ -558,7 +594,8 @@ const en = {
         success: 'Success factors',
         firstmove: 'First move',
         probability: 'Probability',
-        probabilityHint: 'Model-estimated relative likelihood of this scenario. The three scenario probabilities sum to 100% and reflect the AI’s reading of current signals, trends and structural conditions described in your inputs and web-search research.',
+        probabilityHint:
+          'Model-estimated relative likelihood of this scenario. The three scenario probabilities sum to 100% and reflect the AI’s reading of current signals, trends and structural conditions described in your inputs and web-search research.',
       },
       steep: {
         title: 'STEEP analysis',
@@ -575,18 +612,21 @@ const en = {
         tipImpact: 'Impact',
       },
       sp: {
-        intro: 'The driving forces shaping each scenario, the critical-uncertainty axes, and the narrative logic of each possible future.',
+        intro:
+          'The driving forces shaping each scenario, the critical-uncertainty axes, and the narrative logic of each possible future.',
         forces: 'Driving forces of change',
         axesTitle: 'Critical uncertainty axes',
         matrix: 'Impact and uncertainty matrix',
         logics: 'Narrative logic per scenario',
         rationale: 'Rationale',
-        impactScoreHint: 'Model-estimated influence of this force on the strategic outcome, on a 0–100 scale. Scores descend strictly from rank #1 to #4, so they reflect relative weight rather than absolute magnitude.',
+        impactScoreHint:
+          'Model-estimated influence of this force on the strategic outcome, on a 0–100 scale. Scores descend strictly from rank #1 to #4, so they reflect relative weight rather than absolute magnitude.',
         impact: { low: 'Low impact', medium: 'Medium impact', high: 'High impact' },
         unc: { low: 'Low uncertainty', medium: 'Medium uncertainty', high: 'High uncertainty' },
       },
       bc: {
-        intro: 'Backcasting starts from the desired future state and traces back the milestones and decisions needed to reach it.',
+        intro:
+          'Backcasting starts from the desired future state and traces back the milestones and decisions needed to reach it.',
         vision: 'Vision —',
         now: 'The next move',
         start: 'Starting point',
@@ -604,7 +644,8 @@ const en = {
         priorityCount_other: '{{count}} priorities',
       },
       sources: {
-        intro: 'Public sources consulted to ground the analysis. Retrieved via web search during generation.',
+        intro:
+          'Public sources consulted to ground the analysis. Retrieved via web search during generation.',
         total: 'unique sources consulted',
         global: 'Global context (Step 2)',
         report: 'Report',
@@ -613,7 +654,8 @@ const en = {
         sectionC: 'Scenario planning',
         sectionD: 'Strategic priorities',
         sectionE: 'Backcasting',
-        empty: 'This report was generated without web search — the model answered from its trained knowledge.',
+        empty:
+          'This report was generated without web search — the model answered from its trained knowledge.',
       },
       progressItems: {
         research: 'Research — gathering current sources',

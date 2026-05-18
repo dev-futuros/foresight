@@ -58,7 +58,9 @@ export default function LoadingPanel({ title, running, items = [] }: Props) {
   return (
     <div className="loading-wrap">
       <p className="loading-head">{title}</p>
-      <div className="stopwatch" aria-live="polite">{elapsed}</div>
+      <div className="stopwatch" aria-live="polite">
+        {elapsed}
+      </div>
       {items.length > 0 && (
         <div className="progress-list">
           {items.map((it) => (
@@ -68,9 +70,7 @@ export default function LoadingPanel({ title, running, items = [] }: Props) {
                   filled red circle (error). Pure CSS — no glyph. */}
               <span className="prog-icon" aria-hidden />
               <span className="prog-label">{it.label}</span>
-              {it.metric && (
-                <span className="prog-tokens">{renderMetric(it.metric, t)}</span>
-              )}
+              {it.metric && <span className="prog-tokens">{renderMetric(it.metric, t)}</span>}
             </div>
           ))}
         </div>

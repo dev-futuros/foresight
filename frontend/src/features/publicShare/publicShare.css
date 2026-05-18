@@ -88,6 +88,10 @@
 }
 
 @media (max-width: 720px) {
-  .public-share-topbar { padding: 14px 18px; }
-  .public-share-main { padding: 32px 16px 64px; }
+  .public-share-topbar {
+    padding: 14px 18px;
+  }
+  .public-share-main {
+    padding: 32px 16px 64px;
+  }
 }

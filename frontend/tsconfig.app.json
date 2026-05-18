@@ -16,6 +16,15 @@
     "jsx": "react-jsx",
 
     /* Linting */
+    "strict": true,
+    "noImplicitOverride": true,
+    // Phase 1.6 deferred — together these surface ~155 errors today
+    // (72 TS18048 + 28 TS2532 from arr[i] and optional accesses, plus
+    // 30 TS2345 / 9 TS2375 from optional fn args). Each one is a real
+    // null-safety bug, just not the kind we want to fix in a config PR.
+    // Lands in a dedicated cleanup PR once Phase 2 settles.
+    //   "noUncheckedIndexedAccess": true,
+    //   "exactOptionalPropertyTypes": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "erasableSyntaxOnly": true,

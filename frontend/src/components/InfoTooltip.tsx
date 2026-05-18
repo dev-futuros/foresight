@@ -103,7 +103,8 @@ export default function InfoTooltip({ text }: { text: string }) {
           <path d="M6 5.4 L6 9" stroke="currentColor" strokeWidth={1.2} strokeLinecap="round" />
         </svg>
       </button>
-      {visible && pos &&
+      {visible &&
+        pos &&
         createPortal(
           <div
             ref={bubbleRef}

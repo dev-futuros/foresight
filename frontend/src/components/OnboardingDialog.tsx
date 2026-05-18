@@ -2,13 +2,13 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Modal from './Modal';
 
-type Props = {
+interface Props {
   open: boolean;
   /** Called when the user closes the dialog. `dontShowAgain` is true if the
    *  "don't show again" checkbox was ticked — caller should persist that
    *  to localStorage / backend so the dialog doesn't reappear. */
   onClose: (dontShowAgain: boolean) => void;
-};
+}
 
 const STEP_KEYS = ['s1', 's2', 's3', 's4', 's5', 's6'] as const;
 type StepKey = (typeof STEP_KEYS)[number];
@@ -72,11 +72,7 @@ export default function OnboardingDialog({ open, onClose }: Props) {
         </div>
 
         <label className="onboarding-checkbox">
-          <input
-            type="checkbox"
-            checked={noShow}
-            onChange={(e) => setNoShow(e.target.checked)}
-          />
+          <input type="checkbox" checked={noShow} onChange={(e) => setNoShow(e.target.checked)} />
           {t('onboarding.noShow')}
         </label>
       </div>

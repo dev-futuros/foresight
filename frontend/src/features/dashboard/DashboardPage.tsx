@@ -25,12 +25,7 @@ import { exportReportPdf } from '../../lib/exportPdf';
 import { exportReportPpt } from '../../lib/exportPpt';
 import { exportReportHtml } from '../../lib/exportHtml';
 import { useTranslations } from '../translations/useTranslations';
-import type {
-  ExampleSummary,
-  ReportResponse,
-  ReportStatus,
-  ReportSummary,
-} from '../../types/api';
+import type { ExampleSummary, ReportResponse, ReportStatus, ReportSummary } from '../../types/api';
 import './dashboard.css';
 
 /** Supported translation targets — kept in sync with the backend's allow-list. */
@@ -47,9 +42,7 @@ type ExportingState = { id: string; kind: ExportFormat } | null;
  * kind + DEV role; translate chips fire either the report or the
  * example mutation depending on kind.
  */
-type DashCard =
-  | { kind: 'report'; row: ReportSummary }
-  | { kind: 'example'; row: ExampleSummary };
+type DashCard = { kind: 'report'; row: ReportSummary } | { kind: 'example'; row: ExampleSummary };
 
 export default function DashboardPage() {
   const { t, i18n } = useTranslation();
@@ -83,8 +76,7 @@ export default function DashboardPage() {
   const { translations, startTranslation } = useTranslations();
   const navigate = useNavigate();
 
-  const dateLocale =
-    i18n.language === 'en' ? 'en-GB' : i18n.language === 'ca' ? 'ca-ES' : 'es-ES';
+  const dateLocale = i18n.language === 'en' ? 'en-GB' : i18n.language === 'ca' ? 'ca-ES' : 'es-ES';
 
   // ── Recently-translated flash tracker ─────────────────────────
   // When a translation completes (i.e. an entry in `translations`
@@ -96,9 +88,7 @@ export default function DashboardPage() {
   //
   // Stored as a Set of "id:lang" keys for cheap lookup. A timeout
   // schedules the entry's removal on the React event loop.
-  const [recentlyTranslated, setRecentlyTranslated] = useState<Set<string>>(
-    () => new Set(),
-  );
+  const [recentlyTranslated, setRecentlyTranslated] = useState<Set<string>>(() => new Set());
   const prevTranslationsRef = useRef<typeof translations>({});
   useEffect(() => {
     const prev = prevTranslationsRef.current;
@@ -221,7 +211,6 @@ export default function DashboardPage() {
       // report card appears in place. The dev can open it if they want.
       await demoteExample.mutateAsync(exampleId);
     } catch (err) {
-       
       console.error('[dashboard] demote failed', err);
     }
   }
@@ -266,8 +255,7 @@ export default function DashboardPage() {
       // recipient. /translate is cache-warm so the per-language calls
       // are fast in either case.
       const needsSingleLanguageSwap =
-        (format === 'pdf' || format === 'ppt') &&
-        language !== baseReport.primaryLanguage;
+        (format === 'pdf' || format === 'ppt') && language !== baseReport.primaryLanguage;
       const report = needsSingleLanguageSwap
         ? await (async () => {
             const res = await api.post<{
@@ -289,7 +277,6 @@ export default function DashboardPage() {
       else if (format === 'ppt') exportReportPpt(report);
       else await exportReportHtml(report, language, kind, includeLanguages);
     } catch (err) {
-       
       console.error('[dashboard] export failed', err);
     } finally {
       setExporting(null);
@@ -328,7 +315,9 @@ export default function DashboardPage() {
   );
   const total = data?.totalElements ?? 0;
   const completed = userReports.filter((r) => r.status === 'COMPLETED').length;
-  const inProgress = userReports.filter((r) => r.status === 'DRAFT' || r.status === 'PROCESSING').length;
+  const inProgress = userReports.filter(
+    (r) => r.status === 'DRAFT' || r.status === 'PROCESSING',
+  ).length;
   const failed = userReports.filter((r) => r.status === 'FAILED').length;
 
   const hasReports = cards.length > 0;
@@ -403,15 +392,13 @@ export default function DashboardPage() {
               // route — `useReport` falls back to the examples endpoint on
               // 404, and the viewer gates write affordances on the
               // `source` discriminator that fallback returns.
-              const target = isDraft
-                ? `/reports/${id}/edit`
-                : `/reports/${id}`;
+              const target = isDraft ? `/reports/${id}/edit` : `/reports/${id}`;
               const canExport = !isDraft && status !== 'FAILED';
               const isBusyExporting = exporting?.id === id;
-              const primaryLanguage =
-                (row.primaryLanguage as ExportLanguage | undefined) ?? 'es';
-              const availableLanguages = ((row.availableLanguages as ExportLanguage[] | undefined) ??
-                [primaryLanguage]) as ExportLanguage[];
+              const primaryLanguage = (row.primaryLanguage as ExportLanguage | undefined) ?? 'es';
+              const availableLanguages = ((row.availableLanguages as
+                | ExportLanguage[]
+                | undefined) ?? [primaryLanguage]);
               const translation = translations[id];
               const isTranslating = !!translation;
               // Determinate progress percentage. The translated envelope
@@ -457,13 +444,11 @@ export default function DashboardPage() {
                   }}
                 >
                   <div className={`db-r-status ${status}`}>
-                    {t(`dashboard.status.${status}` as `dashboard.status.${ReportStatus}`)}
+                    {t(`dashboard.status.${status}`)}
                   </div>
                   <div className="db-r-name">
                     {title}
-                    {isExample && (
-                      <span className="db-r-badge">{t('dashboard.exampleBadge')}</span>
-                    )}
+                    {isExample && <span className="db-r-badge">{t('dashboard.exampleBadge')}</span>}
                   </div>
                   <div className="db-r-date">{formatDate(createdAt)}</div>
 
@@ -521,9 +506,7 @@ export default function DashboardPage() {
                                 lang: lng.toUpperCase(),
                               })}
                             >
-                              <span className="db-r-lang-chip-label">
-                                {lng.toUpperCase()}
-                              </span>
+                              <span className="db-r-lang-chip-label">{lng.toUpperCase()}</span>
                               {/* Primary language has no delete
                                   affordance — it's the source of
                                   truth, not a cached translation. For
@@ -646,9 +629,7 @@ export default function DashboardPage() {
                       <button
                         className="db-r-btn"
                         type="button"
-                        onClick={(e) =>
-                          handleShare(e, id, isExample ? 'example' : 'report')
-                        }
+                        onClick={(e) => handleShare(e, id, isExample ? 'example' : 'report')}
                         title={t('dashboard.actions.share')}
                       >
                         <svg className="db-r-btn-ico" aria-hidden>
@@ -784,8 +765,7 @@ export default function DashboardPage() {
         open={pendingDeleteExampleId !== null}
         title={t('modals.deleteExample.title', { defaultValue: 'Delete example' })}
         description={t('modals.deleteExample.description', {
-          defaultValue:
-            'This action removes the example for every user. This cannot be undone.',
+          defaultValue: 'This action removes the example for every user. This cannot be undone.',
         })}
         confirmLabel={t('modals.deleteExample.confirm', { defaultValue: 'Delete example' })}
         destructive

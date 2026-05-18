@@ -57,8 +57,7 @@ export default function ShareModal({ open, reportId, kind = 'report', onClose }:
     return list.length > 0 ? list : ['es'];
   }, [data]);
 
-  const primaryLanguage =
-    (data?.primaryLanguage as Language | undefined) ?? 'es';
+  const primaryLanguage = (data?.primaryLanguage) ?? 'es';
 
   // Hide both controls when there's nothing to pick.
   const showLangControls = availableLanguages.length > 1;
@@ -173,13 +172,9 @@ export default function ShareModal({ open, reportId, kind = 'report', onClose }:
                 // un-uncheckable so we never end up requesting a share
                 // with zero languages. Disabling the input gives a
                 // clear visual cue.
-                const lastChecked =
-                  checked && includedLanguages.length === 1;
+                const lastChecked = checked && includedLanguages.length === 1;
                 return (
-                  <label
-                    key={lng}
-                    className={`share-lang-check${checked ? ' is-checked' : ''}`}
-                  >
+                  <label key={lng} className={`share-lang-check${checked ? ' is-checked' : ''}`}>
                     <input
                       type="checkbox"
                       checked={checked}
@@ -187,7 +182,7 @@ export default function ShareModal({ open, reportId, kind = 'report', onClose }:
                       onChange={() => toggleLanguage(lng)}
                     />
                     <span>
-                      {t(`share.lang.${lng}` as 'share.lang.es' | 'share.lang.en', {
+                      {t(`share.lang.${lng}`, {
                         defaultValue: lng.toUpperCase(),
                       })}
                     </span>
@@ -210,7 +205,7 @@ export default function ShareModal({ open, reportId, kind = 'report', onClose }:
             >
               {includedLanguages.map((lng) => (
                 <option key={lng} value={lng}>
-                  {t(`share.lang.${lng}` as 'share.lang.es' | 'share.lang.en', {
+                  {t(`share.lang.${lng}`, {
                     defaultValue: lng.toUpperCase(),
                   })}
                 </option>

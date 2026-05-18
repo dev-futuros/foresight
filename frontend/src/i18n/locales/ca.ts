@@ -77,7 +77,8 @@ const ca = {
     send: 'Enviar',
     placeholder: 'Pregunta’m sobre l’eina…',
     typing: 'L’assistent està escrivint',
-    intro: 'Hola — sóc l’assistent de Foresight. Puc ajudar-te a navegar pel wizard, suggerir valors per als camps, llançar l’anàlisi o explicar-te la metodologia. Pregunta el que necessitis.',
+    intro:
+      'Hola — sóc l’assistent de Foresight. Puc ajudar-te a navegar pel wizard, suggerir valors per als camps, llançar l’anàlisi o explicar-te la metodologia. Pregunta el que necessitis.',
     disclaimer: 'Les respostes poden contenir errors',
     suggested: {
       s1: [
@@ -100,11 +101,7 @@ const ca = {
         'Explica’m H1, H2 i H3',
         'Quins senyals busco a cada horitzó?',
       ],
-      report: [
-        'Què són els escenaris 3P?',
-        'Explica’m el backcasting',
-        'Com exporto l’informe?',
-      ],
+      report: ['Què són els escenaris 3P?', 'Explica’m el backcasting', 'Com exporto l’informe?'],
       dashboard: [
         'Com començo un informe nou?',
         'Què puc fer amb els meus informes desats?',
@@ -115,11 +112,7 @@ const ca = {
         'On actualitzo el meu perfil?',
         'Com tanco la sessió?',
       ],
-      default: [
-        'Com funciona l’eina?',
-        'Què és el foresight estratègic?',
-        'Guia’m pel procés',
-      ],
+      default: ['Com funciona l’eina?', 'Què és el foresight estratègic?', 'Guia’m pel procés'],
     },
     confirm: {
       runAnalysis: 'Llançar anàlisi de foresight',
@@ -209,12 +202,30 @@ const ca = {
     titleLine2: 'Dissenya millors estratègies.',
     desc: 'Aquesta eina combina metodologia de foresight professional amb IA per generar anàlisis d’escenaris, backcasting i mapes estratègics en minuts. Segueix aquests passos per al teu primer informe:',
     steps: {
-      s1: { title: 'Perfil d’empresa', desc: '— nom, sector, horitzó temporal i repte estratègic a explorar' },
-      s2: { title: 'Context Global', desc: '— STEEP mundial generat per IA. El mapa de l’entorn abans d’entrar al sector' },
-      s3: { title: 'STEEP Sectorial', desc: '— factors de l’entorn específics del sector. Fes servir el botó ✦ IA per a suggeriments contextualitzats' },
-      s4: { title: 'Horizon Scan', desc: '— senyals de canvi per horitzó H1 / H2 / H3. Alimenta els escenaris amb més riquesa' },
-      s5: { title: 'Anàlisi IA', desc: '— genera escenaris 3P, scenario planning, backcasting i mapa estratègic automàticament' },
-      s6: { title: 'Resultats', desc: '— informe complet exportable en PDF, PowerPoint i informe de client' },
+      s1: {
+        title: 'Perfil d’empresa',
+        desc: '— nom, sector, horitzó temporal i repte estratègic a explorar',
+      },
+      s2: {
+        title: 'Context Global',
+        desc: '— STEEP mundial generat per IA. El mapa de l’entorn abans d’entrar al sector',
+      },
+      s3: {
+        title: 'STEEP Sectorial',
+        desc: '— factors de l’entorn específics del sector. Fes servir el botó ✦ IA per a suggeriments contextualitzats',
+      },
+      s4: {
+        title: 'Horizon Scan',
+        desc: '— senyals de canvi per horitzó H1 / H2 / H3. Alimenta els escenaris amb més riquesa',
+      },
+      s5: {
+        title: 'Anàlisi IA',
+        desc: '— genera escenaris 3P, scenario planning, backcasting i mapa estratègic automàticament',
+      },
+      s6: {
+        title: 'Resultats',
+        desc: '— informe complet exportable en PDF, PowerPoint i informe de client',
+      },
     },
     startBtn: 'Començar →',
     noShow: 'No mostrar-ho de nou',
@@ -235,7 +246,8 @@ const ca = {
   auth: {
     shell: {
       brandTag: 'Foresight Strategy',
-      consent: 'En accedir acceptes la nostra <a href="/privacy">Política de Privacitat i Condicions</a>.',
+      consent:
+        'En accedir acceptes la nostra <a href="/privacy">Política de Privacitat i Condicions</a>.',
       copyright: '© 2026 Futuros',
       privacyLink: 'Privacitat i Condicions',
       contact: 'hello@futuros.io',
@@ -243,7 +255,8 @@ const ca = {
     loggedOut: {
       eyebrow: 'Sessió tancada',
       title: 'Has tancat la sessió',
-      description: 'La teva sessió s’ha tancat de manera segura. Torna a iniciar sessió quan vulguis continuar mapant el teu horitzó estratègic.',
+      description:
+        'La teva sessió s’ha tancat de manera segura. Torna a iniciar sessió quan vulguis continuar mapant el teu horitzó estratègic.',
       signInAgain: 'Tornar a iniciar sessió →',
     },
   },
@@ -276,7 +289,8 @@ const ca = {
     empresa: {
       eyebrow: 'Pas 01 — Context',
       title: 'Perfil de l’empresa',
-      description: 'Defineix el context organitzatiu i el repte estratègic que vols explorar amb l’anàlisi de foresight.',
+      description:
+        'Defineix el context organitzatiu i el repte estratègic que vols explorar amb l’anàlisi de foresight.',
       name: 'Nom de l’empresa',
       namePlaceholder: 'Ex: Innovatech S.L.',
       sector: 'Sector / Indústria',
@@ -298,9 +312,11 @@ const ca = {
         global: 'Global',
       },
       challenge: 'Repte estratègic — pregunta de foresight',
-      challengePlaceholder: 'Quin desafiament o pregunta estratègica vols explorar? Ex: Com adaptem el nostre model de negoci a l’automatització del sector?',
+      challengePlaceholder:
+        'Quin desafiament o pregunta estratègica vols explorar? Ex: Com adaptem el nostre model de negoci a l’automatització del sector?',
       strengths: 'Capacitats i avantatges competitius actuals (opcional)',
-      strengthsPlaceholder: 'Ex: Xarxa de distribució pròpia, know-how tècnic diferencial, base de clients fidelitzada…',
+      strengthsPlaceholder:
+        'Ex: Xarxa de distribució pròpia, know-how tècnic diferencial, base de clients fidelitzada…',
       consultantLabel: 'Dades del consultor — apareixeran a la portada de l’informe',
       consultantName: 'Nom del consultor',
       consultantNamePlaceholder: 'Ex: Anna Garcia',
@@ -316,7 +332,8 @@ const ca = {
     global: {
       eyebrow: 'Pas 02 — Entorn global',
       title: 'Context STEEP Mundial',
-      description: 'L’entorn macro que envolta el teu client. La IA el genera amb dades actuals filtrades per sector — revisa i ajusta abans d’entrar a l’anàlisi sectorial.',
+      description:
+        'L’entorn macro que envolta el teu client. La IA el genera amb dades actuals filtrades per sector — revisa i ajusta abans d’entrar a l’anàlisi sectorial.',
       banner: 'MACRO GLOBAL — Editable. Aquests factors emmarcaran l’anàlisi sectorial.',
       regenerate: 'Regenerar',
       regenerateTitle: 'Torna a generar el STEEP mundial amb dades actuals',
@@ -330,7 +347,8 @@ const ca = {
       progressItems: {
         scan: 'Investigació — recopilant fonts actuals',
       },
-      errorDefault: 'No s’ha pogut generar el context global automàticament. Pots introduir-lo manualment o continuar sense ell.',
+      errorDefault:
+        'No s’ha pogut generar el context global automàticament. Pots introduir-lo manualment o continuar sense ell.',
       next: 'Continuar — STEEP Sectorial →',
       dimensions: {
         S: 'Social',
@@ -357,17 +375,23 @@ const ca = {
     steep: {
       eyebrow: 'Pas 03 — Entorn sectorial',
       title: 'Anàlisi STEEP',
-      description: 'Introdueix els factors clau de cada dimensió per al sector del teu client. Fes servir el botó IA per rebre suggeriments específics.',
+      description:
+        'Introdueix els factors clau de cada dimensió per al sector del teu client. Fes servir el botó IA per rebre suggeriments específics.',
       aiSuggest: 'IA',
       aiTooltip: 'Genera 3-5 factors clau per a aquesta dimensió',
       aiTooltipDisabled: 'Completa abans el perfil de l’empresa',
       errorDefault: 'No s’han pogut generar suggeriments. Torna-ho a provar.',
       placeholders: {
-        social: 'Ex: Envelliment de la població, generació Z com a consumidors, noves formes de treball…',
-        technological: 'Ex: IA generativa, automatització robòtica, computació quàntica, plataformes cloud…',
-        economic: 'Ex: Tipus d’interès alts, reshoring industrial, economia circular, accés a capital…',
-        environmental: 'Ex: Normativa ESG, escassetat de matèries primeres, petjada de carboni, transició energètica…',
-        political: 'Ex: Tensions geopolítiques, regulació IA, polítiques de transició energètica, proteccionisme comercial…',
+        social:
+          'Ex: Envelliment de la població, generació Z com a consumidors, noves formes de treball…',
+        technological:
+          'Ex: IA generativa, automatització robòtica, computació quàntica, plataformes cloud…',
+        economic:
+          'Ex: Tipus d’interès alts, reshoring industrial, economia circular, accés a capital…',
+        environmental:
+          'Ex: Normativa ESG, escassetat de matèries primeres, petjada de carboni, transició energètica…',
+        political:
+          'Ex: Tensions geopolítiques, regulació IA, polítiques de transició energètica, proteccionisme comercial…',
       },
       dimensions: {
         social: 'Social',
@@ -388,7 +412,8 @@ const ca = {
     horizon: {
       eyebrow: 'Pas 04 — Senyals de canvi',
       title: 'Horizon Scanning',
-      description: 'Explora senyals de canvi per horitzó temporal. H1 és el que ja està passant, H2 el que està emergint, H3 el que podria transformar el sector a llarg termini.',
+      description:
+        'Explora senyals de canvi per horitzó temporal. H1 és el que ja està passant, H2 el que està emergint, H3 el que podria transformar el sector a llarg termini.',
       aiSuggest: 'IA',
       aiTooltip: 'Genera 3-5 senyals clau per a aquest horitzó',
       aiTooltipDisabled: 'Completa abans el perfil de l’empresa',
@@ -399,9 +424,18 @@ const ca = {
         H3: 'Què ho podria transformar tot? Ex: canvis tecnològics radicals, reconfiguració geopolítica, nous paradigmes socials o econòmics…',
       },
       bands: {
-        H1: { label: 'Present estès', desc: '0–2 anys · Senyals ja visibles, tendències que s’estan materialitzant' },
-        H2: { label: 'Futur emergent', desc: '2–5 anys · Senyals febles que podrien convertir-se en tendències dominants' },
-        H3: { label: 'Futur possible', desc: '5+ anys · Idees especulatives, wildcards i canvis sistèmics de fons' },
+        H1: {
+          label: 'Present estès',
+          desc: '0–2 anys · Senyals ja visibles, tendències que s’estan materialitzant',
+        },
+        H2: {
+          label: 'Futur emergent',
+          desc: '2–5 anys · Senyals febles que podrien convertir-se en tendències dominants',
+        },
+        H3: {
+          label: 'Futur possible',
+          desc: '5+ anys · Idees especulatives, wildcards i canvis sistèmics de fons',
+        },
       },
       submit: '✦ Generar informe →',
       submitContinue: 'Continuar — Informe →',
@@ -518,7 +552,8 @@ const ca = {
     },
     results: {
       pendingTitle: 'Anàlisi pendent',
-      pendingDesc: 'Els teus inputs estan desats. Genera l’anàlisi amb IA per construir l’informe complet.',
+      pendingDesc:
+        'Els teus inputs estan desats. Genera l’anàlisi amb IA per construir l’informe complet.',
       generateBtn: '✦ Generar anàlisi amb IA',
       analyzing: 'Generant anàlisi estratègica…',
       errorDefault: 'No s’ha pogut generar l’anàlisi. Torna-ho a provar.',
@@ -548,7 +583,8 @@ const ca = {
         success: 'Factors d’èxit',
         firstmove: 'Primer moviment',
         probability: 'Probabilitat',
-        probabilityHint: 'Probabilitat relativa estimada pel model per a aquest escenari. Les tres probabilitats sumen 100 % i reflecteixen la lectura del model sobre els senyals actuals, les tendències i les condicions estructurals descrites a les teves entrades i la investigació amb cerca web.',
+        probabilityHint:
+          'Probabilitat relativa estimada pel model per a aquest escenari. Les tres probabilitats sumen 100 % i reflecteixen la lectura del model sobre els senyals actuals, les tendències i les condicions estructurals descrites a les teves entrades i la investigació amb cerca web.',
       },
       steep: {
         title: 'Anàlisi STEEP',
@@ -565,18 +601,21 @@ const ca = {
         tipImpact: 'Impacte',
       },
       sp: {
-        intro: 'Les forces motrius que configuren cada escenari, els eixos d’incertesa crítica i la lògica narrativa de cada futur possible.',
+        intro:
+          'Les forces motrius que configuren cada escenari, els eixos d’incertesa crítica i la lògica narrativa de cada futur possible.',
         forces: 'Forces motrius del canvi',
         axesTitle: 'Eixos d’incertesa crítica',
         matrix: 'Matriu d’impacte i incertesa',
         logics: 'Lògica narrativa per escenari',
         rationale: 'Justificació',
-        impactScoreHint: 'Influència estimada pel model d’aquesta força sobre el resultat estratègic, en una escala de 0 a 100. Les puntuacions baixen estrictament del #1 al #4, per la qual cosa reflecteixen pes relatiu i no magnitud absoluta.',
+        impactScoreHint:
+          'Influència estimada pel model d’aquesta força sobre el resultat estratègic, en una escala de 0 a 100. Les puntuacions baixen estrictament del #1 al #4, per la qual cosa reflecteixen pes relatiu i no magnitud absoluta.',
         impact: { low: 'Impacte baix', medium: 'Impacte mitjà', high: 'Impacte alt' },
         unc: { low: 'Incertesa baixa', medium: 'Incertesa mitjana', high: 'Incertesa alta' },
       },
       bc: {
-        intro: 'El backcasting parteix de l’estat futur desitjat i traça enrere les fites i decisions necessàries per arribar-hi.',
+        intro:
+          'El backcasting parteix de l’estat futur desitjat i traça enrere les fites i decisions necessàries per arribar-hi.',
         vision: 'Visió —',
         now: 'El següent moviment',
         start: 'Punt de partida',
@@ -594,7 +633,8 @@ const ca = {
         priorityCount_other: '{{count}} prioritats',
       },
       sources: {
-        intro: 'Fonts públiques consultades per fonamentar l’anàlisi. S’han obtingut mitjançant cerca web durant la generació.',
+        intro:
+          'Fonts públiques consultades per fonamentar l’anàlisi. S’han obtingut mitjançant cerca web durant la generació.',
         total: 'fonts úniques consultades',
         global: 'Context global (Pas 2)',
         report: 'Informe',
@@ -603,7 +643,8 @@ const ca = {
         sectionC: 'Scenario planning',
         sectionD: 'Prioritats estratègiques',
         sectionE: 'Backcasting',
-        empty: 'Aquest informe s’ha generat sense cerca web — el model ha respost a partir del seu coneixement entrenat.',
+        empty:
+          'Aquest informe s’ha generat sense cerca web — el model ha respost a partir del seu coneixement entrenat.',
       },
       progressItems: {
         research: 'Investigació — recopilant fonts actuals',

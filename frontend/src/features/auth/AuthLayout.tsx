@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 
-type AuthLayoutProps = {
+interface AuthLayoutProps {
   /** Render slot for the call-to-action (currently just the LoggedOut "Sign in again" button). */
   children: ReactNode;
-};
+}
 
 /**
  * Atmospheric shell for the React-side auth pages. After we removed the

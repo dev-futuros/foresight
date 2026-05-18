@@ -5,7 +5,6 @@ import {
   globalSteepDim,
   globalSteepScan,
   type GlobalSteep,
-  type GlobalSteepDimension,
   type SourceItem,
 } from '../../../lib/aiClient';
 import { extractApiErrorMessage } from '../../../lib/apiError';
@@ -64,11 +63,11 @@ interface Props {
 /** Maps STEEP field keys to (a) the icon-sprite symbol id and (b) the
  *  dim-icon / steep-dim class modifier, both defined in wizard.css. */
 const DIM_META: Record<FieldKey, { icon: string; modifier: string }> = {
-  S:   { icon: 'i-s',   modifier: 's'   },
-  T:   { icon: 'i-t',   modifier: 't'   },
-  E:   { icon: 'i-e',   modifier: 'e'   },
+  S: { icon: 'i-s', modifier: 's' },
+  T: { icon: 'i-t', modifier: 't' },
+  E: { icon: 'i-e', modifier: 'e' },
   ENV: { icon: 'i-env', modifier: 'env' },
-  P:   { icon: 'i-p',   modifier: 'p'   },
+  P: { icon: 'i-p', modifier: 'p' },
 };
 
 /** Keys for the 6 progress rows shown in the loader: a single upstream
@@ -110,7 +109,11 @@ export default function StepGlobal({
   const [scanSources, setScanSources] = useState(0);
   const [scanChars, setScanChars] = useState(0);
   const [dimChars, setDimChars] = useState<Record<FieldKey, number>>({
-    S: 0, T: 0, E: 0, ENV: 0, P: 0,
+    S: 0,
+    T: 0,
+    E: 0,
+    ENV: 0,
+    P: 0,
   });
   const [error, setError] = useState<string | null>(null);
   const max = useMaximizable<FieldKey>();
@@ -185,13 +188,11 @@ export default function StepGlobal({
               {
                 sector,
                 language,
-                dimension: key as GlobalSteepDimension,
+                dimension: key,
                 snippet: scan[key] ?? '',
               },
               (p) =>
-                setDimChars((prev) =>
-                  prev[key] === p.chars ? prev : { ...prev, [key]: p.chars },
-                ),
+                setDimChars((prev) => (prev[key] === p.chars ? prev : { ...prev, [key]: p.chars })),
             );
             merged[key] = text;
             setProgress((p) => ({ ...p, [key]: 'done' }));
@@ -305,19 +306,19 @@ export default function StepGlobal({
       status: progress.scan,
       metric: { sources: scanSources, chars: scanChars },
     },
-    ...FIELD_KEYS.map((key): ProgressItem => ({
-      key,
-      label: t(`wizard.global.dimensions.${key}`),
-      status: progress[key],
-      metric: { chars: dimChars[key] },
-    })),
+    ...FIELD_KEYS.map(
+      (key): ProgressItem => ({
+        key,
+        label: t(`wizard.global.dimensions.${key}`),
+        status: progress[key],
+        metric: { chars: dimChars[key] },
+      }),
+    ),
   ];
 
   return (
     <div>
-      {max.activeKey && (
-        <div className="maximize-backdrop" onClick={max.minimize} aria-hidden />
-      )}
+      {max.activeKey && <div className="maximize-backdrop" onClick={max.minimize} aria-hidden />}
 
       {/* Header + grid are mutually exclusive with the loader. Wrapping
           both in showContent keeps the loader truly full-screen-of-step
@@ -409,12 +410,7 @@ export default function StepGlobal({
           <button type="button" className="btn" onClick={onBack} disabled={bulkLoading}>
             {t('wizard.back')}
           </button>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={onNext}
-            disabled={bulkLoading}
-          >
+          <button type="button" className="btn btn-primary" onClick={onNext} disabled={bulkLoading}>
             {t('wizard.global.next')}
           </button>
         </div>

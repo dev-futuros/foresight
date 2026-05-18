@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useCreateReport, useReport, useStartGeneration, useUpdateReport } from '../../hooks/useReports';
+import {
+  useCreateReport,
+  useReport,
+  useStartGeneration,
+  useUpdateReport,
+} from '../../hooks/useReports';
 import Modal from '../../components/Modal';
 import { useCurrentUser } from '../../hooks/useAuth';
 import { useSetStepper } from '../shell/useStepper';
@@ -150,10 +155,7 @@ export default function NewReportPage() {
   // its JSON, sources tick as web_search harvests URLs. Updated from
   // each analyzeX onProgress callback.
   const [sectionChars, setSectionChars] = useState<
-    Record<
-      'summary' | 'scenarios' | 'planning' | 'strategicMap' | 'backcasting',
-      number
-    >
+    Record<'summary' | 'scenarios' | 'planning' | 'strategicMap' | 'backcasting', number>
   >({
     summary: 0,
     scenarios: 0,
@@ -162,10 +164,7 @@ export default function NewReportPage() {
     backcasting: 0,
   });
   const [sectionSources, setSectionSources] = useState<
-    Record<
-      'summary' | 'scenarios' | 'planning' | 'strategicMap' | 'backcasting',
-      number
-    >
+    Record<'summary' | 'scenarios' | 'planning' | 'strategicMap' | 'backcasting', number>
   >({
     summary: 0,
     scenarios: 0,
@@ -187,10 +186,7 @@ export default function NewReportPage() {
   // appears, so subsequent navigations within the session are silent. Skip
   // in edit mode — the user has clearly used the wizard before.
   const [showOnboarding, setShowOnboarding] = useState(
-    () =>
-      !editMode &&
-      !readOnboardingDismissed() &&
-      !readOnboardingSeenThisSession(),
+    () => !editMode && !readOnboardingDismissed() && !readOnboardingSeenThisSession(),
   );
   // Persist the session flag the first time we actually decided to show
   // the dialog this mount. Doing it in an effect (not in the useState
@@ -362,7 +358,6 @@ export default function NewReportPage() {
         setSaveStatus('saved');
         setLastSavedAt(new Date());
       } catch (err) {
-         
         console.error('[autosave] persistDraft failed', err);
         setSaveStatus('error');
       } finally {
@@ -407,20 +402,23 @@ export default function NewReportPage() {
   // appear to skip steps.
   const userHasNavigatedRef = useRef<boolean>(false);
 
-  const goToStep = useCallback((n: number) => {
-    userHasNavigatedRef.current = true;
-    setStep(n);
-    // eslint-disable-next-line react-hooks/immutability -- stepRef IS a ref (despite the rule's misfire); keeping current advanced before flushAutosave reads it
-    stepRef.current = n;
-    setMaxReached((prev) => Math.max(prev, n));
-    // Flush any pending autosave so the user's last keystrokes land
-    // under the OLD step before we record the move. The persistDraft
-    // inside flush reads stepRef.current — which we've already
-    // advanced — so the saved currentStep reflects where the user
-    // ended up, while the inputData includes everything they typed
-    // before clicking Continue.
-    void flushAutosave();
-  }, [flushAutosave]);
+  const goToStep = useCallback(
+    (n: number) => {
+      userHasNavigatedRef.current = true;
+      setStep(n);
+      // eslint-disable-next-line react-hooks/immutability -- stepRef IS a ref (despite the rule's misfire); keeping current advanced before flushAutosave reads it
+      stepRef.current = n;
+      setMaxReached((prev) => Math.max(prev, n));
+      // Flush any pending autosave so the user's last keystrokes land
+      // under the OLD step before we record the move. The persistDraft
+      // inside flush reads stepRef.current — which we've already
+      // advanced — so the saved currentStep reflects where the user
+      // ended up, while the inputData includes everything they typed
+      // before clicking Continue.
+      void flushAutosave();
+    },
+    [flushAutosave],
+  );
 
   const language: 'es' | 'en' | 'ca' = (() => {
     if (user?.language === 'en' || i18n.language === 'en') return 'en';
@@ -491,16 +489,15 @@ export default function NewReportPage() {
     // saved before the wizard captured the H1/H2/H3 free-text inputs.
     // The DEV can re-promote a newer report to fix it.
     if (
-        import.meta.env.DEV &&
-        editingReport.data.source === 'example' &&
-        !normalisedHorizon.H1 &&
-        !normalisedHorizon.H2 &&
-        !normalisedHorizon.H3
+      import.meta.env.DEV &&
+      editingReport.data.source === 'example' &&
+      !normalisedHorizon.H1 &&
+      !normalisedHorizon.H2 &&
+      !normalisedHorizon.H3
     ) {
-       
       console.warn(
-          '[wizard] example %s has no horizon scan inputs — re-promote a newer report to populate H1/H2/H3.',
-          editingReport.data.id,
+        '[wizard] example %s has no horizon scan inputs — re-promote a newer report to populate H1/H2/H3.',
+        editingReport.data.id,
       );
     }
     // Pre-claim the global-steep auto-fetch ref when the loaded report
@@ -511,10 +508,10 @@ export default function NewReportPage() {
     // how that session got there.
     const loadedSector = inputs.companyProfile?.sector?.trim();
     const hasLoadedGlobalSteep =
-        inputs.globalSteep &&
-        (['S', 'T', 'E', 'ENV', 'P'] as const).some(
-            (k) => (inputs.globalSteep![k] ?? '').trim().length > 0,
-        );
+      inputs.globalSteep &&
+      (['S', 'T', 'E', 'ENV', 'P'] as const).some(
+        (k) => (inputs.globalSteep![k] ?? '').trim().length > 0,
+      );
     if (loadedSector && hasLoadedGlobalSteep) {
       globalSteepFetchedForRef.current = loadedSector;
     }
@@ -528,11 +525,7 @@ export default function NewReportPage() {
     //     goTo(2) with the saved currentStep (e.g. 3), making the
     //     chat-driven navigation appear to skip a step.
     const fromUrl = searchParams.get('step');
-    if (
-        !fromUrl &&
-        !userHasNavigatedRef.current &&
-        typeof inputs.currentStep === 'number'
-    ) {
+    if (!fromUrl && !userHasNavigatedRef.current && typeof inputs.currentStep === 'number') {
       const resumeAt = Math.min(Math.max(inputs.currentStep, 1), 4);
       setStep(resumeAt);
       // eslint-disable-next-line react-hooks/immutability -- stepRef IS a ref; keeping current in sync with the resumed step so the next autosave records the right step
@@ -776,21 +769,13 @@ export default function NewReportPage() {
       // serialised the critical path and doubled the wall-clock
       // generation time. Promise.allSettled means a partial failure
       // still produces a report with the sections that came back.
-      type SectionKey =
-        | 'summary'
-        | 'scenarios'
-        | 'planning'
-        | 'strategicMap'
-        | 'backcasting';
-      const onSectionProgress =
-        (key: SectionKey) => (p: { chars: number; sources: number }) => {
-          setSectionChars((prev) =>
-            prev[key] === p.chars ? prev : { ...prev, [key]: p.chars },
-          );
-          setSectionSources((prev) =>
-            prev[key] === p.sources ? prev : { ...prev, [key]: p.sources },
-          );
-        };
+      type SectionKey = 'summary' | 'scenarios' | 'planning' | 'strategicMap' | 'backcasting';
+      const onSectionProgress = (key: SectionKey) => (p: { chars: number; sources: number }) => {
+        setSectionChars((prev) => (prev[key] === p.chars ? prev : { ...prev, [key]: p.chars }));
+        setSectionSources((prev) =>
+          prev[key] === p.sources ? prev : { ...prev, [key]: p.sources },
+        );
+      };
 
       // Helper that wraps each section call with its progress-state
       // transitions AND logs the rejection reason. Promise.allSettled
@@ -800,29 +785,42 @@ export default function NewReportPage() {
       // otherwise Promise.allSettled's `value` collapses to `unknown`
       // and every downstream `summary.value.result` access becomes a
       // type error.
-      const onSectionDone = <T,>(key: SectionKey) => (r: T): T => {
-        setAnalysisProgress((p) => ({ ...p, [key]: 'done' }));
-        return r;
-      };
-      const onSectionError = (key: SectionKey) => (err: unknown): never => {
-        setAnalysisProgress((p) => ({ ...p, [key]: 'error' }));
-        console.error(`[analyze:${key}] failed:`, err);
-        throw err;
-      };
+      const onSectionDone =
+        <T,>(key: SectionKey) =>
+        (r: T): T => {
+          setAnalysisProgress((p) => ({ ...p, [key]: 'done' }));
+          return r;
+        };
+      const onSectionError =
+        (key: SectionKey) =>
+        (err: unknown): never => {
+          setAnalysisProgress((p) => ({ ...p, [key]: 'error' }));
+          console.error(`[analyze:${key}] failed:`, err);
+          throw err;
+        };
 
-      const [summary, scenarios, planning, strategicMap, backcasting] =
-        await Promise.allSettled([
-          analyzeSummary(args, onSectionProgress('summary'))
-            .then(onSectionDone('summary'), onSectionError('summary')),
-          analyzeScenarios(args, onSectionProgress('scenarios'))
-            .then(onSectionDone('scenarios'), onSectionError('scenarios')),
-          analyzeScenarioPlanning(args, onSectionProgress('planning'))
-            .then(onSectionDone('planning'), onSectionError('planning')),
-          analyzeStrategicMap(args, onSectionProgress('strategicMap'))
-            .then(onSectionDone('strategicMap'), onSectionError('strategicMap')),
-          analyzeBackcasting(args, onSectionProgress('backcasting'))
-            .then(onSectionDone('backcasting'), onSectionError('backcasting')),
-        ]);
+      const [summary, scenarios, planning, strategicMap, backcasting] = await Promise.allSettled([
+        analyzeSummary(args, onSectionProgress('summary')).then(
+          onSectionDone('summary'),
+          onSectionError('summary'),
+        ),
+        analyzeScenarios(args, onSectionProgress('scenarios')).then(
+          onSectionDone('scenarios'),
+          onSectionError('scenarios'),
+        ),
+        analyzeScenarioPlanning(args, onSectionProgress('planning')).then(
+          onSectionDone('planning'),
+          onSectionError('planning'),
+        ),
+        analyzeStrategicMap(args, onSectionProgress('strategicMap')).then(
+          onSectionDone('strategicMap'),
+          onSectionError('strategicMap'),
+        ),
+        analyzeBackcasting(args, onSectionProgress('backcasting')).then(
+          onSectionDone('backcasting'),
+          onSectionError('backcasting'),
+        ),
+      ]);
 
       // Merge the successful sections into a single resultData blob.
       // Anything that errored is silently skipped — the renderer's tabs
@@ -835,7 +833,7 @@ export default function NewReportPage() {
       // the demo's analysis.js.
       const fullResult: Record<string, unknown> = {};
       const scenarioList =
-        scenarios.status === 'fulfilled' ? scenarios.value.result.scenarios ?? [] : [];
+        scenarios.status === 'fulfilled' ? (scenarios.value.result.scenarios ?? []) : [];
       const nameByType: Record<string, string | undefined> = {};
       for (const s of scenarioList) {
         if (s.type) nameByType[s.type] = s.name ?? s.title;
@@ -847,8 +845,7 @@ export default function NewReportPage() {
         fullResult.scenarios = scenarioList;
       }
       if (planning.status === 'fulfilled') fullResult.scenarioPlanning = planning.value.result;
-      if (strategicMap.status === 'fulfilled')
-        fullResult.strategicMap = strategicMap.value.result;
+      if (strategicMap.status === 'fulfilled') fullResult.strategicMap = strategicMap.value.result;
       if (backcasting.status === 'fulfilled') {
         fullResult.backcasting = backcasting.value.result.map((bc) => ({
           ...bc,
@@ -887,8 +884,7 @@ export default function NewReportPage() {
         ...sectionCitations.D,
         ...sectionCitations.E,
       ]);
-      const hasAnyCitations =
-        flatReportCitations.length > 0 || globalSteepCitations.length > 0;
+      const hasAnyCitations = flatReportCitations.length > 0 || globalSteepCitations.length > 0;
       if (hasAnyCitations) {
         fullResult.sources = {
           report: flatReportCitations,
@@ -960,8 +956,16 @@ export default function NewReportPage() {
         : {}),
     });
   }, [
-    setAssistantContext, step, maxReached, empresa, globalData, steep, horizon,
-    isGenerating, editingId, editingReport.data,
+    setAssistantContext,
+    step,
+    maxReached,
+    empresa,
+    globalData,
+    steep,
+    horizon,
+    isGenerating,
+    editingId,
+    editingReport.data,
   ]);
   useEffect(() => {
     return () => setAssistantContext(undefined);
@@ -999,49 +1003,71 @@ export default function NewReportPage() {
           mode === 'replace' ? value : cur ? `${cur}\n\n${value}` : value;
         switch (id) {
           case 'f-name':
-            setEmpresa((p) => ({ ...p, name: value })); break;
+            setEmpresa((p) => ({ ...p, name: value }));
+            break;
           case 'f-sector':
-            setEmpresa((p) => ({ ...p, sector: value })); break;
+            setEmpresa((p) => ({ ...p, sector: value }));
+            break;
           case 'f-size':
-            setEmpresa((p) => ({ ...p, size: value })); break;
+            setEmpresa((p) => ({ ...p, size: value }));
+            break;
           case 'f-horizon':
-            setEmpresa((p) => ({ ...p, horizon: value })); break;
+            setEmpresa((p) => ({ ...p, horizon: value }));
+            break;
           case 'f-market':
-            setEmpresa((p) => ({ ...p, market: value })); break;
+            setEmpresa((p) => ({ ...p, market: value }));
+            break;
           case 'f-challenge':
-            setEmpresa((p) => ({ ...p, challenge: apply(p.challenge) })); break;
+            setEmpresa((p) => ({ ...p, challenge: apply(p.challenge) }));
+            break;
           case 'f-strengths':
-            setEmpresa((p) => ({ ...p, strengths: apply(p.strengths) })); break;
+            setEmpresa((p) => ({ ...p, strengths: apply(p.strengths) }));
+            break;
           case 'f-consultant-name':
-            setEmpresa((p) => ({ ...p, consultantName: value })); break;
+            setEmpresa((p) => ({ ...p, consultantName: value }));
+            break;
           case 'f-consultant-company':
-            setEmpresa((p) => ({ ...p, consultantCompany: value })); break;
+            setEmpresa((p) => ({ ...p, consultantCompany: value }));
+            break;
           case 'gs-s':
-            setGlobalData((p) => ({ ...p, S: apply(p.S) })); break;
+            setGlobalData((p) => ({ ...p, S: apply(p.S) }));
+            break;
           case 'gs-t':
-            setGlobalData((p) => ({ ...p, T: apply(p.T) })); break;
+            setGlobalData((p) => ({ ...p, T: apply(p.T) }));
+            break;
           case 'gs-e':
-            setGlobalData((p) => ({ ...p, E: apply(p.E) })); break;
+            setGlobalData((p) => ({ ...p, E: apply(p.E) }));
+            break;
           case 'gs-env':
-            setGlobalData((p) => ({ ...p, ENV: apply(p.ENV) })); break;
+            setGlobalData((p) => ({ ...p, ENV: apply(p.ENV) }));
+            break;
           case 'gs-p':
-            setGlobalData((p) => ({ ...p, P: apply(p.P) })); break;
+            setGlobalData((p) => ({ ...p, P: apply(p.P) }));
+            break;
           case 'steep-s':
-            setSteep((p) => ({ ...p, social: apply(p.social) })); break;
+            setSteep((p) => ({ ...p, social: apply(p.social) }));
+            break;
           case 'steep-t':
-            setSteep((p) => ({ ...p, technological: apply(p.technological) })); break;
+            setSteep((p) => ({ ...p, technological: apply(p.technological) }));
+            break;
           case 'steep-e':
-            setSteep((p) => ({ ...p, economic: apply(p.economic) })); break;
+            setSteep((p) => ({ ...p, economic: apply(p.economic) }));
+            break;
           case 'steep-env':
-            setSteep((p) => ({ ...p, environmental: apply(p.environmental) })); break;
+            setSteep((p) => ({ ...p, environmental: apply(p.environmental) }));
+            break;
           case 'steep-p':
-            setSteep((p) => ({ ...p, political: apply(p.political) })); break;
+            setSteep((p) => ({ ...p, political: apply(p.political) }));
+            break;
           case 'hs-h1':
-            setHorizon((p) => ({ ...p, H1: apply(p.H1) })); break;
+            setHorizon((p) => ({ ...p, H1: apply(p.H1) }));
+            break;
           case 'hs-h2':
-            setHorizon((p) => ({ ...p, H2: apply(p.H2) })); break;
+            setHorizon((p) => ({ ...p, H2: apply(p.H2) }));
+            break;
           case 'hs-h3':
-            setHorizon((p) => ({ ...p, H3: apply(p.H3) })); break;
+            setHorizon((p) => ({ ...p, H3: apply(p.H3) }));
+            break;
           default:
             throw new Error(`Unknown field id: ${id}`);
         }
@@ -1088,7 +1114,7 @@ export default function NewReportPage() {
         const { step: target } = args as { step: number };
         if (target === 5) {
           throw new Error(
-            "Step 5 is the analysis loader, not a navigable step. To start the analysis emit runAnalysis instead.",
+            'Step 5 is the analysis loader, not a navigable step. To start the analysis emit runAnalysis instead.',
           );
         }
         if (target === 6) {
@@ -1182,7 +1208,6 @@ export default function NewReportPage() {
         return 'Cleared the form and started a fresh report.';
       },
     },
-
   ]);
 
   // Status indicator copy — derives from saveStatus + lastSavedAt. nowMs
@@ -1244,10 +1269,7 @@ export default function NewReportPage() {
             aria-live="polite"
           >
             <span className="wizard-save-label">{saveStatusLabel}</span>
-            <span
-              className={`topbar-save-status topbar-save-status--${saveStatus}`}
-              aria-hidden
-            >
+            <span className={`topbar-save-status topbar-save-status--${saveStatus}`} aria-hidden>
               {saveStatus === 'saving' ? (
                 <span className="topbar-save-spinner" />
               ) : (
@@ -1341,9 +1363,8 @@ export default function NewReportPage() {
                 hasReport={
                   editMode &&
                   !!editingReport.data?.resultData &&
-                  Object.keys(
-                    (editingReport.data.resultData as Record<string, unknown>) ?? {},
-                  ).length > 0
+                  Object.keys((editingReport.data.resultData) ?? {})
+                    .length > 0
                 }
                 disableGenerate={isExampleMode}
                 onContinueToReport={() => {
@@ -1360,10 +1381,7 @@ export default function NewReportPage() {
         )}
       </main>
 
-      <OnboardingDialog
-        open={showOnboarding}
-        onClose={handleOnboardingClose}
-      />
+      <OnboardingDialog open={showOnboarding} onClose={handleOnboardingClose} />
 
       {/* Analysis loader — full-screen Modal overlay so nothing else on
           the page (topbar, stepper, footer, chat) is interactive while
@@ -1378,38 +1396,40 @@ export default function NewReportPage() {
         <LoadingPanel
           title={t('report.results.analyzing')}
           running={isGenerating}
-          items={[
-            {
-              key: 'summary',
-              label: t('report.results.progressItems.summary'),
-              status: analysisProgress.summary,
-              metric: { chars: sectionChars.summary, sources: sectionSources.summary },
-            },
-            {
-              key: 'scenarios',
-              label: t('report.results.progressItems.scenarios'),
-              status: analysisProgress.scenarios,
-              metric: { chars: sectionChars.scenarios, sources: sectionSources.scenarios },
-            },
-            {
-              key: 'planning',
-              label: t('report.results.progressItems.scenarioPlanning'),
-              status: analysisProgress.planning,
-              metric: { chars: sectionChars.planning, sources: sectionSources.planning },
-            },
-            {
-              key: 'strategicMap',
-              label: t('report.results.progressItems.strategicMap'),
-              status: analysisProgress.strategicMap,
-              metric: { chars: sectionChars.strategicMap, sources: sectionSources.strategicMap },
-            },
-            {
-              key: 'backcasting',
-              label: t('report.results.progressItems.backcasting'),
-              status: analysisProgress.backcasting,
-              metric: { chars: sectionChars.backcasting, sources: sectionSources.backcasting },
-            },
-          ] satisfies ProgressItem[]}
+          items={
+            [
+              {
+                key: 'summary',
+                label: t('report.results.progressItems.summary'),
+                status: analysisProgress.summary,
+                metric: { chars: sectionChars.summary, sources: sectionSources.summary },
+              },
+              {
+                key: 'scenarios',
+                label: t('report.results.progressItems.scenarios'),
+                status: analysisProgress.scenarios,
+                metric: { chars: sectionChars.scenarios, sources: sectionSources.scenarios },
+              },
+              {
+                key: 'planning',
+                label: t('report.results.progressItems.scenarioPlanning'),
+                status: analysisProgress.planning,
+                metric: { chars: sectionChars.planning, sources: sectionSources.planning },
+              },
+              {
+                key: 'strategicMap',
+                label: t('report.results.progressItems.strategicMap'),
+                status: analysisProgress.strategicMap,
+                metric: { chars: sectionChars.strategicMap, sources: sectionSources.strategicMap },
+              },
+              {
+                key: 'backcasting',
+                label: t('report.results.progressItems.backcasting'),
+                status: analysisProgress.backcasting,
+                metric: { chars: sectionChars.backcasting, sources: sectionSources.backcasting },
+              },
+            ] satisfies ProgressItem[]
+          }
         />
       </Modal>
     </div>

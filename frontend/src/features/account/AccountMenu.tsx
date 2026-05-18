@@ -28,7 +28,7 @@ import { useCurrentUser, useLogout } from '../../hooks/useAuth';
 import Avatar from './Avatar';
 import './accountMenu.css';
 
-type Props = {
+interface Props {
   /**
    * Callback fired when the user picks "Profile". The parent ({@code TopBar})
    * forwards this to {@code AppShell}, which owns the modal's open state. Kept
@@ -36,7 +36,7 @@ type Props = {
    * wants their profile open" and lets the shell decide how to show it.
    */
   onProfileClick: () => void;
-};
+}
 
 export default function AccountMenu({ onProfileClick }: Readonly<Props>) {
   const { t } = useTranslation();

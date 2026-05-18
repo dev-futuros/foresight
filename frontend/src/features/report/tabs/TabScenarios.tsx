@@ -61,9 +61,7 @@ export default function TabScenarios({ result }: { result: ResultData }) {
               )}
             </div>
             <div className="scen-compare-name">{s.name ?? s.title}</div>
-            <div className="scen-compare-abstract">
-              {firstSentence(s.description)}
-            </div>
+            <div className="scen-compare-abstract">{firstSentence(s.description)}</div>
           </button>
         ))}
       </div>
@@ -71,10 +69,7 @@ export default function TabScenarios({ result }: { result: ResultData }) {
       {/* Detail panel for the currently-selected scenario. Keyed on
           selection so React remounts a fresh subtree per click,
           restarting the fade-in animation cleanly. */}
-      <article
-        key={selectedIdx}
-        className={`scen-detail ${scenarioModifier(selected)}`}
-      >
+      <article key={selectedIdx} className={`scen-detail ${scenarioModifier(selected)}`}>
         <div className="scen-detail-stripe" aria-hidden />
 
         <header className="scen-detail-head">
@@ -82,9 +77,7 @@ export default function TabScenarios({ result }: { result: ResultData }) {
             <span className="scen-detail-type">{selected.type}</span>
             <h2 className="scen-detail-name">{selected.name ?? selected.title}</h2>
           </div>
-          {selected.probability && (
-            <ProbabilityMeter value={selected.probability} t={t} />
-          )}
+          {selected.probability && <ProbabilityMeter value={selected.probability} t={t} />}
         </header>
 
         <div className="scen-detail-body">
@@ -93,9 +86,7 @@ export default function TabScenarios({ result }: { result: ResultData }) {
 
             {selected.firstMove && (
               <div className="scen-firstmove">
-                <div className="scen-firstmove-label">
-                  {t('report.results.scen.firstmove')}
-                </div>
+                <div className="scen-firstmove-label">{t('report.results.scen.firstmove')}</div>
                 <div className="scen-firstmove-text">{selected.firstMove}</div>
               </div>
             )}
@@ -142,16 +133,16 @@ function ProbabilityMeter({
 }) {
   const pct = clampPct(parsePercent(value));
   return (
-    <div className="scen-detail-prob" aria-label={`${t('report.results.scen.probability')}: ${value}`}>
+    <div
+      className="scen-detail-prob"
+      aria-label={`${t('report.results.scen.probability')}: ${value}`}
+    >
       <span className="scen-detail-prob-label">
         {t('report.results.scen.probability')}
         <InfoTooltip text={t('report.results.scen.probabilityHint')} />
       </span>
       <div className="scen-detail-prob-meter" aria-hidden>
-        <div
-          className="scen-detail-prob-fill"
-          style={{ width: `${pct}%` }}
-        />
+        <div className="scen-detail-prob-fill" style={{ width: `${pct}%` }} />
       </div>
       <span className="scen-detail-prob-value">{value}</span>
     </div>
@@ -172,11 +163,7 @@ function ActionList({
   return (
     <div className={`scen-action-card scen-action-card--${variant}`}>
       <div className="scen-action-head">
-        <span
-          className="scen-action-dot"
-          style={{ background: dotColor }}
-          aria-hidden
-        />
+        <span className="scen-action-dot" style={{ background: dotColor }} aria-hidden />
         <span className="scen-action-label">{label}</span>
         <span className="scen-action-count">{items.length}</span>
       </div>
@@ -205,13 +192,13 @@ function firstSentence(text: string): string {
   const para = text.indexOf('\n\n');
   if (para !== -1 && para < 200) return text.slice(0, para).trim();
   // Sentence boundary heuristic.
-  const m = text.match(/^[\s\S]+?[.!?](?=\s+[A-ZÁÉÍÓÚÑ]|$)/);
+  const m = /^[\s\S]+?[.!?](?=\s+[A-ZÁÉÍÓÚÑ]|$)/.exec(text);
   if (m) return m[0].trim();
   return text.length > 140 ? text.slice(0, 140).trim() + '…' : text;
 }
 
 function parsePercent(s: string): number {
-  const m = s.match(/-?\d+(?:[.,]\d+)?/);
+  const m = /-?\d+(?:[.,]\d+)?/.exec(s);
   if (!m) return 0;
   return Number(m[0].replace(',', '.'));
 }

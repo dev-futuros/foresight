@@ -63,8 +63,7 @@ interface ChatContextSnapshot {
   language: 'es' | 'en' | 'ca';
 }
 
-const COMMAND_TAG_RE =
-  /<command\s+name\s*=\s*"([^"]+)"\s*>([\s\S]*?)<\/command>/g;
+const COMMAND_TAG_RE = /<command\s+name\s*=\s*"([^"]+)"\s*>([\s\S]*?)<\/command>/g;
 
 let cmdSeq = 0;
 
@@ -181,130 +180,125 @@ export function useChat() {
   // to the API copy, not to the visible message state.
   const pendingFailureNotesRef = useRef<string[]>([]);
 
-  const runLoop = useCallback(
-    async (history: ChatMessageView[]) => {
-      setPending(true);
-      setError(null);
-      try {
-        const notes = pendingFailureNotesRef.current;
-        pendingFailureNotesRef.current = [];
-        // Only send messages from the current context boundary onward.
-        // Pre-boundary messages remain visible in the UI (they're part of
-        // `messages`) but the API gets a clean slate after a newReport /
-        // loadReport — see {@link resetContext}.
-        const apiMessages = history.slice(apiCursorRef.current).map((m) => m.message);
-        if (notes.length > 0 && apiMessages.length > 0) {
-          const last = apiMessages[apiMessages.length - 1];
-          if (last.role === 'user' && typeof last.content === 'string') {
-            apiMessages[apiMessages.length - 1] = {
-              role: 'user',
-              content: `${notes.join('\n')}\n\n${last.content}`,
-            };
-          }
-        }
-
-        // Streaming chat — append a placeholder assistant message
-        // immediately, then update its text content as each SSE delta
-        // arrives. The user sees the response forming live instead of
-        // waiting for the whole reply to arrive. <command> tags can't
-        // be parsed mid-stream (the tag might be split across deltas),
-        // so we parse them once at the end. Pre/post text segments are
-        // shown unparsed during streaming — fine because they'll just
-        // contain prose, not chip placeholders.
-        let accText = '';
-        const placeholderMessage: ChatMessage = {
-          role: 'assistant',
-          content: [{ type: 'text', text: '' }],
-        };
-        const placeholderView: ChatMessageView = {
-          message: placeholderMessage,
-          segments: { pre: '', post: '' },
-          streaming: true,
-        };
-        const baseHistory = [...history, placeholderView];
-        setMessages(baseHistory);
-        await chatStream(
-          {
-            messages: apiMessages,
-            context: ctxRef.current.context,
-            language: ctxRef.current.language,
-          },
-          (chunk) => {
-            accText += chunk;
-            // Re-parse on every delta so the user sees commands appear
-            // as soon as Clerk emits the closing </command>. Cheap —
-            // the parser is regex-based and 1500 tokens is small.
-            const { pre, post, commands: parsedCommands } = parseAssistantText(accText);
-            setMessages((prev) => {
-              const next = prev.slice();
-              const last = next[next.length - 1];
-              if (!last) return prev;
-              next[next.length - 1] = {
-                ...last,
-                message: {
-                  role: 'assistant',
-                  content: [{ type: 'text', text: accText }],
-                },
-                segments: { pre, post },
-                commands: parsedCommands.length > 0 ? parsedCommands : undefined,
-                streaming: true,
-              };
-              return next;
-            });
-          },
-        );
-
-        // Final parse on the assembled text. Auto-mode commands dispatch
-        // here — confirm-mode chips stay pending for the user to click.
-        const { pre, post, commands } = parseAssistantText(accText);
-        for (const cmd of commands) {
-          if (cmd.status !== 'pending') continue;
-          const spec = getCommandSpec(cmd.name);
-          if (spec?.mode !== 'auto') continue;
-          try {
-            await dispatch(cmd.name, cmd.args);
-            cmd.status = 'applied';
-          } catch (e) {
-            cmd.status = 'error';
-            cmd.error = e instanceof Error ? e.message : 'Command failed';
-            pendingFailureNotesRef.current.push(
-              `[command failed: ${cmd.name} — ${cmd.error}]`,
-            );
-          }
-        }
-        const assistantMsg: ChatMessage = {
-          role: 'assistant',
-          content: [{ type: 'text', text: accText }],
-        };
-        setMessages((prev) => {
-          const next = prev.slice();
-          next[next.length - 1] = {
-            message: assistantMsg,
-            segments: { pre, post },
-            commands: commands.length > 0 ? commands : undefined,
-            // Stream is done — chips become interactive, Apply All
-            // appears (if the message is multi-chip and any are still
-            // pending).
-            streaming: false,
+  const runLoop = useCallback(async (history: ChatMessageView[]) => {
+    setPending(true);
+    setError(null);
+    try {
+      const notes = pendingFailureNotesRef.current;
+      pendingFailureNotesRef.current = [];
+      // Only send messages from the current context boundary onward.
+      // Pre-boundary messages remain visible in the UI (they're part of
+      // `messages`) but the API gets a clean slate after a newReport /
+      // loadReport — see {@link resetContext}.
+      const apiMessages = history.slice(apiCursorRef.current).map((m) => m.message);
+      if (notes.length > 0 && apiMessages.length > 0) {
+        const last = apiMessages[apiMessages.length - 1];
+        if (last.role === 'user' && typeof last.content === 'string') {
+          apiMessages[apiMessages.length - 1] = {
+            role: 'user',
+            content: `${notes.join('\n')}\n\n${last.content}`,
           };
-          return next;
-        });
-      } catch (e) {
-        // Drop the in-progress placeholder so the error doesn't sit
-        // under an empty assistant bubble.
-        setMessages((prev) => {
-          if (prev.length === 0) return prev;
-          const last = prev[prev.length - 1];
-          if (last.message.role === 'assistant') return prev.slice(0, -1);
-          return prev;
-        });
-        setError(e instanceof Error ? e.message : 'Chat error');
-      } finally {
-        setPending(false);
+        }
       }
-    },
-    [],
-  );
+
+      // Streaming chat — append a placeholder assistant message
+      // immediately, then update its text content as each SSE delta
+      // arrives. The user sees the response forming live instead of
+      // waiting for the whole reply to arrive. <command> tags can't
+      // be parsed mid-stream (the tag might be split across deltas),
+      // so we parse them once at the end. Pre/post text segments are
+      // shown unparsed during streaming — fine because they'll just
+      // contain prose, not chip placeholders.
+      let accText = '';
+      const placeholderMessage: ChatMessage = {
+        role: 'assistant',
+        content: [{ type: 'text', text: '' }],
+      };
+      const placeholderView: ChatMessageView = {
+        message: placeholderMessage,
+        segments: { pre: '', post: '' },
+        streaming: true,
+      };
+      const baseHistory = [...history, placeholderView];
+      setMessages(baseHistory);
+      await chatStream(
+        {
+          messages: apiMessages,
+          context: ctxRef.current.context,
+          language: ctxRef.current.language,
+        },
+        (chunk) => {
+          accText += chunk;
+          // Re-parse on every delta so the user sees commands appear
+          // as soon as Clerk emits the closing </command>. Cheap —
+          // the parser is regex-based and 1500 tokens is small.
+          const { pre, post, commands: parsedCommands } = parseAssistantText(accText);
+          setMessages((prev) => {
+            const next = prev.slice();
+            const last = next[next.length - 1];
+            if (!last) return prev;
+            next[next.length - 1] = {
+              ...last,
+              message: {
+                role: 'assistant',
+                content: [{ type: 'text', text: accText }],
+              },
+              segments: { pre, post },
+              commands: parsedCommands.length > 0 ? parsedCommands : undefined,
+              streaming: true,
+            };
+            return next;
+          });
+        },
+      );
+
+      // Final parse on the assembled text. Auto-mode commands dispatch
+      // here — confirm-mode chips stay pending for the user to click.
+      const { pre, post, commands } = parseAssistantText(accText);
+      for (const cmd of commands) {
+        if (cmd.status !== 'pending') continue;
+        const spec = getCommandSpec(cmd.name);
+        if (spec?.mode !== 'auto') continue;
+        try {
+          await dispatch(cmd.name, cmd.args);
+          cmd.status = 'applied';
+        } catch (e) {
+          cmd.status = 'error';
+          cmd.error = e instanceof Error ? e.message : 'Command failed';
+          pendingFailureNotesRef.current.push(`[command failed: ${cmd.name} — ${cmd.error}]`);
+        }
+      }
+      const assistantMsg: ChatMessage = {
+        role: 'assistant',
+        content: [{ type: 'text', text: accText }],
+      };
+      setMessages((prev) => {
+        const next = prev.slice();
+        next[next.length - 1] = {
+          message: assistantMsg,
+          segments: { pre, post },
+          commands: commands.length > 0 ? commands : undefined,
+          // Stream is done — chips become interactive, Apply All
+          // appears (if the message is multi-chip and any are still
+          // pending).
+          streaming: false,
+        };
+        return next;
+      });
+    } catch (e) {
+      // Drop the in-progress placeholder so the error doesn't sit
+      // under an empty assistant bubble.
+      setMessages((prev) => {
+        if (prev.length === 0) return prev;
+        const last = prev[prev.length - 1];
+        if (last.message.role === 'assistant') return prev.slice(0, -1);
+        return prev;
+      });
+      setError(e instanceof Error ? e.message : 'Chat error');
+    } finally {
+      setPending(false);
+    }
+  }, []);
 
   const send = useCallback(
     async (text: string, snapshot: ChatContextSnapshot) => {
@@ -356,15 +350,13 @@ export function useChat() {
       const snap = messagesRef.current;
       const mv = snap[messageIdx];
       const cmd = mv?.commands?.find((c) => c.id === commandId);
-      if (!cmd || cmd.status !== 'pending') return;
+      if (cmd?.status !== 'pending') return;
 
       let nextStatus: PendingCommand['status'];
       let nextError: string | undefined;
       if (!accept) {
         nextStatus = 'declined';
-        pendingFailureNotesRef.current.push(
-          `[command declined by user: ${cmd.name}]`,
-        );
+        pendingFailureNotesRef.current.push(`[command declined by user: ${cmd.name}]`);
       } else {
         try {
           await dispatch(cmd.name, cmd.args);
@@ -372,9 +364,7 @@ export function useChat() {
         } catch (e) {
           nextStatus = 'error';
           nextError = e instanceof Error ? e.message : 'Command failed';
-          pendingFailureNotesRef.current.push(
-            `[command failed: ${cmd.name} — ${nextError}]`,
-          );
+          pendingFailureNotesRef.current.push(`[command failed: ${cmd.name} — ${nextError}]`);
         }
       }
       setMessages((prev) =>
@@ -384,9 +374,7 @@ export function useChat() {
           return {
             ...m,
             commands: m.commands.map((c) =>
-              c.id === commandId
-                ? { ...c, status: nextStatus, error: nextError ?? c.error }
-                : c,
+              c.id === commandId ? { ...c, status: nextStatus, error: nextError ?? c.error } : c,
             ),
           };
         }),
@@ -488,4 +476,3 @@ export function useChat() {
 export function stripCommandTags(text: string): string {
   return stripUnclosedTailTag(text).replace(COMMAND_TAG_RE, '').trim();
 }
-

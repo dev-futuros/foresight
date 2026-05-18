@@ -16,7 +16,7 @@
 import { useState } from 'react';
 import './avatar.css';
 
-type Props = {
+interface Props {
   /** Picture URL (e.g. Kinde's `picture` claim). Null/empty falls through to initials. */
   src: string | null | undefined;
   /** Display name; used to derive initials and as the `<img>` alt text. */
@@ -25,15 +25,15 @@ type Props = {
   size?: number;
   /** Optional extra class for one-off positional tweaks. */
   className?: string;
-};
+}
 
 /** First letter of first whitespace-separated word + first letter of last word. */
 function initialsFrom(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return '';
-  if (parts.length === 1) return parts[0]!.charAt(0).toUpperCase();
-  const first = parts[0]!.charAt(0);
-  const last = parts[parts.length - 1]!.charAt(0);
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  const first = parts[0].charAt(0);
+  const last = parts[parts.length - 1].charAt(0);
   return (first + last).toUpperCase();
 }
 
@@ -66,7 +66,11 @@ export default function Avatar({ src, name, size = 32, className }: Readonly<Pro
 
   if (showInitials) {
     return (
-      <span className={`${rootClass} avatar--initials`} style={style} aria-label={name ?? undefined}>
+      <span
+        className={`${rootClass} avatar--initials`}
+        style={style}
+        aria-label={name ?? undefined}
+      >
         <span className="avatar-initials">{initials}</span>
       </span>
     );

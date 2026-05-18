@@ -111,9 +111,18 @@ function repairJsonString(s: string): string {
         pass1 += c;
         continue;
       }
-      if (c === '\n') { pass1 += '\\n'; continue; }
-      if (c === '\r') { pass1 += '\\r'; continue; }
-      if (c === '\t') { pass1 += '\\t'; continue; }
+      if (c === '\n') {
+        pass1 += '\\n';
+        continue;
+      }
+      if (c === '\r') {
+        pass1 += '\\r';
+        continue;
+      }
+      if (c === '\t') {
+        pass1 += '\\t';
+        continue;
+      }
       pass1 += c;
       continue;
     }
@@ -153,9 +162,21 @@ function repairJsonString(s: string): string {
           j++;
           continue;
         }
-        if (cc === '\n') { lifted += '\\n'; j++; continue; }
-        if (cc === '\r') { lifted += '\\r'; j++; continue; }
-        if (cc === '\t') { lifted += '\\t'; j++; continue; }
+        if (cc === '\n') {
+          lifted += '\\n';
+          j++;
+          continue;
+        }
+        if (cc === '\r') {
+          lifted += '\\r';
+          j++;
+          continue;
+        }
+        if (cc === '\t') {
+          lifted += '\\t';
+          j++;
+          continue;
+        }
         lifted += cc;
         j++;
       }
@@ -220,12 +241,7 @@ function repairJsonString(s: string): string {
         const ident = pass1.slice(start, k);
         let m = k;
         while (m < pass1.length && /\s/.test(pass1[m])) m++;
-        if (
-          pass1[m] === ':' &&
-          ident !== 'true' &&
-          ident !== 'false' &&
-          ident !== 'null'
-        ) {
+        if (pass1[m] === ':' && ident !== 'true' && ident !== 'false' && ident !== 'null') {
           pass2 += c;
           pass2 += pass1.slice(i + 1, start);
           pass2 += '"' + ident + '"';
@@ -632,8 +648,7 @@ async function streamSse<TBody, T>(
   // every successful generation. Set `localStorage.streamDebug = '1'`
   // in DevTools and re-run to see the play-by-play.
   const debug =
-    typeof window !== 'undefined' &&
-    (window.localStorage?.getItem('streamDebug') === '1');
+    typeof window !== 'undefined' && window.localStorage?.getItem('streamDebug') === '1';
 
   const res = await fetch(url, {
     method: 'POST',
@@ -748,7 +763,10 @@ function parseJsonText<T>(text: string): T {
     // request…", a truncation mid-search, or an empty body when the
     // max_tokens budget was burned on tool_use rounds.
     const preview = cleaned.trim().slice(0, 240);
-    const suffix = preview.length === 0 ? ' (empty response)' : ` — got: "${preview}${cleaned.length > 240 ? '…' : ''}"`;
+    const suffix =
+      preview.length === 0
+        ? ' (empty response)'
+        : ` — got: "${preview}${cleaned.length > 240 ? '…' : ''}"`;
     throw new Error(`No JSON object found in streamed response${suffix}`);
   }
   const slice = cleaned.slice(first, last + 1);
@@ -834,7 +852,9 @@ export async function analyzeScenarioPlanning(
     'ai/analyze/scenario-planning',
     args,
     (text) => {
-      const parsed = parseJsonText<{ scenarioPlanning?: ScenarioPlanning } & ScenarioPlanning>(text);
+      const parsed = parseJsonText<{ scenarioPlanning?: ScenarioPlanning } & ScenarioPlanning>(
+        text,
+      );
       return parsed.scenarioPlanning ?? parsed;
     },
     onProgress,
@@ -1055,9 +1075,7 @@ export async function chatStream(
         next = splitFrame(buffer);
         continue;
       }
-      const evt = payload as
-        | { type: 'delta'; text: string }
-        | { type: 'done'; text: string };
+      const evt = payload as { type: 'delta'; text: string } | { type: 'done'; text: string };
       if (evt.type === 'delta') {
         onDelta(evt.text);
       } else if (evt.type === 'done') {

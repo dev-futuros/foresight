@@ -6,73 +6,73 @@
 
 :root {
   /* ── surfaces ───────────────────────────────────────────── */
-  --bg:         #08080b;
-  --surface-1:  #0e0e12;
-  --surface-2:  #14141a;
-  --surface-3:  #1a1a22;
+  --bg: #08080b;
+  --surface-1: #0e0e12;
+  --surface-2: #14141a;
+  --surface-3: #1a1a22;
   --surface-hi: #20202a;
 
   /* ── lines ──────────────────────────────────────────────── */
-  --line:        hsla(0, 0%, 100%, 0.06);
+  --line: hsla(0, 0%, 100%, 0.06);
   --line-strong: hsla(0, 0%, 100%, 0.11);
-  --line-accent: hsla(40, 60%, 56%, 0.30);
+  --line-accent: hsla(40, 60%, 56%, 0.3);
 
   /* ── text ───────────────────────────────────────────────── */
-  --ink:       #f0ece4;
-  --ink-soft:  #b8b3aa;
-  --ink-mute:  #6e6a64;
+  --ink: #f0ece4;
+  --ink-soft: #b8b3aa;
+  --ink-mute: #6e6a64;
   --ink-faint: #3e3b37;
 
   /* ── accent (use sparingly) ─────────────────────────────── */
-  --gold:      #d4a853;
+  --gold: #d4a853;
   --gold-soft: #c69839;
-  --gold-bg:   hsla(40, 60%, 56%, 0.08);
+  --gold-bg: hsla(40, 60%, 56%, 0.08);
   --gold-bg-2: hsla(40, 60%, 56%, 0.14);
 
   /* ── semantic palette (use only for meaning) ────────────── */
-  --green:     #6ee7b7;
-  --green-bg:  hsla(160, 64%, 67%, 0.10);
-  --blue:      #93bff8;
-  --blue-bg:   hsla(213, 88%, 78%, 0.10);
-  --red:       #fb8e8e;
-  --red-bg:    hsla(0, 80%, 70%, 0.07);
-  --purple:    #d6bdfb;
-  --purple-bg: hsla(266, 88%, 86%, 0.10);
-  --orange:    #fbb77b;
-  --orange-bg: hsla(28, 90%, 73%, 0.10);
+  --green: #6ee7b7;
+  --green-bg: hsla(160, 64%, 67%, 0.1);
+  --blue: #93bff8;
+  --blue-bg: hsla(213, 88%, 78%, 0.1);
+  --red: #fb8e8e;
+  --red-bg: hsla(0, 80%, 70%, 0.07);
+  --purple: #d6bdfb;
+  --purple-bg: hsla(266, 88%, 86%, 0.1);
+  --orange: #fbb77b;
+  --orange-bg: hsla(28, 90%, 73%, 0.1);
 
   /* ── legacy aliases — pre-existing CSS files reference these ─ */
-  --bg-card:    var(--surface-1);
-  --bg-el:      var(--surface-3);
-  --bg2:        #0f0f11;
-  --bg3:        var(--surface-1);
-  --bg4:        var(--surface-3);
-  --border:     var(--line);
-  --border-h:   var(--line-strong);
-  --border-a:   var(--line-accent);
-  --border-g:   var(--line-accent);
-  --text:       var(--ink);
-  --text2:      var(--ink-soft);
-  --muted:      var(--ink-mute);
-  --dim:        var(--ink-faint);
-  --accent:     var(--gold);
-  --accent-bg:  var(--gold-bg);
-  --gold2:      var(--gold-soft);
-  --gold-bg2:   var(--gold-bg-2);
+  --bg-card: var(--surface-1);
+  --bg-el: var(--surface-3);
+  --bg2: #0f0f11;
+  --bg3: var(--surface-1);
+  --bg4: var(--surface-3);
+  --border: var(--line);
+  --border-h: var(--line-strong);
+  --border-a: var(--line-accent);
+  --border-g: var(--line-accent);
+  --text: var(--ink);
+  --text2: var(--ink-soft);
+  --muted: var(--ink-mute);
+  --dim: var(--ink-faint);
+  --accent: var(--gold);
+  --accent-bg: var(--gold-bg);
+  --gold2: var(--gold-soft);
+  --gold-bg2: var(--gold-bg-2);
 
   /* ── type ───────────────────────────────────────────────── */
-  --serif:     'Playfair Display', 'Times New Roman', serif;
-  --sans:      'DM Sans', system-ui, -apple-system, sans-serif;
-  --mono:      'DM Mono', 'JetBrains Mono', ui-monospace, monospace;
+  --serif: 'Playfair Display', 'Times New Roman', serif;
+  --sans: 'DM Sans', system-ui, -apple-system, sans-serif;
+  --mono: 'DM Mono', 'JetBrains Mono', ui-monospace, monospace;
   --font-serif: var(--serif);
-  --font-sans:  var(--sans);
-  --font-mono:  var(--mono);
+  --font-sans: var(--sans);
+  --font-mono: var(--mono);
 
   /* ── radius ─────────────────────────────────────────────── */
-  --r-sm:   6px;
-  --r-md:   10px;
-  --r-lg:   14px;
-  --r-xl:   20px;
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-xl: 20px;
   --r-pill: 999px;
 
   /* ── shadows ────────────────────────────────────────────── */
@@ -84,22 +84,31 @@
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
 
   /* ── layout ─────────────────────────────────────────────── */
-  --container:        1080px;
+  --container: 1080px;
   --container-narrow: 920px;
 }
 
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
-html { scroll-behavior: smooth; height: 100%; }
-body { min-height: 100%; }
+html {
+  scroll-behavior: smooth;
+  height: 100%;
+}
+body {
+  min-height: 100%;
+}
 /* #root must grow with content (not be pinned at 100% of body) — otherwise
    the AppShell's footer can't be pushed down when a page's content exceeds
    the viewport height. */
-#root { min-height: 100%; }
+#root {
+  min-height: 100%;
+}
 
 body {
   background: var(--bg);
@@ -120,7 +129,7 @@ body::before {
   z-index: 0;
   background-image:
     radial-gradient(circle at 85% 0%, hsla(40, 60%, 56%, 0.05) 0%, transparent 40%),
-    radial-gradient(circle at 0%  100%, hsla(40, 60%, 56%, 0.035) 0%, transparent 38%);
+    radial-gradient(circle at 0% 100%, hsla(40, 60%, 56%, 0.035) 0%, transparent 38%);
 }
 
 #root {
@@ -130,12 +139,26 @@ body::before {
   flex-direction: column;
 }
 
-::selection { background: var(--gold-bg-2); color: var(--ink); }
+::selection {
+  background: var(--gold-bg-2);
+  color: var(--ink);
+}
 
-a { color: inherit; text-decoration: none; }
-a:hover { color: var(--gold); }
-img, svg { display: block; max-width: 100%; }
-button { font-family: inherit; }
+a {
+  color: inherit;
+  text-decoration: none;
+}
+a:hover {
+  color: var(--gold);
+}
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+button {
+  font-family: inherit;
+}
 
 /* ============================================================
    SCROLLBARS — custom styling for all scrollable areas
@@ -144,16 +167,25 @@ button { font-family: inherit; }
   scrollbar-width: thin;
   scrollbar-color: var(--surface-hi) transparent;
 }
-*::-webkit-scrollbar       { width: 10px; height: 10px; }
-*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
 *::-webkit-scrollbar-thumb {
   background: var(--surface-hi);
   border: 2px solid var(--bg);
   border-radius: 999px;
   transition: background 200ms var(--ease);
 }
-*::-webkit-scrollbar-thumb:hover { background: var(--ink-faint); }
-*::-webkit-scrollbar-corner      { background: transparent; }
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-faint);
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
 
 /* Textareas have their own background — match thumb to surface */
 textarea {
@@ -164,14 +196,22 @@ textarea::-webkit-scrollbar-thumb {
   border: 2px solid var(--surface-3);
   border-radius: 999px;
 }
-textarea::-webkit-scrollbar-thumb:hover { background: var(--ink-mute); }
+textarea::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-mute);
+}
 
 /* ============================================================
    ICON SYSTEM (SVG sprite via <use href="#i-…">)
    ============================================================ */
-.icon-sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+.icon-sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
 .ico {
-  width: 100%; height: 100%;
+  width: 100%;
+  height: 100%;
   display: block;
   stroke: currentColor;
   fill: none;
@@ -183,11 +223,15 @@ textarea::-webkit-scrollbar-thumb:hover { background: var(--ink-mute); }
 /* ============================================================
    UTILITY CLASSES
    ============================================================ */
-.hidden { display: none !important; }
+.hidden {
+  display: none !important;
+}
 .visually-hidden {
   position: absolute !important;
-  width: 1px; height: 1px;
-  padding: 0; margin: -1px;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
   border: 0;
@@ -246,7 +290,9 @@ textarea::-webkit-scrollbar-thumb:hover { background: var(--ink-mute); }
   opacity: 0;
   z-index: 1000;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-  transition: opacity 140ms var(--ease), transform 140ms var(--ease);
+  transition:
+    opacity 140ms var(--ease),
+    transform 140ms var(--ease);
 }
 [data-tooltip]::before {
   content: '';
@@ -261,7 +307,9 @@ textarea::-webkit-scrollbar-thumb:hover { background: var(--ink-mute); }
   pointer-events: none;
   opacity: 0;
   z-index: 1000;
-  transition: opacity 140ms var(--ease), transform 140ms var(--ease);
+  transition:
+    opacity 140ms var(--ease),
+    transform 140ms var(--ease);
 }
 [data-tooltip]:hover::after,
 [data-tooltip]:hover::before,

@@ -115,11 +115,7 @@ export async function runFitPass(
  * the tightened version when available or fall back to the source. Used at the render seam
  * in each section module so the "use tightened if we have it" branch reads cleanly.
  */
-export function pickText(
-  tightened: TightenedMap,
-  path: string,
-  source: string,
-): string {
+export function pickText(tightened: TightenedMap, path: string, source: string): string {
   return tightened[path] ?? source;
 }
 
@@ -141,7 +137,7 @@ export async function persistTightened(
     await savePdfOptimized(reportId, language, tightened);
   } catch (err) {
     // Don't break the export; the user already has their PDF.
-     
+
     console.warn('[pdfFit] failed to persist tightened cache', err);
   }
 }

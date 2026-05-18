@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
-type ModalProps = {
+interface ModalProps {
   open: boolean;
   onClose: () => void;
   /** Optional ARIA label when there's no visible <h2> title. */
@@ -12,7 +12,7 @@ type ModalProps = {
   /** Extra class(es) for the dialog body — lets consumers customise width / padding / accent border without forking the primitive. */
   dialogClassName?: string;
   children: ReactNode;
-};
+}
 
 /**
  * Refcount of currently-open Modals. Each open instance increments on mount

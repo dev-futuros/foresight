@@ -14,10 +14,7 @@ export function useMaximizable<K extends string>() {
   const [activeKey, setActiveKey] = useState<K | null>(null);
 
   const minimize = useCallback(() => setActiveKey(null), []);
-  const toggle = useCallback(
-    (k: K) => setActiveKey((cur) => (cur === k ? null : k)),
-    [],
-  );
+  const toggle = useCallback((k: K) => setActiveKey((cur) => (cur === k ? null : k)), []);
   const isMaximized = useCallback((k: K) => activeKey === k, [activeKey]);
 
   useEffect(() => {
