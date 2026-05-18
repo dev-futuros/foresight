@@ -24,7 +24,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useCurrentUser, useLogout } from '../../hooks/useAuth';
+import { useCurrentUser, useLogout } from './api';
 import Avatar from './Avatar';
 import './accountMenu.css';
 

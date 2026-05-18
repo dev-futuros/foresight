@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useCreateReport, useReport, useStartGeneration, useUpdateReport } from './api';
 import Modal from '../../components/Modal';
-import { useCurrentUser } from '../../hooks/useAuth';
+import { useCurrentUser } from '../account/api';
 import { useSetStepper } from '../shell/useStepper';
 import {
   analyzeBackcasting,

@@ -9,7 +9,7 @@ import {
   useDeleteExampleTranslation,
   useDemoteExample,
 } from '../examples/api';
-import { useIsDev } from '../../hooks/useAuth';
+import { useIsDev } from '../account/api';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import ExportModal, {
   type ExportFormat,
