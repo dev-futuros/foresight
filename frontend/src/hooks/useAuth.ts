@@ -37,7 +37,7 @@ export function useCurrentUser() {
   const { isLoading, isAuthenticated } = useKindeAuth();
   return useQuery<UserResponse>({
     queryKey: ['me'],
-    enabled: !isLoading && isAuthenticated === true,
+    enabled: !isLoading && isAuthenticated,
     queryFn: async () => {
       const res = await api.get<UserResponse>('/users/me');
       return res.data;

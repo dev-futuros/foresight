@@ -1,14 +1,14 @@
 import PptxGenJS from 'pptxgenjs';
 import type { ReportResponse } from '../types/api';
 
-type ResultData = {
+interface ResultData {
   scenarios?: { type: string; title: string; description: string }[];
   weakSignals?: string[];
   wildcards?: string[];
   keyUncertainties?: string[];
-};
+}
 
-type CompanyProfile = {
+interface CompanyProfile {
   name?: string;
   sector?: string;
   size?: string;
@@ -18,13 +18,13 @@ type CompanyProfile = {
   strengths?: string;
   consultantName?: string;
   consultantCompany?: string;
-};
+}
 
-type InputData = {
+interface InputData {
   companyProfile?: CompanyProfile;
   steep?: Record<string, string>;
   horizon?: Record<string, string>;
-};
+}
 
 // Dark theme. The slide background uses `fill` (pptxgenjs v4 honours both `color`
 // and `fill`, but `fill` is the canonical name in the schema). Text colours are

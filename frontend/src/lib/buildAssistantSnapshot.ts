@@ -317,7 +317,7 @@ export function buildAssistantSnapshot(input: AssistantSnapshotInput): string {
 
   // ── Step 3: sectorial STEEP ──
   lines.push(tST);
-  const stMap: Array<[keyof SteepData, string, keyof GlobalSteepData]> = [
+  const stMap: [keyof SteepData, string, keyof GlobalSteepData][] = [
     ['social', 'steep-s', 'S'],
     ['technological', 'steep-t', 'T'],
     ['economic', 'steep-e', 'E'],
@@ -337,7 +337,7 @@ export function buildAssistantSnapshot(input: AssistantSnapshotInput): string {
   // ── Saved reports ──
   // Surface so the assistant can pass an `id` to loadReport / editReport /
   // shareReport / exportReport without the user loading first.
-  if (reports && reports.length) {
+  if (reports?.length) {
     const tSaved = isEn
       ? 'SAVED REPORTS (use these exact ids when calling loadReport, editReport, deleteReport, exportReport, or shareReport — for export/share commands, passing an id targets that saved report directly without the user having to load it first):'
       : 'INFORMES GUARDADOS (usa estos ids exactos cuando llames a loadReport, editReport, deleteReport, exportReport, o shareReport — para los comandos de exportación/compartir, pasar un id apunta a ese informe guardado directamente sin que el usuario tenga que cargarlo primero):';
@@ -359,7 +359,7 @@ export function buildAssistantSnapshot(input: AssistantSnapshotInput): string {
   // the user for an id. Examples load via loadReport({id}) — the unified
   // /reports/:id route falls back to /examples/:id automatically, so a
   // single command handles both kinds.
-  if (examples && examples.length) {
+  if (examples?.length) {
     const tEx = isEn
       ? 'EXAMPLES (global demo reports — load any with loadReport({id}). These are read-only; useful for showing the user what a finished report looks like, or for the user to explore the methodology before building their own):'
       : 'EJEMPLOS (informes de demostración globales — cárgalos con loadReport({id}). Son de solo lectura; útiles para enseñarle al usuario cómo se ve un informe terminado, o para que el usuario explore la metodología antes de construir el suyo):';
@@ -396,19 +396,19 @@ export function buildAssistantSnapshot(input: AssistantSnapshotInput): string {
       lines.push(trunc(r.executiveSummary, 1200));
     }
 
-    if (r.scenarios && r.scenarios.length) {
+    if (r.scenarios?.length) {
       lines.push(isEn ? '\nScenarios (3P):' : '\nEscenarios (3P):');
       r.scenarios.forEach((s, i) => {
         const name = s.name || s.title || `#${i + 1}`;
         const prob = s.probability ? ` — ${s.probability}` : '';
         const typ = s.type ? ` [${s.type}]` : '';
         lines.push(`- ${name}${typ}${prob}: ${trunc(s.description, 400)}`);
-        if (s.opportunities && s.opportunities.length) {
+        if (s.opportunities?.length) {
           lines.push(
             `  ${isEn ? 'opportunities' : 'oportunidades'}: ${s.opportunities.map((o) => trunc(o, 120)).join(' | ')}`,
           );
         }
-        if (s.threats && s.threats.length) {
+        if (s.threats?.length) {
           lines.push(
             `  ${isEn ? 'threats' : 'amenazas'}: ${s.threats.map((o) => trunc(o, 120)).join(' | ')}`,
           );
@@ -416,19 +416,19 @@ export function buildAssistantSnapshot(input: AssistantSnapshotInput): string {
       });
     }
 
-    if (r.keyUncertainties && r.keyUncertainties.length) {
+    if (r.keyUncertainties?.length) {
       lines.push(isEn ? '\nKey uncertainties:' : '\nIncertidumbres clave:');
       r.keyUncertainties.forEach((u) => lines.push(`- ${u.name}: ${trunc(u.description, 220)}`));
     }
 
-    if (r.weakSignals && r.weakSignals.length) {
+    if (r.weakSignals?.length) {
       lines.push(isEn ? '\nWeak signals:' : '\nSeñales débiles:');
       r.weakSignals.forEach((s) =>
         lines.push(`- [${s.dimension}] ${s.title}: ${trunc(s.description, 220)}`),
       );
     }
 
-    if (r.wildcards && r.wildcards.length) {
+    if (r.wildcards?.length) {
       lines.push(isEn ? '\nWildcards:' : '\nWildcards:');
       r.wildcards.forEach((w) => lines.push(`- ${w.title}: ${trunc(w.description, 220)}`));
     }
@@ -460,7 +460,7 @@ export function buildAssistantSnapshot(input: AssistantSnapshotInput): string {
       }
     }
 
-    if (r.backcasting && r.backcasting.length) {
+    if (r.backcasting?.length) {
       lines.push(isEn ? '\nBackcasting trajectories:' : '\nTrayectorias de backcasting:');
       r.backcasting.forEach((b) => {
         lines.push(`- ${b.scenarioName} [${b.scenarioType}]: ${trunc(b.visionStatement, 240)}`);
@@ -474,7 +474,7 @@ export function buildAssistantSnapshot(input: AssistantSnapshotInput): string {
       });
     }
 
-    if (r.strategicMap && r.strategicMap.length) {
+    if (r.strategicMap?.length) {
       lines.push(isEn ? '\nStrategic priorities:' : '\nPrioridades estratégicas:');
       r.strategicMap.forEach((p) => {
         lines.push(`- [${p.horizon} · ${p.timeframe}] ${p.title} (impact: ${p.impact})`);

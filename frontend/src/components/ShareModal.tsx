@@ -57,7 +57,7 @@ export default function ShareModal({ open, reportId, kind = 'report', onClose }:
     return list.length > 0 ? list : ['es'];
   }, [data]);
 
-  const primaryLanguage = (data?.primaryLanguage as Language | undefined) ?? 'es';
+  const primaryLanguage = (data?.primaryLanguage) ?? 'es';
 
   // Hide both controls when there's nothing to pick.
   const showLangControls = availableLanguages.length > 1;
@@ -182,7 +182,7 @@ export default function ShareModal({ open, reportId, kind = 'report', onClose }:
                       onChange={() => toggleLanguage(lng)}
                     />
                     <span>
-                      {t(`share.lang.${lng}` as 'share.lang.es' | 'share.lang.en', {
+                      {t(`share.lang.${lng}`, {
                         defaultValue: lng.toUpperCase(),
                       })}
                     </span>
@@ -205,7 +205,7 @@ export default function ShareModal({ open, reportId, kind = 'report', onClose }:
             >
               {includedLanguages.map((lng) => (
                 <option key={lng} value={lng}>
-                  {t(`share.lang.${lng}` as 'share.lang.es' | 'share.lang.en', {
+                  {t(`share.lang.${lng}`, {
                     defaultValue: lng.toUpperCase(),
                   })}
                 </option>

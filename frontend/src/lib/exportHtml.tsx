@@ -200,7 +200,7 @@ async function resolveLanguagePayloads(
       out[lng] = payload;
     }
   }
-  return out as Record<ExportLanguage, LanguagePayload>;
+  return out;
 }
 
 /* ── Public entry point ──────────────────────────────────────────── */
@@ -235,7 +235,7 @@ export async function exportReportHtml(
   // the default-open view. inputData/resultData hold that payload at
   // the top level; the other selected languages ride along in the
   // translations map.
-  const reportPrimary: ExportLanguage = (report.primaryLanguage as ExportLanguage) ?? 'es';
+  const reportPrimary: ExportLanguage = (report.primaryLanguage) ?? 'es';
   const openLang: ExportLanguage = defaultLanguage ?? reportPrimary;
   const apiBase = kind === 'example' ? 'examples' : 'reports';
 

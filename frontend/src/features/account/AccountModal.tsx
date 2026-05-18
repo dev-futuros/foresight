@@ -19,10 +19,10 @@ const LANGUAGE_OPTIONS = [
   { value: 'ca' as const, label: 'Català' },
 ];
 
-type Props = {
+interface Props {
   open: boolean;
   onClose: () => void;
-};
+}
 
 type StatusMsg = { type: 'ok' | 'err'; text: string } | null;
 

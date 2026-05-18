@@ -50,7 +50,7 @@ import {
 
 /* ── Type projections matching the real backend payload ────────────── */
 
-type CompanyProfile = {
+interface CompanyProfile {
   name?: string;
   sector?: string;
   size?: string;
@@ -60,17 +60,17 @@ type CompanyProfile = {
   strengths?: string;
   consultantName?: string;
   consultantCompany?: string;
-};
+}
 
 type SteepBlock = Partial<Record<'S' | 'T' | 'E' | 'ENV' | 'P', string>>;
 
-type InputData = {
+interface InputData {
   companyProfile?: CompanyProfile;
   globalSteep?: SteepBlock;
   steep?: SteepBlock;
-};
+}
 
-type ResultData = {
+interface ResultData {
   executiveSummary?: string;
   keyUncertainties?: KeyUncertainty[];
   scenarios?: Scenario[];
@@ -80,7 +80,7 @@ type ResultData = {
   weakSignals?: WeakSignal[];
   wildcards?: Wildcard[];
   sources?: Sources;
-};
+}
 
 /* ── Brand tokens (mirrored from src/index.css) ───────────────────── */
 //
@@ -1037,7 +1037,7 @@ function drawSectionEyebrow(doc: jsPDF, label: string, color: string = INK_MUTE)
  * to render TIME-style "The AI Arms Race Is **Changing Everything**" titles where
  * each segment can be its own colour while still wrapping across the same line set.
  */
-type HeadlineChunk = { text: string; color: string };
+interface HeadlineChunk { text: string; color: string }
 
 /**
  * Multi-color split headline. Each chunk's words flow into a shared text stream
@@ -1062,7 +1062,7 @@ function splitColorHeadline(
   doc.setFontSize(size);
   doc.setFont(family, weight);
 
-  type Word = { text: string; color: string; isLast: boolean };
+  interface Word { text: string; color: string; isLast: boolean }
   const words: Word[] = [];
   for (let ci = 0; ci < chunks.length; ci++) {
     const c = chunks[ci];
@@ -1240,7 +1240,7 @@ function flowColumns(
 
   // Build the full line list. Lines from paragraph[0] that overlap the drop
   // cap are flagged so we know to indent them in column 0.
-  type Line = { text: string; gapAfter: number; firstParaIndent: boolean };
+  interface Line { text: string; gapAfter: number; firstParaIndent: boolean }
   const lines: Line[] = [];
   for (let pi = 0; pi < paragraphs.length; pi++) {
     const para = paragraphs[pi].trim();
@@ -1435,7 +1435,7 @@ function impactColors(level: 'low' | 'medium' | 'high'): { fg: string; bg: strin
 
 function parsePercent(s: string | undefined): number {
   if (!s) return 0;
-  const m = s.match(/-?\d+(?:[.,]\d+)?/);
+  const m = /-?\d+(?:[.,]\d+)?/.exec(s);
   return m ? Number(m[0].replace(',', '.')) : 0;
 }
 
@@ -1739,8 +1739,8 @@ function collectCoverStats(
   _report: ReportResponse,
   result: ResultData | null,
   _cp: CompanyProfile,
-): Array<{ value: string; label: string }> {
-  const out: Array<{ value: string; label: string }> = [];
+): { value: string; label: string }[] {
+  const out: { value: string; label: string }[] = [];
   const scenarioCount = result?.scenarios?.length ?? 0;
   if (scenarioCount > 0) {
     out.push({
@@ -1761,7 +1761,7 @@ function collectCoverStats(
   if (src) {
     sourcesTotal += src.globalSteep?.length ?? 0;
     if (src.bySection) {
-      for (const k of Object.keys(src.bySection) as Array<'A' | 'B' | 'C' | 'D' | 'E'>) {
+      for (const k of Object.keys(src.bySection) as ('A' | 'B' | 'C' | 'D' | 'E')[]) {
         sourcesTotal += src.bySection[k]?.length ?? 0;
       }
     } else {
@@ -2428,7 +2428,7 @@ function renderSteepInputs(
 ): number {
   const g = normalizeSteepKeys(input.globalSteep);
   const s = normalizeSteepKeys(input.steep);
-  const dims: Array<'S' | 'T' | 'E' | 'ENV' | 'P'> = ['S', 'T', 'E', 'ENV', 'P'];
+  const dims: ('S' | 'T' | 'E' | 'ENV' | 'P')[] = ['S', 'T', 'E', 'ENV', 'P'];
   const hasGlobal = dims.some((k) => (g[k] ?? '').trim().length > 0);
   const hasSect = dims.some((k) => (s[k] ?? '').trim().length > 0);
   if (!hasGlobal && !hasSect) return yIn;
@@ -3004,7 +3004,7 @@ function renderScenarioFeature(doc: jsPDF, yIn: number, s: Scenario, idx: number
   // column moves the doc cursor to a new page, and subsequent
   // columns get drawn at the OLD start-y on the NEW page — visually
   // collapsing the 3-col grid into a 1-col layout.
-  const lists: Array<[string[] | undefined, string, string]> = [
+  const lists: [string[] | undefined, string, string][] = [
     [s.opportunities, tx('report.results.scen.opps', 'Opportunities'), GREEN],
     [s.threats, tx('report.results.scen.threats', 'Threats'), RED],
     // Success factors use BLUE — gold is reserved for brand chrome only.
@@ -3647,7 +3647,7 @@ function measureDrivingForceRowH(doc: jsPDF, f: DrivingForce, idx: number): numb
  */
 function renderDrivingForcesFeaturePage(
   doc: jsPDF,
-  entries: Array<{ force: DrivingForce; idx: number }>,
+  entries: { force: DrivingForce; idx: number }[],
 ): void {
   let y = addPage(doc);
   drawRunningHead(doc);
@@ -4172,7 +4172,7 @@ function renderBackcastingEntry(doc: jsPDF, yIn: number, e: BackcastingEntry, id
  * layout paginates naturally and packs density without orphan pages.
  */
 function renderStrategicMap(doc: jsPDF, items: StrategicPriority[]): number {
-  const order: Array<'H1' | 'H2' | 'H3'> = ['H1', 'H2', 'H3'];
+  const order: ('H1' | 'H2' | 'H3')[] = ['H1', 'H2', 'H3'];
   const horizonColors: Record<'H1' | 'H2' | 'H3', string> = {
     H1: GREEN,
     H2: BLUE,
@@ -4601,7 +4601,7 @@ function renderSources(doc: jsPDF, src: Sources): number {
     y = sectionLabel(doc, y, tx('report.results.sources.global', 'Global context'));
     y = renderSourceList(doc, y, src.globalSteep);
   }
-  const sectionMap: Array<{ key: 'A' | 'B' | 'C' | 'D' | 'E'; labelKey: string }> = [
+  const sectionMap: { key: 'A' | 'B' | 'C' | 'D' | 'E'; labelKey: string }[] = [
     { key: 'A', labelKey: 'report.results.sources.sectionA' },
     { key: 'B', labelKey: 'report.results.sources.sectionB' },
     { key: 'C', labelKey: 'report.results.sources.sectionC' },
@@ -4889,8 +4889,12 @@ async function renderReport(report: ReportResponse) {
   currentTightened = {};
   for (const k of Object.keys(pageSections)) delete pageSections[Number(k)];
 
-  const input = sanitizeTree(report.inputData ?? {}) as InputData;
-  const result = sanitizeTree(report.resultData ?? null) as ResultData | null;
+  // Explicit generic params (not trailing `as`) so the lint autofix for
+  // no-unnecessary-type-assertion can't strip them — sanitizeTree<T>(x: T)
+  // returns T, and the source types (Record<string,unknown> | null etc.)
+  // do NOT include our local Input/ResultData shapes.
+  const input = sanitizeTree<InputData>((report.inputData ?? {}) as InputData);
+  const result = sanitizeTree<ResultData | null>(report.resultData as ResultData | null);
   const cp = input.companyProfile ?? {};
   const exportLang: 'es' | 'en' | 'ca' = isEnLang() ? 'en' : isCaLang() ? 'ca' : 'es';
 

@@ -729,7 +729,7 @@ function MessageView({ view, messageIdx, ctx, onApproveChip, onApplyAll }: Messa
       )}
       {hasCommands && (
         <div className="chat-applied-list">
-          {commands!.map((cmd) => (
+          {commands.map((cmd) => (
             <CommandChip
               key={cmd.id}
               cmd={cmd}

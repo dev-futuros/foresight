@@ -24,10 +24,10 @@ import PromoteToExampleModal from '../../components/PromoteToExampleModal';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import ReportContent, { type InputProjection, type ResultData } from './ReportContent';
 import '../../components/modal.css';
-import type { ReportResponse, ReportStatus } from '../../types/api';
+import type { ReportResponse } from '../../types/api';
 import './report.css';
 
-type InputData = {
+interface InputData {
   companyProfile?: {
     name?: string;
     sector?: string;
@@ -49,7 +49,7 @@ type InputData = {
     political: string;
   }>;
   horizon?: Partial<Record<'H1' | 'H2' | 'H3' | 'h1' | 'h2' | 'h3', string>>;
-};
+}
 
 export default function ReportPage() {
   const { t, i18n } = useTranslation();
@@ -83,7 +83,7 @@ export default function ReportPage() {
   const langParam = searchParams.get('lang');
   const requestedLang: ExportLanguage | null =
     langParam === 'es' || langParam === 'en' || langParam === 'ca' ? langParam : null;
-  const primaryLang = (report?.primaryLanguage as ExportLanguage | undefined) ?? 'es';
+  const primaryLang = (report?.primaryLanguage) ?? 'es';
   const availableLangs = useMemo<ExportLanguage[]>(
     () => (report?.availableLanguages as ExportLanguage[] | undefined) ?? [primaryLang],
     [report?.availableLanguages, primaryLang],
@@ -366,8 +366,8 @@ export default function ReportPage() {
       : await translateReport.mutateAsync({ id: base.id, targetLanguage: language });
     return {
       ...base,
-      inputData: translated.inputData as Record<string, unknown>,
-      resultData: translated.resultData as Record<string, unknown> | null,
+      inputData: translated.inputData,
+      resultData: translated.resultData,
     };
   }
 
@@ -452,7 +452,7 @@ export default function ReportPage() {
             <h1 className="report-main-title">{report.title}</h1>
             <div className="report-meta">
               <span className={`status-badge ${report.status}`}>
-                {t(`report.status.${report.status}` as `report.status.${ReportStatus}`)}
+                {t(`report.status.${report.status}`)}
               </span>
               <span className="report-meta-item">
                 {t('report.meta.created', { date: formattedDate })}

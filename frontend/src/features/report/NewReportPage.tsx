@@ -1363,7 +1363,7 @@ export default function NewReportPage() {
                 hasReport={
                   editMode &&
                   !!editingReport.data?.resultData &&
-                  Object.keys((editingReport.data.resultData as Record<string, unknown>) ?? {})
+                  Object.keys((editingReport.data.resultData) ?? {})
                     .length > 0
                 }
                 disableGenerate={isExampleMode}

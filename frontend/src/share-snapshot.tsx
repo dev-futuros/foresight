@@ -29,7 +29,7 @@ import { SnapshotApp, type SnapshotLang, type SnapshotReport } from './share-sna
 
 function readJsonTag<T>(id: string): T | null {
   const el = document.getElementById(id);
-  if (!el || !el.textContent) return null;
+  if (!el?.textContent) return null;
   try {
     return JSON.parse(el.textContent) as T;
   } catch {

@@ -1,8 +1,8 @@
 import type { StepperState } from './useStepper';
 
-type Props = {
+interface Props {
   state: StepperState;
-};
+}
 
 /**
  * Sticky step indicator — desktop list + mobile compact bar.
@@ -49,13 +49,13 @@ export default function Stepper({ state }: Props) {
               <li
                 key={s.n}
                 className={`stepper-item ${status}${clickable ? ' clickable' : ''}`}
-                onClick={clickable ? () => onSelect!(s.n) : undefined}
+                onClick={clickable ? () => onSelect(s.n) : undefined}
                 onKeyDown={
                   clickable
                     ? (e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault();
-                          onSelect!(s.n);
+                          onSelect(s.n);
                         }
                       }
                     : undefined

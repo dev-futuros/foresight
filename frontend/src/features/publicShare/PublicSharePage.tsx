@@ -58,7 +58,7 @@ export default function PublicSharePage() {
     const list = (data.availableLanguages ?? []) as ShareLang[];
     return list.length > 0 ? list : [data.primaryLanguage ?? 'es'];
   }, [data]);
-  const primaryLang: ShareLang = (data?.primaryLanguage as ShareLang | undefined) ?? 'es';
+  const primaryLang: ShareLang = (data?.primaryLanguage) ?? 'es';
   const activeLang: ShareLang = (() => {
     if (requestedLang && availableLangs.includes(requestedLang)) return requestedLang;
     if (storedLang && availableLangs.includes(storedLang)) return storedLang;

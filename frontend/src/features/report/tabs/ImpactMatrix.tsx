@@ -316,7 +316,7 @@ interface MatrixNode {
   color: string;
 }
 
-const NODE_POSITIONS: Array<{ qx: number; qy: number }> = [
+const NODE_POSITIONS: { qx: number; qy: number }[] = [
   { qx: 0.74, qy: 0.22 }, // Q1 top-right
   { qx: 0.26, qy: 0.24 }, // Q2 top-left
   { qx: 0.72, qy: 0.74 }, // Q3 bottom-right
@@ -345,7 +345,7 @@ function buildNodes(forces: DrivingForce[]): MatrixNode[] {
 function shortPole(s: string | undefined, maxLen: number): string {
   if (!s) return '';
   const trimmed = String(s).trim();
-  const m = trimmed.match(/^([^—–:]+?)(?:\s*[—–:]\s*|\.\s+|,\s+).+$/);
+  const m = /^([^—–:]+?)(?:\s*[—–:]\s*|\.\s+|,\s+).+$/.exec(trimmed);
   let head = m ? m[1].trim() : trimmed;
   if (head.length > maxLen) head = head.slice(0, maxLen - 1).replace(/\s+\S*$/, '') + '…';
   return head;

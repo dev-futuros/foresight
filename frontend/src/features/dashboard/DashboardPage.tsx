@@ -398,7 +398,7 @@ export default function DashboardPage() {
               const primaryLanguage = (row.primaryLanguage as ExportLanguage | undefined) ?? 'es';
               const availableLanguages = ((row.availableLanguages as
                 | ExportLanguage[]
-                | undefined) ?? [primaryLanguage]) as ExportLanguage[];
+                | undefined) ?? [primaryLanguage]);
               const translation = translations[id];
               const isTranslating = !!translation;
               // Determinate progress percentage. The translated envelope
@@ -444,7 +444,7 @@ export default function DashboardPage() {
                   }}
                 >
                   <div className={`db-r-status ${status}`}>
-                    {t(`dashboard.status.${status}` as `dashboard.status.${ReportStatus}`)}
+                    {t(`dashboard.status.${status}`)}
                   </div>
                   <div className="db-r-name">
                     {title}

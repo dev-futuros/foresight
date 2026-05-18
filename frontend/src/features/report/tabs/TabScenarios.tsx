@@ -192,13 +192,13 @@ function firstSentence(text: string): string {
   const para = text.indexOf('\n\n');
   if (para !== -1 && para < 200) return text.slice(0, para).trim();
   // Sentence boundary heuristic.
-  const m = text.match(/^[\s\S]+?[.!?](?=\s+[A-ZÁÉÍÓÚÑ]|$)/);
+  const m = /^[\s\S]+?[.!?](?=\s+[A-ZÁÉÍÓÚÑ]|$)/.exec(text);
   if (m) return m[0].trim();
   return text.length > 140 ? text.slice(0, 140).trim() + '…' : text;
 }
 
 function parsePercent(s: string): number {
-  const m = s.match(/-?\d+(?:[.,]\d+)?/);
+  const m = /-?\d+(?:[.,]\d+)?/.exec(s);
   if (!m) return 0;
   return Number(m[0].replace(',', '.'));
 }

@@ -5,16 +5,16 @@ import { createContext, useContext, useEffect } from 'react';
  * their step state via useSetStepper(...); AppShell reads it and renders
  * the sticky <Stepper /> only when a slot is present.
  */
-export type StepperStep = {
+export interface StepperStep {
   n: number;
   label: string;
   /** Set to false to keep this step visible in the bar but non-interactive
    *  (no click handler, no hover/cursor cue). Useful for "marker-only"
    *  steps like an analysis loading screen that aren't real pages. */
   clickable?: boolean;
-};
+}
 
-export type StepperState = {
+export interface StepperState {
   steps: StepperStep[];
   current: number;
   /**
@@ -24,12 +24,12 @@ export type StepperState = {
    */
   maxReached?: number;
   onSelect?: (n: number) => void;
-};
+}
 
-export type StepperContextValue = {
+export interface StepperContextValue {
   state: StepperState | null;
   setState: (s: StepperState | null) => void;
-};
+}
 
 export const StepperContext = createContext<StepperContextValue | null>(null);
 

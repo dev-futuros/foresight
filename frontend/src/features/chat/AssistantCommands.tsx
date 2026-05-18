@@ -26,7 +26,7 @@ function resolveReportIdFromArgsOrUrl(args: unknown): { id: string | undefined }
     return { id: fromArgs };
   }
   if (typeof window === 'undefined') return { id: undefined };
-  const m = window.location.pathname.match(/^\/reports\/([^/?#]+)(?:\/edit)?\/?$/);
+  const m = /^\/reports\/([^/?#]+)(?:\/edit)?\/?$/.exec(window.location.pathname);
   if (m && m[1] !== 'new') return { id: m[1] };
   return { id: undefined };
 }

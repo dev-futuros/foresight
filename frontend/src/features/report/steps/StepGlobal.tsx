@@ -5,7 +5,6 @@ import {
   globalSteepDim,
   globalSteepScan,
   type GlobalSteep,
-  type GlobalSteepDimension,
   type SourceItem,
 } from '../../../lib/aiClient';
 import { extractApiErrorMessage } from '../../../lib/apiError';
@@ -189,7 +188,7 @@ export default function StepGlobal({
               {
                 sector,
                 language,
-                dimension: key as GlobalSteepDimension,
+                dimension: key,
                 snippet: scan[key] ?? '',
               },
               (p) =>

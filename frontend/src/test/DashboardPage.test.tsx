@@ -57,7 +57,7 @@ const mockPage = (reports: ReportSummary[] = []) =>
     data: { content: reports, totalElements: reports.length, totalPages: 1, size: 20, number: 0 },
     isLoading: false,
     isError: false,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
   }) as any;
 
 describe('DashboardPage', () => {

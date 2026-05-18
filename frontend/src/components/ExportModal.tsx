@@ -114,7 +114,7 @@ export default function ExportModal({
     return list.length > 0 ? list : ['es'];
   }, [data]);
 
-  const primaryLanguage = (data?.primaryLanguage as ExportLanguage | undefined) ?? 'es';
+  const primaryLanguage = (data?.primaryLanguage) ?? 'es';
 
   // Snap the language pick back to the row's primary on every open
   // so reopening the modal doesn't carry over a stale selection from a
@@ -291,7 +291,7 @@ export default function ExportModal({
           >
             {availableLanguages.map((lng) => (
               <option key={lng} value={lng}>
-                {t(`share.lang.${lng}` as 'share.lang.es' | 'share.lang.en', {
+                {t(`share.lang.${lng}`, {
                   defaultValue: lng.toUpperCase(),
                 })}
               </option>
@@ -323,7 +323,7 @@ export default function ExportModal({
                     onChange={() => toggleIncludedLanguage(lng)}
                   />
                   <span>
-                    {t(`share.lang.${lng}` as 'share.lang.es' | 'share.lang.en', {
+                    {t(`share.lang.${lng}`, {
                       defaultValue: lng.toUpperCase(),
                     })}
                   </span>
@@ -355,7 +355,7 @@ export default function ExportModal({
           >
             {htmlIncludedLanguages.map((lng) => (
               <option key={lng} value={lng}>
-                {t(`share.lang.${lng}` as 'share.lang.es' | 'share.lang.en', {
+                {t(`share.lang.${lng}`, {
                   defaultValue: lng.toUpperCase(),
                 })}
               </option>

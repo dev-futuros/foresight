@@ -350,7 +350,7 @@ export function useChat() {
       const snap = messagesRef.current;
       const mv = snap[messageIdx];
       const cmd = mv?.commands?.find((c) => c.id === commandId);
-      if (!cmd || cmd.status !== 'pending') return;
+      if (cmd?.status !== 'pending') return;
 
       let nextStatus: PendingCommand['status'];
       let nextError: string | undefined;

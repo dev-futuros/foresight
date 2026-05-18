@@ -1,14 +1,14 @@
 import { type ReactElement, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import ReportContent, { type InputProjection, type ResultData } from '../report/ReportContent';
+import ReportContent from '../report/ReportContent';
 import '../report/report.css';
 import './publicShare.css';
 
-type InputData = {
+interface InputData {
   companyProfile?: { name?: string; sector?: string; horizon?: string; challenge?: string };
   globalSteep?: Record<string, string>;
   steep?: Record<string, string>;
-};
+}
 
 /**
  * The minimum payload {@link ShareView} needs to render. Loose on
@@ -100,10 +100,10 @@ export default function ShareView({ report, languageSwitcher }: Props): ReactEle
           </header>
           {report.resultData && (
             <ReportContent
-              result={report.resultData as ResultData}
+              result={report.resultData}
               input={{
-                globalSteep: input.globalSteep as InputProjection['globalSteep'],
-                sectorialSteep: input.steep as InputProjection['sectorialSteep'],
+                globalSteep: input.globalSteep,
+                sectorialSteep: input.steep,
               }}
               rightSlot={languageSwitcher}
             />

@@ -17,7 +17,7 @@ export function useBillingProfile() {
   const { isLoading, isAuthenticated } = useKindeAuth();
   return useQuery<BillingProfileResponse>({
     queryKey: ['billing', 'entitlements'],
-    enabled: !isLoading && isAuthenticated === true,
+    enabled: !isLoading && isAuthenticated,
     queryFn: async () => {
       const res = await api.get<BillingProfileResponse>('/billing/entitlements');
       return res.data;

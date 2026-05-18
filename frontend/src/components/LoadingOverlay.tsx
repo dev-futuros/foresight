@@ -1,12 +1,12 @@
 import Modal from './Modal';
 
-type Props = {
+interface Props {
   open: boolean;
   /** Caption shown beneath the spinner (mono uppercase, gold). */
   text: string;
   /** Optional ARIA label; defaults to the caption text. */
   ariaLabel?: string;
-};
+}
 
 /**
  * Full-screen loading overlay for blocking operations (PDF / PPT export,

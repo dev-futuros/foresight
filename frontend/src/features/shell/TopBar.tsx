@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { dispatch as dispatchCommand } from '../../lib/commandBus';
 import AccountMenu from '../account/AccountMenu';
 
-type TopBarProps = {
+interface TopBarProps {
   /**
    * Opens the account modal overlay. Wired by {@link AppShell}, which owns
    * the modal's open state. Kept as a prop (instead of an internal click
@@ -12,7 +12,7 @@ type TopBarProps = {
    * portals inside the topbar.
    */
   onOpenAccount: () => void;
-};
+}
 
 /**
  * Sticky top bar — brand on the left, action cluster on the right:
