@@ -1617,7 +1617,7 @@ function renderCover(doc: jsPDF, report: ReportResponse, result: ResultData | nu
 
   // ── Quick-stats strip — anchored to the bottom block so it doesn't
   //    collide with the standfirst, regardless of deck length.
-  const stats = collectCoverStats(report, result, cp, en);
+  const stats = collectCoverStats(report, result, cp);
   if (stats.length > 0) {
     // Stats sit ~46mm above the bottom-of-page consultant/colophon
     // row. PAGE_H - 46 = 251mm. Always below the standfirst (which
@@ -1672,7 +1672,6 @@ function renderCover(doc: jsPDF, report: ReportResponse, result: ResultData | nu
  */
 function renderBackCover(doc: jsPDF) {
   paintBackground(doc);
-  const en = isEnLang();
   const cx = PAGE_W / 2;
   const centerY = PAGE_H / 2;
 
@@ -1735,7 +1734,6 @@ function collectCoverStats(
   _report: ReportResponse,
   result: ResultData | null,
   _cp: CompanyProfile,
-  en: boolean,
 ): Array<{ value: string; label: string }> {
   const out: Array<{ value: string; label: string }> = [];
   const scenarioCount = result?.scenarios?.length ?? 0;
@@ -1804,7 +1802,6 @@ function renderToc(
 ) {
   doc.setPage(tocPageNum);
   drawRunningHead(doc, reportTitle);
-  const en = isEnLang();
 
   // Editorial top block: kicker + "Contents" headline. Both kicker and rule
   // use neutral typography — the TOC is a structural index, not an accent
@@ -1902,7 +1899,6 @@ function renderToc(
 function buildTocTeasers(
   result: ResultData | null,
   input: InputData,
-  en: boolean,
 ): Record<string, string> {
   const teasers: Record<string, string> = {};
   // Tracks idx in lockstep with the section push order in
@@ -2105,7 +2101,6 @@ function renderBriefAndExec(
   input: InputData,
   exec: string | undefined,
 ): number {
-  const en = isEnLang();
   // Set BEFORE addPage so the new page captures the section context for
   // its rotated eyebrow + chip.
   setSection(doc, t3('Brief', 'Resumen', 'Resum'), INK_MUTE);
@@ -3205,7 +3200,7 @@ function renderFirstMoveHero(
   //   2. Otherwise scan the first sentence for a temporal pattern anywhere inside it
   //      (e.g. "...en los próximos 30 días...", "...within the next quarter...").
   //   3. If neither yields a headline, use the locale default.
-  const { head, bodyText } = extractTimeframeHeadline(text, _en);
+  const { head, bodyText } = extractTimeframeHeadline(text);
 
   // ── Top-of-page block (no centring). The user wanted the timeframe LARGE and BOLD at
   // the top — so we anchor at the top margin and grow downward, instead of vertically
@@ -3291,7 +3286,6 @@ function renderFirstMoveHero(
  */
 function extractTimeframeHeadline(
   text: string,
-  en: boolean,
 ): { head: string; bodyText: string } {
   const trimmed = text.trim();
   if (!trimmed) {
@@ -3659,7 +3653,6 @@ function renderDrivingForcesFeaturePage(doc: jsPDF, entries: Array<{ force: Driv
   // Section eyebrow — uses the planning section's blue accent so the
   // overflow page reads as part of the same chapter.
   setText(doc, BLUE, 7.5, 'bold', FONT_MONO);
-  const en = isEnLang();
   doc.text(
     t3(
       'Scenario planning · Driving forces',
@@ -3713,7 +3706,6 @@ function renderDrivingForceHero(
   const titleSize = full ? 24 : 18;
   const titleLead = titleSize * 0.5;
   const scoreSize = full ? 30 : 22;
-  const en = isEnLang();
   const numCol = full ? 50 : 38; // mm reserved for the rank lockup
   const textX = MARGIN_X + numCol + 6;
   const textW = CONTENT_W - numCol - 6;
@@ -3963,7 +3955,6 @@ function renderBackcastingEntry(
   idx: number,
 ): number {
   const colors = scenarioColors(e.scenarioType, idx);
-  const en = isEnLang();
   let y = yIn;
 
   // ── Kicker + headline ────────────────────────────────────────────
@@ -4277,7 +4268,6 @@ function renderHorizonHeaderCompact(
   h: 'H1' | 'H2' | 'H3',
   color: string,
 ): number {
-  const en = isEnLang();
   setText(doc, color, 14, 'bold', FONT_SERIF);
   doc.text(h, MARGIN_X, yIn + 8);
   setText(doc, INK_MUTE, 7.5, 'bold', FONT_MONO);
@@ -4311,7 +4301,6 @@ function renderHorizonHeader(doc: jsPDF, yIn: number, h: 'H1' | 'H2' | 'H3', col
   doc.text(h, MARGIN_X, y + 20);
   // Right-side stack: small "Horizon X" kicker in mono caps + the
   // localised horizon label in larger serif.
-  const en = isEnLang();
   const kx = MARGIN_X + codeW + 6;
   setText(doc, INK_MUTE, 7.5, 'bold', FONT_MONO);
   doc.text(
@@ -4877,7 +4866,6 @@ async function renderReport(report: ReportResponse) {
   const input = sanitizeTree((report.inputData ?? {})) as InputData;
   const result = sanitizeTree(report.resultData ?? null) as ResultData | null;
   const cp = input.companyProfile ?? {};
-  const en = isEnLang();
   const exportLang: 'es' | 'en' | 'ca' = isEnLang() ? 'en' : isCaLang() ? 'ca' : 'es';
 
   // ── Layout planning + fit pass ─────────────────────────────────────
@@ -4971,7 +4959,7 @@ async function renderReport(report: ReportResponse) {
   }
 
   // 4. Build per-section teaser strings derived from the data.
-  const teasers = buildTocTeasers(result, input, en);
+  const teasers = buildTocTeasers(result, input);
 
   // 5. Render TOC with correct page numbers + teasers.
   renderToc(doc, tocPageNum, 0, report.title, teasers);
