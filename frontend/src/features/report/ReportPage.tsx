@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../lib/api';
 import { useReport, useTranslateReport } from './api';
-import { useDemoteExample, useTranslateExample } from '../../hooks/useExamples';
+import { useDemoteExample, useTranslateExample } from '../examples/api';
 import { useIsDev } from '../../hooks/useAuth';
 import { useSetStepper } from '../shell/useStepper';
 import { useCommands } from '../../lib/useCommands';

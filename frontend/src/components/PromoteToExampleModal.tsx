@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Modal from './Modal';
 import { useReport } from '../features/report/api';
-import { usePromoteToExample } from '../hooks/useExamples';
+import { usePromoteToExample } from '../features/examples/api';
 import { extractApiErrorMessage } from '../lib/apiError';
 
 interface Props {

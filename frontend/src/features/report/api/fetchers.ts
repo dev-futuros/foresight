@@ -10,6 +10,7 @@
  * mutations.ts and just wrap these.
  */
 import api from '../../../lib/api';
+import { getExample } from '../../examples/api';
 import type {
   CreateReportRequest,
   Page,
@@ -36,14 +37,11 @@ export async function listReports(params: { page: number; size: number }) {
 }
 
 /**
- * Fetch a single row by id. Tries `/reports/:id` first; on a 404 it falls
- * back to `/examples/:id` so the viewer route can resolve either kind
- * under the unified `/reports/:id` URL. The returned object always
- * carries the `source` discriminator.
- *
- * <p>TODO(phase-2-followup): once `features/examples/api/` exists, the
- * fallback should call that feature's `getExample(id)` directly instead
- * of inlining the example endpoint shape here.
+ * Fetch a single row by id. Tries `/reports/:id` first; on a 404 it
+ * delegates to `features/examples/api/getExample` so the viewer route
+ * can resolve either kind under the unified `/reports/:id` URL. The
+ * returned object always carries the `source` discriminator so
+ * consumers can gate write affordances appropriately.
  */
 export async function getReport(id: string): Promise<ReportWithSource> {
   try {
@@ -52,30 +50,21 @@ export async function getReport(id: string): Promise<ReportWithSource> {
   } catch (err) {
     const status = (err as { response?: { status?: number } }).response?.status;
     if (status !== 404) throw err;
-    const ex = await api.get<{
-      id: string;
-      title: string;
-      primaryLanguage: 'es' | 'en' | 'ca';
-      availableLanguages: string[];
-      inputData: Record<string, unknown>;
-      resultData: Record<string, unknown> | null;
-      createdAt: string;
-      updatedAt: string;
-    }>(`/examples/${id}`);
+    const ex = await getExample(id);
     return {
-      id: ex.data.id,
-      title: ex.data.title,
+      id: ex.id,
+      title: ex.title,
       status: 'COMPLETED' as const,
-      inputData: ex.data.inputData,
-      resultData: ex.data.resultData,
-      primaryLanguage: ex.data.primaryLanguage,
-      availableLanguages: ex.data.availableLanguages,
+      inputData: ex.inputData,
+      resultData: ex.resultData,
+      primaryLanguage: ex.primaryLanguage,
+      availableLanguages: ex.availableLanguages,
       // Examples don't carry a tighten cache — the PDF export pipeline
       // tightens fresh on every example export (rare action, fine to
       // skip the caching layer).
       pdfOptimized: null,
-      createdAt: ex.data.createdAt,
-      updatedAt: ex.data.updatedAt,
+      createdAt: ex.createdAt,
+      updatedAt: ex.updatedAt,
       source: 'example' as const,
     };
   }
