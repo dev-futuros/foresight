@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import Modal from './Modal';
 import { useCreateShare } from '../hooks/useShare';
 import { useReport } from '../features/report/api';
-import { useExample } from '../hooks/useExamples';
+import { useExample } from '../features/examples/api';
 import { extractApiErrorMessage } from '../lib/apiError';
 
 interface Props {

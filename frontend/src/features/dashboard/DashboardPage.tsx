@@ -8,7 +8,7 @@ import {
   useDeleteExample,
   useDeleteExampleTranslation,
   useDemoteExample,
-} from '../../hooks/useExamples';
+} from '../examples/api';
 import { useIsDev } from '../../hooks/useAuth';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import ExportModal, {

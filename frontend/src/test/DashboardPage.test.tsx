@@ -24,7 +24,7 @@ vi.mock('../features/report/api', () => ({
   useTranslateReport: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
   translateReportStream: vi.fn(),
 }));
-vi.mock('../hooks/useExamples', () => ({
+vi.mock('../features/examples/api', () => ({
   useExamples: () => ({ data: undefined, isLoading: false, isError: false }),
   useExample: () => ({ data: undefined, isLoading: false }),
   usePromoteToExample: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
