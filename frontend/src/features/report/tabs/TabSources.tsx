@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import type { SourceItem } from '../../../lib/aiClient';
+import type { SourceItem } from '../../../types/api';
 import type { ResultData } from '../ReportContent';
 
 type SectionId = 'A' | 'B' | 'C' | 'D' | 'E';

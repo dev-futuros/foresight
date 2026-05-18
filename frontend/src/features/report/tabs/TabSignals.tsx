@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { WeakSignal, Wildcard } from '../../../lib/aiClient';
+import type { WeakSignal, Wildcard } from '../../../types/api';
 import type { ResultData } from '../ReportContent';
 
 /**

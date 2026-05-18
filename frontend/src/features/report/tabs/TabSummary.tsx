@@ -1,6 +1,6 @@
 import { useState, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { GlobalSteepDimension, KeyUncertainty } from '../../../lib/aiClient';
+import type { GlobalSteepDimension, KeyUncertainty } from '../../../types/api';
 import type { InputProjection, ResultData } from '../ReportContent';
 
 /**

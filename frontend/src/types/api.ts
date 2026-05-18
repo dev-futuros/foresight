@@ -224,3 +224,221 @@ export interface UpdateUserRequest {
   name?: string;
   language?: 'es' | 'en' | 'ca';
 }
+
+// ── AI analysis result types ────────────────────────────────────────
+// Shapes the backend's /api/ai/analyze/* proxy returns, parsed out of
+// the Anthropic content blocks. Lives here (rather than in
+// features/report/types.ts) because they're cross-feature: the report
+// tabs render them, the PDF/HTML/PPT exporters read them, and
+// buildAssistantSnapshot in lib/ derives a chat context from them.
+
+/**
+ * 3P scenario as produced by the analyzeScenarios prompt. `type` is the
+ * localized 3P token ("Probable" / "Plausible" / "Possible" in English,
+ * "Probable" / "Plausible" / "Posible" in Spanish). `name` is the
+ * model's evocative title; legacy reports may have `title` instead.
+ */
+export interface Scenario {
+  type: string;
+  name?: string;
+  /** @deprecated Legacy flat-shape field. New reports populate `name`. */
+  title?: string;
+  /** Probability percentage as a display string, e.g. "72%". The three
+   *  scenarios in a report sum to 100%. */
+  probability?: string;
+  description: string;
+  opportunities?: string[];
+  threats?: string[];
+  successFactors?: string[];
+  firstMove?: string;
+}
+
+export interface KeyUncertainty {
+  name: string;
+  description: string;
+}
+
+/**
+ * `dimension` is a localized STEEP dimension name — Spanish: "Social",
+ * "Tecnológico", "Económico", "Medioambiental", "Político"; English:
+ * "Social", "Technological", "Economic", "Environmental", "Political";
+ * Catalan: "Social", "Tecnològic", "Econòmic", "Mediambiental",
+ * "Polític". Consumers that want to icon-map by dimension should
+ * normalize.
+ */
+export interface WeakSignal {
+  title: string;
+  dimension: string;
+  description: string;
+}
+
+export interface Wildcard {
+  title: string;
+  description: string;
+}
+
+export interface DrivingForce {
+  rank: number;
+  title: string;
+  description: string;
+  /** 0-100, strictly descending across the 4 ranked forces. */
+  impactScore: number;
+}
+
+export interface UncertaintyAxis {
+  label: string;
+  poleHigh: string;
+  poleLow: string;
+  rationale: string;
+}
+
+export interface ScenarioLogic {
+  /** Evocative scenario name matching the corresponding 3P scenario. */
+  name: string;
+  logic: string;
+}
+
+/**
+ * Scenario-planning payload. The backend wraps this under a top-level
+ * "scenarioPlanning" key; the analyzeScenarioPlanning fetcher unwraps
+ * so callers address fields directly.
+ */
+export interface ScenarioPlanning {
+  intro?: string;
+  drivingForces?: DrivingForce[];
+  axes?: UncertaintyAxis[];
+  scenarioLogics?: ScenarioLogic[];
+}
+
+export interface BackcastingMilestone {
+  /** Calendar year as a string (e.g. "2031"); supplied by the user-prompt context block. */
+  year: string;
+  title: string;
+  description: string;
+  actions?: string[];
+}
+
+export interface BackcastingEntry {
+  scenarioType: string;
+  /** Placeholder name returned by the model; the client patches it with the matching scenario's `name`. */
+  scenarioName: string;
+  visionStatement: string;
+  milestones?: BackcastingMilestone[];
+  startingPoint: string;
+}
+
+/** Flat array of backcasting trajectories — one per 3P scenario. */
+export type Backcasting = BackcastingEntry[];
+
+export interface StrategicPriority {
+  /** "H1" | "H2" | "H3". */
+  horizon: string;
+  /** Localized timeframe string (e.g. "0-18 meses", "18 meses-2 años"). */
+  timeframe: string;
+  title: string;
+  impact: 'low' | 'medium' | 'high';
+  actions?: string[];
+}
+
+/** Flat list of strategic priorities, 2 per horizon. */
+export type StrategicMap = StrategicPriority[];
+
+export interface SourceItem {
+  title: string;
+  url: string;
+  /**
+   * One-sentence rationale supplied by the standalone /analyze/sources
+   * call. Per-section citation lists omit it because web_search only
+   * provides title + URL.
+   */
+  description?: string;
+}
+
+/**
+ * Sources surfaced under the report. The standalone /analyze/sources
+ * returns the flat `sources` list, but the new pipeline also groups
+ * citations by section (A-E) plus a "Global STEEP" bucket. Fields are
+ * optional so this type works for both shapes — renderer falls back
+ * gracefully.
+ */
+export interface Sources {
+  sources?: SourceItem[];
+  report?: SourceItem[];
+  bySection?: Partial<Record<'A' | 'B' | 'C' | 'D' | 'E', SourceItem[]>>;
+  globalSteep?: SourceItem[];
+}
+
+/** Section-A payload — exec summary + supporting fields. */
+export interface AnalyzeSummary {
+  executiveSummary?: string;
+  keyUncertainties?: KeyUncertainty[];
+  weakSignals?: WeakSignal[];
+  wildcards?: Wildcard[];
+}
+
+/** Top-level analyze response (the legacy unary `analyze` endpoint). */
+export interface AnalyzeReport {
+  scenarios?: Scenario[];
+  weakSignals?: WeakSignal[];
+  wildcards?: Wildcard[];
+  keyUncertainties?: KeyUncertainty[];
+  /** 2 short paragraphs separated by `\n\n`. */
+  executiveSummary?: string;
+  [key: string]: unknown;
+}
+
+/** Suggestion list item from the wizard's suggestSteep/suggestHorizon hooks. */
+export interface SuggestionItem {
+  title: string;
+  description: string;
+}
+
+/** Global STEEP block — the five dimensions of the macro context scan. */
+export interface GlobalSteep {
+  S: string;
+  T: string;
+  E: string;
+  ENV: string;
+  P: string;
+}
+
+export type GlobalSteepDimension = keyof GlobalSteep;
+
+/**
+ * Companion shape returned by every analyze section call. `result` is
+ * the parsed JSON the prompt produced; `citations` is the deduped list
+ * of web_search URLs the model consulted during this turn.
+ */
+export interface AnalyzeSectionResponse<T> {
+  result: T;
+  citations: SourceItem[];
+}
+
+/**
+ * Per-section progress event surfaced to the loader UI.
+ *
+ * <p>`chars` is the running total of characters streamed from the
+ * model's text-delta blocks; `sources` is the running count of unique
+ * URLs harvested from web_search_tool_result blocks during the turn.
+ */
+export interface AnalyzeProgress {
+  chars: number;
+  sources: number;
+}
+
+export type ProgressCallback = (progress: AnalyzeProgress) => void;
+
+/** Shared request shape for the analyze-section endpoints. */
+export interface AnalyzeArgs {
+  companyProfile: unknown;
+  steep: unknown;
+  horizon: unknown;
+  /**
+   * Shared research bullets gathered by analyzeScan up front. When
+   * present, the 5 section calls fold this verbatim into their user
+   * prompt so they can anchor on the same facts and skip their own
+   * web_search loop (~5× cheaper end-to-end).
+   */
+  research?: string;
+  language: 'es' | 'en' | 'ca';
+}

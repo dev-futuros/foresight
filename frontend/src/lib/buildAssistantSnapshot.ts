@@ -4,14 +4,15 @@ import type { SteepData } from '../features/report/steps/StepSteep';
 import type { HorizonData } from '../features/report/steps/StepHorizon';
 import type {
   Backcasting,
+  ExampleSummary,
   KeyUncertainty,
+  ReportSummary,
   Scenario,
   ScenarioPlanning,
   StrategicMap,
   WeakSignal,
   Wildcard,
-} from './aiClient';
-import type { ExampleSummary, ReportSummary } from '../types/api';
+} from '../types/api';
 
 /**
  * Loosely-typed projection of a report's {@code resultData} — the same shape

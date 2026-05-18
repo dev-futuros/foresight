@@ -4,6 +4,7 @@ import type {
   BackcastingEntry,
   DrivingForce,
   KeyUncertainty,
+  ReportResponse,
   Scenario,
   ScenarioLogic,
   ScenarioPlanning,
@@ -13,8 +14,7 @@ import type {
   UncertaintyAxis,
   WeakSignal,
   Wildcard,
-} from './aiClient';
-import type { ReportResponse } from '../types/api';
+} from '../types/api';
 import {
   runFitPass,
   persistTightened,

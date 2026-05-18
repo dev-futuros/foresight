@@ -26,7 +26,7 @@
  * solves the "I've decided I need these fields shortened to these lengths" problem.
  */
 
-import { tighten, savePdfOptimized } from './aiClient';
+import { tighten, savePdfOptimized } from '../features/report/api';
 import type { PdfOptimizedCache } from '../types/api';
 
 /**

@@ -11,8 +11,8 @@ import {
   analyzeScenarios,
   analyzeStrategicMap,
   analyzeSummary,
-  type SourceItem,
-} from '../../lib/aiClient';
+} from './api';
+import type { SourceItem } from '../../types/api';
 import { extractApiErrorMessage } from '../../lib/apiError';
 import { notifyAssistant, resetAssistant } from '../../lib/assistantBridge';
 import OnboardingDialog from '../../components/OnboardingDialog';

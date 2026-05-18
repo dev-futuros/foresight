@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { DrivingForce, ScenarioLogic, UncertaintyAxis } from '../../../lib/aiClient';
+import type { DrivingForce, ScenarioLogic, UncertaintyAxis } from '../../../types/api';
 import type { ResultData } from '../ReportContent';
 import ImpactMatrix from './ImpactMatrix';
 import InfoTooltip from '../../../components/InfoTooltip';

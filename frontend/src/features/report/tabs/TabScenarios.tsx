@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { Scenario } from '../../../lib/aiClient';
+import type { Scenario } from '../../../types/api';
 import type { ResultData } from '../ReportContent';
 import InfoTooltip from '../../../components/InfoTooltip';
 

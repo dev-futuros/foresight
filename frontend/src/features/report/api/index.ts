@@ -16,3 +16,18 @@ export {
   useDeleteTranslation,
 } from './mutations';
 export { translateReportStream, type TranslateProgress } from './translateStream';
+
+// AI proxy endpoints (moved from lib/aiClient.ts in Phase 3).
+export {
+  analyze,
+  analyzeScan,
+  analyzeSummary,
+  analyzeScenarios,
+  analyzeScenarioPlanning,
+  analyzeBackcasting,
+  analyzeStrategicMap,
+  analyzeSources,
+} from './analyze';
+export { suggestSteep, suggestHorizon } from './suggest';
+export { globalSteep, globalSteepScan, globalSteepDim } from './steep';
+export { tighten, savePdfOptimized } from './tighten';

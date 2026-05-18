@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { suggestHorizon, type SuggestionItem } from '../../../lib/aiClient';
+import { suggestHorizon } from '../api';
+import type { SuggestionItem } from '../../../types/api';
 import { extractApiErrorMessage } from '../../../lib/apiError';
 import { useMaximizable } from '../../../components/useMaximizable';
 import SplitButton from '../../../components/SplitButton';
