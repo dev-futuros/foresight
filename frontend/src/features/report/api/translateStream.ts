@@ -1,3 +1,4 @@
+import type { LanguageCode } from '../../../i18n/languages';
 /**
  * Streaming variant of the translate endpoint. Opens an SSE connection
  * to the backend and surfaces `progress` events to the caller as the
@@ -32,7 +33,7 @@ export interface TranslateProgress {
 
 export async function translateReportStream(args: {
   id: string;
-  targetLanguage: 'es' | 'en' | 'ca';
+  targetLanguage: LanguageCode;
   force?: boolean;
   onProgress?: (progress: TranslateProgress) => void;
   signal?: AbortSignal;

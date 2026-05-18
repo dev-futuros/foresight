@@ -1,3 +1,4 @@
+import type { LanguageCode } from '../../../i18n/languages';
 /**
  * Chat-assistant endpoints. The unary `chat` returns the full reply at
  * once; `chatStream` opens an SSE connection and surfaces text deltas
@@ -49,7 +50,7 @@ export async function chat(args: {
   /** Pre-formatted USER STATE block (see buildAssistantSnapshot). The
    *  backend stitches it verbatim into the system prompt. */
   context?: string;
-  language: 'es' | 'en' | 'ca';
+  language: LanguageCode;
 }): Promise<ChatResponse> {
   const { data } = await api.post<ChatResponse>('ai/chat', args);
   return data;
@@ -69,7 +70,7 @@ export async function chatStream(
   args: {
     messages: ChatMessage[];
     context?: string;
-    language: 'es' | 'en' | 'ca';
+    language: LanguageCode;
   },
   onDelta: (chunk: string) => void,
 ): Promise<{ text: string }> {

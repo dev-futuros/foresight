@@ -1,3 +1,9 @@
+import {
+  DEFAULT_LANGUAGE,
+  isLanguageCode,
+  languageSpec,
+  type LanguageCode,
+} from '../../../i18n/languages';
 import jsPDF from 'jspdf';
 import i18n from '../../../i18n';
 import type {
@@ -1342,16 +1348,24 @@ const tx = (k: string, fallback?: string): string => {
   return fallback ?? k;
 };
 
-const isEnLang = () => !!i18n.language?.startsWith('en');
-const isCaLang = () => !!i18n.language?.startsWith('ca');
 /**
- * Three-arm language picker for the inline PDF chrome strings. Returns the
- * English value when i18n is English, the Catalan value when Catalan,
- * otherwise the Spanish value (which is the application's default locale).
- * Used in place of the older `isEnLang() ? 'EN' : 'ES'` ternaries so every
- * label, section heading and date string can carry its Catalan translation.
+ * Export-language-bound translator for the PDF chrome strings. Resolves
+ * against the `exportPdf.*` block of the locale chosen for THIS export
+ * — which may differ from the app's chrome language (a user can read
+ * in Spanish but export to Catalan). Initialised to the default
+ * language at module load and re-bound to {@code exportLang} at the
+ * top of {@link exportReportPdf}.
+ *
+ * <p>Replaces the older {@code t3(en, es, ca)} ternary that hardcoded
+ * three languages inline at every call site — adding a fourth language
+ * meant editing ~55 call sites in this file. With the registry-driven
+ * setup, adding a language is just dropping a locale file.
  */
-const t3 = <T>(en: T, es: T, ca: T): T => (isEnLang() ? en : isCaLang() ? ca : es);
+let currentTpdf = i18n.getFixedT(DEFAULT_LANGUAGE, null, 'exportPdf');
+
+function tpdf(key: string, vars?: Record<string, unknown>): string {
+  return currentTpdf(key, vars) as unknown as string;
+}
 
 function steepLabel(k: 'S' | 'T' | 'E' | 'ENV' | 'P'): string {
   switch (k) {
@@ -1531,7 +1545,6 @@ function renderCover(
   cp: CompanyProfile,
 ) {
   paintBackground(doc);
-  const en = isEnLang();
 
   // ── Masthead (top strip) ───────────────────────────────────────
   // Big mono wordmark on the left, issue/edition labels on the right.
@@ -1539,13 +1552,13 @@ function renderCover(
   doc.text('FUTUROS', MARGIN_X, MARGIN_TOP);
   setText(doc, INK_MUTE, 7.5, 'normal', FONT_MONO);
   doc.text(
-    t3('Strategic Foresight', 'Foresight Estratégico', 'Foresight Estratègic').toUpperCase(),
+    tpdf('brand.title').toUpperCase(),
     MARGIN_X,
     MARGIN_TOP + 5,
   );
 
   // Issue meta in the top-right.
-  const lang = t3('en-GB', 'es-ES', 'ca-ES');
+  const lang = languageSpec(i18n.language).dateLocale;
   const dateStr = new Date(report.createdAt).toLocaleDateString(lang, {
     day: '2-digit',
     month: 'long',
@@ -1575,7 +1588,7 @@ function renderCover(
   // editorial meta instead of leaving it stranded in the bottom-right.
   const eyebrowParts = [tx('report.eyebrow', 'Strategic foresight report')];
   if (cp.horizon) {
-    eyebrowParts.push(`${cp.horizon}-${t3('year horizon', 'años de horizonte', 'anys d’horitzó')}`);
+    eyebrowParts.push(`${cp.horizon}-${tpdf('common.yearHorizonLabel')}`);
   }
   setText(doc, GOLD, 9.5, 'bold', FONT_MONO);
   doc.text(eyebrowParts.join(' · ').toUpperCase(), MARGIN_X, heroY);
@@ -1606,7 +1619,7 @@ function renderCover(
 
   // Standfirst / deck — short, capped to ~4 lines so it can't push
   // into the stats strip. Falls back to the strategic challenge.
-  const deck = pickCoverDeck(result, cp, en);
+  const deck = pickCoverDeck(result, cp);
   if (deck) {
     y = standfirst(doc, MARGIN_X, y, CONTENT_W * 0.88, deck, {
       size: 13.5,
@@ -1647,7 +1660,7 @@ function renderCover(
     const consultant = [cp.consultantName, cp.consultantCompany].filter(Boolean).join(' — ');
     setText(doc, INK_MUTE, 7.5, 'bold', FONT_MONO);
     doc.text(
-      t3('Prepared by', 'Preparado por', 'Preparat per').toUpperCase(),
+      tpdf('cover.preparedBy').toUpperCase(),
       MARGIN_X,
       PAGE_H - 30,
     );
@@ -1689,11 +1702,10 @@ function renderBackCover(doc: jsPDF) {
   doc.line(cx - 14, centerY - 26, cx + 14, centerY - 26);
 
   // ── Tagline. Split at the comma so the accent clause can render in gold.
-  const tagline = t3(
-    { lead: 'The future is not predicted,', accent: 'it is designed.' },
-    { lead: 'El futuro no se predice,', accent: 'se diseña.' },
-    { lead: 'El futur no es prediu,', accent: 'es dissenya.' },
-  );
+  const tagline = {
+    lead: tpdf('backCover.taglineLead'),
+    accent: tpdf('backCover.taglineAccent'),
+  };
 
   // Auto-shrink so both lines fit CONTENT_W at the chosen size.
   let taglineSize = 26;
@@ -1722,7 +1734,7 @@ function renderBackCover(doc: jsPDF) {
   doc.text('futuros.io', cx, ruleY + 8, { align: 'center' });
 }
 
-function pickCoverDeck(result: ResultData | null, cp: CompanyProfile, en: boolean): string | null {
+function pickCoverDeck(result: ResultData | null, cp: CompanyProfile): string | null {
   if (result?.executiveSummary) {
     const first = result.executiveSummary
       .replace(/\s+/g, ' ')
@@ -1730,9 +1742,7 @@ function pickCoverDeck(result: ResultData | null, cp: CompanyProfile, en: boolea
     if (first && first.length > 40 && first.length < 260) return first.trim();
   }
   if (cp.challenge) return cp.challenge;
-  return en
-    ? 'A strategic foresight study across plausible futures.'
-    : 'Un estudio de foresight estratégico a través de futuros plausibles.';
+  return tpdf('cover.deckFallback');
 }
 
 function collectCoverStats(
@@ -1745,14 +1755,14 @@ function collectCoverStats(
   if (scenarioCount > 0) {
     out.push({
       value: String(scenarioCount),
-      label: t3('Scenarios', 'Escenarios', 'Escenaris'),
+      label: tpdf('stats.scenarios'),
     });
   }
   const forcesCount = result?.scenarioPlanning?.drivingForces?.length ?? 0;
   if (forcesCount > 0) {
     out.push({
       value: String(forcesCount),
-      label: t3('Driving forces', 'Fuerzas motrices', 'Forces motrius'),
+      label: tpdf('stats.drivingForces'),
     });
   }
   // Sources count — sum across globalSteep + bySection (or fall back).
@@ -1771,7 +1781,7 @@ function collectCoverStats(
   if (sourcesTotal > 0) {
     out.push({
       value: String(sourcesTotal),
-      label: t3('Sources cited', 'Fuentes citadas', 'Fonts citades'),
+      label: tpdf('stats.sourcesCited'),
     });
   }
   return out.slice(0, 3);
@@ -1817,13 +1827,13 @@ function renderToc(
     doc,
     MARGIN_X,
     y,
-    t3('Inside this report', 'Dentro de este informe', 'Dins d’aquest informe'),
+    tpdf('toc.kicker'),
     INK_MUTE,
     8,
   );
   y += 8;
   setText(doc, INK, 28, 'bold', FONT_SERIF);
-  doc.text(t3('Contents', 'Contenidos', 'Continguts'), MARGIN_X, y + 12);
+  doc.text(tpdf('toc.title'), MARGIN_X, y + 12);
   y += 18;
   doc.setDrawColor(LINE_STRONG);
   doc.setLineWidth(0.4);
@@ -1896,11 +1906,7 @@ function renderToc(
   // Footer credit
   setText(doc, INK_FAINT, 7, 'normal', FONT_MONO);
   doc.text(
-    t3(
-      'Read in the order shown',
-      'Leer en el orden mostrado',
-      'Llegir en l’ordre mostrat',
-    ).toUpperCase(),
+    tpdf('toc.order').toUpperCase(),
     MARGIN_X,
     PAGE_H - 28,
   );
@@ -1926,11 +1932,7 @@ function buildTocTeasers(result: ResultData | null, input: InputData): Record<st
   // 01: Brief — pushed whenever the brief+exec spread renders.
   if (result?.executiveSummary || input.companyProfile) {
     put(
-      t3(
-        'Organisation, sector, challenge and capabilities at a glance.',
-        'Organización, sector, reto y capacidades de un vistazo.',
-        'Organització, sector, repte i capacitats d’un cop d’ull.',
-      ),
+      tpdf('toc.teasers.brief'),
     );
     // 02: Executive summary — same spread but its own TOC entry.
     if (result?.executiveSummary) {
@@ -1940,11 +1942,7 @@ function buildTocTeasers(result: ResultData | null, input: InputData): Record<st
       put(
         first && first.length < 220
           ? first
-          : t3(
-              'The lead narrative — what the analysis means for this organisation.',
-              'La narrativa principal — qué significa este análisis para la organización.',
-              'La narrativa principal — què significa aquesta anàlisi per a aquesta organització.',
-            ),
+          : tpdf('toc.teasers.execDefault'),
       );
     }
   }
@@ -1957,11 +1955,7 @@ function buildTocTeasers(result: ResultData | null, input: InputData): Record<st
     !!input.steep && Object.values(input.steep).some((v) => (v ?? '').trim().length > 0);
   if (hasGlobal || hasSect) {
     put(
-      t3(
-        'Five-dimension scan of the global and sectorial context.',
-        'Escaneo en cinco dimensiones del contexto global y sectorial.',
-        'Escaneig en cinc dimensions del context global i sectorial.',
-      ),
+      tpdf('toc.teasers.steep'),
     );
   }
 
@@ -1969,11 +1963,7 @@ function buildTocTeasers(result: ResultData | null, input: InputData): Record<st
   if (result?.keyUncertainties?.length) {
     const n = result.keyUncertainties.length;
     put(
-      t3(
-        `${n} open questions that shape what futures are possible.`,
-        `${n} preguntas abiertas que delimitan los futuros posibles.`,
-        `${n} preguntes obertes que delimiten els futurs possibles.`,
-      ),
+      tpdf('toc.teasers.openQuestions', { count: n }),
     );
   }
 
@@ -1983,11 +1973,7 @@ function buildTocTeasers(result: ResultData | null, input: InputData): Record<st
     put(
       names.length > 0
         ? names.slice(0, 3).join(' · ')
-        : t3(
-            'Probable, plausible and possible futures explored in depth.',
-            'Futuros probable, plausible y posible explorados en profundidad.',
-            'Futurs probable, plausible i possible explorats en profunditat.',
-          ),
+        : tpdf('toc.teasers.futures'),
     );
   }
 
@@ -2001,11 +1987,7 @@ function buildTocTeasers(result: ResultData | null, input: InputData): Record<st
     const fc = result.scenarioPlanning.drivingForces?.length ?? 0;
     const ac = result.scenarioPlanning.axes?.length ?? 0;
     put(
-      t3(
-        `${fc} driving forces, ${ac} uncertainty axes, and the narrative logic linking them.`,
-        `${fc} fuerzas motrices, ${ac} ejes de incertidumbre y la lógica narrativa que los conecta.`,
-        `${fc} forces motrius, ${ac} eixos d’incertesa i la lògica narrativa que els connecta.`,
-      ),
+      tpdf('toc.teasers.planning', { forces: fc, axes: ac }),
     );
   }
 
@@ -2013,11 +1995,7 @@ function buildTocTeasers(result: ResultData | null, input: InputData): Record<st
   if (result?.backcasting?.length) {
     const total = result.backcasting.reduce((n, e) => n + (e.milestones?.length ?? 0), 0);
     put(
-      t3(
-        `${total} milestones traced back from each scenario's vision.`,
-        `${total} hitos trazados desde la visión de cada escenario.`,
-        `${total} fites traçades enrere des de la visió de cada escenari.`,
-      ),
+      tpdf('toc.teasers.backcasting', { count: total }),
     );
   }
 
@@ -2025,11 +2003,7 @@ function buildTocTeasers(result: ResultData | null, input: InputData): Record<st
   if (result?.strategicMap?.length) {
     const n = result.strategicMap.length;
     put(
-      t3(
-        `${n} priorities laid out across the H1 / H2 / H3 horizons.`,
-        `${n} prioridades distribuidas en los horizontes H1 / H2 / H3.`,
-        `${n} prioritats distribuïdes en els horitzons H1 / H2 / H3.`,
-      ),
+      tpdf('toc.teasers.strategicMap', { count: n }),
     );
   }
 
@@ -2038,11 +2012,7 @@ function buildTocTeasers(result: ResultData | null, input: InputData): Record<st
     const sn = result?.weakSignals?.length ?? 0;
     const wn = result?.wildcards?.length ?? 0;
     put(
-      t3(
-        `${sn} weak signals and ${wn} wildcards — the edge cases to watch.`,
-        `${sn} señales débiles y ${wn} wildcards — los casos límite a vigilar.`,
-        `${sn} senyals febles i ${wn} wildcards — els casos límit a vigilar.`,
-      ),
+      tpdf('toc.teasers.signals', { signals: sn, wildcards: wn }),
     );
   }
 
@@ -2056,11 +2026,7 @@ function buildTocTeasers(result: ResultData | null, input: InputData): Record<st
         Object.values(result.sources.bySection).some((v) => (v?.length ?? 0) > 0)))
   ) {
     put(
-      t3(
-        'Public sources consulted via web search during generation.',
-        'Fuentes públicas consultadas mediante búsqueda web durante la generación.',
-        'Fonts públiques consultades mitjançant cerca web durant la generació.',
-      ),
+      tpdf('toc.teasers.sources'),
     );
   }
   return teasers;
@@ -2109,7 +2075,7 @@ function warnOverflow(where: string, text: string, maxWidth: number, maxLines: n
 function renderBriefAndExec(doc: jsPDF, input: InputData, exec: string | undefined): number {
   // Set BEFORE addPage so the new page captures the section context for
   // its rotated eyebrow + chip.
-  setSection(doc, t3('Brief', 'Resumen', 'Resum'), INK_MUTE);
+  setSection(doc, tpdf('sections.brief'), INK_MUTE);
   const y = addPage(doc);
   drawRunningHead(doc);
   const cp = input.companyProfile ?? {};
@@ -2180,7 +2146,7 @@ function renderBriefAndExec(doc: jsPDF, input: InputData, exec: string | undefin
     setText(doc, INK_SOFT, 22, 'bold', FONT_SERIF);
     doc.text(execNum, mainX, my + 4);
     setText(doc, INK_MUTE, 7, 'bold', FONT_MONO);
-    doc.text(t3('Lead', 'Líder', 'Líder').toUpperCase(), mainX, my + 11);
+    doc.text(tpdf('brief.lead').toUpperCase(), mainX, my + 11);
     my += 18;
     setText(doc, INK, 26, 'bold', FONT_SERIF);
     const titleLines = doc.splitTextToSize(
@@ -2215,18 +2181,18 @@ function renderBriefAndExec(doc: jsPDF, input: InputData, exec: string | undefin
     }
     sy += 4;
   };
-  sidebarRow(t3('Organisation', 'Organización', 'Organització'), cp.name);
+  sidebarRow(tpdf('brief.organisation'), cp.name);
   sidebarRow('Sector', cp.sector);
   if (cp.horizon) {
     sidebarRow(
-      t3('Horizon', 'Horizonte', 'Horitzó'),
-      `${cp.horizon} ${t3('years', 'años', 'anys')}`,
+      tpdf('common.horizon'),
+      `${cp.horizon} ${tpdf('common.years')}`,
     );
   }
   if (cp.challenge) {
     if (sy + 8 <= clampMaxY) {
       setText(doc, INK_MUTE, 6.8, 'bold', FONT_MONO);
-      doc.text(t3('Challenge', 'Reto', 'Repte').toUpperCase(), sidebarX, sy);
+      doc.text(tpdf('brief.challenge').toUpperCase(), sidebarX, sy);
       sy += 4;
       sy = bodyClamped(doc, sy, cp.challenge, {
         indent: sidebarX,
@@ -2242,7 +2208,7 @@ function renderBriefAndExec(doc: jsPDF, input: InputData, exec: string | undefin
   if (cp.strengths) {
     if (sy + 8 <= clampMaxY) {
       setText(doc, INK_MUTE, 6.8, 'bold', FONT_MONO);
-      doc.text(t3('Strengths', 'Capacidades', 'Capacitats').toUpperCase(), sidebarX, sy);
+      doc.text(tpdf('brief.strengths').toUpperCase(), sidebarX, sy);
       sy += 4;
       sy = bodyClamped(doc, sy, cp.strengths, {
         indent: sidebarX,
@@ -2258,7 +2224,7 @@ function renderBriefAndExec(doc: jsPDF, input: InputData, exec: string | undefin
   if ((cp.consultantName || cp.consultantCompany) && sy + 10 <= clampMaxY) {
     const consultant = [cp.consultantName, cp.consultantCompany].filter(Boolean).join(' — ');
     setText(doc, INK_MUTE, 6.8, 'bold', FONT_MONO);
-    doc.text(t3('Consultant', 'Consultor', 'Consultor').toUpperCase(), sidebarX, sy);
+    doc.text(tpdf('brief.consultant').toUpperCase(), sidebarX, sy);
     sy += 4;
     setText(doc, INK_SOFT, 10, 'italic', FONT_SERIF);
     const lines = doc.splitTextToSize(consultant, sidebarW) as string[];
@@ -2437,11 +2403,10 @@ function renderSteepInputs(
     doc,
     yIn,
     tx('report.results.steep.title', 'STEEP analysis'),
-    t3('Context', 'Contexto', 'Context'),
+    tpdf('eyebrows.context'),
     INK_MUTE,
   );
 
-  const en = isEnLang();
   // ── Column headers (Global / Sectorial) above the dimension stack.
   const gutter = 6;
   const colW = (CONTENT_W - gutter) / 2;
@@ -2491,7 +2456,6 @@ function renderSteepInputs(
       colLX,
       colRX,
       twoCol,
-      en,
       // The first band (Social) must stay on page 1 with the section header per the
       // user's explicit rule; skipping the in-band page break enforces that even when
       // the AI-tightened text is a touch too long for the available space.
@@ -2552,7 +2516,6 @@ function renderSteepBand(
     colLX: number;
     colRX: number;
     twoCol: boolean;
-    en: boolean;
     /** When true, skip the in-band {@link checkY} call so the band always lands on the
      *  current page even when content overflows. Used for Social (the first band)
      *  which shares page 1 with the section title — the user's policy is "Social must
@@ -2685,7 +2648,7 @@ function renderUncertainties(doc: jsPDF, yIn: number, items: KeyUncertainty[]): 
     doc,
     yIn,
     tx('report.results.uncertainties', 'Key uncertainties'),
-    t3('Open questions', 'Preguntas abiertas', 'Preguntes obertes'),
+    tpdf('eyebrows.openQuestions'),
     INK_MUTE,
   );
   const gap = 6;
@@ -2773,7 +2736,7 @@ function renderScenarios(doc: jsPDF, scenarios: Scenario[]): number {
     doc,
     y,
     tx('report.results.tabs.scenarios', '3P Scenarios'),
-    t3('Futures', 'Futuros', 'Futurs'),
+    tpdf('eyebrows.futures'),
     GREEN,
   );
   // Standfirst describing the 3P frame.
@@ -2782,9 +2745,7 @@ function renderScenarios(doc: jsPDF, scenarios: Scenario[]): number {
     MARGIN_X,
     y,
     CONTENT_W,
-    isEnLang()
-      ? 'Three scenarios that frame the strategic landscape: the most probable trajectory, a plausible alternative, and a low-probability disruption.'
-      : 'Tres escenarios que enmarcan el panorama estratégico: la trayectoria más probable, una alternativa plausible y una disrupción de baja probabilidad.',
+    tpdf('eyebrows.scenariosStandfirst'),
     { size: 12, color: INK, leading: 6.6 },
   );
   y += 4;
@@ -2901,7 +2862,6 @@ function renderScenarios(doc: jsPDF, scenarios: Scenario[]): number {
 function renderScenarioFeature(doc: jsPDF, yIn: number, s: Scenario, idx: number): number {
   const colors = scenarioColors(s.type, idx);
   const pct = parsePercent(s.probability);
-  const en = isEnLang();
 
   // ── Top row ────────────────────────────────────────────────────
   pill(doc, MARGIN_X, yIn + 5, s.type ?? '', colors.fg, colors.bg);
@@ -2911,7 +2871,7 @@ function renderScenarioFeature(doc: jsPDF, yIn: number, s: Scenario, idx: number
   const nw = doc.getTextWidth(numStr);
   doc.text(numStr, PAGE_W - MARGIN_X - nw, yIn + 8);
   setText(doc, INK_MUTE, 6.5, 'bold', FONT_MONO);
-  doc.text(t3('Scenario', 'Escenario', 'Escenari').toUpperCase(), PAGE_W - MARGIN_X - nw, yIn + 12);
+  doc.text(tpdf('eyebrows.scenario').toUpperCase(), PAGE_W - MARGIN_X - nw, yIn + 12);
   let y = yIn + 18;
 
   // ── Headline — auto-shrink so we keep <=2 lines and tighter leading
@@ -2958,7 +2918,7 @@ function renderScenarioFeature(doc: jsPDF, yIn: number, s: Scenario, idx: number
     bar(doc, statX, heroTop + 21, statW, pct, colors.fg);
     setText(doc, INK_MUTE, 6, 'normal', FONT_MONO);
     doc.text(
-      t3('Model likelihood', 'Probabilidad', 'Probabilitat').toUpperCase(),
+      tpdf('eyebrows.modelLikelihood').toUpperCase(),
       statX,
       heroTop + 26,
     );
@@ -3148,7 +3108,7 @@ function renderScenarioFeature(doc: jsPDF, yIn: number, s: Scenario, idx: number
       });
       y += compactH + 3;
     } else {
-      y = renderFirstMoveHero(doc, fm, colors, en, s);
+      y = renderFirstMoveHero(doc, fm, colors, s);
     }
   }
 
@@ -3169,7 +3129,6 @@ function renderFirstMoveHero(
   doc: jsPDF,
   text: string,
   colors: { fg: string; bg: string },
-  _en: boolean,
   s: Scenario,
 ): number {
   // Fresh page so the hero owns the spread. drawRunningHead keeps the
@@ -3271,7 +3230,7 @@ function renderFirstMoveHero(
 function extractTimeframeHeadline(text: string): { head: string; bodyText: string } {
   const trimmed = text.trim();
   if (!trimmed) {
-    return { head: t3('Now', 'Inmediato', 'Immediat'), bodyText: '' };
+    return { head: tpdf('timeframes.now'), bodyText: '' };
   }
 
   // 1) Leading clause split — "Within 30 days, …" / "En los próximos 90 días, …".
@@ -3313,7 +3272,7 @@ function extractTimeframeHeadline(text: string): { head: string; bodyText: strin
   // 3) Locale fallback. "Primer paso" / "First step" reads as a clear opener even
   //    when no explicit timeframe is in the source text.
   return {
-    head: t3('First step', 'Primer paso', 'Primer pas'),
+    head: tpdf('firstMove.firstStep'),
     bodyText: trimmed,
   };
 }
@@ -3349,14 +3308,14 @@ function looksTemporal(s: string): boolean {
  * cards in a row. Everything keyed to fit on roughly 1-2 pages.
  */
 function renderScenarioPlanning(doc: jsPDF, sp: ScenarioPlanning): number {
-  setSection(doc, t3('Scenario Planning', 'Planificación', 'Planificació'), BLUE);
+  setSection(doc, tpdf('sections.scenarioPlanning'), BLUE);
   let y = addPage(doc);
   drawRunningHead(doc);
   y = pageHeader(
     doc,
     y,
     tx('report.results.tabs.sp', 'Scenario Planning'),
-    t3('Structure', 'Estructura', 'Estructura'),
+    tpdf('eyebrows.structure'),
     BLUE,
   );
 
@@ -3655,11 +3614,7 @@ function renderDrivingForcesFeaturePage(
   // overflow page reads as part of the same chapter.
   setText(doc, BLUE, 7.5, 'bold', FONT_MONO);
   doc.text(
-    t3(
-      'Scenario planning · Driving forces',
-      'Planificación · Fuerzas motrices',
-      'Planificació · Forces motrius',
-    ).toUpperCase(),
+    tpdf('sections.scenarioPlanningEyebrow').toUpperCase(),
     MARGIN_X,
     y,
   );
@@ -3718,7 +3673,7 @@ function renderDrivingForceHero(
   // Kicker under the numeral
   setText(doc, INK_MUTE, 7, 'bold', FONT_MONO);
   doc.text(
-    t3('Driving force', 'Fuerza motriz', 'Força motriu').toUpperCase(),
+    tpdf('planning.drivingForce').toUpperCase(),
     MARGIN_X,
     y + numSize * 0.7 + 5,
   );
@@ -3742,7 +3697,7 @@ function renderDrivingForceHero(
   bar(doc, textX + pctW + 4, ty + scoreSize * 0.4 - 2, barW, score, colors.fg);
   setText(doc, INK_MUTE, 7, 'bold', FONT_MONO);
   doc.text(
-    t3('Impact score', 'Impacto', 'Impacte').toUpperCase(),
+    tpdf('planning.impactScore').toUpperCase(),
     textX + pctW + 4,
     ty + scoreSize * 0.4 + 4,
   );
@@ -3794,7 +3749,7 @@ function renderDrivingForceRow(doc: jsPDF, yIn: number, f: DrivingForce, idx: nu
     eyebrowNum: String(f.rank).padStart(2, '0'),
     label: f.title,
     rightStat: scoreStr,
-    rightStatLabel: t3('Impact', 'Impacto', 'Impacte'),
+    rightStatLabel: tpdf('planning.impact'),
     body: desc,
   });
 }
@@ -4009,7 +3964,7 @@ function renderBackcastingEntry(doc: jsPDF, yIn: number, e: BackcastingEntry, id
     const railX = MARGIN_X + YEAR_COL_W - 1;
 
     // subLabel for the timeline opener
-    y = subheadCap(doc, MARGIN_X, y, t3('Trajectory', 'Trayectoria', 'Trajectòria'), colors.fg);
+    y = subheadCap(doc, MARGIN_X, y, tpdf('eyebrows.trajectory'), colors.fg);
     y += 3;
     const railStart = y;
 
@@ -4179,9 +4134,9 @@ function renderStrategicMap(doc: jsPDF, items: StrategicPriority[]): number {
     H3: PURPLE,
   };
   const horizonLabels: Record<'H1' | 'H2' | 'H3', string> = {
-    H1: t3('Horizon 1', 'Horizonte 1', 'Horitzó 1'),
-    H2: t3('Horizon 2', 'Horizonte 2', 'Horitzó 2'),
-    H3: t3('Horizon 3', 'Horizonte 3', 'Horitzó 3'),
+    H1: tpdf('strategicMap.horizon1'),
+    H2: tpdf('strategicMap.horizon2'),
+    H3: tpdf('strategicMap.horizon3'),
   };
   // Each horizon owns its own page so the H1 / H2 / H3 lockup never collides
   // with the previous horizon's priorities mid-page. Within a horizon, priorities
@@ -4195,7 +4150,7 @@ function renderStrategicMap(doc: jsPDF, items: StrategicPriority[]): number {
     if (group.length === 0) continue;
     setSection(
       doc,
-      `${t3('Strategic Map', 'Mapa Estratégico', 'Mapa Estratègic')} · ${horizonLabels[h]}`,
+      `${tpdf('strategicMap.title')} · ${horizonLabels[h]}`,
       horizonColors[h],
     );
     y = addPage(doc);
@@ -4207,7 +4162,7 @@ function renderStrategicMap(doc: jsPDF, items: StrategicPriority[]): number {
         doc,
         y,
         tx('report.results.tabs.str', 'Strategic map'),
-        t3('Priorities', 'Prioridades', 'Prioritats'),
+        tpdf('strategicMap.priorities'),
         PURPLE,
       );
       first = false;
@@ -4275,7 +4230,7 @@ function renderHorizonHeaderCompact(
   doc.text(h, MARGIN_X, yIn + 8);
   setText(doc, INK_MUTE, 7.5, 'bold', FONT_MONO);
   doc.text(
-    `${t3('Horizon', 'Horizonte', 'Horitzó').toUpperCase()} ${h.slice(1)} · ${t3('Continued', 'Continuación', 'Continuació').toUpperCase()}`,
+    `${tpdf('common.horizon').toUpperCase()} ${h.slice(1)} · ${tpdf('common.continued').toUpperCase()}`,
     MARGIN_X + 10,
     yIn + 8,
   );
@@ -4311,7 +4266,7 @@ function renderHorizonHeader(
   // localised horizon label in larger serif.
   const kx = MARGIN_X + codeW + 6;
   setText(doc, INK_MUTE, 7.5, 'bold', FONT_MONO);
-  doc.text(`${t3('Horizon', 'Horizonte', 'Horitzó').toUpperCase()} ${h.slice(1)}`, kx, y + 6);
+  doc.text(`${tpdf('common.horizon').toUpperCase()} ${h.slice(1)}`, kx, y + 6);
   setText(doc, INK, 18, 'bold', FONT_SERIF);
   doc.text(tx(`report.results.str.${h.toLowerCase()}`, h), kx, y + 16);
   // Rule across the page in the horizon colour
@@ -4405,14 +4360,14 @@ function renderPriorityCardWide(
 /* ── Section: Signals & Wildcards ─────────────────────────────────── */
 
 function renderSignals(doc: jsPDF, signals: WeakSignal[], wildcards: Wildcard[]): number {
-  setSection(doc, t3('Signals & Wildcards', 'Señales y Wildcards', 'Senyals i Wildcards'), PURPLE);
+  setSection(doc, tpdf('sections.signalsWildcards'), PURPLE);
   let y = addPage(doc);
   drawRunningHead(doc);
   y = pageHeader(
     doc,
     y,
     tx('report.results.tabs.signals', 'Signals & wildcards'),
-    t3('Edge cases', 'Casos límite', 'Casos límit'),
+    tpdf('eyebrows.edgeCases'),
     PURPLE,
   );
   if (signals.length) {
@@ -4576,14 +4531,14 @@ function renderWildcardCard(doc: jsPDF, yIn: number, w: Wildcard, idx: number): 
 /* ── Section: Sources ─────────────────────────────────────────────── */
 
 function renderSources(doc: jsPDF, src: Sources): number {
-  setSection(doc, t3('Sources', 'Fuentes', 'Fonts'), INK_MUTE);
+  setSection(doc, tpdf('sections.sources'), INK_MUTE);
   let y = addPage(doc);
   drawRunningHead(doc);
   y = pageHeader(
     doc,
     y,
     tx('report.results.tabs.sources', 'Sources'),
-    t3('References', 'Referencias', 'Referències'),
+    tpdf('eyebrows.references'),
     INK_MUTE,
   );
   const intro = tx('report.results.sources.intro', '');
@@ -4859,7 +4814,7 @@ function collectFieldNeeds(
  */
 export async function exportReportPdf(
   report: ReportResponse,
-  language?: 'es' | 'en' | 'ca',
+  language?: LanguageCode,
   theme: PdfTheme = 'dark',
 ) {
   const originalLang = i18n.language;
@@ -4896,7 +4851,11 @@ async function renderReport(report: ReportResponse) {
   const input = sanitizeTree<InputData>((report.inputData ?? {}) as InputData);
   const result = sanitizeTree<ResultData | null>(report.resultData as ResultData | null);
   const cp = input.companyProfile ?? {};
-  const exportLang: 'es' | 'en' | 'ca' = isEnLang() ? 'en' : isCaLang() ? 'ca' : 'es';
+  const exportLang: LanguageCode = isLanguageCode(i18n.language) ? i18n.language : DEFAULT_LANGUAGE;
+  // Re-bind the module-scoped PDF translator to the export language so
+  // every render call below resolves its strings against that locale's
+  // `exportPdf` block.
+  currentTpdf = i18n.getFixedT(exportLang, null, 'exportPdf');
 
   // ── Layout planning + fit pass ─────────────────────────────────────
   // Step 1: measure each section's source content and pick the closest
@@ -4949,7 +4908,7 @@ async function renderReport(report: ReportResponse) {
   const gN = normalizeSteepKeys(input.globalSteep);
   const sN = normalizeSteepKeys(input.steep);
   if (Object.keys(gN).length > 0 || Object.keys(sN).length > 0) {
-    setSection(doc, t3('STEEP Context', 'Contexto STEEP', 'Context STEEP'), INK_MUTE);
+    setSection(doc, tpdf('sections.steepContext'), INK_MUTE);
     const yStart = addPage(doc);
     drawRunningHead(doc);
     renderSteepInputs(doc, yStart, input, tightened);
@@ -4957,7 +4916,7 @@ async function renderReport(report: ReportResponse) {
 
   if (result) {
     if (result.keyUncertainties?.length) {
-      setSection(doc, t3('Key Uncertainties', 'Incertidumbres', 'Incerteses'), INK_MUTE);
+      setSection(doc, tpdf('sections.keyUncertainties'), INK_MUTE);
       const yStart = addPage(doc);
       drawRunningHead(doc);
       renderUncertainties(doc, yStart, result.keyUncertainties);

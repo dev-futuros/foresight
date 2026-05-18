@@ -690,6 +690,94 @@ const ca = {
       },
     },
   },
+  exportPdf: {
+    brand: { title: 'Foresight Estratègic' },
+    common: {
+      yearHorizonLabel: 'anys d’horitzó',
+      horizon: 'Horitzó',
+      years: 'anys',
+      continued: 'Continuació',
+    },
+    cover: {
+      preparedBy: 'Preparat per',
+      deckFallback: 'Un estudi de foresight estratègic a través de futurs plausibles.',
+    },
+    backCover: {
+      taglineLead: 'El futur no es prediu,',
+      taglineAccent: 'es dissenya.',
+    },
+    stats: {
+      scenarios: 'Escenaris',
+      drivingForces: 'Forces motrius',
+      sourcesCited: 'Fonts citades',
+    },
+    toc: {
+      kicker: 'Dins d’aquest informe',
+      title: 'Continguts',
+      order: 'Llegir en l’ordre mostrat',
+      teasers: {
+        brief: 'Organització, sector, repte i capacitats d’un cop d’ull.',
+        execDefault:
+          'La narrativa principal — què significa aquesta anàlisi per a aquesta organització.',
+        steep: 'Escaneig en cinc dimensions del context global i sectorial.',
+        openQuestions: '{{count}} preguntes obertes que delimiten els futurs possibles.',
+        futures: 'Futurs probable, plausible i possible explorats en profunditat.',
+        planning:
+          '{{forces}} forces motrius, {{axes}} eixos d’incertesa i la lògica narrativa que els connecta.',
+        backcasting: '{{count}} fites traçades enrere des de la visió de cada escenari.',
+        strategicMap: '{{count}} prioritats distribuïdes en els horitzons H1 / H2 / H3.',
+        signals: '{{signals}} senyals febles i {{wildcards}} wildcards — els casos límit a vigilar.',
+        sources: 'Fonts públiques consultades mitjançant cerca web durant la generació.',
+      },
+    },
+    sections: {
+      brief: 'Resum',
+      steepContext: 'Context STEEP',
+      keyUncertainties: 'Incerteses',
+      scenarioPlanning: 'Planificació',
+      scenarioPlanningEyebrow: 'Planificació · Forces motrius',
+      signalsWildcards: 'Senyals i Wildcards',
+      sources: 'Fonts',
+    },
+    brief: {
+      lead: 'Líder',
+      organisation: 'Organització',
+      challenge: 'Repte',
+      strengths: 'Capacitats',
+      consultant: 'Consultor',
+    },
+    eyebrows: {
+      context: 'Context',
+      openQuestions: 'Preguntes obertes',
+      futures: 'Futurs',
+      scenario: 'Escenari',
+      modelLikelihood: 'Probabilitat',
+      structure: 'Estructura',
+      trajectory: 'Trajectòria',
+      edgeCases: 'Casos límit',
+      references: 'Referències',
+      scenariosStandfirst:
+        'Tres escenaris que emmarquen el panorama estratègic: la trajectòria més probable, una alternativa plausible i una disrupció de baixa probabilitat.',
+    },
+    planning: {
+      drivingForce: 'Força motriu',
+      impactScore: 'Impacte',
+      impact: 'Impacte',
+    },
+    strategicMap: {
+      horizon1: 'Horitzó 1',
+      horizon2: 'Horitzó 2',
+      horizon3: 'Horitzó 3',
+      title: 'Mapa Estratègic',
+      priorities: 'Prioritats',
+    },
+    timeframes: {
+      now: 'Immediat',
+    },
+    firstMove: {
+      firstStep: 'Primer pas',
+    },
+  },
   privacy: {
     eyebrow: 'Document legal',
     title: 'Privacitat i Condicions',

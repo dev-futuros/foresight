@@ -1,3 +1,4 @@
+import type { LanguageCode } from '../i18n/languages';
 /**
  * Layout-fit orchestrator for the PDF export pipeline.
  *
@@ -66,7 +67,7 @@ export type TightenedMap = Record<string, string>;
  */
 export async function runFitPass(
   needs: FieldNeed[],
-  language: 'es' | 'en' | 'ca',
+  language: LanguageCode,
   cache: PdfOptimizedCache | null,
 ): Promise<TightenedMap> {
   if (needs.length === 0) return {};
@@ -129,7 +130,7 @@ export function pickText(tightened: TightenedMap, path: string, source: string):
  */
 export async function persistTightened(
   reportId: string,
-  language: 'es' | 'en' | 'ca',
+  language: LanguageCode,
   tightened: TightenedMap,
 ): Promise<void> {
   if (Object.keys(tightened).length === 0) return;

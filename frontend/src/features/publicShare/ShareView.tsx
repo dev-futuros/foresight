@@ -1,5 +1,6 @@
 import { type ReactElement, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { languageSpec } from '../../i18n/languages';
 import ReportContent from '../report/ReportContent';
 import '../report/report.css';
 import './publicShare.css';
@@ -56,7 +57,7 @@ interface Props {
 export default function ShareView({ report, languageSwitcher }: Props): ReactElement {
   const { t, i18n } = useTranslation();
   const formattedDate = new Date(report.createdAt).toLocaleDateString(
-    i18n.language === 'en' ? 'en-GB' : i18n.language === 'ca' ? 'ca-ES' : 'es-ES',
+    languageSpec(i18n.language).dateLocale,
     { day: '2-digit', month: 'short', year: 'numeric' },
   );
   const input = (report.inputData ?? {}) as InputData;

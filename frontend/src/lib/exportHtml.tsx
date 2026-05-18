@@ -1,7 +1,8 @@
+import type { LanguageCode } from '../i18n/languages';
 import api from './api';
 import type { ReportResponse } from '../types/api';
 
-type ExportLanguage = 'es' | 'en' | 'ca';
+type ExportLanguage = LanguageCode;
 
 /**
  * Per-language slice baked into the standalone HTML snapshot. Mirrors the

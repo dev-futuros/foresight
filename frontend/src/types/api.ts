@@ -1,3 +1,4 @@
+import type { LanguageCode } from '../i18n/languages';
 // TypeScript types mirroring backend DTOs
 
 export type UserRole = 'USER' | 'DEV' | 'ADMIN';
@@ -39,7 +40,7 @@ export interface ReportSummary {
   title: string;
   status: ReportStatus;
   /** ISO-639-1 code of the language the wizard used. Mirrors `ReportResponse`. */
-  primaryLanguage: 'es' | 'en' | 'ca';
+  primaryLanguage: LanguageCode;
   /**
    * Languages this report is available in. Always contains {@link primaryLanguage};
    * additional entries appear after a translation has been materialised. Driven by
@@ -62,7 +63,7 @@ export interface ReportResponse {
    * other languages are produced on demand from the share / export
    * dialogs — see {@link availableLanguages}.
    */
-  primaryLanguage: 'es' | 'en' | 'ca';
+  primaryLanguage: LanguageCode;
   /**
    * Languages this report is available in. Always contains
    * {@link primaryLanguage}; additional entries appear after a
@@ -99,7 +100,7 @@ export interface PdfOptimizedEntry {
 }
 
 /** Map of language code → tightened-entry. Cleared per-language when the source text changes. */
-export type PdfOptimizedCache = Partial<Record<'es' | 'en' | 'ca', PdfOptimizedEntry>>;
+export type PdfOptimizedCache = Partial<Record<LanguageCode, PdfOptimizedEntry>>;
 
 /** Payload returned by the `POST /api/reports/{id}/translate` endpoint. */
 export interface TranslatedReport {
@@ -119,7 +120,7 @@ export interface ExampleSummary {
   slug: string;
   title: string;
   description?: string | null;
-  primaryLanguage: 'es' | 'en' | 'ca';
+  primaryLanguage: LanguageCode;
   availableLanguages: string[];
   createdAt: string;
   updatedAt: string;
@@ -131,7 +132,7 @@ export interface ExampleResponse {
   slug: string;
   title: string;
   description?: string | null;
-  primaryLanguage: 'es' | 'en' | 'ca';
+  primaryLanguage: LanguageCode;
   availableLanguages: string[];
   inputData: Record<string, unknown>;
   resultData: Record<string, unknown> | null;
@@ -194,9 +195,9 @@ export interface SharedTranslationEntry {
 export interface PublicShareResponse {
   title: string;
   /** ISO-639-1 of the language carried in {@code inputData}/{@code resultData}. */
-  primaryLanguage: 'es' | 'en' | 'ca';
+  primaryLanguage: LanguageCode;
   /** Union of {@code primaryLanguage} and the keys of {@code translations}, primary first. */
-  availableLanguages: ('es' | 'en' | 'ca')[];
+  availableLanguages: LanguageCode[];
   inputData: Record<string, unknown>;
   resultData: Record<string, unknown> | null;
   /** Cached translations frozen at share creation. {@code null} on
@@ -211,7 +212,7 @@ export interface CreateReportRequest {
   title: string;
   inputData: Record<string, unknown>;
   /** ISO-639-1 code identifying the wizard's language. Defaults to 'es' server-side. */
-  primaryLanguage?: 'es' | 'en' | 'ca';
+  primaryLanguage?: LanguageCode;
 }
 
 export interface UpdateReportRequest {
@@ -222,7 +223,7 @@ export interface UpdateReportRequest {
 
 export interface UpdateUserRequest {
   name?: string;
-  language?: 'es' | 'en' | 'ca';
+  language?: LanguageCode;
 }
 
 // ── AI analysis result types ────────────────────────────────────────
@@ -440,5 +441,5 @@ export interface AnalyzeArgs {
    * web_search loop (~5× cheaper end-to-end).
    */
   research?: string;
-  language: 'es' | 'en' | 'ca';
+  language: LanguageCode;
 }

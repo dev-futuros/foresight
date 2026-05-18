@@ -1,3 +1,4 @@
+import type { LanguageCode } from '../i18n/languages';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Modal from './Modal';
@@ -17,7 +18,7 @@ interface Props {
   onClose: () => void;
 }
 
-type Language = 'es' | 'en' | 'ca';
+type Language = LanguageCode;
 
 /**
  * Modal that mints a fresh public share link for the current report and lets

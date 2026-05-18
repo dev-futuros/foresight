@@ -1,3 +1,4 @@
+import type { LanguageCode } from '../../../i18n/languages';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { suggestSteep } from '../api';
@@ -31,7 +32,7 @@ export type SteepData = Record<DimensionKey, string>;
 interface Props {
   data: SteepData;
   companyProfile: string;
-  language: 'es' | 'en' | 'ca';
+  language: LanguageCode;
   onChange: (data: SteepData) => void;
   onNext: () => void;
   onBack: () => void;

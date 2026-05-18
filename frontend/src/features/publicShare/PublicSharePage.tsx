@@ -1,3 +1,4 @@
+import { isLanguageCode, type LanguageCode } from '../../i18n/languages';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -7,7 +8,7 @@ import type { PublicShareResponse } from '../../types/api';
 import '../report/report.css';
 import './publicShare.css';
 
-type ShareLang = 'es' | 'en' | 'ca';
+type ShareLang = LanguageCode;
 
 /**
  * Anonymous, read-only view of a shared report. Reachable at {@code /share/:token}
@@ -31,8 +32,7 @@ export default function PublicSharePage() {
   const { data, isLoading, isError } = usePublicShare(token ?? '');
 
   const langParam = searchParams.get('lang');
-  const requestedLang: ShareLang | null =
-    langParam === 'es' || langParam === 'en' || langParam === 'ca' ? langParam : null;
+  const requestedLang: ShareLang | null = isLanguageCode(langParam) ? langParam : null;
 
   // Per-token localStorage memory of the recipient's last language
   // choice, so navigating away from the share and back (or hard
@@ -44,7 +44,7 @@ export default function PublicSharePage() {
     if (typeof window === 'undefined' || !storageKey) return null;
     try {
       const v = window.localStorage.getItem(storageKey);
-      return v === 'es' || v === 'en' || v === 'ca' ? v : null;
+      return isLanguageCode(v) ? v : null;
     } catch {
       return null;
     }

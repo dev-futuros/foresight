@@ -1,3 +1,4 @@
+import type { LanguageCode } from '../../../i18n/languages';
 /**
  * Pure HTTP fetchers for the public-share feature. The auth-bearing
  * axios instance from lib/api is fine for createShare (caller is
@@ -24,12 +25,12 @@ import type { CreateShareResponse, PublicShareResponse } from '../../../types/ap
  */
 export async function createShare(args: {
   reportId: string;
-  language?: 'es' | 'en' | 'ca';
+  language?: LanguageCode;
   /** Languages to bake into the share snapshot. When set, the backend
    *  snapshots only these (plus an implicit fallback to the chosen
    *  `language` as the share's primary). When omitted, the backend
    *  defaults to "every language the source has". */
-  languages?: ('es' | 'en' | 'ca')[];
+  languages?: LanguageCode[];
   kind?: 'report' | 'example';
 }) {
   const { reportId, language, languages, kind = 'report' } = args;

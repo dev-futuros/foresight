@@ -1,3 +1,4 @@
+import type { LanguageCode } from '../../i18n/languages';
 import { useNavigate, type NavigateFunction } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
@@ -119,7 +120,7 @@ export default function AssistantCommands() {
       name: 'setLang',
       mode: 'auto',
       handler: async (args) => {
-        const { lang } = args as { lang: 'es' | 'en' | 'ca' };
+        const { lang } = args as { lang: LanguageCode };
         await i18n.changeLanguage(lang);
         return `Language changed to ${lang}.`;
       },

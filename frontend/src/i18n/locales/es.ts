@@ -702,6 +702,93 @@ const es = {
       },
     },
   },
+  exportPdf: {
+    brand: { title: 'Foresight Estratégico' },
+    common: {
+      yearHorizonLabel: 'años de horizonte',
+      horizon: 'Horizonte',
+      years: 'años',
+      continued: 'Continuación',
+    },
+    cover: {
+      preparedBy: 'Preparado por',
+      deckFallback: 'Un estudio de foresight estratégico a través de futuros plausibles.',
+    },
+    backCover: {
+      taglineLead: 'El futuro no se predice,',
+      taglineAccent: 'se diseña.',
+    },
+    stats: {
+      scenarios: 'Escenarios',
+      drivingForces: 'Fuerzas motrices',
+      sourcesCited: 'Fuentes citadas',
+    },
+    toc: {
+      kicker: 'Dentro de este informe',
+      title: 'Contenidos',
+      order: 'Leer en el orden mostrado',
+      teasers: {
+        brief: 'Organización, sector, reto y capacidades de un vistazo.',
+        execDefault: 'La narrativa principal — qué significa este análisis para la organización.',
+        steep: 'Escaneo en cinco dimensiones del contexto global y sectorial.',
+        openQuestions: '{{count}} preguntas abiertas que delimitan los futuros posibles.',
+        futures: 'Futuros probable, plausible y posible explorados en profundidad.',
+        planning:
+          '{{forces}} fuerzas motrices, {{axes}} ejes de incertidumbre y la lógica narrativa que los conecta.',
+        backcasting: '{{count}} hitos trazados desde la visión de cada escenario.',
+        strategicMap: '{{count}} prioridades distribuidas en los horizontes H1 / H2 / H3.',
+        signals: '{{signals}} señales débiles y {{wildcards}} wildcards — los casos límite a vigilar.',
+        sources: 'Fuentes públicas consultadas mediante búsqueda web durante la generación.',
+      },
+    },
+    sections: {
+      brief: 'Resumen',
+      steepContext: 'Contexto STEEP',
+      keyUncertainties: 'Incertidumbres',
+      scenarioPlanning: 'Planificación',
+      scenarioPlanningEyebrow: 'Planificación · Fuerzas motrices',
+      signalsWildcards: 'Señales y Wildcards',
+      sources: 'Fuentes',
+    },
+    brief: {
+      lead: 'Líder',
+      organisation: 'Organización',
+      challenge: 'Reto',
+      strengths: 'Capacidades',
+      consultant: 'Consultor',
+    },
+    eyebrows: {
+      context: 'Contexto',
+      openQuestions: 'Preguntas abiertas',
+      futures: 'Futuros',
+      scenario: 'Escenario',
+      modelLikelihood: 'Probabilidad',
+      structure: 'Estructura',
+      trajectory: 'Trayectoria',
+      edgeCases: 'Casos límite',
+      references: 'Referencias',
+      scenariosStandfirst:
+        'Tres escenarios que enmarcan el panorama estratégico: la trayectoria más probable, una alternativa plausible y una disrupción de baja probabilidad.',
+    },
+    planning: {
+      drivingForce: 'Fuerza motriz',
+      impactScore: 'Impacto',
+      impact: 'Impacto',
+    },
+    strategicMap: {
+      horizon1: 'Horizonte 1',
+      horizon2: 'Horizonte 2',
+      horizon3: 'Horizonte 3',
+      title: 'Mapa Estratégico',
+      priorities: 'Prioridades',
+    },
+    timeframes: {
+      now: 'Inmediato',
+    },
+    firstMove: {
+      firstStep: 'Primer paso',
+    },
+  },
   privacy: {
     eyebrow: 'Documento legal',
     title: 'Privacidad y Términos',

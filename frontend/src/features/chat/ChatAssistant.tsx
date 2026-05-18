@@ -1,3 +1,4 @@
+import type { LanguageCode } from '../../i18n/languages';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -65,7 +66,7 @@ const EMPTY_HORIZON: HorizonData = { H1: '', H2: '', H3: '' };
 export default function ChatAssistant() {
   const { t, i18n } = useTranslation();
   const ctx = useAssistantContext() as PublishedWizardContext | undefined;
-  const language: 'es' | 'en' | 'ca' = i18n.language?.startsWith('en')
+  const language: LanguageCode = i18n.language?.startsWith('en')
     ? 'en'
     : i18n.language?.startsWith('ca')
       ? 'ca'
@@ -172,7 +173,7 @@ export default function ChatAssistant() {
   // without forcing a re-register on every wizard-state change. This lets
   // the wizard fire a notification at any moment with an up-to-date
   // user-state block in the system prompt.
-  const snapshotRef = useRef<{ context: string; language: 'es' | 'en' | 'ca' }>({
+  const snapshotRef = useRef<{ context: string; language: LanguageCode }>({
     context: snapshot,
     language,
   });
