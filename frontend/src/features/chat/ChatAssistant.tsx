@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import { useChat, type ChatMessageView, type PendingCommand } from '../../hooks/useChat';
+import { useChat, type ChatMessageView, type PendingCommand } from './hooks/useChat';
 import { useAssistantContext } from './useAssistantContext';
 import {
   buildAssistantSnapshot,
