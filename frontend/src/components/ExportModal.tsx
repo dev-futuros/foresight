@@ -114,8 +114,7 @@ export default function ExportModal({
     return list.length > 0 ? list : ['es'];
   }, [data]);
 
-  const primaryLanguage =
-    (data?.primaryLanguage as ExportLanguage | undefined) ?? 'es';
+  const primaryLanguage = (data?.primaryLanguage as ExportLanguage | undefined) ?? 'es';
 
   // Snap the language pick back to the row's primary on every open
   // so reopening the modal doesn't carry over a stale selection from a
@@ -210,12 +209,8 @@ export default function ExportModal({
       ariaLabel={t('exportModal.title', { defaultValue: 'Export report' })}
       dialogClassName="modal-dialog--share"
     >
-      <div className="share-eyebrow">
-        {t('exportModal.eyebrow', { defaultValue: 'Export' })}
-      </div>
-      <h2 className="modal-title">
-        {t('exportModal.title', { defaultValue: 'Export report' })}
-      </h2>
+      <div className="share-eyebrow">{t('exportModal.eyebrow', { defaultValue: 'Export' })}</div>
+      <h2 className="modal-title">{t('exportModal.title', { defaultValue: 'Export report' })}</h2>
 
       <div className="share-lang-row">
         <label htmlFor="export-format" className="share-lang-label">
@@ -318,13 +313,9 @@ export default function ExportModal({
           <div className="share-lang-checks">
             {availableLanguages.map((lng) => {
               const checked = htmlIncludedLanguages.includes(lng);
-              const lastChecked =
-                checked && htmlIncludedLanguages.length === 1;
+              const lastChecked = checked && htmlIncludedLanguages.length === 1;
               return (
-                <label
-                  key={lng}
-                  className={`share-lang-check${checked ? ' is-checked' : ''}`}
-                >
+                <label key={lng} className={`share-lang-check${checked ? ' is-checked' : ''}`}>
                   <input
                     type="checkbox"
                     checked={checked}

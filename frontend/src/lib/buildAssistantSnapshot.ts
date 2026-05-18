@@ -96,8 +96,17 @@ export interface AssistantSnapshotInput {
  */
 export function buildAssistantSnapshot(input: AssistantSnapshotInput): string {
   const {
-    language, currentStep, dashboardOpen, empresa, globalSteep, steep, horizon, reports,
-    examples, viewingReport, reportResult,
+    language,
+    currentStep,
+    dashboardOpen,
+    empresa,
+    globalSteep,
+    steep,
+    horizon,
+    reports,
+    examples,
+    viewingReport,
+    reportResult,
   } = input;
   const isEn = language === 'en';
   const lines: string[] = [];
@@ -146,7 +155,11 @@ export function buildAssistantSnapshot(input: AssistantSnapshotInput): string {
 
   const horizonLabels: Record<keyof HorizonData, string> = isEn
     ? { H1: 'H1 (0-2y, already visible)', H2: 'H2 (2-5y, emerging)', H3: 'H3 (5+y, systemic)' }
-    : { H1: 'H1 (0-2 años, ya visibles)', H2: 'H2 (2-5 años, emergentes)', H3: 'H3 (5+ años, sistémicos)' };
+    : {
+        H1: 'H1 (0-2 años, ya visibles)',
+        H2: 'H2 (2-5 años, emergentes)',
+        H3: 'H3 (5+ años, sistémicos)',
+      };
 
   const stepKeyL = isEn ? 'CURRENT STEP: ' : 'PASO ACTUAL: ';
   const visKeyL = isEn
@@ -172,7 +185,9 @@ export function buildAssistantSnapshot(input: AssistantSnapshotInput): string {
     : '\nHORIZON SCAN (Paso 4 — señales actuales):';
 
   // ── Header: current step + dashboard state ──
-  lines.push(stepKeyL + (stepLabels[currentStep as 1 | 2 | 3 | 4 | 5 | 6] || `Step ${currentStep}`));
+  lines.push(
+    stepKeyL + (stepLabels[currentStep as 1 | 2 | 3 | 4 | 5 | 6] || `Step ${currentStep}`),
+  );
   const dashLineL = isEn
     ? dashboardOpen
       ? 'DASHBOARD: open (user is looking at the saved-reports panel, NOT the step view above)'
@@ -202,12 +217,20 @@ export function buildAssistantSnapshot(input: AssistantSnapshotInput): string {
     const langList = viewingReport.availableLanguages.join(', ') || viewingReport.primaryLanguage;
     if (isEn) {
       lines.push('');
-      lines.push(`CURRENTLY OPEN REPORT: id="${viewingReport.id}" — "${viewingReport.title}" (${viewingReport.status}, primary ${viewingReport.primaryLanguage}, available: ${langList})`);
-      lines.push(`The user is ${modeLabel}. References like "this report", "the open report", "the current report", "this one", "export this", "share this" all resolve to id="${viewingReport.id}". For shareReport / exportReport, you can omit the id arg — the page reads the open report from the URL automatically.`);
+      lines.push(
+        `CURRENTLY OPEN REPORT: id="${viewingReport.id}" — "${viewingReport.title}" (${viewingReport.status}, primary ${viewingReport.primaryLanguage}, available: ${langList})`,
+      );
+      lines.push(
+        `The user is ${modeLabel}. References like "this report", "the open report", "the current report", "this one", "export this", "share this" all resolve to id="${viewingReport.id}". For shareReport / exportReport, you can omit the id arg — the page reads the open report from the URL automatically.`,
+      );
     } else {
       lines.push('');
-      lines.push(`INFORME ABIERTO ACTUALMENTE: id="${viewingReport.id}" — "${viewingReport.title}" (${viewingReport.status}, primario ${viewingReport.primaryLanguage}, disponibles: ${langList})`);
-      lines.push(`El usuario está ${modeLabel}. Referencias como "este informe", "el informe abierto", "el informe actual", "este", "exporta esto", "compártelo" se resuelven a id="${viewingReport.id}". Para shareReport / exportReport puedes omitir el arg id — la página lo lee de la URL automáticamente.`);
+      lines.push(
+        `INFORME ABIERTO ACTUALMENTE: id="${viewingReport.id}" — "${viewingReport.title}" (${viewingReport.status}, primario ${viewingReport.primaryLanguage}, disponibles: ${langList})`,
+      );
+      lines.push(
+        `El usuario está ${modeLabel}. Referencias como "este informe", "el informe abierto", "el informe actual", "este", "exporta esto", "compártelo" se resuelven a id="${viewingReport.id}". Para shareReport / exportReport puedes omitir el arg id — la página lo lee de la URL automáticamente.`,
+      );
     }
   }
 
@@ -224,14 +247,26 @@ export function buildAssistantSnapshot(input: AssistantSnapshotInput): string {
   };
   const stepFields = fieldsByStep[currentStep] ?? [];
   const fieldValueById: Record<string, string> = {
-    'f-name': empresa.name, 'f-sector': empresa.sector, 'f-size': empresa.size,
-    'f-horizon': empresa.horizon, 'f-market': empresa.market,
-    'f-challenge': empresa.challenge, 'f-strengths': empresa.strengths,
-    'gs-s': globalSteep.S, 'gs-t': globalSteep.T, 'gs-e': globalSteep.E,
-    'gs-env': globalSteep.ENV, 'gs-p': globalSteep.P,
-    'steep-s': steep.social, 'steep-t': steep.technological, 'steep-e': steep.economic,
-    'steep-env': steep.environmental, 'steep-p': steep.political,
-    'hs-h1': horizon.H1, 'hs-h2': horizon.H2, 'hs-h3': horizon.H3,
+    'f-name': empresa.name,
+    'f-sector': empresa.sector,
+    'f-size': empresa.size,
+    'f-horizon': empresa.horizon,
+    'f-market': empresa.market,
+    'f-challenge': empresa.challenge,
+    'f-strengths': empresa.strengths,
+    'gs-s': globalSteep.S,
+    'gs-t': globalSteep.T,
+    'gs-e': globalSteep.E,
+    'gs-env': globalSteep.ENV,
+    'gs-p': globalSteep.P,
+    'steep-s': steep.social,
+    'steep-t': steep.technological,
+    'steep-e': steep.economic,
+    'steep-env': steep.environmental,
+    'steep-p': steep.political,
+    'hs-h1': horizon.H1,
+    'hs-h2': horizon.H2,
+    'hs-h3': horizon.H3,
   };
   const visible = stepFields.filter((id) => (fieldValueById[id] ?? '').trim().length > 0);
   if (visible.length) {
@@ -267,7 +302,9 @@ export function buildAssistantSnapshot(input: AssistantSnapshotInput): string {
       empresa.horizon.trim() ? empresa.horizon + yearsWord : emptyMark
     }${opt('f-horizon')}`,
   );
-  lines.push(`- f-market (${fieldLabelsCompany['f-market']}): ${cell(empresa.market)}${opt('f-market')}`);
+  lines.push(
+    `- f-market (${fieldLabelsCompany['f-market']}): ${cell(empresa.market)}${opt('f-market')}`,
+  );
   lines.push(`- f-challenge (${fieldLabelsCompany['f-challenge']}): ${cell(empresa.challenge)}`);
   lines.push(`- f-strengths (${fieldLabelsCompany['f-strengths']}): ${cell(empresa.strengths)}`);
 
@@ -367,19 +404,21 @@ export function buildAssistantSnapshot(input: AssistantSnapshotInput): string {
         const typ = s.type ? ` [${s.type}]` : '';
         lines.push(`- ${name}${typ}${prob}: ${trunc(s.description, 400)}`);
         if (s.opportunities && s.opportunities.length) {
-          lines.push(`  ${isEn ? 'opportunities' : 'oportunidades'}: ${s.opportunities.map((o) => trunc(o, 120)).join(' | ')}`);
+          lines.push(
+            `  ${isEn ? 'opportunities' : 'oportunidades'}: ${s.opportunities.map((o) => trunc(o, 120)).join(' | ')}`,
+          );
         }
         if (s.threats && s.threats.length) {
-          lines.push(`  ${isEn ? 'threats' : 'amenazas'}: ${s.threats.map((o) => trunc(o, 120)).join(' | ')}`);
+          lines.push(
+            `  ${isEn ? 'threats' : 'amenazas'}: ${s.threats.map((o) => trunc(o, 120)).join(' | ')}`,
+          );
         }
       });
     }
 
     if (r.keyUncertainties && r.keyUncertainties.length) {
       lines.push(isEn ? '\nKey uncertainties:' : '\nIncertidumbres clave:');
-      r.keyUncertainties.forEach((u) =>
-        lines.push(`- ${u.name}: ${trunc(u.description, 220)}`),
-      );
+      r.keyUncertainties.forEach((u) => lines.push(`- ${u.name}: ${trunc(u.description, 220)}`));
     }
 
     if (r.weakSignals && r.weakSignals.length) {
@@ -391,19 +430,22 @@ export function buildAssistantSnapshot(input: AssistantSnapshotInput): string {
 
     if (r.wildcards && r.wildcards.length) {
       lines.push(isEn ? '\nWildcards:' : '\nWildcards:');
-      r.wildcards.forEach((w) =>
-        lines.push(`- ${w.title}: ${trunc(w.description, 220)}`),
-      );
+      r.wildcards.forEach((w) => lines.push(`- ${w.title}: ${trunc(w.description, 220)}`));
     }
 
     const sp = r.scenarioPlanning;
-    if (sp && (sp.intro || sp.drivingForces?.length || sp.axes?.length || sp.scenarioLogics?.length)) {
+    if (
+      sp &&
+      (sp.intro || sp.drivingForces?.length || sp.axes?.length || sp.scenarioLogics?.length)
+    ) {
       lines.push(isEn ? '\nScenario planning:' : '\nPlanificación de escenarios:');
       if (sp.intro) lines.push(trunc(sp.intro, 400));
       if (sp.drivingForces?.length) {
         lines.push(isEn ? 'Driving forces (ranked):' : 'Fuerzas motrices (ranked):');
         sp.drivingForces.forEach((d) =>
-          lines.push(`  ${d.rank}. ${d.title} (impact ${d.impactScore}): ${trunc(d.description, 180)}`),
+          lines.push(
+            `  ${d.rank}. ${d.title} (impact ${d.impactScore}): ${trunc(d.description, 180)}`,
+          ),
         );
       }
       if (sp.axes?.length) {
@@ -414,9 +456,7 @@ export function buildAssistantSnapshot(input: AssistantSnapshotInput): string {
       }
       if (sp.scenarioLogics?.length) {
         lines.push(isEn ? 'Scenario logics:' : 'Lógicas de escenario:');
-        sp.scenarioLogics.forEach((l) =>
-          lines.push(`  - ${l.name}: ${trunc(l.logic, 220)}`),
-        );
+        sp.scenarioLogics.forEach((l) => lines.push(`  - ${l.name}: ${trunc(l.logic, 220)}`));
       }
     }
 
@@ -424,7 +464,8 @@ export function buildAssistantSnapshot(input: AssistantSnapshotInput): string {
       lines.push(isEn ? '\nBackcasting trajectories:' : '\nTrayectorias de backcasting:');
       r.backcasting.forEach((b) => {
         lines.push(`- ${b.scenarioName} [${b.scenarioType}]: ${trunc(b.visionStatement, 240)}`);
-        if (b.startingPoint) lines.push(`  ${isEn ? 'start' : 'inicio'}: ${trunc(b.startingPoint, 180)}`);
+        if (b.startingPoint)
+          lines.push(`  ${isEn ? 'start' : 'inicio'}: ${trunc(b.startingPoint, 180)}`);
         if (b.milestones?.length) {
           b.milestones.forEach((m) =>
             lines.push(`  · ${m.year} — ${m.title}: ${trunc(m.description, 160)}`),
@@ -438,7 +479,9 @@ export function buildAssistantSnapshot(input: AssistantSnapshotInput): string {
       r.strategicMap.forEach((p) => {
         lines.push(`- [${p.horizon} · ${p.timeframe}] ${p.title} (impact: ${p.impact})`);
         if (p.actions?.length) {
-          lines.push(`  ${isEn ? 'actions' : 'acciones'}: ${p.actions.map((a) => trunc(a, 120)).join(' | ')}`);
+          lines.push(
+            `  ${isEn ? 'actions' : 'acciones'}: ${p.actions.map((a) => trunc(a, 120)).join(' | ')}`,
+          );
         }
       });
     }

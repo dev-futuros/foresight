@@ -314,7 +314,6 @@ function registerCachedFonts(doc: jsPDF) {
       doc.addFileToVFS(filename, f.base64);
       doc.addFont(filename, f.family, f.style);
     } catch (err) {
-       
       console.warn(
         `[exportPdf] Could not register ${f.family} (${f.style}) — likely a ` +
           `variable-font TTF jsPDF can't parse. Drop the *static* TTFs from ` +
@@ -463,14 +462,16 @@ function sanitizeTree<T>(node: T): T {
 
 function stripModelTags(text: string): string {
   if (!text) return text;
-  return text
-    // Opening + closing cite/citation/source tags with arbitrary attributes
-    .replace(/<\/?(?:cite|citation|source|ref)(?:\s+[^>]*)?>/gi, '')
-    // Stray closing tag fragments the model sometimes leaves dangling
-    .replace(/<\/(?:cite|citation|source|ref)>/gi, '')
-    // Collapse any runs of whitespace the stripped tags left behind
-    .replace(/[ \t]{2,}/g, ' ')
-    .replace(/\s+([,.;:!?])/g, '$1');
+  return (
+    text
+      // Opening + closing cite/citation/source tags with arbitrary attributes
+      .replace(/<\/?(?:cite|citation|source|ref)(?:\s+[^>]*)?>/gi, '')
+      // Stray closing tag fragments the model sometimes leaves dangling
+      .replace(/<\/(?:cite|citation|source|ref)>/gi, '')
+      // Collapse any runs of whitespace the stripped tags left behind
+      .replace(/[ \t]{2,}/g, ' ')
+      .replace(/\s+([,.;:!?])/g, '$1')
+  );
 }
 
 /**
@@ -634,14 +635,7 @@ function card(
   }
 }
 
-function pill(
-  doc: jsPDF,
-  x: number,
-  y: number,
-  text: string,
-  color: string,
-  bg: string,
-): number {
+function pill(doc: jsPDF, x: number, y: number, text: string, color: string, bg: string): number {
   const label = text.toUpperCase();
   setText(doc, color, 7, 'bold', FONT_MONO);
   const textW = doc.getTextWidth(label);
@@ -735,7 +729,14 @@ function drawBulletsNoPaginate(
  * Small uppercase mono kicker — eyebrow used above headlines. Returns
  * the y position after rendering (caller controls leading).
  */
-function kicker(doc: jsPDF, x: number, y: number, text: string, color = INK_MUTE, size = 7.5): number {
+function kicker(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  text: string,
+  color = INK_MUTE,
+  size = 7.5,
+): number {
   setText(doc, color, size, 'bold', FONT_MONO);
   doc.text(text.toUpperCase(), x, y);
   return y;
@@ -1350,8 +1351,7 @@ const isCaLang = () => !!i18n.language?.startsWith('ca');
  * Used in place of the older `isEnLang() ? 'EN' : 'ES'` ternaries so every
  * label, section heading and date string can carry its Catalan translation.
  */
-const t3 = <T,>(en: T, es: T, ca: T): T =>
-  isEnLang() ? en : isCaLang() ? ca : es;
+const t3 = <T>(en: T, es: T, ca: T): T => (isEnLang() ? en : isCaLang() ? ca : es);
 
 function steepLabel(k: 'S' | 'T' | 'E' | 'ENV' | 'P'): string {
   switch (k) {
@@ -1445,9 +1445,7 @@ function parsePercent(s: string | undefined): number {
  * (`social`, `technological`, …) and StepGlobal saves with short
  * codes; this helper accepts either so the renderer doesn't branch.
  */
-function normalizeSteepKeys(
-  s: SteepBlock | Record<string, unknown> | undefined,
-): SteepBlock {
+function normalizeSteepKeys(s: SteepBlock | Record<string, unknown> | undefined): SteepBlock {
   if (!s) return {};
   const src = s as Record<string, unknown>;
   const pick = (...keys: string[]): string | undefined => {
@@ -1504,7 +1502,7 @@ function drawRunningHead(doc: jsPDF, reportTitle?: string) {
     // fits. If even 5pt overflows we log a warning and render at 5pt regardless
     // (the user prefers visual overflow to silent truncation).
     const wordmarkW = doc.getTextWidth('FUTUROS');
-    const slotMaxW = (PAGE_W - MARGIN_X) - (MARGIN_X + wordmarkW + 6);
+    const slotMaxW = PAGE_W - MARGIN_X - (MARGIN_X + wordmarkW + 6);
     let size = 7.5;
     setText(doc, INK_MUTE, size, 'normal', FONT_MONO);
     while (doc.getTextWidth(reportTitle) > slotMaxW && size > 5) {
@@ -1526,7 +1524,12 @@ function drawRunningHead(doc: jsPDF, reportTitle?: string) {
 
 /* ── Section: Cover ───────────────────────────────────────────────── */
 
-function renderCover(doc: jsPDF, report: ReportResponse, result: ResultData | null, cp: CompanyProfile) {
+function renderCover(
+  doc: jsPDF,
+  report: ReportResponse,
+  result: ResultData | null,
+  cp: CompanyProfile,
+) {
   paintBackground(doc);
   const en = isEnLang();
 
@@ -1572,9 +1575,7 @@ function renderCover(doc: jsPDF, report: ReportResponse, result: ResultData | nu
   // editorial meta instead of leaving it stranded in the bottom-right.
   const eyebrowParts = [tx('report.eyebrow', 'Strategic foresight report')];
   if (cp.horizon) {
-    eyebrowParts.push(
-      `${cp.horizon}-${t3('year horizon', 'años de horizonte', 'anys d’horitzó')}`,
-    );
+    eyebrowParts.push(`${cp.horizon}-${t3('year horizon', 'años de horizonte', 'anys d’horitzó')}`);
   }
   setText(doc, GOLD, 9.5, 'bold', FONT_MONO);
   doc.text(eyebrowParts.join(' · ').toUpperCase(), MARGIN_X, heroY);
@@ -1645,7 +1646,11 @@ function renderCover(doc: jsPDF, report: ReportResponse, result: ResultData | nu
   if (cp.consultantName || cp.consultantCompany) {
     const consultant = [cp.consultantName, cp.consultantCompany].filter(Boolean).join(' — ');
     setText(doc, INK_MUTE, 7.5, 'bold', FONT_MONO);
-    doc.text(t3('Prepared by', 'Preparado por', 'Preparat per').toUpperCase(), MARGIN_X, PAGE_H - 30);
+    doc.text(
+      t3('Prepared by', 'Preparado por', 'Preparat per').toUpperCase(),
+      MARGIN_X,
+      PAGE_H - 30,
+    );
     setText(doc, INK_SOFT, 13, 'italic', FONT_SERIF);
     doc.text(consultant, MARGIN_X, PAGE_H - 22);
   }
@@ -1808,7 +1813,14 @@ function renderToc(
   // (the user's policy is "use colours only for accents"; gold is reserved
   // for brand elements on the cover / back cover).
   let y = MARGIN_TOP + 8;
-  kicker(doc, MARGIN_X, y, t3('Inside this report', 'Dentro de este informe', 'Dins d’aquest informe'), INK_MUTE, 8);
+  kicker(
+    doc,
+    MARGIN_X,
+    y,
+    t3('Inside this report', 'Dentro de este informe', 'Dins d’aquest informe'),
+    INK_MUTE,
+    8,
+  );
   y += 8;
   setText(doc, INK, 28, 'bold', FONT_SERIF);
   doc.text(t3('Contents', 'Contenidos', 'Continguts'), MARGIN_X, y + 12);
@@ -1884,7 +1896,11 @@ function renderToc(
   // Footer credit
   setText(doc, INK_FAINT, 7, 'normal', FONT_MONO);
   doc.text(
-    t3('Read in the order shown', 'Leer en el orden mostrado', 'Llegir en l’ordre mostrat').toUpperCase(),
+    t3(
+      'Read in the order shown',
+      'Leer en el orden mostrado',
+      'Llegir en l’ordre mostrat',
+    ).toUpperCase(),
     MARGIN_X,
     PAGE_H - 28,
   );
@@ -1896,10 +1912,7 @@ function renderToc(
  * the data where possible (first sentence of exec summary, scenario
  * names, etc.) so the contents page reads like a magazine spread.
  */
-function buildTocTeasers(
-  result: ResultData | null,
-  input: InputData,
-): Record<string, string> {
+function buildTocTeasers(result: ResultData | null, input: InputData): Record<string, string> {
   const teasers: Record<string, string> = {};
   // Tracks idx in lockstep with the section push order in
   // `exportReportPdf` — every block must check the same availability
@@ -1998,10 +2011,7 @@ function buildTocTeasers(
 
   // 07: Backcasting
   if (result?.backcasting?.length) {
-    const total = result.backcasting.reduce(
-      (n, e) => n + (e.milestones?.length ?? 0),
-      0,
-    );
+    const total = result.backcasting.reduce((n, e) => n + (e.milestones?.length ?? 0), 0);
     put(
       t3(
         `${total} milestones traced back from each scenario's vision.`,
@@ -2081,7 +2091,7 @@ function fitTextLines(
  */
 function warnOverflow(where: string, text: string, maxWidth: number, maxLines: number) {
   const snippet = text.length > 80 ? text.slice(0, 77) + '…' : text;
-   
+
   console.warn(
     `[exportPdf] text overflow at "${where}" (max ${maxLines} line(s) @ ${maxWidth.toFixed(1)}mm): "${snippet}"`,
   );
@@ -2096,11 +2106,7 @@ function warnOverflow(where: string, text: string, maxWidth: number, maxLines: n
  * context. Saves a page over rendering them separately and reads
  * like the opening of a feature article.
  */
-function renderBriefAndExec(
-  doc: jsPDF,
-  input: InputData,
-  exec: string | undefined,
-): number {
+function renderBriefAndExec(doc: jsPDF, input: InputData, exec: string | undefined): number {
   // Set BEFORE addPage so the new page captures the section context for
   // its rotated eyebrow + chip.
   setSection(doc, t3('Brief', 'Resumen', 'Resum'), INK_MUTE);
@@ -2370,13 +2376,7 @@ function standfirstClamped(
  * sidebar has run out of structured content. The bar at the start is
  * gold for accent continuity.
  */
-function renderMarginPullQuote(
-  doc: jsPDF,
-  x: number,
-  y: number,
-  w: number,
-  text: string,
-) {
+function renderMarginPullQuote(doc: jsPDF, x: number, y: number, w: number, text: string) {
   doc.setDrawColor(GOLD);
   doc.setLineWidth(0.6);
   doc.line(x, y, x + 12, y);
@@ -2396,9 +2396,7 @@ function renderMarginPullQuote(
  * pull quote feeling editorial rather than mechanical.
  */
 function extractPullQuote(text: string): string | null {
-  const sentences = text
-    .replace(/\s+/g, ' ')
-    .split(/(?<=[.!?])\s+(?=[A-ZÁÉÍÓÚÑ¿¡])/);
+  const sentences = text.replace(/\s+/g, ' ').split(/(?<=[.!?])\s+(?=[A-ZÁÉÍÓÚÑ¿¡])/);
   for (const s of sentences) {
     const trimmed = s.trim();
     if (trimmed.length < 60 || trimmed.length > 160) continue;
@@ -2849,11 +2847,7 @@ function renderScenarios(doc: jsPDF, scenarios: Scenario[]): number {
     // the row, working as the row's editorial accent.
     if (s.probability) {
       setText(doc, colors.fg, probSize, 'bold', FONT_SERIF);
-      doc.text(
-        s.probability,
-        PAGE_W - MARGIN_X - probW,
-        y + 9 + (nameLines.length > 1 ? 3 : 0),
-      );
+      doc.text(s.probability, PAGE_W - MARGIN_X - probW, y + 9 + (nameLines.length > 1 ? 3 : 0));
     }
     // Advance past the row WITH descender padding so the divider below never
     // clips through 'p' / 'g' / 'q' descenders of the last name line.
@@ -2917,11 +2911,7 @@ function renderScenarioFeature(doc: jsPDF, yIn: number, s: Scenario, idx: number
   const nw = doc.getTextWidth(numStr);
   doc.text(numStr, PAGE_W - MARGIN_X - nw, yIn + 8);
   setText(doc, INK_MUTE, 6.5, 'bold', FONT_MONO);
-  doc.text(
-    t3('Scenario', 'Escenario', 'Escenari').toUpperCase(),
-    PAGE_W - MARGIN_X - nw,
-    yIn + 12,
-  );
+  doc.text(t3('Scenario', 'Escenario', 'Escenari').toUpperCase(), PAGE_W - MARGIN_X - nw, yIn + 12);
   let y = yIn + 18;
 
   // ── Headline — auto-shrink so we keep <=2 lines and tighter leading
@@ -2949,9 +2939,7 @@ function renderScenarioFeature(doc: jsPDF, yIn: number, s: Scenario, idx: number
   // Use the tightened description when available so the standfirst +
   // body fits the scenario page even before the actions grid below.
   const descParts = T(`scenarios.${idx}.description`, s.description).trim();
-  const firstSentence = descParts
-    .replace(/\s+/g, ' ')
-    .split(/(?<=[.!?])\s+(?=[A-ZÁÉÍÓÚÑ¿¡])/)[0];
+  const firstSentence = descParts.replace(/\s+/g, ' ').split(/(?<=[.!?])\s+(?=[A-ZÁÉÍÓÚÑ¿¡])/)[0];
   const rest = descParts.slice(firstSentence.length).trim();
 
   if (s.probability) {
@@ -3213,11 +3201,7 @@ function renderFirstMoveHero(
   // rotated section eyebrow on the left margin and the timeframe headline below,
   // so this top-row kicker stays quiet and typographic.
   setText(doc, INK_MUTE, 8, 'bold', FONT_MONO);
-  doc.text(
-    tx('report.results.scen.firstmove', 'First move').toUpperCase(),
-    MARGIN_X,
-    cy + 3,
-  );
+  doc.text(tx('report.results.scen.firstmove', 'First move').toUpperCase(), MARGIN_X, cy + 3);
   // Scenario type · name on the right of the kicker row.
   setText(doc, INK_MUTE, 7, 'bold', FONT_MONO);
   const meta = `${(s.type ?? '').toUpperCase()}${s.name ? ' · ' + s.name.toUpperCase() : ''}`;
@@ -3284,9 +3268,7 @@ function renderFirstMoveHero(
  *   • Bare quarter / year markers ("Q1 2026", "Year 1", "Año 1").
  *   • Standalone temporal nouns ("Inmediato", "Now", "Primer trimestre").
  */
-function extractTimeframeHeadline(
-  text: string,
-): { head: string; bodyText: string } {
+function extractTimeframeHeadline(text: string): { head: string; bodyText: string } {
   const trimmed = text.trim();
   if (!trimmed) {
     return { head: t3('Now', 'Inmediato', 'Immediat'), bodyText: '' };
@@ -3338,11 +3320,16 @@ function extractTimeframeHeadline(
 
 /** Title-case a timeframe phrase so it reads as an editorial headline. */
 function prettyTimeframe(s: string): string {
-  const cleaned = s.trim().replace(/\s+/g, ' ').replace(/[.,;:]+$/, '');
+  const cleaned = s
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/[.,;:]+$/, '');
   // Capitalise the first letter of each word; keep accented chars intact.
   return cleaned
     .split(' ')
-    .map((w) => (w.length > 0 ? w.charAt(0).toLocaleUpperCase() + w.slice(1).toLocaleLowerCase() : w))
+    .map((w) =>
+      w.length > 0 ? w.charAt(0).toLocaleUpperCase() + w.slice(1).toLocaleLowerCase() : w,
+    )
     .join(' ');
 }
 
@@ -3388,7 +3375,13 @@ function renderScenarioPlanning(doc: jsPDF, sp: ScenarioPlanning): number {
   // force renders at the same compact style as axes + logics for consistency.
   if (sp.drivingForces?.length) {
     const forces = [...sp.drivingForces].sort((a, b) => a.rank - b.rank);
-    y = sectionLabel(doc, y, tx('report.results.sp.forces', 'Driving forces of change'), INK_MUTE, 26);
+    y = sectionLabel(
+      doc,
+      y,
+      tx('report.results.sp.forces', 'Driving forces of change'),
+      INK_MUTE,
+      26,
+    );
     for (let i = 0; i < forces.length; i++) {
       const h = measureDrivingForceRowH(doc, forces[i], i);
       if (y + h + 4 > PAGE_BOTTOM) {
@@ -3484,7 +3477,12 @@ function measureScenarioLogicRowH(doc: jsPDF, l: ScenarioLogic, idx: number): nu
   const headingH = 6 + labelLines.length * 6.4 + 5 + 3.5;
   const logic = T(`scenarioPlanning.scenarioLogics.${idx}.logic`, l.logic);
   const bodyH = logic
-    ? measureBody(doc, logic, { size: 10, family: FONT_SANS, maxWidth: CONTENT_W - 12, leading: 5.2 })
+    ? measureBody(doc, logic, {
+        size: 10,
+        family: FONT_SANS,
+        maxWidth: CONTENT_W - 12,
+        leading: 5.2,
+      })
     : 0;
   return headingH + bodyH + 1;
 }
@@ -3495,7 +3493,12 @@ function _measureScenarioLogicRow(doc: jsPDF, l: ScenarioLogic): number {
   const innerPad = 6;
   const innerW = CONTENT_W - innerPad * 2;
   const logicH = l.logic
-    ? measureBody(doc, l.logic, { size: 10, family: FONT_SANS, maxWidth: innerW - 14, leading: 5.2 })
+    ? measureBody(doc, l.logic, {
+        size: 10,
+        family: FONT_SANS,
+        maxWidth: innerW - 14,
+        leading: 5.2,
+      })
     : 0;
   return innerPad + 8 + logicH + innerPad - 2;
 }
@@ -3505,12 +3508,7 @@ function _measureScenarioLogicRow(doc: jsPDF, l: ScenarioLogic): number {
  * the same row, narrative logic flowing below at body size. Replaces
  * the 3-column variant that produced tall narrow strips on print.
  */
-function renderScenarioLogicRow(
-  doc: jsPDF,
-  yIn: number,
-  l: ScenarioLogic,
-  idx: number,
-): number {
+function renderScenarioLogicRow(doc: jsPDF, yIn: number, l: ScenarioLogic, idx: number): number {
   const logic = T(`scenarioPlanning.scenarioLogics.${idx}.logic`, l.logic);
   return renderPlanningRow(doc, yIn, {
     eyebrowNum: String(idx + 1).padStart(2, '0'),
@@ -3647,7 +3645,10 @@ function measureDrivingForceRowH(doc: jsPDF, f: DrivingForce, idx: number): numb
  * of "leftover" forces look like an intentional editorial spread rather
  * than orphaned filler.
  */
-function renderDrivingForcesFeaturePage(doc: jsPDF, entries: Array<{ force: DrivingForce; idx: number }>): void {
+function renderDrivingForcesFeaturePage(
+  doc: jsPDF,
+  entries: Array<{ force: DrivingForce; idx: number }>,
+): void {
   let y = addPage(doc);
   drawRunningHead(doc);
   // Section eyebrow — uses the planning section's blue accent so the
@@ -3753,7 +3754,7 @@ function renderDrivingForceHero(
   const desc = T(`scenarioPlanning.drivingForces.${idx}.description`, f.description);
   if (desc) {
     const usedH = ty - y;
-    const remaining = (maxBodyH ?? (PAGE_BOTTOM - ty - 6)) - usedH;
+    const remaining = (maxBodyH ?? PAGE_BOTTOM - ty - 6) - usedH;
     if (full) {
       ty = flowColumns(doc, textX, ty, textW, desc, {
         columns: 2,
@@ -3824,7 +3825,13 @@ function measureAxisRow(doc: jsPDF, a: UncertaintyAxis, idx: number): number {
   const spectrumH = Math.max(poleLowH, poleHighH) + 4;
   const rationale = T(`scenarioPlanning.axes.${idx}.rationale`, a.rationale);
   const rationaleH = rationale
-    ? 9 + measureBody(doc, rationale, { size: 10, family: FONT_SANS, maxWidth: CONTENT_W - 12, leading: 5.2 })
+    ? 9 +
+      measureBody(doc, rationale, {
+        size: 10,
+        family: FONT_SANS,
+        maxWidth: CONTENT_W - 12,
+        leading: 5.2,
+      })
     : 0;
   return headingH + spectrumH + (rationale ? 4 + rationaleH : 0);
 }
@@ -3836,12 +3843,7 @@ function measureAxisRow(doc: jsPDF, a: UncertaintyAxis, idx: number): number {
  * unified heading + rule, with the justification rendered underneath in its own
  * sub-zone (eyebrow label + body) so the "why" reads as a deliberate block.
  */
-function renderAxisRow(
-  doc: jsPDF,
-  yIn: number,
-  a: UncertaintyAxis,
-  idx: number,
-): number {
+function renderAxisRow(doc: jsPDF, yIn: number, a: UncertaintyAxis, idx: number): number {
   const labelX = MARGIN_X + 12;
   return renderPlanningRow(doc, yIn, {
     eyebrowNum: String(idx + 1).padStart(2, '0'),
@@ -3885,10 +3887,20 @@ function renderAxisRow(
         });
       }
       const poleLowH = a.poleLow
-        ? measureBody(doc, a.poleLow, { size: 11, family: FONT_SANS, maxWidth: halfW, leading: 5.6 })
+        ? measureBody(doc, a.poleLow, {
+            size: 11,
+            family: FONT_SANS,
+            maxWidth: halfW,
+            leading: 5.6,
+          })
         : 0;
       const poleHighH = a.poleHigh
-        ? measureBody(doc, a.poleHigh, { size: 11, family: FONT_SANS, maxWidth: halfW, leading: 5.6 })
+        ? measureBody(doc, a.poleHigh, {
+            size: 11,
+            family: FONT_SANS,
+            maxWidth: halfW,
+            leading: 5.6,
+          })
         : 0;
       y = poleY + Math.max(poleLowH, poleHighH) + 2;
 
@@ -3923,11 +3935,7 @@ function renderBackcasting(doc: jsPDF, entries: BackcastingEntry[]): number {
     // entry gets its own fresh page so the headline doesn't get buried.
     const e = entries[i];
     const colors = scenarioColors(e.scenarioType, i);
-    setSection(
-      doc,
-      `Backcasting · ${e.scenarioType ?? `Scenario ${i + 1}`}`,
-      colors.fg,
-    );
+    setSection(doc, `Backcasting · ${e.scenarioType ?? `Scenario ${i + 1}`}`, colors.fg);
     y = addPage(doc);
     drawRunningHead(doc);
     if (i === 0) {
@@ -3948,12 +3956,7 @@ function renderBackcasting(doc: jsPDF, entries: BackcastingEntry[]): number {
  * "looking back from the future" feature in TIME — past-tense narrative
  * with the milestone year as the dominant visual anchor.
  */
-function renderBackcastingEntry(
-  doc: jsPDF,
-  yIn: number,
-  e: BackcastingEntry,
-  idx: number,
-): number {
+function renderBackcastingEntry(doc: jsPDF, yIn: number, e: BackcastingEntry, idx: number): number {
   const colors = scenarioColors(e.scenarioType, idx);
   let y = yIn;
 
@@ -3962,11 +3965,7 @@ function renderBackcastingEntry(
   // the big two-color split headline beneath, so the small mono-caps eyebrow
   // stays quiet (per "colours only for accents" policy).
   setText(doc, INK_MUTE, 7.5, 'bold', FONT_MONO);
-  doc.text(
-    `BACKCASTING · ${(e.scenarioType ?? '').toUpperCase()}`,
-    MARGIN_X,
-    y + 2,
-  );
+  doc.text(`BACKCASTING · ${(e.scenarioType ?? '').toUpperCase()}`, MARGIN_X, y + 2);
   y += 6;
 
   // Two-color split headline: scenario name in scenario colour as a
@@ -4148,7 +4147,7 @@ function renderBackcastingEntry(
     doc.line(MARGIN_X, y, MARGIN_X + 18, y);
     y += 4;
     setText(doc, colors.fg, 8.5, 'bold', FONT_MONO);
-    doc.text((tx('report.results.bc.start', 'Starting point')).toUpperCase(), MARGIN_X, y + 2);
+    doc.text(tx('report.results.bc.start', 'Starting point').toUpperCase(), MARGIN_X, y + 2);
     y += 6;
     y = body(doc, y, sp, {
       color: INK,
@@ -4194,7 +4193,11 @@ function renderStrategicMap(doc: jsPDF, items: StrategicPriority[]): number {
   for (const h of order) {
     const group = items.filter((it) => it.horizon === h);
     if (group.length === 0) continue;
-    setSection(doc, `${t3('Strategic Map', 'Mapa Estratégico', 'Mapa Estratègic')} · ${horizonLabels[h]}`, horizonColors[h]);
+    setSection(
+      doc,
+      `${t3('Strategic Map', 'Mapa Estratégico', 'Mapa Estratègic')} · ${horizonLabels[h]}`,
+      horizonColors[h],
+    );
     y = addPage(doc);
     drawRunningHead(doc);
     if (first) {
@@ -4288,7 +4291,12 @@ function renderHorizonHeaderCompact(
  * horizon's identity attached to its first priority card by reserving
  * enough space for the header + a minimum-height card.
  */
-function renderHorizonHeader(doc: jsPDF, yIn: number, h: 'H1' | 'H2' | 'H3', color: string): number {
+function renderHorizonHeader(
+  doc: jsPDF,
+  yIn: number,
+  h: 'H1' | 'H2' | 'H3',
+  color: string,
+): number {
   // Huge horizon lockup in TIME / Cosmo style: massive numeral on the
   // left, kicker + label stacked on the right, gold rule below the row.
   // Reserves enough vertical real estate that the lockup never compresses.
@@ -4303,11 +4311,7 @@ function renderHorizonHeader(doc: jsPDF, yIn: number, h: 'H1' | 'H2' | 'H3', col
   // localised horizon label in larger serif.
   const kx = MARGIN_X + codeW + 6;
   setText(doc, INK_MUTE, 7.5, 'bold', FONT_MONO);
-  doc.text(
-    `${t3('Horizon', 'Horizonte', 'Horitzó').toUpperCase()} ${h.slice(1)}`,
-    kx,
-    y + 6,
-  );
+  doc.text(`${t3('Horizon', 'Horizonte', 'Horitzó').toUpperCase()} ${h.slice(1)}`, kx, y + 6);
   setText(doc, INK, 18, 'bold', FONT_SERIF);
   doc.text(tx(`report.results.str.${h.toLowerCase()}`, h), kx, y + 16);
   // Rule across the page in the horizon colour
@@ -4364,7 +4368,15 @@ function renderPriorityCardWide(
   setText(doc, colors.fg, 6.8, 'bold', FONT_MONO);
   const labelW = doc.getTextWidth(label) + 5;
   doc.setFillColor(colors.bg);
-  doc.roundedRect(PAGE_W - MARGIN_X - innerPad - labelW, y + innerPad - 2, labelW, 4.2, 1.2, 1.2, 'F');
+  doc.roundedRect(
+    PAGE_W - MARGIN_X - innerPad - labelW,
+    y + innerPad - 2,
+    labelW,
+    4.2,
+    1.2,
+    1.2,
+    'F',
+  );
   setText(doc, colors.fg, 6.8, 'bold', FONT_MONO);
   doc.text(label, PAGE_W - MARGIN_X - innerPad - labelW + 2.5, y + innerPad + 1);
   // Title
@@ -4576,7 +4588,14 @@ function renderSources(doc: jsPDF, src: Sources): number {
   );
   const intro = tx('report.results.sources.intro', '');
   if (intro) {
-    y = body(doc, y, intro, { color: INK_SOFT, size: 10.5, family: FONT_SERIF, weight: 'italic', leading: 5.6, trailingGap: 6 });
+    y = body(doc, y, intro, {
+      color: INK_SOFT,
+      size: 10.5,
+      family: FONT_SERIF,
+      weight: 'italic',
+      leading: 5.6,
+      trailingGap: 6,
+    });
   }
   if (src.globalSteep?.length) {
     y = sectionLabel(doc, y, tx('report.results.sources.global', 'Global context'));
@@ -4787,7 +4806,9 @@ function collectFieldNeeds(
     need(`steep.global.${k}`, gN[k]);
     need(`steep.sectorial.${k}`, sN[k]);
   }
-  result?.keyUncertainties?.forEach((u, i) => need(`keyUncertainties.${i}.description`, u.description));
+  result?.keyUncertainties?.forEach((u, i) =>
+    need(`keyUncertainties.${i}.description`, u.description),
+  );
   result?.scenarios?.forEach((s, i) => {
     need(`scenarios.${i}.description`, s.description);
     need(`scenarios.${i}.firstMove`, s.firstMove);
@@ -4799,14 +4820,20 @@ function collectFieldNeeds(
     // what the renderer iterates. Without this, T(`...drivingForces.${sortedIdx}...`) at
     // the render seam would look up the wrong tightened entry.
     const sortedForces = [...(sp.drivingForces ?? [])].sort((a, b) => a.rank - b.rank);
-    sortedForces.forEach((f, i) => need(`scenarioPlanning.drivingForces.${i}.description`, f.description));
+    sortedForces.forEach((f, i) =>
+      need(`scenarioPlanning.drivingForces.${i}.description`, f.description),
+    );
     sp.axes?.forEach((a, i) => need(`scenarioPlanning.axes.${i}.rationale`, a.rationale));
-    sp.scenarioLogics?.forEach((l, i) => need(`scenarioPlanning.scenarioLogics.${i}.logic`, l.logic));
+    sp.scenarioLogics?.forEach((l, i) =>
+      need(`scenarioPlanning.scenarioLogics.${i}.logic`, l.logic),
+    );
   }
   result?.backcasting?.forEach((e, i) => {
     need(`backcasting.${i}.visionStatement`, e.visionStatement);
     need(`backcasting.${i}.startingPoint`, e.startingPoint);
-    e.milestones?.forEach((m, j) => need(`backcasting.${i}.milestones.${j}.description`, m.description));
+    e.milestones?.forEach((m, j) =>
+      need(`backcasting.${i}.milestones.${j}.description`, m.description),
+    );
   });
   result?.strategicMap?.forEach((p, i) => {
     p.actions?.forEach((a, j) => need(`strategicMap.${i}.actions.${j}`, a));
@@ -4836,8 +4863,7 @@ export async function exportReportPdf(
   theme: PdfTheme = 'dark',
 ) {
   const originalLang = i18n.language;
-  const needSwitch =
-    !!language && language.slice(0, 2) !== originalLang.slice(0, 2);
+  const needSwitch = !!language && language.slice(0, 2) !== originalLang.slice(0, 2);
   if (needSwitch) await i18n.changeLanguage(language);
   // Apply the requested palette BEFORE any rendering so every paint /
   // setText / setDrawColor below reads from the chosen theme's tokens.
@@ -4863,7 +4889,7 @@ async function renderReport(report: ReportResponse) {
   currentTightened = {};
   for (const k of Object.keys(pageSections)) delete pageSections[Number(k)];
 
-  const input = sanitizeTree((report.inputData ?? {})) as InputData;
+  const input = sanitizeTree(report.inputData ?? {}) as InputData;
   const result = sanitizeTree(report.resultData ?? null) as ResultData | null;
   const cp = input.companyProfile ?? {};
   const exportLang: 'es' | 'en' | 'ca' = isEnLang() ? 'en' : isCaLang() ? 'ca' : 'es';

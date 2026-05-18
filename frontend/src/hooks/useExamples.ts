@@ -44,16 +44,9 @@ export function useExample(id: string) {
  */
 export function usePromoteToExample() {
   const qc = useQueryClient();
-  return useMutation<
-    ExampleResponse,
-    Error,
-    { reportId: string; body: PromoteToExampleRequest }
-  >({
+  return useMutation<ExampleResponse, Error, { reportId: string; body: PromoteToExampleRequest }>({
     mutationFn: async ({ reportId, body }) => {
-      const res = await api.post<ExampleResponse>(
-        `/reports/${reportId}/promote-to-example`,
-        body,
-      );
+      const res = await api.post<ExampleResponse>(`/reports/${reportId}/promote-to-example`, body);
       return res.data;
     },
     onSuccess: (_data, vars) => {
@@ -120,11 +113,9 @@ export function useTranslateExample() {
     { id: string; targetLanguage: 'es' | 'en' | 'ca'; force?: boolean }
   >({
     mutationFn: async ({ id, targetLanguage, force = false }) => {
-      const res = await api.post<TranslatedReport>(
-        `/examples/${id}/translate`,
-        null,
-        { params: { targetLanguage, force } },
-      );
+      const res = await api.post<TranslatedReport>(`/examples/${id}/translate`, null, {
+        params: { targetLanguage, force },
+      });
       return res.data;
     },
     onSuccess: (_data, vars) => {

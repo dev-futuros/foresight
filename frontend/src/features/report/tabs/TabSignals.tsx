@@ -115,11 +115,7 @@ function SignalsExplorer({ signals }: { signals: WeakSignal[] }) {
                 style={active ? { borderColor: color, color } : undefined}
                 onClick={() => selectFilter(d)}
               >
-                <span
-                  className="signals-chip-dot"
-                  style={{ background: color }}
-                  aria-hidden
-                />
+                <span className="signals-chip-dot" style={{ background: color }} aria-hidden />
                 {d}
                 <span className="signals-chip-count">{count}</span>
               </button>
@@ -148,15 +144,18 @@ function SignalsExplorer({ signals }: { signals: WeakSignal[] }) {
                   style={{ background: `${color}22`, color }}
                   aria-hidden
                 >
-                  <svg fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={1.5}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <use href={iconHref} />
                   </svg>
                 </span>
                 <span className="signals-row-title">{s.title}</span>
-                <span
-                  className="signals-row-dim"
-                  style={{ color }}
-                >
+                <span className="signals-row-dim" style={{ color }}>
                   {s.dimension}
                 </span>
               </button>
@@ -176,7 +175,13 @@ function SignalsExplorer({ signals }: { signals: WeakSignal[] }) {
               }}
               aria-hidden
             >
-              <svg fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <use href={dimensionIcon(selected.dimension)} />
               </svg>
             </span>
@@ -219,7 +224,9 @@ function WildcardsExplorer({ items }: { items: Wildcard[] }) {
                 className={`wild-row${active ? ' wild-row--active' : ''}`}
                 onClick={() => setSelectedIdx(i)}
               >
-                <span className="wild-row-flag" aria-hidden>⚑</span>
+                <span className="wild-row-flag" aria-hidden>
+                  ⚑
+                </span>
                 <span className="wild-row-title">{w.title}</span>
               </button>
             </li>
@@ -228,7 +235,9 @@ function WildcardsExplorer({ items }: { items: Wildcard[] }) {
       </ol>
       <div key={safeIdx} className="wild-detail">
         <div className="wild-detail-head">
-          <span className="wild-detail-flag" aria-hidden>⚑</span>
+          <span className="wild-detail-flag" aria-hidden>
+            ⚑
+          </span>
           <h4 className="wild-detail-title">{selected.title}</h4>
         </div>
         <p className="wild-detail-desc">{selected.description}</p>

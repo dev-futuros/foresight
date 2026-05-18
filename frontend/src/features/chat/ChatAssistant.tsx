@@ -2,11 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import {
-  useChat,
-  type ChatMessageView,
-  type PendingCommand,
-} from '../../hooks/useChat';
+import { useChat, type ChatMessageView, type PendingCommand } from '../../hooks/useChat';
 import { useAssistantContext } from './useAssistantContext';
 import {
   buildAssistantSnapshot,
@@ -26,11 +22,28 @@ import './chat.css';
  *  navigate so the user actually sees the field flash before its value is
  *  written. Apply-all bypasses this — no ping-pong across steps. */
 const STEP_FOR_FIELD_ID: Record<string, number> = {
-  'f-name': 1, 'f-sector': 1, 'f-size': 1, 'f-horizon': 1, 'f-market': 1,
-  'f-challenge': 1, 'f-strengths': 1, 'f-consultant-name': 1, 'f-consultant-company': 1,
-  'gs-s': 2, 'gs-t': 2, 'gs-e': 2, 'gs-env': 2, 'gs-p': 2,
-  'steep-s': 3, 'steep-t': 3, 'steep-e': 3, 'steep-env': 3, 'steep-p': 3,
-  'hs-h1': 4, 'hs-h2': 4, 'hs-h3': 4,
+  'f-name': 1,
+  'f-sector': 1,
+  'f-size': 1,
+  'f-horizon': 1,
+  'f-market': 1,
+  'f-challenge': 1,
+  'f-strengths': 1,
+  'f-consultant-name': 1,
+  'f-consultant-company': 1,
+  'gs-s': 2,
+  'gs-t': 2,
+  'gs-e': 2,
+  'gs-env': 2,
+  'gs-p': 2,
+  'steep-s': 3,
+  'steep-t': 3,
+  'steep-e': 3,
+  'steep-env': 3,
+  'steep-p': 3,
+  'hs-h1': 4,
+  'hs-h2': 4,
+  'hs-h3': 4,
 };
 
 /** setField field ids → translation key for the human-readable label. */
@@ -102,12 +115,24 @@ interface PublishedWizardContext {
 }
 
 const EMPTY_EMPRESA: EmpresaData = {
-  name: '', sector: '', size: '', horizon: '', market: '',
-  challenge: '', strengths: '', consultantName: '', consultantCompany: '', title: '',
+  name: '',
+  sector: '',
+  size: '',
+  horizon: '',
+  market: '',
+  challenge: '',
+  strengths: '',
+  consultantName: '',
+  consultantCompany: '',
+  title: '',
 };
 const EMPTY_GLOBAL_STEEP: GlobalSteepData = { S: '', T: '', E: '', ENV: '', P: '' };
 const EMPTY_STEEP: SteepData = {
-  social: '', technological: '', economic: '', environmental: '', political: '',
+  social: '',
+  technological: '',
+  economic: '',
+  environmental: '',
+  political: '',
 };
 const EMPTY_HORIZON: HorizonData = { H1: '', H2: '', H3: '' };
 
@@ -354,10 +379,7 @@ export default function ChatAssistant() {
   // of visible (non-hidden) messages — every increment while closed means
   // the assistant has something new to show.
   const visibleAssistantCount = useMemo(
-    () =>
-      messages.filter(
-        (m) => !m.hidden && m.message.role === 'assistant',
-      ).length,
+    () => messages.filter((m) => !m.hidden && m.message.role === 'assistant').length,
     [messages],
   );
   const lastSeenAssistantCountRef = useRef(visibleAssistantCount);
@@ -579,7 +601,9 @@ export default function ChatAssistant() {
           {pending && (
             <div className="chat-msg bot">
               <div className="chat-typing" aria-label={t('chat.typing')}>
-                <span /><span /><span />
+                <span />
+                <span />
+                <span />
               </div>
             </div>
           )}
@@ -686,8 +710,7 @@ function MessageView({ view, messageIdx, ctx, onApproveChip, onApplyAll }: Messa
   // tail arrives, and "Apply all" is hidden so it can't fire on a
   // partial set. Once the stream completes, both unlock.
   const isStreaming = view.streaming === true;
-  const showApplyAll =
-    !isStreaming && (applyAllState !== 'idle' || pendingCount >= 2);
+  const showApplyAll = !isStreaming && (applyAllState !== 'idle' || pendingCount >= 2);
 
   async function handleApplyAll() {
     if (applyAllState !== 'idle') return;
@@ -724,9 +747,7 @@ function MessageView({ view, messageIdx, ctx, onApproveChip, onApplyAll }: Messa
           onClick={handleApplyAll}
           disabled={applyAllState !== 'idle' || pendingCount === 0}
         >
-          {applyAllState === 'done' || allResolved
-            ? t('chat.applyAllDone')
-            : t('chat.applyAll')}
+          {applyAllState === 'done' || allResolved ? t('chat.applyAllDone') : t('chat.applyAll')}
         </button>
       )}
       {allResolved && post && (
@@ -774,7 +795,7 @@ function CommandChip({
   const fieldId = args.id ?? '';
   const fieldKey = isSetField ? FIELD_NAME_KEY[fieldId] : undefined;
   const fieldName = fieldKey ? t(fieldKey) : fieldId;
-  const preview = isSetField ? args.value ?? '' : '';
+  const preview = isSetField ? (args.value ?? '') : '';
   const showToggle = preview.length >= PREVIEW_TOGGLE_THRESHOLD;
 
   const stateClass =
@@ -814,13 +835,13 @@ function CommandChip({
       const goArgs = cmd.args as { step?: number };
       if (goArgs.step === 2) {
         const gs = ctx?.globalSteep;
-        const hasGs = !!gs && (
-          (gs.S?.trim() ?? '') !== '' ||
-          (gs.T?.trim() ?? '') !== '' ||
-          (gs.E?.trim() ?? '') !== '' ||
-          (gs.ENV?.trim() ?? '') !== '' ||
-          (gs.P?.trim() ?? '') !== ''
-        );
+        const hasGs =
+          !!gs &&
+          ((gs.S?.trim() ?? '') !== '' ||
+            (gs.T?.trim() ?? '') !== '' ||
+            (gs.E?.trim() ?? '') !== '' ||
+            (gs.ENV?.trim() ?? '') !== '' ||
+            (gs.P?.trim() ?? '') !== '');
         if (!hasGs) return t('chat.cmdLabels.generateGlobalSteep');
       }
       // Other steps: append step number for clarity ("Navigate to step 4").
@@ -864,9 +885,7 @@ function CommandChip({
         <span>{headText}</span>
       </div>
       {preview && (
-        <div className={`chat-confirm-preview${expanded ? ' expanded' : ''}`}>
-          {preview}
-        </div>
+        <div className={`chat-confirm-preview${expanded ? ' expanded' : ''}`}>{preview}</div>
       )}
       {showToggle && (
         <div className="chat-confirm-toggle-wrap">
@@ -879,14 +898,14 @@ function CommandChip({
             }}
             onKeyDown={(e) => e.stopPropagation()}
           >
-            <span className="caret" aria-hidden>▾</span>
+            <span className="caret" aria-hidden>
+              ▾
+            </span>
             {expanded ? t('chat.showLess') : t('chat.showMore')}
           </button>
         </div>
       )}
-      {cmd.status === 'error' && cmd.error && (
-        <div className="chat-confirm-error">{cmd.error}</div>
-      )}
+      {cmd.status === 'error' && cmd.error && <div className="chat-confirm-error">{cmd.error}</div>}
     </div>
   );
 }

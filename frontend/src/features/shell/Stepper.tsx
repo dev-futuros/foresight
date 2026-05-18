@@ -44,9 +44,7 @@ export default function Stepper({ state }: Props) {
             // (b) the step is in the "done" lane, and (c) the step itself
             // hasn't opted out via `clickable: false`.
             const clickable =
-              s.clickable !== false &&
-              status === 'done' &&
-              typeof onSelect === 'function';
+              s.clickable !== false && status === 'done' && typeof onSelect === 'function';
             return (
               <li
                 key={s.n}

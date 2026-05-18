@@ -72,11 +72,7 @@ export default function OnboardingDialog({ open, onClose }: Props) {
         </div>
 
         <label className="onboarding-checkbox">
-          <input
-            type="checkbox"
-            checked={noShow}
-            onChange={(e) => setNoShow(e.target.checked)}
-          />
+          <input type="checkbox" checked={noShow} onChange={(e) => setNoShow(e.target.checked)} />
           {t('onboarding.noShow')}
         </label>
       </div>

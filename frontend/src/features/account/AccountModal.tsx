@@ -288,9 +288,7 @@ export default function AccountModal({ open, onClose }: Readonly<Props>) {
                     }}
                     disabled={portalOpening}
                   >
-                    {portalOpening
-                      ? t('account.billing.opening')
-                      : t('account.billing.manage')}
+                    {portalOpening ? t('account.billing.opening') : t('account.billing.manage')}
                   </button>
                 </div>
               )}
@@ -303,9 +301,7 @@ export default function AccountModal({ open, onClose }: Readonly<Props>) {
             <h3 className="account-modal-section-title">{t('account.preferences.title')}</h3>
             <form onSubmit={handlePrefsSubmit} className="account-modal-form">
               <div className="account-modal-field">
-                <label htmlFor="account-modal-language">
-                  {t('account.preferences.language')}
-                </label>
+                <label htmlFor="account-modal-language">{t('account.preferences.language')}</label>
                 <select
                   id="account-modal-language"
                   value={language}

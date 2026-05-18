@@ -43,7 +43,7 @@ function buildShellGoToCommand(navigate: NavigateFunction): CommandSpec<{ step: 
     handler: ({ step }) => {
       if (step === 5) {
         throw new Error(
-          "Step 5 is the analysis loader, not a navigable step. To start the analysis emit runAnalysis instead.",
+          'Step 5 is the analysis loader, not a navigable step. To start the analysis emit runAnalysis instead.',
         );
       }
       if (step === 6) {
@@ -182,9 +182,7 @@ export default function AssistantCommands() {
             'No report is open. Ask the user which saved report to share, or open one first.',
           );
         }
-        const res = await api.post<{ shareUrl: string; expiresAt: string }>(
-          `/reports/${id}/share`,
-        );
+        const res = await api.post<{ shareUrl: string; expiresAt: string }>(`/reports/${id}/share`);
         void qc.invalidateQueries({ queryKey: ['reports'] });
         return `Share link: ${res.data.shareUrl} (expires ${res.data.expiresAt}).`;
       },
@@ -202,9 +200,7 @@ export default function AssistantCommands() {
       handler: (args) => {
         const { id } = resolveReportIdFromArgsOrUrl(args);
         if (!id) {
-          throw new Error(
-            'No report is open. Open the report you want to export, then ask again.',
-          );
+          throw new Error('No report is open. Open the report you want to export, then ask again.');
         }
         navigate(`/reports/${id}?export=1`);
         return 'Opening the report viewer — the export dialog will surface there.';

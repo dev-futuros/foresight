@@ -1,10 +1,4 @@
-import {
-  useMemo,
-  useRef,
-  useState,
-  type ReactElement,
-  type ReactNode,
-} from 'react';
+import { useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type {
   Backcasting,
@@ -110,9 +104,7 @@ const TABS: TabDef[] = [
     key: 'res',
     labelKey: 'report.results.tabs.summary',
     available: (r, input) =>
-      !!r.executiveSummary ||
-      (r.keyUncertainties?.length ?? 0) > 0 ||
-      hasAnySteepValue(input),
+      !!r.executiveSummary || (r.keyUncertainties?.length ?? 0) > 0 || hasAnySteepValue(input),
     render: (r, input) => <TabSummary result={r} input={input} />,
   },
   {
@@ -126,10 +118,11 @@ const TABS: TabDef[] = [
     labelKey: 'report.results.tabs.sp',
     available: (r) => {
       const p = r.scenarioPlanning;
-      return !!p && (
-        (p.drivingForces?.length ?? 0) > 0 ||
-        (p.axes?.length ?? 0) > 0 ||
-        (p.scenarioLogics?.length ?? 0) > 0
+      return (
+        !!p &&
+        ((p.drivingForces?.length ?? 0) > 0 ||
+          (p.axes?.length ?? 0) > 0 ||
+          (p.scenarioLogics?.length ?? 0) > 0)
       );
     },
     render: (r) => <TabScenarioPlanning result={r} />,
@@ -261,10 +254,7 @@ export default function ReportContent({ result, input, rightSlot }: Props) {
       // register the section change.
       const breathingRoom = 16;
       const panelDocTop = window.scrollY + panel.getBoundingClientRect().top;
-      const targetY = Math.max(
-        0,
-        panelDocTop - stickyTop - rowH - breathingRoom,
-      );
+      const targetY = Math.max(0, panelDocTop - stickyTop - rowH - breathingRoom);
       window.scrollTo({ top: targetY, behavior: 'smooth' });
     });
   }

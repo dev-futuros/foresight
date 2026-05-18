@@ -128,8 +128,10 @@
   background: var(--surface-2);
   color: var(--ink-soft);
   box-shadow: 0 6px 18px hsla(0, 0%, 0%, 0.35);
-  transition: border-color 200ms var(--ease), color 200ms var(--ease),
-      background 200ms var(--ease);
+  transition:
+    border-color 200ms var(--ease),
+    color 200ms var(--ease),
+    background 200ms var(--ease);
   cursor: help;
 }
 .wizard-save-status--dirty {
@@ -167,11 +169,15 @@
   animation: wizard-save-spin 0.9s linear infinite;
 }
 @keyframes wizard-save-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ── Page header ────────────────────────────────────────────── */
-.wizard .page-header { margin-bottom: 28px; }
+.wizard .page-header {
+  margin-bottom: 28px;
+}
 .wizard .eyebrow {
   font-family: var(--mono);
   font-size: 10px;
@@ -223,7 +229,9 @@
   margin-bottom: 14px;
   transition: border-color 220ms;
 }
-.wizard .card:hover { border-color: var(--line-strong); }
+.wizard .card:hover {
+  border-color: var(--line-strong);
+}
 .wizard .card.is-accent {
   border-color: var(--line-accent);
   background: linear-gradient(180deg, var(--surface-1), var(--surface-2));
@@ -254,7 +262,10 @@
   display: grid;
   place-items: center;
 }
-.wizard .callout-icon svg { width: 16px; height: 16px; }
+.wizard .callout-icon svg {
+  width: 16px;
+  height: 16px;
+}
 .wizard .callout-text {
   font-family: var(--mono);
   font-size: 11px;
@@ -273,8 +284,12 @@
 }
 
 /* ── Form elements ──────────────────────────────────────────── */
-.wizard .field { margin-bottom: 16px; }
-.wizard .field:last-child { margin-bottom: 0; }
+.wizard .field {
+  margin-bottom: 16px;
+}
+.wizard .field:last-child {
+  margin-bottom: 0;
+}
 
 .wizard label {
   display: block;
@@ -298,7 +313,9 @@
   font-family: var(--sans);
   font-size: 14px;
   outline: none;
-  transition: border-color 180ms var(--ease), box-shadow 180ms var(--ease);
+  transition:
+    border-color 180ms var(--ease),
+    box-shadow 180ms var(--ease);
   appearance: none;
 }
 .wizard textarea {
@@ -311,17 +328,25 @@
 /* Custom resize handle — replaces the ugly default browser triangle. */
 .wizard textarea::-webkit-resizer {
   background-color: transparent;
-  background-image:
-    linear-gradient(135deg,
-      transparent 0%, transparent 50%,
-      var(--ink-faint) 50%, var(--ink-faint) 56%,
-      transparent 56%, transparent 64%,
-      var(--ink-faint) 64%, var(--ink-faint) 70%,
-      transparent 70%);
+  background-image: linear-gradient(
+    135deg,
+    transparent 0%,
+    transparent 50%,
+    var(--ink-faint) 50%,
+    var(--ink-faint) 56%,
+    transparent 56%,
+    transparent 64%,
+    var(--ink-faint) 64%,
+    var(--ink-faint) 70%,
+    transparent 70%
+  );
   border-radius: 0 0 var(--r-md) 0;
 }
 .wizard input::placeholder,
-.wizard textarea::placeholder { color: var(--ink-mute); opacity: 0.65; }
+.wizard textarea::placeholder {
+  color: var(--ink-mute);
+  opacity: 0.65;
+}
 
 .wizard input:hover:not(:focus),
 .wizard select:hover:not(:focus),
@@ -352,11 +377,22 @@
   padding-right: 36px;
   cursor: pointer;
 }
-.wizard select option { background: var(--surface-3); color: var(--ink); }
+.wizard select option {
+  background: var(--surface-3);
+  color: var(--ink);
+}
 
 /* Grid helpers */
-.wizard .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-.wizard .g3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.wizard .g2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.wizard .g3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
 
 /* ── Buttons ────────────────────────────────────────────────── */
 .wizard .btn {
@@ -381,10 +417,23 @@
   user-select: none;
   text-decoration: none;
 }
-.wizard .btn:hover  { background: var(--surface-3); border-color: var(--line-accent); }
-.wizard .btn:active { transform: scale(0.985); }
-.wizard .btn:disabled { opacity: 0.42; cursor: not-allowed; transform: none; }
-.wizard .btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+.wizard .btn:hover {
+  background: var(--surface-3);
+  border-color: var(--line-accent);
+}
+.wizard .btn:active {
+  transform: scale(0.985);
+}
+.wizard .btn:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+  transform: none;
+}
+.wizard .btn svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
 
 .wizard .btn-primary {
   --btn-bg: var(--gold);
@@ -485,7 +534,11 @@
   border-top-color: var(--gold);
   animation: wizard-spin 0.8s linear infinite;
 }
-@keyframes wizard-spin { to { transform: rotate(360deg); } }
+@keyframes wizard-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 /* Brief gold flash on a form field after the assistant writes to it via
    setField. Triggered by NewReportPage's setField handler adding the
@@ -494,8 +547,16 @@
    composes over any existing borders and works on inputs, selects,
    and textareas alike. */
 @keyframes fs-suggest-flash {
-  0%   { box-shadow: 0 0 0 2px var(--gold), 0 0 16px hsla(40, 60%, 56%, 0.4); }
-  100% { box-shadow: 0 0 0 0 transparent, 0 0 0 0 transparent; }
+  0% {
+    box-shadow:
+      0 0 0 2px var(--gold),
+      0 0 16px hsla(40, 60%, 56%, 0.4);
+  }
+  100% {
+    box-shadow:
+      0 0 0 0 transparent,
+      0 0 0 0 transparent;
+  }
 }
 .fs-suggest-flash {
   animation: fs-suggest-flash 1.4s ease-out;
@@ -516,22 +577,67 @@
   background: hsla(0, 0%, 100%, 0.04);
   border: 1px solid var(--line);
 }
-.wizard .dim-icon svg { width: 16px; height: 16px; }
-.wizard .dim-icon.s   { background: var(--blue-bg);   color: var(--blue);   border-color: hsla(213, 88%, 78%, 0.15); }
-.wizard .dim-icon.t   { background: var(--green-bg);  color: var(--green);  border-color: hsla(160, 64%, 67%, 0.15); }
-.wizard .dim-icon.e   { background: var(--gold-bg);   color: var(--gold);   border-color: var(--line-accent); }
-.wizard .dim-icon.env { background: hsla(160, 64%, 67%, 0.05); color: #86efac; border-color: hsla(160, 64%, 67%, 0.12); }
-.wizard .dim-icon.p   { background: var(--purple-bg); color: var(--purple); border-color: hsla(266, 88%, 86%, 0.15); }
-.wizard .dim-icon.h1  { background: var(--green-bg);  color: var(--green);  border-color: hsla(160, 64%, 67%, 0.18); }
-.wizard .dim-icon.h2  { background: var(--blue-bg);   color: var(--blue);   border-color: hsla(213, 88%, 78%, 0.18); }
-.wizard .dim-icon.h3  { background: var(--purple-bg); color: var(--purple); border-color: hsla(266, 88%, 86%, 0.18); }
+.wizard .dim-icon svg {
+  width: 16px;
+  height: 16px;
+}
+.wizard .dim-icon.s {
+  background: var(--blue-bg);
+  color: var(--blue);
+  border-color: hsla(213, 88%, 78%, 0.15);
+}
+.wizard .dim-icon.t {
+  background: var(--green-bg);
+  color: var(--green);
+  border-color: hsla(160, 64%, 67%, 0.15);
+}
+.wizard .dim-icon.e {
+  background: var(--gold-bg);
+  color: var(--gold);
+  border-color: var(--line-accent);
+}
+.wizard .dim-icon.env {
+  background: hsla(160, 64%, 67%, 0.05);
+  color: #86efac;
+  border-color: hsla(160, 64%, 67%, 0.12);
+}
+.wizard .dim-icon.p {
+  background: var(--purple-bg);
+  color: var(--purple);
+  border-color: hsla(266, 88%, 86%, 0.15);
+}
+.wizard .dim-icon.h1 {
+  background: var(--green-bg);
+  color: var(--green);
+  border-color: hsla(160, 64%, 67%, 0.18);
+}
+.wizard .dim-icon.h2 {
+  background: var(--blue-bg);
+  color: var(--blue);
+  border-color: hsla(213, 88%, 78%, 0.18);
+}
+.wizard .dim-icon.h3 {
+  background: var(--purple-bg);
+  color: var(--purple);
+  border-color: hsla(266, 88%, 86%, 0.18);
+}
 
 /* Color modifiers for the dimension label inside steep-card */
-.wizard .steep-dim.s   { color: var(--blue); }
-.wizard .steep-dim.t   { color: var(--green); }
-.wizard .steep-dim.e   { color: var(--gold); }
-.wizard .steep-dim.env { color: #86efac; }
-.wizard .steep-dim.p   { color: var(--purple); }
+.wizard .steep-dim.s {
+  color: var(--blue);
+}
+.wizard .steep-dim.t {
+  color: var(--green);
+}
+.wizard .steep-dim.e {
+  color: var(--gold);
+}
+.wizard .steep-dim.env {
+  color: #86efac;
+}
+.wizard .steep-dim.p {
+  color: var(--purple);
+}
 
 /* ── STEEP cards (Step 2 + Step 3) ──────────────────────────── */
 .wizard .steep-grid {
@@ -549,8 +655,12 @@
   padding: 18px;
   transition: border-color 220ms;
 }
-.wizard .steep-card:hover { border-color: var(--line-strong); }
-.wizard .steep-card.full { grid-column: 1 / -1; }
+.wizard .steep-card:hover {
+  border-color: var(--line-strong);
+}
+.wizard .steep-card.full {
+  grid-column: 1 / -1;
+}
 
 .wizard .steep-head {
   display: flex;
@@ -601,7 +711,10 @@
   cursor: pointer;
   padding: 0;
   flex: none;
-  transition: color 180ms, border-color 180ms, background 180ms;
+  transition:
+    color 180ms,
+    border-color 180ms,
+    background 180ms;
 }
 .wizard .maximize-btn:hover {
   color: var(--ink);
@@ -629,7 +742,14 @@ body.has-maximized {
   z-index: 998;
   animation: wizard-max-fade 200ms ease-out;
 }
-@keyframes wizard-max-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes wizard-max-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
 
 /* Maximized card: centered fixed panel that fills most of the viewport.
    Width capped at 1100px on wide screens for readability. Internal
@@ -656,8 +776,14 @@ body.has-maximized {
   overflow: hidden;
 }
 @keyframes wizard-max-rise {
-  from { opacity: 0; transform: translateX(-50%) translateY(12px) scale(0.98); }
-  to   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
 }
 
 /* In maximized mode the textarea grows to fill remaining space. We bump
@@ -741,12 +867,20 @@ body.has-maximized {
 .wizard .h-card::before {
   content: '';
   position: absolute;
-  left: 0; top: 0; bottom: 0;
+  left: 0;
+  top: 0;
+  bottom: 0;
   width: 3px;
 }
-.wizard .h-card.h1::before { background: var(--green); }
-.wizard .h-card.h2::before { background: var(--blue); }
-.wizard .h-card.h3::before { background: var(--purple); }
+.wizard .h-card.h1::before {
+  background: var(--green);
+}
+.wizard .h-card.h2::before {
+  background: var(--blue);
+}
+.wizard .h-card.h3::before {
+  background: var(--purple);
+}
 .wizard .h-card-head {
   display: flex;
   justify-content: space-between;
@@ -765,9 +899,15 @@ body.has-maximized {
   letter-spacing: -0.005em;
   line-height: 1.2;
 }
-.wizard .h-label.h1 { color: var(--green); }
-.wizard .h-label.h2 { color: var(--blue); }
-.wizard .h-label.h3 { color: var(--purple); }
+.wizard .h-label.h1 {
+  color: var(--green);
+}
+.wizard .h-label.h2 {
+  color: var(--blue);
+}
+.wizard .h-label.h3 {
+  color: var(--purple);
+}
 .wizard .h-sub {
   font-size: 11.5px;
   color: var(--ink-mute);
@@ -852,7 +992,9 @@ body.has-maximized {
   background: hsla(0, 0%, 100%, 0.015);
   border: 1px solid transparent;
   color: var(--ink-mute);
-  transition: background 200ms var(--ease), border-color 200ms var(--ease),
+  transition:
+    background 200ms var(--ease),
+    border-color 200ms var(--ease),
     color 200ms var(--ease);
 }
 .progress-item.running {
@@ -881,7 +1023,9 @@ body.has-maximized {
   flex-shrink: 0;
   background: transparent;
   box-sizing: border-box;
-  transition: border-color 200ms var(--ease), background 200ms var(--ease);
+  transition:
+    border-color 200ms var(--ease),
+    background 200ms var(--ease);
 }
 .progress-item.running .prog-icon {
   border-color: var(--gold);
@@ -925,7 +1069,7 @@ body.has-maximized {
 /* ── Error box ──────────────────────────────────────────────── */
 .wizard .err-box {
   background: var(--red-bg);
-  border: 1px solid hsla(0, 80%, 70%, 0.30);
+  border: 1px solid hsla(0, 80%, 70%, 0.3);
   border-radius: var(--r-md);
   padding: 12px 16px;
   color: var(--red);
@@ -947,7 +1091,7 @@ body.has-maximized {
   gap: 12px;
   justify-content: space-between;
   background: var(--gold-bg);
-  border-color: hsla(40, 60%, 56%, 0.30);
+  border-color: hsla(40, 60%, 56%, 0.3);
   color: var(--ink);
 }
 .wizard .btn-link-inline {
@@ -961,22 +1105,32 @@ body.has-maximized {
   padding: 6px 12px;
   border-radius: var(--r-sm);
   cursor: pointer;
-  transition: background 120ms var(--ease), border-color 120ms var(--ease);
+  transition:
+    background 120ms var(--ease),
+    border-color 120ms var(--ease);
 }
 .wizard .btn-link-inline:hover {
-  background: hsla(40, 60%, 56%, 0.10);
+  background: hsla(40, 60%, 56%, 0.1);
   border-color: var(--gold);
 }
 
 /* ── Responsive ─────────────────────────────────────────────── */
 @media (max-width: 980px) {
-  .wizard .steep-grid { grid-template-columns: 1fr; }
+  .wizard .steep-grid {
+    grid-template-columns: 1fr;
+  }
 }
 @media (max-width: 720px) {
-  .wizard .main { padding: 24px 16px 64px; }
-  .wizard .page-title { font-size: 26px; }
+  .wizard .main {
+    padding: 24px 16px 64px;
+  }
+  .wizard .page-title {
+    font-size: 26px;
+  }
   .wizard .g2,
-  .wizard .g3 { grid-template-columns: 1fr; }
+  .wizard .g3 {
+    grid-template-columns: 1fr;
+  }
   /* Smaller {@code .main} padding + smaller title shrink the header
      stack on narrow viewports; the description usually wraps to more
      lines, but the chip-above-card position still reads cleanly when

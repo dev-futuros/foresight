@@ -77,7 +77,8 @@ const es = {
     send: 'Enviar',
     placeholder: 'Pregúntame sobre la herramienta…',
     typing: 'El asistente está escribiendo',
-    intro: 'Hola — soy el asistente de Foresight. Puedo ayudarte a navegar el wizard, sugerir valores para los campos, lanzar el análisis o explicarte la metodología. Pregunta lo que necesites.',
+    intro:
+      'Hola — soy el asistente de Foresight. Puedo ayudarte a navegar el wizard, sugerir valores para los campos, lanzar el análisis o explicarte la metodología. Pregunta lo que necesites.',
     disclaimer: 'Las respuestas pueden contener errores',
     suggested: {
       s1: [
@@ -209,12 +210,30 @@ const es = {
     titleLine2: 'Diseña mejores estrategias.',
     desc: 'Esta herramienta combina metodología de foresight profesional con IA para generar análisis de escenarios, backcasting y mapas estratégicos en minutos. Sigue estos pasos para tu primer informe:',
     steps: {
-      s1: { title: 'Perfil de empresa', desc: '— nombre, sector, horizonte temporal y reto estratégico a explorar' },
-      s2: { title: 'Contexto Global', desc: '— STEEP mundial generado por IA. El mapa del entorno antes de entrar en el sector' },
-      s3: { title: 'STEEP Sectorial', desc: '— factores del entorno específicos del sector. Usa el botón ✦ IA para sugerencias contextualizadas' },
-      s4: { title: 'Horizon Scan', desc: '— señales de cambio por horizonte H1 / H2 / H3. Alimenta los escenarios con mayor riqueza' },
-      s5: { title: 'Análisis IA', desc: '— genera escenarios 3P, scenario planning, backcasting y mapa estratégico automáticamente' },
-      s6: { title: 'Resultados', desc: '— informe completo exportable en PDF, PowerPoint e informe de cliente' },
+      s1: {
+        title: 'Perfil de empresa',
+        desc: '— nombre, sector, horizonte temporal y reto estratégico a explorar',
+      },
+      s2: {
+        title: 'Contexto Global',
+        desc: '— STEEP mundial generado por IA. El mapa del entorno antes de entrar en el sector',
+      },
+      s3: {
+        title: 'STEEP Sectorial',
+        desc: '— factores del entorno específicos del sector. Usa el botón ✦ IA para sugerencias contextualizadas',
+      },
+      s4: {
+        title: 'Horizon Scan',
+        desc: '— señales de cambio por horizonte H1 / H2 / H3. Alimenta los escenarios con mayor riqueza',
+      },
+      s5: {
+        title: 'Análisis IA',
+        desc: '— genera escenarios 3P, scenario planning, backcasting y mapa estratégico automáticamente',
+      },
+      s6: {
+        title: 'Resultados',
+        desc: '— informe completo exportable en PDF, PowerPoint e informe de cliente',
+      },
     },
     startBtn: 'Empezar →',
     noShow: 'No mostrar de nuevo',
@@ -235,7 +254,8 @@ const es = {
   auth: {
     shell: {
       brandTag: 'Foresight Strategy',
-      consent: 'Al acceder aceptas nuestra <a href="/privacy">Política de Privacidad y Términos</a>.',
+      consent:
+        'Al acceder aceptas nuestra <a href="/privacy">Política de Privacidad y Términos</a>.',
       copyright: '© 2026 Futuros',
       privacyLink: 'Privacidad y Términos',
       contact: 'hello@futuros.io',
@@ -243,7 +263,8 @@ const es = {
     loggedOut: {
       eyebrow: 'Sesión cerrada',
       title: 'Has cerrado sesión',
-      description: 'Tu sesión se ha cerrado de forma segura. Vuelve a iniciar sesión cuando quieras continuar mapeando tu horizonte estratégico.',
+      description:
+        'Tu sesión se ha cerrado de forma segura. Vuelve a iniciar sesión cuando quieras continuar mapeando tu horizonte estratégico.',
       signInAgain: 'Iniciar sesión de nuevo →',
     },
   },
@@ -276,7 +297,8 @@ const es = {
     empresa: {
       eyebrow: 'Paso 01 — Contexto',
       title: 'Perfil de la empresa',
-      description: 'Define el contexto organizativo y el reto estratégico que quieres explorar con el análisis de foresight.',
+      description:
+        'Define el contexto organizativo y el reto estratégico que quieres explorar con el análisis de foresight.',
       name: 'Nombre de la empresa',
       namePlaceholder: 'Ej: Innovatech S.L.',
       sector: 'Sector / Industria',
@@ -298,9 +320,11 @@ const es = {
         global: 'Global',
       },
       challenge: 'Reto estratégico — pregunta de foresight',
-      challengePlaceholder: '¿Qué desafío o pregunta estratégica quieres explorar? Ej: ¿Cómo adaptar nuestro modelo de negocio a la automatización del sector?',
+      challengePlaceholder:
+        '¿Qué desafío o pregunta estratégica quieres explorar? Ej: ¿Cómo adaptar nuestro modelo de negocio a la automatización del sector?',
       strengths: 'Capacidades y ventajas competitivas actuales (opcional)',
-      strengthsPlaceholder: 'Ej: Red de distribución propia, know-how técnico diferencial, base de clientes fidelizada…',
+      strengthsPlaceholder:
+        'Ej: Red de distribución propia, know-how técnico diferencial, base de clientes fidelizada…',
       consultantLabel: 'Datos del consultor — aparecerán en la portada del informe',
       consultantName: 'Nombre del consultor',
       consultantNamePlaceholder: 'Ej: Ana García',
@@ -316,7 +340,8 @@ const es = {
     global: {
       eyebrow: 'Paso 02 — Entorno global',
       title: 'Contexto STEEP Mundial',
-      description: 'El entorno macro que rodea a tu cliente. La IA lo genera con datos actuales filtrados por sector — revisa y ajusta antes de entrar en el análisis sectorial.',
+      description:
+        'El entorno macro que rodea a tu cliente. La IA lo genera con datos actuales filtrados por sector — revisa y ajusta antes de entrar en el análisis sectorial.',
       banner: 'MACRO GLOBAL — Editable. Estos factores enmarcarán el análisis sectorial.',
       regenerate: 'Regenerar',
       regenerateTitle: 'Vuelve a generar el STEEP mundial con datos actuales',
@@ -330,7 +355,8 @@ const es = {
       progressItems: {
         scan: 'Investigación — recopilando fuentes actuales',
       },
-      errorDefault: 'No se pudo generar el contexto global automáticamente. Puedes introducirlo manualmente o continuar sin él.',
+      errorDefault:
+        'No se pudo generar el contexto global automáticamente. Puedes introducirlo manualmente o continuar sin él.',
       next: 'Continuar — STEEP Sectorial →',
       dimensions: {
         S: 'Social',
@@ -357,17 +383,23 @@ const es = {
     steep: {
       eyebrow: 'Paso 03 — Entorno sectorial',
       title: 'Análisis STEEP',
-      description: 'Introduce los factores clave de cada dimensión para el sector de tu cliente. Usa el botón IA para recibir sugerencias específicas.',
+      description:
+        'Introduce los factores clave de cada dimensión para el sector de tu cliente. Usa el botón IA para recibir sugerencias específicas.',
       aiSuggest: 'IA',
       aiTooltip: 'Genera 3-5 factores clave para esta dimensión',
       aiTooltipDisabled: 'Completa el perfil de la empresa primero',
       errorDefault: 'No se pudieron generar sugerencias. Inténtalo de nuevo.',
       placeholders: {
-        social: 'Ej: Envejecimiento de la población, generación Z como consumidores, nuevas formas de trabajo…',
-        technological: 'Ej: IA generativa, automatización robótica, computación cuántica, plataformas cloud…',
-        economic: 'Ej: Tipos de interés altos, reshoring industrial, economía circular, acceso a capital…',
-        environmental: 'Ej: Normativa ESG, escasez de materias primas, huella de carbono, transición energética…',
-        political: 'Ej: Tensiones geopolíticas, regulación IA, políticas de transición energética, proteccionismo comercial…',
+        social:
+          'Ej: Envejecimiento de la población, generación Z como consumidores, nuevas formas de trabajo…',
+        technological:
+          'Ej: IA generativa, automatización robótica, computación cuántica, plataformas cloud…',
+        economic:
+          'Ej: Tipos de interés altos, reshoring industrial, economía circular, acceso a capital…',
+        environmental:
+          'Ej: Normativa ESG, escasez de materias primas, huella de carbono, transición energética…',
+        political:
+          'Ej: Tensiones geopolíticas, regulación IA, políticas de transición energética, proteccionismo comercial…',
       },
       dimensions: {
         social: 'Social',
@@ -388,7 +420,8 @@ const es = {
     horizon: {
       eyebrow: 'Paso 04 — Señales de cambio',
       title: 'Horizon Scanning',
-      description: 'Explora señales de cambio por horizonte temporal. H1 es lo que ya está ocurriendo, H2 lo que está emergiendo, H3 lo que podría transformar el sector en el largo plazo.',
+      description:
+        'Explora señales de cambio por horizonte temporal. H1 es lo que ya está ocurriendo, H2 lo que está emergiendo, H3 lo que podría transformar el sector en el largo plazo.',
       aiSuggest: 'IA',
       aiTooltip: 'Genera 3-5 señales clave para este horizonte',
       aiTooltipDisabled: 'Completa el perfil de la empresa primero',
@@ -399,9 +432,18 @@ const es = {
         H3: '¿Qué podría transformarlo todo? Ej: cambios tecnológicos radicales, reconfiguración geopolítica, nuevos paradigmas sociales o económicos…',
       },
       bands: {
-        H1: { label: 'Presente extendido', desc: '0–2 años · Señales ya visibles, tendencias que se están materializando' },
-        H2: { label: 'Futuro emergente', desc: '2–5 años · Señales débiles que podrían convertirse en tendencias dominantes' },
-        H3: { label: 'Futuro posible', desc: '5+ años · Ideas especulativas, wildcards y cambios sistémicos de fondo' },
+        H1: {
+          label: 'Presente extendido',
+          desc: '0–2 años · Señales ya visibles, tendencias que se están materializando',
+        },
+        H2: {
+          label: 'Futuro emergente',
+          desc: '2–5 años · Señales débiles que podrían convertirse en tendencias dominantes',
+        },
+        H3: {
+          label: 'Futuro posible',
+          desc: '5+ años · Ideas especulativas, wildcards y cambios sistémicos de fondo',
+        },
       },
       submit: '✦ Generar informe →',
       submitContinue: 'Continuar — Informe →',
@@ -518,7 +560,8 @@ const es = {
     },
     results: {
       pendingTitle: 'Análisis pendiente',
-      pendingDesc: 'Tus inputs están guardados. Genera el análisis con IA para construir el informe completo.',
+      pendingDesc:
+        'Tus inputs están guardados. Genera el análisis con IA para construir el informe completo.',
       generateBtn: '✦ Generar análisis con IA',
       analyzing: 'Generando análisis estratégico…',
       errorDefault: 'No se pudo generar el análisis. Inténtalo de nuevo.',
@@ -548,7 +591,8 @@ const es = {
         success: 'Factores de éxito',
         firstmove: 'Primer movimiento',
         probability: 'Probabilidad',
-        probabilityHint: 'Probabilidad relativa estimada por el modelo para este escenario. Las tres probabilidades suman 100 % y reflejan la lectura del modelo sobre las señales actuales, las tendencias y las condiciones estructurales descritas en tus entradas y la investigación con búsqueda web.',
+        probabilityHint:
+          'Probabilidad relativa estimada por el modelo para este escenario. Las tres probabilidades suman 100 % y reflejan la lectura del modelo sobre las señales actuales, las tendencias y las condiciones estructurales descritas en tus entradas y la investigación con búsqueda web.',
       },
       steep: {
         title: 'Análisis STEEP',
@@ -565,18 +609,25 @@ const es = {
         tipImpact: 'Impacto',
       },
       sp: {
-        intro: 'Las fuerzas motrices que conforman cada escenario, los ejes de incertidumbre crítica y la lógica narrativa de cada futuro posible.',
+        intro:
+          'Las fuerzas motrices que conforman cada escenario, los ejes de incertidumbre crítica y la lógica narrativa de cada futuro posible.',
         forces: 'Fuerzas motrices del cambio',
         axesTitle: 'Ejes de incertidumbre crítica',
         matrix: 'Matriz de impacto e incertidumbre',
         logics: 'Lógica narrativa por escenario',
         rationale: 'Justificación',
-        impactScoreHint: 'Influencia estimada por el modelo de esta fuerza sobre el resultado estratégico, en una escala de 0 a 100. Las puntuaciones descienden estrictamente del #1 al #4, por lo que reflejan peso relativo y no magnitud absoluta.',
+        impactScoreHint:
+          'Influencia estimada por el modelo de esta fuerza sobre el resultado estratégico, en una escala de 0 a 100. Las puntuaciones descienden estrictamente del #1 al #4, por lo que reflejan peso relativo y no magnitud absoluta.',
         impact: { low: 'Impacto bajo', medium: 'Impacto medio', high: 'Impacto alto' },
-        unc: { low: 'Incertidumbre baja', medium: 'Incertidumbre media', high: 'Incertidumbre alta' },
+        unc: {
+          low: 'Incertidumbre baja',
+          medium: 'Incertidumbre media',
+          high: 'Incertidumbre alta',
+        },
       },
       bc: {
-        intro: 'El backcasting parte del estado futuro deseado y traza hacia atrás los hitos y decisiones necesarias para llegar a él.',
+        intro:
+          'El backcasting parte del estado futuro deseado y traza hacia atrás los hitos y decisiones necesarias para llegar a él.',
         vision: 'Visión —',
         now: 'El siguiente movimiento',
         start: 'Punto de partida',
@@ -594,7 +645,8 @@ const es = {
         priorityCount_other: '{{count}} prioridades',
       },
       sources: {
-        intro: 'Fuentes públicas consultadas para fundamentar el análisis. Se obtuvieron mediante búsqueda web durante la generación.',
+        intro:
+          'Fuentes públicas consultadas para fundamentar el análisis. Se obtuvieron mediante búsqueda web durante la generación.',
         total: 'fuentes únicas consultadas',
         global: 'Contexto global (Paso 2)',
         report: 'Informe',
@@ -603,7 +655,8 @@ const es = {
         sectionC: 'Scenario planning',
         sectionD: 'Prioridades estratégicas',
         sectionE: 'Backcasting',
-        empty: 'Este informe se generó sin búsqueda web — el modelo respondió a partir de su conocimiento entrenado.',
+        empty:
+          'Este informe se generó sin búsqueda web — el modelo respondió a partir de su conocimiento entrenado.',
       },
       progressItems: {
         research: 'Investigación — recopilando fuentes actuales',

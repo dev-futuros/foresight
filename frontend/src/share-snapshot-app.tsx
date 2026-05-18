@@ -40,7 +40,12 @@ export function SnapshotApp({ report }: { report: SnapshotReport }) {
       : [];
     const set = new Set<SnapshotLang>([primaryLang, ...fromTranslations]);
     // Stable order: primary first, others alphabetical.
-    return [primaryLang, ...Array.from(set).filter((l) => l !== primaryLang).sort()];
+    return [
+      primaryLang,
+      ...Array.from(set)
+        .filter((l) => l !== primaryLang)
+        .sort(),
+    ];
   }, [report.translations, primaryLang]);
 
   // Default-open language: report-lang tag → primary. Persisted choice
@@ -81,10 +86,10 @@ export function SnapshotApp({ report }: { report: SnapshotReport }) {
   const activePayload: LanguagePayload =
     activeLang === primaryLang
       ? { inputData: report.inputData, resultData: report.resultData }
-      : report.translations?.[activeLang] ?? {
+      : (report.translations?.[activeLang] ?? {
           inputData: report.inputData,
           resultData: report.resultData,
-        };
+        });
 
   const shareReport: ShareReport = {
     title: report.title,

@@ -28,16 +28,24 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4), 0 0 24px hsla(40, 60%, 56%, 0.1);
-  transition: transform 180ms ease, color 180ms, background 180ms,
-    border-color 180ms, box-shadow 180ms ease;
+  box-shadow:
+    0 6px 20px rgba(0, 0, 0, 0.4),
+    0 0 24px hsla(40, 60%, 56%, 0.1);
+  transition:
+    transform 180ms ease,
+    color 180ms,
+    background 180ms,
+    border-color 180ms,
+    box-shadow 180ms ease;
 }
 .chat-edge:hover {
   color: var(--ink);
   background: hsla(240, 8%, 14%, 0.95);
   border-color: var(--gold);
   transform: translateY(-2px);
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5), 0 0 32px hsla(40, 60%, 56%, 0.18);
+  box-shadow:
+    0 10px 26px rgba(0, 0, 0, 0.5),
+    0 0 32px hsla(40, 60%, 56%, 0.18);
 }
 .chat-edge:active {
   transform: translateY(0);
@@ -53,11 +61,16 @@
   animation: chat-edge-pulse 2.4s ease-in-out infinite;
 }
 @keyframes chat-edge-pulse {
-  0%, 100% {
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4), 0 0 0 0 hsla(40, 80%, 60%, 0.35);
+  0%,
+  100% {
+    box-shadow:
+      0 6px 20px rgba(0, 0, 0, 0.4),
+      0 0 0 0 hsla(40, 80%, 60%, 0.35);
   }
   50% {
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4), 0 0 0 8px hsla(40, 80%, 60%, 0.15);
+    box-shadow:
+      0 6px 20px rgba(0, 0, 0, 0.4),
+      0 0 0 8px hsla(40, 80%, 60%, 0.15);
   }
 }
 .chat-edge-badge {
@@ -107,16 +120,20 @@
   flex-direction: column;
   overflow: hidden;
   visibility: hidden;
-  transition: width 320ms cubic-bezier(0.32, 0.72, 0.24, 1),
-    border-color 320ms ease, visibility 0s linear 320ms;
+  transition:
+    width 320ms cubic-bezier(0.32, 0.72, 0.24, 1),
+    border-color 320ms ease,
+    visibility 0s linear 320ms;
 }
 .chat-panel.open {
   width: min(var(--chat-w, 380px), 100vw);
   visibility: visible;
   border-left-color: var(--line-strong);
   box-shadow: -8px 0 32px rgba(0, 0, 0, 0.5);
-  transition: width 320ms cubic-bezier(0.32, 0.72, 0.24, 1),
-    border-color 320ms ease, visibility 0s linear 0s;
+  transition:
+    width 320ms cubic-bezier(0.32, 0.72, 0.24, 1),
+    border-color 320ms ease,
+    visibility 0s linear 0s;
 }
 /* When the user is dragging the resize handle we suppress the slide
    transition so the panel tracks the cursor without easing. JS toggles
@@ -229,7 +246,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color 150ms, background 150ms;
+  transition:
+    color 150ms,
+    background 150ms;
   flex-shrink: 0;
   padding: 0;
 }
@@ -406,8 +425,14 @@
   animation-delay: 0.4s;
 }
 @keyframes chat-blink {
-  0%, 80%, 100% { opacity: 0.3; }
-  40% { opacity: 1; }
+  0%,
+  80%,
+  100% {
+    opacity: 0.3;
+  }
+  40% {
+    opacity: 1;
+  }
 }
 
 /* Confirm chip — a single clickable card that applies the proposed action
@@ -429,7 +454,9 @@
   font: inherit;
   font-size: 12px;
   line-height: 1.4;
-  transition: border-color 150ms, background 150ms;
+  transition:
+    border-color 150ms,
+    background 150ms;
 }
 .chat-confirm:hover {
   border-color: var(--gold);
@@ -461,8 +488,13 @@
   animation: chat-confirm-streaming-pulse 1.4s ease-in-out infinite;
 }
 @keyframes chat-confirm-streaming-pulse {
-  0%, 100% { opacity: 0.55; }
-  50% { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 /* Applied state — chip stays visible after the user clicks it but
@@ -541,7 +573,10 @@
   color: var(--ink-mute);
   cursor: pointer;
   user-select: none;
-  transition: color 150ms, background 150ms, border-color 150ms;
+  transition:
+    color 150ms,
+    background 150ms,
+    border-color 150ms;
 }
 .chat-confirm-toggle:hover {
   color: var(--ink);
@@ -655,7 +690,11 @@
   border: 1px solid var(--gold-soft);
   border-radius: var(--r-sm);
   cursor: pointer;
-  transition: color 150ms, background 150ms, border-color 150ms, opacity 150ms;
+  transition:
+    color 150ms,
+    background 150ms,
+    border-color 150ms,
+    opacity 150ms;
 }
 .chat-apply-all:hover:not(:disabled):not(.done) {
   background: var(--gold-bg-2);
@@ -711,7 +750,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 150ms, opacity 150ms;
+  transition:
+    background 150ms,
+    opacity 150ms;
   flex-shrink: 0;
 }
 .chat-send:hover:not(:disabled) {

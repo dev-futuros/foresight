@@ -89,7 +89,7 @@ api.interceptors.response.use(
     // the user was deleted). The Clerk SDK will surface that to the UI on its own; we just
     // forward the error so React Query can mark the query as failed.
     return Promise.reject(error);
-  }
+  },
 );
 
 export default api;

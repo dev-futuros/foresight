@@ -66,7 +66,11 @@ export default function Avatar({ src, name, size = 32, className }: Readonly<Pro
 
   if (showInitials) {
     return (
-      <span className={`${rootClass} avatar--initials`} style={style} aria-label={name ?? undefined}>
+      <span
+        className={`${rootClass} avatar--initials`}
+        style={style}
+        aria-label={name ?? undefined}
+      >
         <span className="avatar-initials">{initials}</span>
       </span>
     );

@@ -71,8 +71,14 @@
   animation: auth-rise 0.6s var(--ease) both;
 }
 @keyframes auth-rise {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ── Brand mark ───────────────────────────────────────────── */
@@ -148,8 +154,9 @@
   text-decoration-color: rgba(110, 106, 100, 0.4);
   text-underline-offset: 2px;
 }
-.consent-line a:hover { color: var(--gold); }
-
+.consent-line a:hover {
+  color: var(--gold);
+}
 
 /* ============================================================
    CLERK COMPONENT OVERRIDES
@@ -213,7 +220,9 @@
 }
 
 /* Hide Clerk's built-in header (logo + heading) — we render our own */
-.cl-header-hidden { display: none !important; }
+.cl-header-hidden {
+  display: none !important;
+}
 
 /* Per-form sub-header (e.g. "Verify your email" on the second step) */
 .cl-form-header-title {
@@ -232,7 +241,9 @@
 
 /* Form row + label. .cl-form's flex gap handles vertical spacing now;
    the row itself contributes no margin so the layout stays predictable. */
-.cl-field { margin-bottom: 0; }
+.cl-field {
+  margin-bottom: 0;
+}
 .cl-label {
   display: block;
   font-family: var(--mono);
@@ -267,7 +278,9 @@
   color: var(--ink-mute);
   opacity: 0.7;
 }
-.cl-input:hover:not(:focus) { border-color: var(--line-strong); }
+.cl-input:hover:not(:focus) {
+  border-color: var(--line-strong);
+}
 .cl-input:focus {
   border-color: var(--line-accent);
   box-shadow: 0 0 0 3px hsla(40, 60%, 56%, 0.08);
@@ -290,9 +303,14 @@
   place-items: center;
   border-radius: var(--r-sm);
   cursor: pointer;
-  transition: color 150ms, background 150ms;
+  transition:
+    color 150ms,
+    background 150ms;
 }
-.cl-eye-btn:hover { color: var(--ink); background: hsla(0, 0%, 100%, 0.04); }
+.cl-eye-btn:hover {
+  color: var(--ink);
+  background: hsla(0, 0%, 100%, 0.04);
+}
 
 /* Hint + error messages */
 .cl-hint {
@@ -332,7 +350,10 @@
   font-weight: 600;
   letter-spacing: 0.005em;
   cursor: pointer;
-  transition: opacity 180ms, transform 120ms var(--ease), box-shadow 200ms;
+  transition:
+    opacity 180ms,
+    transform 120ms var(--ease),
+    box-shadow 200ms;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -368,7 +389,10 @@
   font-family: var(--sans);
   font-size: 13px;
   cursor: pointer;
-  transition: border-color 150ms, color 150ms, background 150ms;
+  transition:
+    border-color 150ms,
+    color 150ms,
+    background 150ms;
 }
 .cl-btn-reset:hover {
   border-color: var(--line-strong);
@@ -397,13 +421,17 @@
   color: var(--ink-mute);
   letter-spacing: 0.04em;
 }
-.cl-footer-action-text { color: var(--ink-mute); }
+.cl-footer-action-text {
+  color: var(--ink-mute);
+}
 .cl-footer-action-link {
   color: var(--gold);
   text-decoration: none;
   border-bottom: 1px solid rgba(212, 168, 83, 0.35);
   padding-bottom: 1px;
-  transition: border-color 200ms, color 200ms;
+  transition:
+    border-color 200ms,
+    color 200ms;
 }
 .cl-footer-action-link:hover {
   color: var(--gold-soft);
@@ -451,15 +479,21 @@
   font-family: var(--sans) !important;
   font-size: 13px !important;
   cursor: pointer;
-  transition: border-color 150ms, background 150ms;
+  transition:
+    border-color 150ms,
+    background 150ms;
   overflow: visible !important;
 }
 .cl-social-btn:hover {
   border-color: var(--line-strong) !important;
   background: var(--surface-hi) !important;
 }
-.cl-social-btn-text { color: var(--ink) !important; }
-.cl-social-btn-arrow { color: var(--ink-mute) !important; }
+.cl-social-btn-text {
+  color: var(--ink) !important;
+}
+.cl-social-btn-arrow {
+  color: var(--ink-mute) !important;
+}
 
 /* Icon-only buttons (small, Apple/LinkedIn/Microsoft).
    Clerk's default radius for these is half the button width, which makes
@@ -476,7 +510,9 @@
 .cl-social-icon-btn {
   background: transparent !important;
   border: 1px solid var(--line) !important;
-  transition: border-color 150ms, background 150ms;
+  transition:
+    border-color 150ms,
+    background 150ms;
 }
 .cl-social-icon-btn:hover {
   border-color: var(--line-strong) !important;
@@ -489,8 +525,12 @@
 }
 
 /* Divider ("OR") between social and form */
-.cl-divider { margin: 8px 0; }
-.cl-divider-line { background: var(--line); }
+.cl-divider {
+  margin: 8px 0;
+}
+.cl-divider-line {
+  background: var(--line);
+}
 .cl-divider-text {
   font-family: var(--mono);
   font-size: 10px;
@@ -528,7 +568,9 @@
   border-radius: var(--r-sm);
   transition: background 150ms;
 }
-.cl-identity-preview-edit:hover { background: var(--gold-bg); }
+.cl-identity-preview-edit:hover {
+  background: var(--gold-bg);
+}
 
 /* OTP / verification code input */
 .cl-otp-input {
@@ -541,7 +583,9 @@
   text-align: center;
   border-radius: var(--r-md);
   outline: none;
-  transition: border-color 180ms, box-shadow 180ms;
+  transition:
+    border-color 180ms,
+    box-shadow 180ms;
 }
 .cl-otp-input:focus {
   border-color: var(--line-accent);
@@ -559,7 +603,9 @@
   letter-spacing: 0.04em;
   padding: 4px 0;
 }
-.cl-resend-link:hover { color: var(--gold-soft); }
+.cl-resend-link:hover {
+  color: var(--gold-soft);
+}
 
 /* Alternative methods (e.g. "Sign in with passkey instead") */
 .cl-alt-method-btn {
@@ -571,7 +617,9 @@
   font-family: var(--sans);
   font-size: 13px;
   cursor: pointer;
-  transition: border-color 150ms, color 150ms;
+  transition:
+    border-color 150ms,
+    color 150ms;
 }
 .cl-alt-method-btn:hover {
   border-color: var(--line-accent);
@@ -594,8 +642,17 @@
 
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 480px) {
-  .auth-bg { padding: 16px; }
-  .auth-bg .card { padding: 28px 22px 24px; }
-  .auth-bg h1 { font-size: 24px; }
-  .lang-toggle { top: 16px; right: 16px; }
+  .auth-bg {
+    padding: 16px;
+  }
+  .auth-bg .card {
+    padding: 28px 22px 24px;
+  }
+  .auth-bg h1 {
+    font-size: 24px;
+  }
+  .lang-toggle {
+    top: 16px;
+    right: 16px;
+  }
 }

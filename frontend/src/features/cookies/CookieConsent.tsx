@@ -99,12 +99,16 @@ export default function CookieConsent() {
   };
 
   return (
-    <div className="fs-cookies fs-cookies-show" role="dialog" aria-live="polite" aria-label="Cookies consent">
+    <div
+      className="fs-cookies fs-cookies-show"
+      role="dialog"
+      aria-live="polite"
+      aria-label="Cookies consent"
+    >
       <div className="fs-cookies-text">
         <div className="fs-cookies-title">{t('cookies.title')}</div>
         <div className="fs-cookies-body">
-          {t('cookies.body')}{' '}
-          <Link to="/privacy">{t('cookies.learn')}</Link>.
+          {t('cookies.body')} <Link to="/privacy">{t('cookies.learn')}</Link>.
         </div>
       </div>
       <div className="fs-cookies-actions">

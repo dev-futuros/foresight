@@ -1,9 +1,6 @@
 import { type ReactElement, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import ReportContent, {
-  type InputProjection,
-  type ResultData,
-} from '../report/ReportContent';
+import ReportContent, { type InputProjection, type ResultData } from '../report/ReportContent';
 import '../report/report.css';
 import './publicShare.css';
 
@@ -93,9 +90,7 @@ export default function ShareView({ report, languageSwitcher }: Props): ReactEle
                     {t('report.meta.horizon', { value: cp.horizon })}
                   </span>
                 )}
-                {cp.sector && (
-                  <span className="report-meta-item">· {cp.sector}</span>
-                )}
+                {cp.sector && <span className="report-meta-item">· {cp.sector}</span>}
                 {/* (Language switcher used to live here. It now feeds
                     into ReportContent's rightSlot so it pins with the
                     sticky tab row, mirroring the in-app viewer's

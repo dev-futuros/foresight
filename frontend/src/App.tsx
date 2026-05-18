@@ -52,9 +52,7 @@ function LoggedOutRoute() {
           to Kinde yet. Kinde will fall back to its default (or whatever
           the user picked last on a Kinde page). When the post-login
           profile-read work lands, we may want to forward i18n.language. */}
-      <LoginLink className="kinde-continue-btn">
-        {t('auth.loggedOut.signInAgain')}
-      </LoginLink>
+      <LoginLink className="kinde-continue-btn">{t('auth.loggedOut.signInAgain')}</LoginLink>
     </AuthLayout>
   );
 }
@@ -100,7 +98,13 @@ function AppRoutes() {
       <Route path="/callback" element={<CallbackRoute />} />
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/share/:token" element={<PublicSharePage />} />
-      <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
+      <Route
+        element={
+          <ProtectedRoute>
+            <AppShell />
+          </ProtectedRoute>
+        }
+      >
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/reports/new" element={<NewReportPage />} />
         <Route path="/reports/:id/edit" element={<NewReportPage />} />

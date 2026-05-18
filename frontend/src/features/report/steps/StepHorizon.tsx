@@ -112,9 +112,7 @@ export default function StepHorizon({
 
   return (
     <div>
-      {max.activeKey && (
-        <div className="maximize-backdrop" onClick={max.minimize} aria-hidden />
-      )}
+      {max.activeKey && <div className="maximize-backdrop" onClick={max.minimize} aria-hidden />}
       <div className="eyebrow">{t('wizard.horizon.eyebrow')}</div>
       <h1 className="page-title">{t('wizard.horizon.title')}</h1>
       <p className="page-desc">{t('wizard.horizon.description')}</p>
@@ -133,9 +131,7 @@ export default function StepHorizon({
                 <div className="h-card-head-left">
                   <div className={`dim-icon ${k}`}>{key}</div>
                   <div>
-                    <div className={`h-label ${k}`}>
-                      {t(`wizard.horizon.bands.${key}.label`)}
-                    </div>
+                    <div className={`h-label ${k}`}>{t(`wizard.horizon.bands.${key}.label`)}</div>
                     <div className="h-sub">{t(`wizard.horizon.bands.${key}.desc`)}</div>
                   </div>
                 </div>
@@ -233,11 +229,7 @@ export default function StepHorizon({
           };
           const generateOption = {
             key: 'generate' as const,
-            label: isSubmitting ? (
-              <span className="btn-spinner" />
-            ) : (
-              t('wizard.horizon.submit')
-            ),
+            label: isSubmitting ? <span className="btn-spinner" /> : t('wizard.horizon.submit'),
             onClick: onSubmit,
             // Defence in depth — examples normally end up with Generate
             // omitted from the options list (see below), so this only
@@ -254,8 +246,10 @@ export default function StepHorizon({
           // to discover.
           const primaryAction = hasReport ? continueOption : generateOption;
           const altActions = disableGenerate
-              ? (hasReport ? [] : [continueOption])
-              : [hasReport ? generateOption : continueOption];
+            ? hasReport
+              ? []
+              : [continueOption]
+            : [hasReport ? generateOption : continueOption];
           return (
             <SplitButton
               disabled={!hasAny || isSubmitting}

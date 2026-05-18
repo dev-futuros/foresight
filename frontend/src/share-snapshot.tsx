@@ -59,9 +59,7 @@ async function boot(): Promise<void> {
   // primary-language content for shares opened with a non-primary
   // default.
   const defaultLang =
-    (readTextTag('report-lang') as SnapshotLang | null) ??
-    report.primaryLanguage ??
-    'es';
+    (readTextTag('report-lang') as SnapshotLang | null) ?? report.primaryLanguage ?? 'es';
   if (i18n.language?.slice(0, 2) !== defaultLang.slice(0, 2)) {
     await i18n.changeLanguage(defaultLang);
   }

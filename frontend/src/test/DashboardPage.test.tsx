@@ -44,18 +44,21 @@ import { useReports } from '../hooks/useReports';
 /** Default the new ReportSummary translation fields so individual tests
  *  don't have to spell them out. Every fixture is treated as a Spanish
  *  primary, no extra translations. */
-const summary = (s: Omit<ReportSummary, 'primaryLanguage' | 'availableLanguages'>): ReportSummary => ({
+const summary = (
+  s: Omit<ReportSummary, 'primaryLanguage' | 'availableLanguages'>,
+): ReportSummary => ({
   ...s,
   primaryLanguage: 'es',
   availableLanguages: ['es'],
 });
 
-const mockPage = (reports: ReportSummary[] = []) => ({
-  data: { content: reports, totalElements: reports.length, totalPages: 1, size: 20, number: 0 },
-  isLoading: false,
-  isError: false,
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-}) as any;
+const mockPage = (reports: ReportSummary[] = []) =>
+  ({
+    data: { content: reports, totalElements: reports.length, totalPages: 1, size: 20, number: 0 },
+    isLoading: false,
+    isError: false,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  }) as any;
 
 describe('DashboardPage', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -69,24 +72,46 @@ describe('DashboardPage', () => {
   });
 
   it('shows loading state', () => {
-    vi.mocked(useReports).mockReturnValue({ data: undefined, isLoading: true, isError: false } as ReturnType<typeof useReports>);
+    vi.mocked(useReports).mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      isError: false,
+    } as ReturnType<typeof useReports>);
     renderWithProviders(<DashboardPage />);
 
     expect(screen.getByText(/cargando informes/i)).toBeInTheDocument();
   });
 
   it('shows error state', () => {
-    vi.mocked(useReports).mockReturnValue({ data: undefined, isLoading: false, isError: true } as ReturnType<typeof useReports>);
+    vi.mocked(useReports).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+    } as ReturnType<typeof useReports>);
     renderWithProviders(<DashboardPage />);
 
     expect(screen.getByText(/error al cargar/i)).toBeInTheDocument();
   });
 
   it('renders report cards with title and status', () => {
-    vi.mocked(useReports).mockReturnValue(mockPage([
-      summary({ id: 'r1', title: 'Informe Q1 2026', status: 'COMPLETED', createdAt: '2026-04-01T10:00:00Z', updatedAt: '2026-04-01T10:00:00Z' }),
-      summary({ id: 'r2', title: 'Informe Q2 2026', status: 'DRAFT',     createdAt: '2026-04-10T10:00:00Z', updatedAt: '2026-04-10T10:00:00Z' }),
-    ]) as ReturnType<typeof useReports>);
+    vi.mocked(useReports).mockReturnValue(
+      mockPage([
+        summary({
+          id: 'r1',
+          title: 'Informe Q1 2026',
+          status: 'COMPLETED',
+          createdAt: '2026-04-01T10:00:00Z',
+          updatedAt: '2026-04-01T10:00:00Z',
+        }),
+        summary({
+          id: 'r2',
+          title: 'Informe Q2 2026',
+          status: 'DRAFT',
+          createdAt: '2026-04-10T10:00:00Z',
+          updatedAt: '2026-04-10T10:00:00Z',
+        }),
+      ]) as ReturnType<typeof useReports>,
+    );
 
     renderWithProviders(<DashboardPage />);
 
@@ -97,12 +122,38 @@ describe('DashboardPage', () => {
   });
 
   it('renders the four stat cards once data is loaded', () => {
-    vi.mocked(useReports).mockReturnValue(mockPage([
-      summary({ id: 'r1', title: 'A', status: 'COMPLETED', createdAt: '2026-04-01T10:00:00Z', updatedAt: '2026-04-01T10:00:00Z' }),
-      summary({ id: 'r2', title: 'B', status: 'DRAFT',     createdAt: '2026-04-10T10:00:00Z', updatedAt: '2026-04-10T10:00:00Z' }),
-      summary({ id: 'r3', title: 'C', status: 'PROCESSING',createdAt: '2026-04-11T10:00:00Z', updatedAt: '2026-04-11T10:00:00Z' }),
-      summary({ id: 'r4', title: 'D', status: 'FAILED',    createdAt: '2026-04-12T10:00:00Z', updatedAt: '2026-04-12T10:00:00Z' }),
-    ]) as ReturnType<typeof useReports>);
+    vi.mocked(useReports).mockReturnValue(
+      mockPage([
+        summary({
+          id: 'r1',
+          title: 'A',
+          status: 'COMPLETED',
+          createdAt: '2026-04-01T10:00:00Z',
+          updatedAt: '2026-04-01T10:00:00Z',
+        }),
+        summary({
+          id: 'r2',
+          title: 'B',
+          status: 'DRAFT',
+          createdAt: '2026-04-10T10:00:00Z',
+          updatedAt: '2026-04-10T10:00:00Z',
+        }),
+        summary({
+          id: 'r3',
+          title: 'C',
+          status: 'PROCESSING',
+          createdAt: '2026-04-11T10:00:00Z',
+          updatedAt: '2026-04-11T10:00:00Z',
+        }),
+        summary({
+          id: 'r4',
+          title: 'D',
+          status: 'FAILED',
+          createdAt: '2026-04-12T10:00:00Z',
+          updatedAt: '2026-04-12T10:00:00Z',
+        }),
+      ]) as ReturnType<typeof useReports>,
+    );
 
     renderWithProviders(<DashboardPage />);
 
@@ -117,6 +168,9 @@ describe('DashboardPage', () => {
     vi.mocked(useReports).mockReturnValue(mockPage() as ReturnType<typeof useReports>);
     renderWithProviders(<DashboardPage />);
 
-    expect(screen.getByRole('link', { name: /nuevo informe/i })).toHaveAttribute('href', '/reports/new');
+    expect(screen.getByRole('link', { name: /nuevo informe/i })).toHaveAttribute(
+      'href',
+      '/reports/new',
+    );
   });
 });

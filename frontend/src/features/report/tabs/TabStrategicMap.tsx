@@ -43,9 +43,7 @@ export default function TabStrategicMap({ result }: { result: ResultData }) {
             <button
               type="button"
               className="horizon-label"
-              onClick={() =>
-                setOpenBands((prev) => ({ ...prev, [h]: !prev[h] }))
-              }
+              onClick={() => setOpenBands((prev) => ({ ...prev, [h]: !prev[h] }))}
               aria-expanded={open}
               aria-controls={`horizon-body-${h}`}
             >

@@ -181,11 +181,9 @@ export function useTranslateReport() {
     { id: string; targetLanguage: 'es' | 'en' | 'ca'; force?: boolean }
   >({
     mutationFn: async ({ id, targetLanguage, force = false }) => {
-      const res = await api.post<TranslatedReport>(
-        `/reports/${id}/translate`,
-        null,
-        { params: { targetLanguage, force } },
-      );
+      const res = await api.post<TranslatedReport>(`/reports/${id}/translate`, null, {
+        params: { targetLanguage, force },
+      });
       return res.data;
     },
     onSuccess: (_data, vars) => {

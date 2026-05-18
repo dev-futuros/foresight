@@ -1,10 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type {
-  DrivingForce,
-  ScenarioLogic,
-  UncertaintyAxis,
-} from '../../../lib/aiClient';
+import type { DrivingForce, ScenarioLogic, UncertaintyAxis } from '../../../lib/aiClient';
 import type { ResultData } from '../ReportContent';
 import ImpactMatrix from './ImpactMatrix';
 import InfoTooltip from '../../../components/InfoTooltip';
@@ -22,9 +18,7 @@ export default function TabScenarioPlanning({ result }: { result: ResultData }) 
   const planning = result.scenarioPlanning;
   if (
     !planning ||
-    (!planning.drivingForces?.length &&
-      !planning.axes?.length &&
-      !planning.scenarioLogics?.length)
+    (!planning.drivingForces?.length && !planning.axes?.length && !planning.scenarioLogics?.length)
   ) {
     return <p className="empty-state">{t('report.results.empty')}</p>;
   }
@@ -51,8 +45,10 @@ export default function TabScenarioPlanning({ result }: { result: ResultData }) 
         </div>
       )}
 
-      {planning.drivingForces && planning.drivingForces.length >= 2 &&
-        planning.axes && planning.axes.length >= 1 && (
+      {planning.drivingForces &&
+        planning.drivingForces.length >= 2 &&
+        planning.axes &&
+        planning.axes.length >= 1 && (
           <ImpactMatrix forces={planning.drivingForces} axes={planning.axes} />
         )}
 
@@ -94,14 +90,13 @@ function DrivingForcesExplorer({ forces }: { forces: DrivingForce[] }) {
                 className={`forces-row${active ? ' forces-row--active' : ''}`}
                 onClick={() => setSelectedIdx(i)}
               >
-                <span className="force-rank" aria-hidden>#{f.rank}</span>
+                <span className="force-rank" aria-hidden>
+                  #{f.rank}
+                </span>
                 <span className="forces-row-title">{f.title}</span>
                 <span className="forces-row-meter" aria-hidden>
                   <span className="forces-row-bar-bg">
-                    <span
-                      className="forces-row-bar-fill"
-                      style={{ width: `${score}%` }}
-                    />
+                    <span className="forces-row-bar-fill" style={{ width: `${score}%` }} />
                   </span>
                 </span>
                 <span className="forces-row-score">{score}%</span>
@@ -183,11 +178,7 @@ function ScenarioLogicsExplorer({ logics }: { logics: ScenarioLogic[] }) {
   const safeIdx = Math.min(selectedIdx, logics.length - 1);
   const selected = logics[safeIdx];
   const accentClass = (i: number): string =>
-    i % 3 === 0
-      ? 'sp-logic--green'
-      : i % 3 === 1
-        ? 'sp-logic--blue'
-        : 'sp-logic--orange';
+    i % 3 === 0 ? 'sp-logic--green' : i % 3 === 1 ? 'sp-logic--blue' : 'sp-logic--orange';
 
   return (
     <div className="sp-logics-explorer">

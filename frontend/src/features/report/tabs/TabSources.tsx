@@ -98,12 +98,7 @@ function SourceSection({
       <ul className="src-list">
         {items.map((it, i) => (
           <li key={`${it.url}-${i}`} className="src-item">
-            <a
-              className="src-link"
-              href={it.url}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
+            <a className="src-link" href={it.url} target="_blank" rel="noopener noreferrer">
               <span className="src-title">{it.title || it.url}</span>
               <span className="src-host">{hostname(it.url)}</span>
             </a>
