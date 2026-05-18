@@ -24,7 +24,12 @@ class AiRateLimitFilterTest {
         SecurityContextHolder.clearContext();
     }
 
+    /** Convenience for the original single-bucket-size tests — sizes both buckets the same. */
     private static AiRateLimitFilter filter(long capacity) {
+        return filter(capacity, capacity);
+    }
+
+    private static AiRateLimitFilter filter(long aiCapacity, long tightenCapacity) {
         SecurityProperties props = new SecurityProperties(
                 false,
                 new SecurityProperties.Clerk(
@@ -34,9 +39,11 @@ class AiRateLimitFilterTest {
                         "",
                         "https://api.clerk.com/v1"),
                 new SecurityProperties.Cors(List.of()),
-                // Huge refill so refills never happen mid-test.
+                // Huge refill period so refills never happen mid-test.
                 new SecurityProperties.RateLimit(
-                        new SecurityProperties.RateLimit.Bucket(capacity, capacity, Duration.ofHours(1))));
+                        new SecurityProperties.RateLimit.Bucket(aiCapacity, aiCapacity, Duration.ofHours(1)),
+                        new SecurityProperties.RateLimit.Bucket(
+                                tightenCapacity, tightenCapacity, Duration.ofHours(1))));
         return new AiRateLimitFilter(props);
     }
 
@@ -122,6 +129,43 @@ class AiRateLimitFilterTest {
         MockHttpServletResponse aliceResponse = new MockHttpServletResponse();
         rateLimit.doFilter(postTo("/api/ai/analyze"), aliceResponse, new MockFilterChain());
         assertThat(aliceResponse.getStatus()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS.value());
+    }
+
+    @Test
+    void tightenAndAiUseSeparateBuckets() throws Exception {
+        // Both buckets sized at 1. Draining one must NOT consume from the other —
+        // /api/ai/tighten has its own bucket so legitimate PDF exports (which fire many
+        // tighten calls in parallel) aren't starved by prior wizard activity.
+        AiRateLimitFilter rateLimit = filter(1, 1);
+        authenticateAs(UUID.randomUUID());
+
+        // Drain the AI (content-generation) bucket.
+        rateLimit.doFilter(postTo("/api/ai/analyze"), new MockHttpServletResponse(), new MockFilterChain());
+
+        // Tighten bucket is untouched.
+        MockHttpServletResponse tightenResponse = new MockHttpServletResponse();
+        rateLimit.doFilter(postTo("/api/ai/tighten"), tightenResponse, new MockFilterChain());
+        assertThat(tightenResponse.getStatus()).isEqualTo(HttpStatus.OK.value());
+    }
+
+    @Test
+    void tightenBucketSizeReadsFromTightenConfig() throws Exception {
+        // ai=1, tighten=3 — proves the filter dispatches /api/ai/tighten to the right config,
+        // not just sharing the ai bucket size.
+        AiRateLimitFilter rateLimit = filter(1, 3);
+        authenticateAs(UUID.randomUUID());
+
+        for (int i = 0; i < 3; i++) {
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain chain = new MockFilterChain();
+            rateLimit.doFilter(postTo("/api/ai/tighten"), response, chain);
+            assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
+        }
+
+        // Fourth tighten call hits the (3-cap) bucket limit.
+        MockHttpServletResponse fourth = new MockHttpServletResponse();
+        rateLimit.doFilter(postTo("/api/ai/tighten"), fourth, new MockFilterChain());
+        assertThat(fourth.getStatus()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS.value());
     }
 
     @Test
