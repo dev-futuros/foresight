@@ -653,7 +653,6 @@ const en = {
       noPlan: 'No active plan',
       usage: 'Reports this month',
       usageValue: '{{used}} / {{limit}}',
-      subscribe: 'Subscribe →',
       manage: 'Manage in Kinde →',
       opening: 'Opening…',
       planNames: {
@@ -680,28 +679,6 @@ const en = {
     lede: 'How we handle your information when you use Futuros.',
     updated: 'Last updated: 6 May 2026',
     backLink: '← Back',
-  },
-  pricing: {
-    eyebrow: 'Plans',
-    title: 'Pricing',
-    lede: 'Pick a plan to start generating foresight reports.',
-    currentPlan: 'Current plan',
-    subscribe: 'Subscribe →',
-    manage: 'Manage subscription →',
-    opening: 'Opening…',
-    backToApp: '← Back to the app',
-    errorCta: 'Subscribe →',
-    plans: {
-      pro: {
-        name: 'Futuros Pro',
-        amount: '€99',
-        cadence: '/ month',
-        features: {
-          reports: '10 AI reports per month',
-          trial: '7-day free trial',
-        },
-      },
-    },
   },
 } as const;
 

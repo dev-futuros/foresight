@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
 import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { PortalPage } from '@kinde/js-utils';
@@ -55,7 +54,6 @@ type StatusMsg = { type: 'ok' | 'err'; text: string } | null;
  */
 export default function AccountModal({ open, onClose }: Readonly<Props>) {
   const { t, i18n } = useTranslation();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: user, isLoading } = useCurrentUser();
   const { data: billing } = useBillingProfile();
@@ -311,11 +309,12 @@ export default function AccountModal({ open, onClose }: Readonly<Props>) {
             </form>
           </section>
 
-          {/* BILLING — current plan + per-period usage, both read-only. CTA branches on
-              subscription state: no plan → "Subscribe" routes in-app to /pricing (we want
-              the user to see what they're paying for before hitting Kinde's flow); active
-              plan → "Manage in Kinde" opens the portal on plan-details (cancel / change
-              card / invoices). */}
+          {/* BILLING — current plan + per-period usage, both read-only. The only CTA is
+              "Manage in Kinde" (active plan → opens the portal on plan-details for cancel /
+              change card / invoices). New subscriptions are handled by Kinde's hosted
+              flow during sign-up; if a user somehow lands here with no active plan, the
+              section just shows "no plan" without a CTA — they re-trigger the Kinde
+              billing flow by signing out and back in. */}
           <section className="account-modal-section">
             <h3 className="account-modal-section-title">{t('account.billing.title')}</h3>
             <div className="account-modal-form">
@@ -386,8 +385,8 @@ export default function AccountModal({ open, onClose }: Readonly<Props>) {
                   )}
                 </div>
               )}
-              <div className="account-modal-section-actions">
-                {billing?.plan ? (
+              {billing?.plan && (
+                <div className="account-modal-section-actions">
                   <button
                     type="button"
                     className="modal-btn"
@@ -400,19 +399,8 @@ export default function AccountModal({ open, onClose }: Readonly<Props>) {
                       ? t('account.billing.opening')
                       : t('account.billing.manage')}
                   </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="modal-btn modal-btn--primary"
-                    onClick={() => {
-                      onClose();
-                      navigate('/pricing');
-                    }}
-                  >
-                    {t('account.billing.subscribe')}
-                  </button>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </section>
 

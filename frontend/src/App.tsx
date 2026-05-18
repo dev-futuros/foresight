@@ -11,7 +11,6 @@ import ProtectedRoute from './components/ProtectedRoute';
 import DashboardPage from './features/dashboard/DashboardPage';
 import NewReportPage from './features/report/NewReportPage';
 import ReportPage from './features/report/ReportPage';
-import PricingPage from './features/pricing/PricingPage';
 import PrivacyPage from './features/privacy/PrivacyPage';
 import PublicSharePage from './features/publicShare/PublicSharePage';
 import AuthLayout from './features/auth/AuthLayout';
@@ -106,7 +105,6 @@ function AppRoutes() {
         <Route path="/reports/new" element={<NewReportPage />} />
         <Route path="/reports/:id/edit" element={<NewReportPage />} />
         <Route path="/reports/:id" element={<ReportPage />} />
-        <Route path="/pricing" element={<PricingPage />} />
       </Route>
       {/* Unknown / bare paths land on the new-report wizard. ProtectedRoute
           intercepts guests and triggers a direct redirect to Kinde — there

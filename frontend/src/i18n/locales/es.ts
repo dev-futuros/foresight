@@ -643,7 +643,6 @@ const es = {
       noPlan: 'Sin plan activo',
       usage: 'Informes este mes',
       usageValue: '{{used}} / {{limit}}',
-      subscribe: 'Suscribirse →',
       manage: 'Gestionar en Kinde →',
       opening: 'Abriendo…',
       planNames: {
@@ -670,28 +669,6 @@ const es = {
     lede: 'Cómo tratamos tu información cuando usas Futuros.',
     updated: 'Última actualización: 6 de mayo de 2026',
     backLink: '← Volver',
-  },
-  pricing: {
-    eyebrow: 'Planes',
-    title: 'Precios',
-    lede: 'Elige un plan para empezar a generar informes de foresight.',
-    currentPlan: 'Plan actual',
-    subscribe: 'Suscribirse →',
-    manage: 'Gestionar suscripción →',
-    opening: 'Abriendo…',
-    backToApp: '← Volver a la app',
-    errorCta: 'Suscribirse →',
-    plans: {
-      pro: {
-        name: 'Futuros Pro',
-        amount: '99 €',
-        cadence: '/ mes',
-        features: {
-          reports: '10 informes IA al mes',
-          trial: '7 días de prueba gratis',
-        },
-      },
-    },
   },
 } as const;
 
