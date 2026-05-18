@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { chatStream, type ChatMessage } from '../lib/aiClient';
-import { dispatch, get as getCommandSpec } from '../lib/commandBus';
+import { chatStream, type ChatMessage } from '../../../lib/aiClient';
+import { dispatch, get as getCommandSpec } from '../../../lib/commandBus';
 
 /**
  * A command the assistant emitted as a `<command name="...">{json}</command>`
