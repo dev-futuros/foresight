@@ -616,19 +616,9 @@ const es = {
     },
   },
   account: {
-    eyebrow: 'Cuenta',
     title: 'Mi cuenta',
     backToDashboard: '← Mis informes',
     loading: 'Cargando perfil…',
-    profile: {
-      title: 'Perfil',
-      name: 'Nombre',
-      namePlaceholder: 'Tu nombre',
-      save: 'Guardar cambios',
-      saving: 'Guardando…',
-      successMsg: 'Perfil actualizado correctamente.',
-      errorMsg: 'No se pudo actualizar el perfil.',
-    },
     preferences: {
       title: 'Preferencias',
       language: 'Idioma',
@@ -643,24 +633,14 @@ const es = {
       noPlan: 'Sin plan activo',
       usage: 'Informes este mes',
       usageValue: '{{used}} / {{limit}}',
-      manage: 'Gestionar en Kinde →',
+      manage: 'Modificar',
       opening: 'Abriendo…',
+      increaseReports: 'Aumentar informes',
+      increasing: 'Aumentando…',
       planNames: {
         pro: 'Futuros Pro',
         dev: 'Dev (ilimitado)',
       },
-    },
-    signIn: {
-      title: 'Inicio de sesión',
-      email: 'Email',
-      emailPlaceholder: 'No disponible',
-      openPortal: 'Gestionar en Kinde →',
-      opening: 'Abriendo…',
-    },
-    roles: {
-      USER: 'Usuario',
-      DEV: 'Desarrollador',
-      ADMIN: 'Administrador',
     },
   },
   privacy: {

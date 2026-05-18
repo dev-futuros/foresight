@@ -122,39 +122,58 @@
   flex-wrap: wrap;
 }
 
-/* ── Identity block (avatar + name + role badge at top of modal) ────
-   Sits above all sections, not inside one — it's "who you are", not
-   editable data. Email used to live here as a small subtitle under
-   the name; it now has its own field in the sign-in section below,
-   so we don't duplicate it here. */
+/* ── Identity block — centered avatar at the top of the modal.
+   Name is no longer shown inline; it surfaces as a CSS-styled tooltip
+   on hover via the .account-modal-avatar-tooltip wrapper below. */
 .account-modal-identity {
   display: flex;
-  align-items: center;
-  gap: 14px;
+  justify-content: center;
   margin: 4px 0 18px;
 }
-.account-modal-identity-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0; /* allow flex child to shrink so long names truncate */
+
+/* Tooltip wrapper around the Avatar. Renders `data-tooltip` content as a
+   small pill below the avatar on hover/focus-within. The `data-tooltip`
+   attribute is omitted when there's no name to show, which suppresses the
+   pseudo-element (CSS only matches `[data-tooltip]`). */
+.account-modal-avatar-tooltip {
+  position: relative;
+  display: inline-block;
 }
-.account-modal-identity-name {
-  font-family: var(--serif, var(--sans));
-  font-size: 16px;
-  color: var(--ink);
-  margin: 0;
-  /* Truncate long names so the row stays one line at any width.
-     The role badge is inline-block so it stays on the same line. */
-  overflow: hidden;
-  text-overflow: ellipsis;
+/* Gold ring around the avatar — rendered via outer box-shadow on the
+   Avatar root so it sits outside the circular clip path without competing
+   with the avatar's existing inset ring (image, initials or fallback). */
+.account-modal-avatar-tooltip .avatar {
+  box-shadow: 0 0 0 2px var(--gold, #d4a853);
+}
+.account-modal-avatar-tooltip[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 10px);
+  transform: translateX(-50%) translateY(-4px);
+  background: var(--surface-3, #20202a);
+  color: var(--ink, #f0ece4);
+  border: 1px solid var(--line, hsla(0, 0%, 100%, 0.11));
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-family: var(--sans);
+  font-size: 12px;
   white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 180ms, transform 180ms;
+  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.45);
+  z-index: 2;
+}
+.account-modal-avatar-tooltip[data-tooltip]:hover::after,
+.account-modal-avatar-tooltip[data-tooltip]:focus-within::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
-/* Small pill next to the name showing the user's role. Subtle (gold
-   tint on translucent background) so it reads as metadata, not as
-   a primary affordance. The role isn't editable from anywhere in the
-   app — promoting it to a form field made the modal feel emptier. */
+/* Legacy rules — kept around for any external references but no longer
+   rendered by AccountModal. Safe to remove in a future pass once nothing
+   else in the app uses them. */
 .account-modal-role-badge {
   display: inline-block;
   margin-left: 10px;
@@ -168,7 +187,6 @@
   background: var(--gold-bg);
   border: 1px solid hsla(40, 60%, 56%, 0.25);
   border-radius: 4px;
-  /* Nudge up so the small caps sit on the name's baseline. */
   vertical-align: middle;
   position: relative;
   top: -1px;

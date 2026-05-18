@@ -626,19 +626,9 @@ const en = {
     },
   },
   account: {
-    eyebrow: 'Account',
     title: 'My account',
     backToDashboard: '← My reports',
     loading: 'Loading profile…',
-    profile: {
-      title: 'Profile',
-      name: 'Name',
-      namePlaceholder: 'Your name',
-      save: 'Save changes',
-      saving: 'Saving…',
-      successMsg: 'Profile updated successfully.',
-      errorMsg: 'Could not update profile.',
-    },
     preferences: {
       title: 'Preferences',
       language: 'Language',
@@ -653,24 +643,14 @@ const en = {
       noPlan: 'No active plan',
       usage: 'Reports this month',
       usageValue: '{{used}} / {{limit}}',
-      manage: 'Manage in Kinde →',
+      manage: 'Modify',
       opening: 'Opening…',
+      increaseReports: 'Increase reports',
+      increasing: 'Increasing…',
       planNames: {
         pro: 'Futuros Pro',
         dev: 'Dev (unlimited)',
       },
-    },
-    signIn: {
-      title: 'Sign-in',
-      email: 'Email',
-      emailPlaceholder: 'Not available',
-      openPortal: 'Manage in Kinde →',
-      opening: 'Opening…',
-    },
-    roles: {
-      USER: 'User',
-      DEV: 'Developer',
-      ADMIN: 'Administrator',
     },
   },
   privacy: {
