@@ -21,7 +21,7 @@ import ShareModal from '../../components/ShareModal';
 import PromoteToExampleModal from '../../components/PromoteToExampleModal';
 import '../../components/modal.css';
 import api from '../../lib/api';
-import { exportReportPdf } from '../../lib/exportPdf';
+import { exportReportPdf } from '../report/pdf';
 import { exportReportPpt } from '../../lib/exportPpt';
 import { exportReportHtml } from '../../lib/exportHtml';
 import { useTranslations } from '../translations/useTranslations';

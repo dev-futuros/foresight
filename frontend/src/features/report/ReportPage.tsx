@@ -10,7 +10,7 @@ import { useSetStepper } from '../shell/useStepper';
 import { useCommands } from '../../lib/useCommands';
 import { useSetAssistantContext } from '../chat/useAssistantContext';
 import type { ReportResultSnapshot } from '../../lib/buildAssistantSnapshot';
-import { exportReportPdf } from '../../lib/exportPdf';
+import { exportReportPdf } from './pdf';
 import { exportReportPpt } from '../../lib/exportPpt';
 import { exportReportHtml } from '../../lib/exportHtml';
 import ExportModal, {

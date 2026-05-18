@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-import i18n from '../i18n';
+import i18n from '../../../i18n';
 import type {
   BackcastingEntry,
   DrivingForce,
@@ -14,14 +14,14 @@ import type {
   UncertaintyAxis,
   WeakSignal,
   Wildcard,
-} from '../types/api';
+} from '../../../types/api';
 import {
   runFitPass,
   persistTightened,
   pickText,
   type FieldNeed,
   type TightenedMap,
-} from './pdfFit';
+} from '../../../lib/pdfFit';
 
 /**
  * Foresight report — PDF export with editorial / magazine layout.
