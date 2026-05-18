@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useWizardOnboarding } from './hooks/useWizardOnboarding';
 import { useCreateReport, useReport, useStartGeneration, useUpdateReport } from './api';
 import Modal from '../../components/Modal';
 import { useCurrentUser } from '../account/api';
@@ -32,41 +33,7 @@ import './wizard.css';
 /** localStorage key — once set to '1', the onboarding modal won't auto-show
  *  again on this device. Wins over the per-session flag below: a user who
  *  has explicitly checked "don't show again" never sees it again. */
-const ONBOARDING_KEY = 'fs_onboarding_dismissed';
-/** sessionStorage key — set to '1' after the dialog has been auto-shown
- *  once in this browser session. Stops the dialog from re-appearing every
- *  time the user clicks "New report" or revisits {@code /reports/new}; the
- *  "first entry" semantics are scoped to the session, not the device. */
-const ONBOARDING_SESSION_KEY = 'fs_onboarding_seen_this_session';
-
-function readOnboardingDismissed(): boolean {
-  try {
-    return localStorage.getItem(ONBOARDING_KEY) === '1';
-  } catch {
-    return false;
-  }
-}
-function persistOnboardingDismissed() {
-  try {
-    localStorage.setItem(ONBOARDING_KEY, '1');
-  } catch {
-    /* private mode / quota — silently ignore */
-  }
-}
-function readOnboardingSeenThisSession(): boolean {
-  try {
-    return sessionStorage.getItem(ONBOARDING_SESSION_KEY) === '1';
-  } catch {
-    return false;
-  }
-}
-function markOnboardingSeenThisSession() {
-  try {
-    sessionStorage.setItem(ONBOARDING_SESSION_KEY, '1');
-  } catch {
-    /* private mode / quota — silently ignore */
-  }
-}
+// Onboarding lives in its own hook now — see ./hooks/useWizardOnboarding.
 
 const EMPTY_EMPRESA: EmpresaData = {
   name: '',
@@ -180,23 +147,9 @@ export default function NewReportPage() {
   // The session flag is set in an effect below the first time the dialog
   // appears, so subsequent navigations within the session are silent. Skip
   // in edit mode — the user has clearly used the wizard before.
-  const [showOnboarding, setShowOnboarding] = useState(
-    () => !editMode && !readOnboardingDismissed() && !readOnboardingSeenThisSession(),
-  );
-  // Persist the session flag the first time we actually decided to show
-  // the dialog this mount. Doing it in an effect (not in the useState
-  // initializer) keeps StrictMode's double-invoke harmless — the initializer
-  // can run twice, but the effect only runs once per real mount.
-  useEffect(() => {
-    if (showOnboarding) markOnboardingSeenThisSession();
-    // Empty deps: we only need to record the very first showing. Later
-    // setShowOnboarding(false) doesn't need to revisit this.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  const handleOnboardingClose = useCallback((dontShowAgain: boolean) => {
-    if (dontShowAgain) persistOnboardingDismissed();
-    setShowOnboarding(false);
-  }, []);
+  const { show: showOnboarding, handleClose: handleOnboardingClose } = useWizardOnboarding({
+    editMode,
+  });
 
   // Snapshot refs of the four wizard slices. Used by persistDraft so it
   // always sees the latest values without having to depend on them in its
