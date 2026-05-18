@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { chatStream, type ChatMessage } from '../../../lib/aiClient';
+import { chatStream, type ChatMessage } from '../api';
 import { dispatch, get as getCommandSpec } from '../../../lib/commandBus';
 
 /**

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { DrivingForce, UncertaintyAxis } from '../../../lib/aiClient';
+import type { DrivingForce, UncertaintyAxis } from '../../../types/api';
 
 /**
  * Renders the 4-quadrant Impact × Uncertainty matrix that lives at the

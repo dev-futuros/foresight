@@ -10,7 +10,7 @@ import type {
   StrategicMap,
   WeakSignal,
   Wildcard,
-} from '../../lib/aiClient';
+} from '../../types/api';
 import TabSummary from './tabs/TabSummary';
 import TabScenarios from './tabs/TabScenarios';
 import TabScenarioPlanning from './tabs/TabScenarioPlanning';

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { StrategicPriority } from '../../../lib/aiClient';
+import type { StrategicPriority } from '../../../types/api';
 import type { ResultData } from '../ReportContent';
 
 type Horizon = 'H1' | 'H2' | 'H3';

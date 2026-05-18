@@ -1,12 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { MutableRefObject } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  globalSteepDim,
-  globalSteepScan,
-  type GlobalSteep,
-  type SourceItem,
-} from '../../../lib/aiClient';
+import { globalSteepDim, globalSteepScan } from '../api';
+import type { GlobalSteep, SourceItem } from '../../../types/api';
 import { extractApiErrorMessage } from '../../../lib/apiError';
 import { notifyAssistant } from '../../../lib/assistantBridge';
 import { useMaximizable } from '../../../components/useMaximizable';
