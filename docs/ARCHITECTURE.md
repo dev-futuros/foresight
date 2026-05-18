@@ -18,8 +18,8 @@ This document describes the system architecture, design decisions, and conventio
        ▼                              │  (user.*)
 ┌─────────────────┐                   │
 │      Kinde      │───────────────────┘
-│ (auth + future  │
-│   billing TBD)  │
+│ (auth + billing │
+│  + entitlements)│
 └─────────────────┘
 
    Side channel: PostHog
@@ -30,8 +30,8 @@ This document describes the system architecture, design decisions, and conventio
 ```
 
 - **Frontend** authenticates against Kinde (redirect to Kinde's hosted sign-in / sign-up pages — Kinde does not support embedded credential forms by design) and talks to the backend with the access token Kinde hands it. Long-running AI calls are streamed back as Server-Sent Events. It never calls Anthropic directly — that key stays server-side.
-- **Backend** is the single gateway: validates Kinde JWTs, enforces subscription gating, runs business logic, persists data, proxies AI calls, captures LLM telemetry. It is stateless. Uses an M2M `client_credentials` flow to call Kinde's Management API for user-profile reads (lazy-create) and writes (account name editing).
-- **Kinde** owns identities, credentials, sessions, MFA, social login, email delivery, and rate-limiting on auth endpoints. Future state: also the billing flow (Stripe directly, with Stripe Tax for EU VAT — the team is Merchant of Record via an autónomo in Spain; see `feature/stripe` branch). The backend never sees a password — and never stores the user's email. The only mirrored identity field is the stable `external_user_id`.
+- **Backend** is the single gateway: validates Kinde JWTs, enforces subscription gating, runs business logic, persists data, proxies AI calls, captures LLM telemetry. It is stateless. Uses an M2M `client_credentials` flow to call Kinde's Management API for user-profile reads (lazy-create), profile writes (account name + `language` Property), the billing usage counter (read/write Properties `reports_used_this_period` + `reports_period_start`), and meter usage pushes for the `reports_per_periodo` feature.
+- **Kinde** owns identities, credentials, sessions, MFA, social login, email delivery, rate-limiting on auth endpoints, **and the billing flow** (Kinde Billing — plan catalogue, hosted checkout, customer portal, per-feature entitlements, meter usage). The backend never sees a password, never stores the user's email, and there is no Stripe integration in the backend — checkout and portal navigation happen client-side through the Kinde SDK against Kinde's hosted pages. The only mirrored identity field is the stable `external_user_id`; profile fields (`name`, `language`) and billing state (plan, limits, usage counter) all live in Kinde.
 - **PostgreSQL** stores a minimal `users` row, reports (with cached translations and PDF-optimised text), examples (DEV-curated report snapshots), and share tokens (frozen public snapshots).
 - **Anthropic Claude API** is only reachable via the backend, tier-routed (haiku / sonnet / opus) per call.
 - **PostHog** receives `$ai_generation` events for every Anthropic call (server-side) plus pageviews / UI events from the browser. Default-off; opt-in per environment.
@@ -50,7 +50,7 @@ This document describes the system architecture, design decisions, and conventio
 | HTTP client | Spring WebClient + `RestClient` | Reactive for Anthropic streams; sync `RestClient` for Kinde Management API |
 | Async streaming | Spring MVC + `Flux<JsonNode>` wrapped as `ServerSentEvent` | Backpressure-aware streaming of long Claude calls to the browser |
 | Auth | Kinde session JWT, validated against Kinde JWKS | Delegate identity to a hosted provider; keep backend stateless. Migrated from Clerk on `feature/kinde` (2026-05-16) — see `docs/MIGRATION_CLERK_TO_KINDE.md` |
-| Billing | Stripe directly (on `feature/stripe`); we are Merchant of Record via an autónomo (Spain) | Stripe Tax for EU VAT; Kinde Billing was evaluated and rejected (USD-only, no VAT) |
+| Billing | Kinde Billing (plans + entitlements + meter usage, all hosted) | Same provider as auth — one dashboard, one webhook surface, no second SDK. The Account API exposes the user's plan + per-feature limits; checkout & customer portal run client-side via Kinde's React SDK |
 | JWT validation | `spring-security-oauth2-resource-server` (Nimbus) | Standard, handles JWKS caching and rotation. Same decoder bean validates session JWTs AND webhook JWTs (Kinde signs both with the same key set) |
 | Webhook signatures | The webhook body IS the JWT, verified with the same `JwtDecoder` bean | No HMAC, no shared secret, no Svix client. Kinde signs deliveries with a JWT against the same JWKS as session tokens |
 | Validation | Bean Validation (`jakarta.validation`) | Declarative on DTOs |
@@ -76,20 +76,24 @@ com.foresight.backend/
 │   ├── exception/           # GlobalExceptionHandler, ApiError, domain exceptions
 │   └── security/            # KindeJwtDecoderConfig, JwtAuthFilter, AiRateLimitFilter,
 │                            # AuthenticatedUser, DevPrincipal, DevUserSeeder, KindeBackendClient
-├── user/                    # User entity (external_user_id + role + language + subscription_*),
-│                            # UserService (findOrCreateByExternalUserId), UserRole {USER, DEV, ADMIN}
+├── user/                    # User entity (external_user_id + role — thin local mirror),
+│                            # UserService (findOrCreateByExternalUserId, profile join with Kinde),
+│                            # UserRole {USER, DEV, ADMIN}
 ├── report/                  # foresight reports CRUD with translations + pdf_optimized caches
 ├── ai/                      # Claude proxy: 16 endpoints (analyze pipeline, suggestions,
 │                            # chat assistant, tighten) + AssistantTools (15 frontend tools)
 ├── analytics/               # PostHogConfig + LlmCapture wrapper for $ai_generation events
-├── subscription/            # SubscriptionService gate (Stripe-backed; wiring on feature/stripe), plan/status records
+├── billing/                 # BillingController (/api/billing/entitlements),
+│                            # BillingService (composes plan + limit + usage; gates generations),
+│                            # KindeAccountApiClient (user-token-scoped plan/entitlements fetch),
+│                            # SubscriptionRequiredException (402), ReportLimitExceededException (429)
 ├── share/                   # ShareController, PublicShareController, ShareService,
 │                            # ShareToken (frozen multilingual snapshot of report or example)
 ├── example/                 # Example entity — DEV-promoted report snapshots, viewable to all
 └── webhook/                 # KindeWebhookController (user.created / .updated / .deleted)
 ```
 
-> **Not present today:** a dedicated `billing/` package. The subscription gate (`SubscriptionService.assertCanCreateReport()`) and DB columns (`users.subscription_plan` + period bounds) are in place from earlier M3 work, but the Stripe wiring (checkout sessions, customer portal, billing webhook) lives on the `feature/stripe` branch and is not on `develop` yet. The plan: we'll be Merchant of Record ourselves (autónomo in Spain), Stripe Tax will handle EU VAT.
+> **Stale schema:** the V5 migration columns on `users` (`subscription_plan`, `subscription_current_period_start/end` + the `users_subscription_plan_check` CHECK constraint on `FUTUROS_PLATAFORMA`) were added when the plan was to wrap Stripe directly. With Kinde Billing they are not read or written anywhere — plan + period bounds come from the Kinde Account API on every request, and usage lives in Kinde User Properties. The columns are still in the DB schema but no longer mapped by the `User` entity; a future migration can drop them.
 
 **Why package-by-feature?**
 
@@ -138,7 +142,15 @@ Kinde's default session JWT does not include the user's name (only `sub`, `iss`,
 
 `KINDE_M2M_CLIENT_ID` / `KINDE_M2M_CLIENT_SECRET` are optional. When blank, `KindeBackendClient.fetchUser()` is a silent no-op returning `Optional.empty()`, and the chain falls through to JWT/null. Auth keeps working in environments that haven't wired the M2M app yet.
 
-The M2M app needs these scopes granted on Kinde Management API: `read:users` (lazy-create), `update:users` (account-modal name edit), and `delete:users` (pending GDPR cascade on `DELETE /api/users/me`).
+The M2M app needs these scopes granted on Kinde Management API:
+
+- `read:users` — lazy-create profile lookup AND `customer_id` lookup for the billing meter push.
+- `update:users` — account-modal name edit.
+- `delete:users` — pending GDPR cascade on `DELETE /api/users/me`.
+- `read:user_properties` — read the billing usage counter (`reports_used_this_period` + `reports_period_start`) and the `language` Property.
+- `update:user_properties` — write the usage counter back after each successful generation; write the `language` Property on profile update.
+- `read:billing_agreements` — resolve the `customer_agreement_id` needed for meter pushes.
+- `create:meter_usage` — push the `+1` delta to Kinde's meter for `reports_per_periodo` after each successful generation.
 
 #### Concurrency on first sign-in
 
@@ -165,10 +177,12 @@ The webhook receiver (`/api/webhooks/kinde`) verifies the JWT signature on every
 |---|---|---|
 | `email`, `password`, MFA, social identities, email verification, active sessions | **Kinde** | Never stored locally. Users manage these via Kinde's hosted account portal (deep-linked from the "Gestionar cuenta" section of the in-app Account modal). |
 | `external_user_id` | **Kinde** (mirrored) | Stable identifier (`kp_<random>`); what we look up by. |
-| `name` | **Bidirectional** | Editable from the Account modal — `PATCH /api/users/me` pushes the change to Kinde via the Management API BEFORE persisting locally, so both stay in sync. The `user.updated` webhook from Kinde also overwrites local. Kinde is the source of truth in case of conflict. |
-| `role` | **Backend** | `USER` / `ADMIN`. Authorization decisions stay in the backend. |
-| `language` | **Backend** | UI preference (`es` / `en`), edited from the account page. |
-| Reports, future subscriptions | **Backend** | Owned entirely by us, FK'd to `users.id`. |
+| `name` | **Kinde** | Stored as Kinde's stock `first_name` / `last_name` fields. `PATCH /api/users/me` pushes the change via the Management API; nothing about it persists in our DB any more (the local `users.name` column was dropped in V13). |
+| `language` | **Kinde** | UI preference (`es` / `en` / `ca`) stored as a Kinde Property (`GET /api/v1/users/{id}/properties`). The local `users.language` column was dropped in V13; `UserService.getProfile` joins the Kinde Property in when assembling the `UserResponse`. Default `"es"` if the property is unset. |
+| `role` | **Backend** | `USER` / `DEV` / `ADMIN`. Authorization decisions stay in the backend — the role is checked on every request, too hot to round-trip to Kinde. |
+| Plan, per-feature limits (`reports_per_periodo`), `subscribed_on` anchor | **Kinde Billing** | Read per-request from `GET ${kinde}/account_api/v1/entitlements` by forwarding the caller's own JWT (Account API is user-scoped — no M2M needed). |
+| Usage counter (`reports_used_this_period`, `reports_period_start`) | **Kinde User Properties** | Read/written via the M2M Management API (`/users/{id}/properties`). There is no local DB column for usage — `BillingService` computes the effective count by reading both Properties and resetting to zero when the stored period anchor differs from the one computed from `subscribed_on`. |
+| Reports | **Backend** | Owned entirely by us, FK'd to `users.id`. |
 
 #### Error handling
 
@@ -213,7 +227,7 @@ Current migrations:
 | `V2__auth_tokens.sql` | Legacy: short-lived password-reset / email-verification tokens. (Dropped by V3.) |
 | `V3__clerk_auth.sql` | Adds `clerk_user_id` to `users` (later renamed by V12); drops `password`, `email_verified`, and the V2 token tables. Historical Clerk-era name kept for migration replay. |
 | `V4__fix_user_constraints_for_clerk.sql` | Drops the `email` column entirely (external provider owns it); makes `clerk_user_id` `NOT NULL` and unique-indexed. Historical Clerk-era name kept for migration replay. |
-| `V5__subscription.sql` | Adds `subscription_plan`, `subscription_current_period_start/end` to `users`; CHECK constraint on plan whitelist; composite index `(user_id, created_at DESC)` on `reports` for period-window counting. |
+| `V5__subscription.sql` | Adds `subscription_plan`, `subscription_current_period_start/end` to `users`; CHECK constraint on plan whitelist; composite index `(user_id, created_at DESC)` on `reports` for period-window counting. **Now stale** — Kinde Billing supplanted the Stripe-direct plan these columns were meant for; the columns remain in the schema but are no longer mapped by the `User` entity and no code reads or writes them. The composite index is still useful for any future per-user time-range queries on reports. |
 | `V6__share_tokens.sql` | Creates `share_tokens` table (token, report_id, frozen snapshot columns, expiry); indexes on `token`, `report_id`, `expires_at`. |
 | `V7__report_translations.sql` | Adds `translations` (JSONB) and `primary_language` to `reports`. |
 | `V8__examples.sql` | Creates `examples` table — DEV-curated report snapshots keyed by `slug`, with `translations` JSONB. |
@@ -221,6 +235,7 @@ Current migrations:
 | `V10__share_token_translations.sql` | Adds `translations` + `primary_language` to `share_tokens` so a snapshot can ship all baked translations. |
 | `V11__report_pdf_optimized.sql` | Adds `pdf_optimized` (JSONB) to `reports` — per-language cache of "tightened" prose for the PDF export pipeline. |
 | `V12__rename_clerk_user_id_to_external.sql` | Renames `users.clerk_user_id` → `users.external_user_id` (and the unique index) for provider-agnostic schema. Purely lexical — column type and values unchanged. Landed with the Clerk → Kinde migration on `feature/kinde`. |
+| `V13__user_profile_to_kinde.sql` | Drops `users.name` and `users.language` — those are now Kinde-owned (`first_name`/`last_name` stock fields + `language` Kinde Property). The local row is now just `id`, `external_user_id`, `role`, `created_at`, `updated_at` (plus the stale V5 subscription columns until a future migration drops them). Foresight isn't in prod yet, so the values aren't backfilled into Kinde first — a dev DB that started before V13 just loses the local values, and the next login re-populates `name` from the JWT claims via Kinde itself. |
 
 #### Rate limiting
 
@@ -228,20 +243,26 @@ The `AiRateLimitFilter` (Bucket4j, in-memory) caps `/api/ai/**` per authenticate
 
 Auth-endpoint rate limiting is not implemented in the backend any more — Kinde handles it for the auth flows it owns. If we add public unauthenticated endpoints later (e.g. a public landing page contact form), we'll re-introduce a per-IP filter for those specific paths.
 
-#### Subscription gating
+#### Subscription gating (Kinde Billing)
 
-Report creation is gated by `SubscriptionService.assertCanCreateReport()`:
+Generation is gated by `BillingService.recordGeneration()`, called from `ReportController.startGeneration` (`POST /api/reports/{id}/generate`). The gate runs **once per "click Generate"**, BEFORE the frontend fires the parallel Anthropic batch — no AI tokens are spent if it rejects.
 
-- **Required plan**: `FUTUROS_PLATAFORMA` (the only plan today; a DB CHECK constraint on `users.subscription_plan` enforces the whitelist so a typo can't sneak in via webhook).
-- **Quota**: 10 reports per billing period. Period bounds come from `subscription_current_period_start` / `subscription_current_period_end` on the user row; usage is counted by `reports.created_at` falling inside that window (covered by a composite index on `(user_id, created_at DESC)`).
-- **Exceptions**:
-  - `SubscriptionRequiredException` → `402 Payment Required` — user has no plan, or the current period has ended.
-  - `ReportLimitExceededException` → `429 Too Many Requests` — period quota exhausted. The response body carries `limit`, `used`, `periodEnd` so the frontend can render an informative paywall instead of a generic error.
-- **DEV bypass**: users with `UserRole.DEV` skip the check entirely — used by the internal team for demos and testing. The role is promoted by direct SQL only (no UI surface, no endpoint).
+- **What's free vs. paid.** Creating a draft (`POST /api/reports`), autosaving, editing, abandoning — all free. The paid event is the user clicking "Generate" at the end of the wizard, which is what runs the expensive 5-parallel-call Anthropic pipeline. Regenerating a COMPLETED report also fires the AI batch again, so it consumes a fresh slot too (no idempotency on report status — every call counts).
+- **Plan + limit source.** Per-request `GET ${KINDE_DOMAIN}/account_api/v1/entitlements`, called by `KindeAccountApiClient` with the caller's own JWT forwarded (`Authorization: Bearer …`). The Account API is scoped to "the user the token is for", so no M2M credentials are needed for this read. The limit comes from the `reports_per_periodo` entitlement (the feature key configured in Kinde Dashboard → Billing → Plan → Features — Spanish spelling preserved because Kinde feature keys are immutable once published).
+- **Period anchor.** `KindePlan.subscribed_on` is the timestamp the subscription was activated. `BillingService.computePeriodStart` rolls it forward by whole months to find the most recent monthly anchor ≤ now; `computePeriodEnd` is that anchor + 1 month. No timezone games — everything in UTC.
+- **Usage counter.** Stored as two **Kinde User Properties** read/written via the M2M Management API: `reports_used_this_period` (the count) and `reports_period_start` (the anchor it belongs to). Period rollover is lazy: when `BillingService.readEffectiveUsage` sees a stored anchor different from the computed one, it returns `0` and the next successful generation overwrites both properties. The Property keys must exist in Kinde Dashboard → Settings → Properties before the service can write (Kinde rejects PATCH on undefined keys).
+- **Meter push.** After each successful generation we also `POST` a `+1` delta to Kinde's meter for the `reports_per_periodo` feature (`KindeBackendClient.recordMeterUsage`) so Kinde's own billing dashboard reflects real usage. It's **best-effort**: any error is logged and swallowed, because Properties are the source of truth for our gating regardless of whether the meter push succeeds. The `customer_agreement_id` needed for the meter call is resolved from `KindeUser.billing.customerId` and cached per `(externalUserId, featureKey)`.
+- **Exceptions** (mapped by `GlobalExceptionHandler`):
+  - `SubscriptionRequiredException` → **HTTP 402 Payment Required** — caller has no active plan, OR the plan exists but Kinde hasn't populated `subscribed_on` yet (subscription pending payment confirmation or stale state after a delete/recreate cycle). Plain `ApiError` body — no extra details needed; the frontend renders the pricing CTA either way.
+  - `ReportLimitExceededException` → **HTTP 429 Too Many Requests** — period quota exhausted. The response body's `details` carries `limit`, `used`, and `periodEnd` so the frontend can render an informative paywall ("you've used 10/10 this month; renews in 4 days") instead of a generic error.
+- **Local dev short-circuit.** The synthetic `user_local_dev` principal injected when `foresight.security.auth-disabled=true` has no Kinde counterpart, so `BillingService` returns an "effectively unlimited" profile (`plan="dev"`, limit `Integer.MAX_VALUE`) and `recordGeneration` is a no-op. Real billing-flow testing needs a Kinde-authenticated user. **Note:** `UserRole.DEV` is NOT a bypass for this gate — only the synthetic local-dev principal is. A DB row promoted to `UserRole.DEV` still has to have an active Kinde plan to call `/generate`.
+- **Concurrency caveat.** Two parallel generations by the same user can both read the same counter, both pass the gate, and both write back — last-writer-wins, so one slot's worth of usage may be lost. Users don't generate in parallel today, so this is documented but not fixed; the resolution if it becomes real is either a distributed lock or Kinde's idempotency mechanism.
 
-The plan, period bounds, and quota counters will be mirrored from **Stripe webhook events** (`customer.subscription.*`, `invoice.*`) once the Stripe integration lands. Backend → Stripe direct (no MoR intermediary like Paddle); we are MoR ourselves via an autónomo registered in Spain, with Stripe Tax handling EU VAT calculation. A frontend `useSubscription` hook surfaces `SubscriptionService.statusOf()` (no dedicated controller endpoint; the status is bundled into the user-context responses the UI already fetches).
+**Checkout + customer portal — client-side, via the Kinde SDK.** `PricingPage.tsx` calls `useKindeAuth().generatePortalUrl({ subNav: 'plan_selection' | 'plan_details', returnUrl })` and opens the resulting URL in a new tab (so the app state behind it is preserved). After the user pays on the hosted portal and closes the tab, TanStack Query's window-focus refetch picks up the new plan within seconds. There is intentionally **no backend checkout-session endpoint** — the SDK + the hosted portal handle it all.
 
-> **M3 status:** the gate + DB columns + DEV bypass landed first so the rest of the product could be built behind a real paywall (Clerk Billing was the original plan; replaced by direct Stripe — see `docs/MIGRATION_CLERK_TO_KINDE.md`). The Stripe wiring (checkout sessions, Stripe Tax config, `/api/billing/*` endpoints) lives on the `feature/stripe` branch and is the in-flight work.
+**Read-only billing snapshot.** `GET /api/billing/entitlements` returns `BillingProfileResponse(userId, plan, reportsLimit, reportsUsed, periodStart, periodEnd)`. The frontend `useBillingProfile` hook (TanStack Query, 10s stale time, no retry) reads it for the quota chip, the paywall, and the "renews in X days" copy.
+
+**Debug knob.** `POST /api/billing/_debug/push-meter` fires `recordGeneration` for the caller without actually running any AI — same property-counter increment + meter push as a real generation. Useful for verifying the wiring without burning Anthropic tokens. Currently not role-gated; should be DEV-only or removed before production.
 
 #### Share tokens (public snapshots)
 
@@ -501,4 +522,4 @@ The shape is in place; the actual hosting target is the last open item on M4.
 - **Multi-tenancy**: current model is single-user ownership. If orgs/teams come, Kinde Organizations maps cleanly onto an `organization_id` FK across relevant entities; `ShareToken` already supports the snapshot pattern teams will need.
 - **Observability**: PostHog covers LLM + product analytics. Still pending: Micrometer metrics, structured JSON logs with correlation IDs, error tracking (Sentry-class tool).
 - **Distributed rate limiting**: today's `AiRateLimitFilter` is in-memory; swap to a Redis-backed bucket once we scale beyond a single instance.
-- **Stripe direct integration**: lives on `feature/stripe`. The hook is the existing `webhook/` package (will be extended with a Stripe-specific receiver `/api/webhooks/stripe`, separate from `/api/webhooks/kinde`) and `SubscriptionService.assertCanCreateReport()` — Stripe wiring fires `UserService.updateSubscription(...)` on `customer.subscription.*` events. We are MoR ourselves (autónomo, Spain) with Stripe Tax handling EU VAT.
+- **Billing evolution**: today Kinde Billing covers plans, hosted checkout, customer portal, entitlements, and the meter. If we outgrow it (e.g. need invoice customisation Kinde doesn't expose, complex proration rules, or a provider Kinde doesn't proxy), the swap surface is small: `KindeAccountApiClient` is the only place that reads plans/limits, and `BillingService` is the only consumer of the Properties-based usage counter. A direct-Stripe move would add a `/api/webhooks/stripe` receiver alongside the existing Kinde one, replace `KindeAccountApiClient` with a Stripe-customer/subscription read, and migrate the counter from Kinde Properties to a local DB column (the V5 columns left over from the original Stripe plan would suddenly be useful again).
