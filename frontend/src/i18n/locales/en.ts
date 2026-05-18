@@ -701,6 +701,102 @@ const en = {
       },
     },
   },
+  /**
+   * Strings rendered inside the magazine-style PDF export (cover, TOC,
+   * section eyebrows, brief sidebar, scenarios, planning, etc.).
+   *
+   * <p>Resolved via `i18n.getFixedT(exportLang, null, 'exportPdf')` in
+   * the export pipeline so the PDF can render in a different language
+   * than the app chrome (e.g. user reads in Spanish but exports to
+   * Catalan).
+   */
+  exportPdf: {
+    brand: { title: 'Strategic Foresight' },
+    common: {
+      yearHorizonLabel: 'year horizon',
+      horizon: 'Horizon',
+      years: 'years',
+      continued: 'Continued',
+    },
+    cover: {
+      preparedBy: 'Prepared by',
+      deckFallback: 'A strategic foresight study across plausible futures.',
+    },
+    backCover: {
+      taglineLead: 'The future is not predicted,',
+      taglineAccent: 'it is designed.',
+    },
+    stats: {
+      scenarios: 'Scenarios',
+      drivingForces: 'Driving forces',
+      sourcesCited: 'Sources cited',
+    },
+    toc: {
+      kicker: 'Inside this report',
+      title: 'Contents',
+      order: 'Read in the order shown',
+      teasers: {
+        brief: 'Organisation, sector, challenge and capabilities at a glance.',
+        execDefault: 'The lead narrative — what the analysis means for this organisation.',
+        steep: 'Five-dimension scan of the global and sectorial context.',
+        openQuestions: '{{count}} open questions that shape what futures are possible.',
+        futures: 'Probable, plausible and possible futures explored in depth.',
+        planning:
+          '{{forces}} driving forces, {{axes}} uncertainty axes, and the narrative logic linking them.',
+        backcasting: "{{count}} milestones traced back from each scenario's vision.",
+        strategicMap: '{{count}} priorities laid out across the H1 / H2 / H3 horizons.',
+        signals: '{{signals}} weak signals and {{wildcards}} wildcards — the edge cases to watch.',
+        sources: 'Public sources consulted via web search during generation.',
+      },
+    },
+    sections: {
+      brief: 'Brief',
+      steepContext: 'STEEP Context',
+      keyUncertainties: 'Key Uncertainties',
+      scenarioPlanning: 'Scenario Planning',
+      scenarioPlanningEyebrow: 'Scenario planning · Driving forces',
+      signalsWildcards: 'Signals & Wildcards',
+      sources: 'Sources',
+    },
+    brief: {
+      lead: 'Lead',
+      organisation: 'Organisation',
+      challenge: 'Challenge',
+      strengths: 'Strengths',
+      consultant: 'Consultant',
+    },
+    eyebrows: {
+      context: 'Context',
+      openQuestions: 'Open questions',
+      futures: 'Futures',
+      scenario: 'Scenario',
+      modelLikelihood: 'Model likelihood',
+      structure: 'Structure',
+      trajectory: 'Trajectory',
+      edgeCases: 'Edge cases',
+      references: 'References',
+      scenariosStandfirst:
+        'Three scenarios that frame the strategic landscape: the most probable trajectory, a plausible alternative, and a low-probability disruption.',
+    },
+    planning: {
+      drivingForce: 'Driving force',
+      impactScore: 'Impact score',
+      impact: 'Impact',
+    },
+    strategicMap: {
+      horizon1: 'Horizon 1',
+      horizon2: 'Horizon 2',
+      horizon3: 'Horizon 3',
+      title: 'Strategic Map',
+      priorities: 'Priorities',
+    },
+    timeframes: {
+      now: 'Now',
+    },
+    firstMove: {
+      firstStep: 'First step',
+    },
+  },
   privacy: {
     eyebrow: 'Legal document',
     title: 'Privacy and Terms',
