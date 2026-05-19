@@ -20,13 +20,27 @@ WORKDIR /app
 # service env vars as `--build-arg` automatically, but each var we
 # want exposed has to be declared as an ARG here first. Anything
 # not set in the Railway service env defaults to an empty string,
-# which Vite then bakes verbatim into the bundle (the analytics +
-# snippet handle empty values gracefully — see frontend/index.html).
+# which Vite then bakes verbatim into the bundle.
 ARG VITE_API_URL
 ARG VITE_CLERK_PUBLISHABLE_KEY
-ARG VITE_POSTHOG_ENABLED
-ARG VITE_POSTHOG_KEY
-ARG VITE_POSTHOG_HOST
+
+# Sentry runtime config — baked into the bundle. DSN gates whether
+# Sentry initialises at all (no DSN → fully no-op). Environment +
+# release flow into Sentry's event metadata so the dashboard can
+# group errors by deploy.
+ARG VITE_SENTRY_DSN
+ARG VITE_SENTRY_ENVIRONMENT
+ARG VITE_APP_VERSION
+
+# Sentry source-map upload — BUILD-TIME ONLY. Read by @sentry/vite-plugin
+# during `npm run build`; never baked into the bundle (no VITE_ prefix).
+# When SENTRY_AUTH_TOKEN is absent, the plugin no-ops and the build
+# succeeds without uploading maps. SENTRY_ORG / SENTRY_PROJECT default
+# to "futuros" / "futuros-fe" inside vite.config.ts when unset, so the
+# Railway service only strictly needs SENTRY_AUTH_TOKEN.
+ARG SENTRY_AUTH_TOKEN
+ARG SENTRY_ORG
+ARG SENTRY_PROJECT
 
 # Install dependencies on manifest changes only — keeps the layer
 # cache warm across iterations that only touch source.
