@@ -262,7 +262,7 @@ export function useChat() {
         const spec = getCommandSpec(cmd.name);
         if (spec?.mode !== 'auto') continue;
         try {
-          await dispatch(cmd.name, cmd.args);
+          await dispatch(cmd.name, cmd.args, 'assistant');
           cmd.status = 'applied';
         } catch (e) {
           cmd.status = 'error';
@@ -367,7 +367,7 @@ export function useChat() {
         pendingFailureNotesRef.current.push(`[command declined by user: ${cmd.name}]`);
       } else {
         try {
-          await dispatch(cmd.name, cmd.args);
+          await dispatch(cmd.name, cmd.args, 'assistant');
           nextStatus = 'applied';
         } catch (e) {
           nextStatus = 'error';
