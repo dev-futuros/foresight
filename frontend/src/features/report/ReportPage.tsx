@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import api from '../../lib/api';
 import { useReport, useTranslateReport } from '../../hooks/useReports';
 import { useDemoteExample, useTranslateExample } from '../../hooks/useExamples';
-import { useIsDev } from '../../hooks/useAuth';
+import { useCurrentUser, useIsDev } from '../../hooks/useAuth';
 import { useSetStepper } from '../shell/StepperContext';
 import { useCommands } from '../../lib/useCommands';
 import { useSetAssistantContext } from '../chat/AssistantContextProvider';
@@ -60,6 +60,7 @@ export default function ReportPage() {
   const translateExample = useTranslateExample();
   const demoteExample = useDemoteExample();
   const isDev = useIsDev();
+  const { data: currentUser } = useCurrentUser();
   const [exporting, setExporting] = useState<ExportFormat | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
@@ -147,6 +148,21 @@ export default function ReportPage() {
       }
     }
   }, [storageKey, requestedLang, availableLangs]);
+
+  // Mirror the report's active language onto i18n so UI chrome (STEEP
+  // dimension labels, tab names, action buttons) renders in the same
+  // language as the translated content. Without this, a Spanish UI
+  // user viewing the English translation sees English content beside
+  // Spanish labels like "Tecnológico" / "Medioambiental".
+  //
+  // {@code useLanguageSync} explicitly skips the viewer route so it
+  // doesn't fight back — the user's UI preference is restored when
+  // they navigate away.
+  useEffect(() => {
+    if (i18n.language.slice(0, 2) !== activeLang) {
+      void i18n.changeLanguage(activeLang);
+    }
+  }, [activeLang, i18n]);
   const needsTranslationFetch = report != null && activeLang !== primaryLang;
   // React Query handles per-(id × lang) caching for us: switching back
   // to a previously-fetched language is instant. The endpoint is
@@ -192,20 +208,30 @@ export default function ReportPage() {
     },
     [id, navigate],
   );
+  // Stepper labels follow the user's account UI language, NOT the
+  // report's active language. The stepper belongs to the app shell
+  // (it stays visible across the wizard ↔ viewer flow) — translating
+  // it alongside the report would make the chrome blink between
+  // languages every time the user changes the viewer language.
+  // Report-internal labels (STEEP dimensions, tab names, buttons)
+  // still follow {@code activeLang} via the i18n.changeLanguage
+  // effect below.
+  const userLang = currentUser?.language ?? i18n.language;
+  const tUser = useMemo(() => i18n.getFixedT(userLang), [i18n, userLang]);
   const stepperState = useMemo(
     () => ({
       steps: [
-        { n: 1, label: t('wizard.steps.empresa') },
-        { n: 2, label: t('wizard.steps.global') },
-        { n: 3, label: t('wizard.steps.steep') },
-        { n: 4, label: t('wizard.steps.horizon') },
-        { n: 6, label: t('wizard.steps.results') },
+        { n: 1, label: tUser('wizard.steps.empresa') },
+        { n: 2, label: tUser('wizard.steps.global') },
+        { n: 3, label: tUser('wizard.steps.steep') },
+        { n: 4, label: tUser('wizard.steps.horizon') },
+        { n: 6, label: tUser('wizard.steps.results') },
       ],
       current: 6,
       maxReached: 6,
       onSelect: handleStepperSelect,
     }),
-    [t, handleStepperSelect],
+    [tUser, handleStepperSelect],
   );
   useSetStepper(stepperState);
 
