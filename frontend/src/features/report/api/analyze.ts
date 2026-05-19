@@ -12,6 +12,7 @@
  * Uses fetch() directly (not axios) because axios buffers the whole
  * response body before resolving, which would defeat streaming.
  */
+import * as Sentry from '@sentry/react';
 import api, { getAuthToken } from '../../../lib/api';
 import { parseJson, parseJsonText, type AnthropicResponse } from '../../../lib/anthropicJson';
 import { parseSseFrameJson, splitSseFrame } from '../../../lib/sse';
@@ -39,6 +40,28 @@ import type {
  * the stream closes empty.
  */
 export async function streamSse<TBody, T>(
+  path: string,
+  body: TBody,
+  parser: (text: string) => T,
+  onProgress?: ProgressCallback,
+): Promise<AnalyzeSectionResponse<T>> {
+  try {
+    return await streamSseInner(path, body, parser, onProgress);
+  } catch (err) {
+    // Capture before rethrowing so the caller's own catch block still
+    // fires (analyze sections are called via Promise.allSettled in the
+    // wizard's runAnalysis handler, which surfaces failures per
+    // section to the loader UI). The `path` tag in Sentry groups
+    // failures by which analyze section blew up, which is the most
+    // useful slice when triaging.
+    Sentry.captureException(err, {
+      tags: { kind: 'sse-stream', path },
+    });
+    throw err;
+  }
+}
+
+async function streamSseInner<TBody, T>(
   path: string,
   body: TBody,
   parser: (text: string) => T,

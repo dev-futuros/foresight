@@ -17,6 +17,7 @@ import type { LanguageCode } from '../../../i18n/languages';
  * streaming endpoints — both speak the same SSE protocol so the
  * consumer is identical.
  */
+import * as Sentry from '@sentry/react';
 import { getAuthToken } from '../../../lib/api';
 import type { TranslatedReport } from '../../../types/api';
 
@@ -40,6 +41,34 @@ export async function translateReportStream(args: {
   /** Defaults to 'report' (the per-user translate flow). Pass 'example'
    *  for the DEV-side translate-example flow, which writes to the
    *  shared examples table instead of the caller's report row. */
+  kind?: 'report' | 'example';
+}): Promise<TranslatedReport> {
+  const kind = args.kind ?? 'report';
+  try {
+    return await translateReportStreamInner(args);
+  } catch (err) {
+    // AbortError is benign — it fires when a consumer cancels the
+    // stream (e.g. user navigates away mid-translate). Not a real
+    // failure; skip the Sentry capture.
+    if ((err as Error | undefined)?.name !== 'AbortError') {
+      Sentry.captureException(err, {
+        tags: {
+          kind: 'sse-stream',
+          path: `${kind === 'example' ? 'examples' : 'reports'}/translate/stream`,
+        },
+        extra: { targetLanguage: args.targetLanguage, force: args.force ?? false },
+      });
+    }
+    throw err;
+  }
+}
+
+async function translateReportStreamInner(args: {
+  id: string;
+  targetLanguage: LanguageCode;
+  force?: boolean;
+  onProgress?: (progress: TranslateProgress) => void;
+  signal?: AbortSignal;
   kind?: 'report' | 'example';
 }): Promise<TranslatedReport> {
   const { id, targetLanguage, force = false, onProgress, signal, kind = 'report' } = args;
