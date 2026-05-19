@@ -120,28 +120,39 @@ async function chatStreamInner(
   let buffer = '';
   let finalText = '';
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    let next = splitSseFrame(buffer);
-    while (next !== null) {
-      const { frame, rest } = next;
-      buffer = rest;
-      const evt = parseSseFrameJson<
-        { type: 'delta'; text: string } | { type: 'done'; text: string }
-      >(frame);
-      if (evt === undefined) {
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let next = splitSseFrame(buffer);
+      while (next !== null) {
+        const { frame, rest } = next;
+        buffer = rest;
+        const evt = parseSseFrameJson<
+          { type: 'delta'; text: string } | { type: 'done'; text: string }
+        >(frame);
+        if (evt === undefined) {
+          next = splitSseFrame(buffer);
+          continue;
+        }
+        if (evt.type === 'delta') {
+          onDelta(evt.text);
+        } else if (evt.type === 'done') {
+          finalText = evt.text;
+        }
         next = splitSseFrame(buffer);
-        continue;
       }
-      if (evt.type === 'delta') {
-        onDelta(evt.text);
-      } else if (evt.type === 'done') {
-        finalText = evt.text;
-      }
-      next = splitSseFrame(buffer);
     }
+  } catch (err) {
+    // Trailing reader error after the `done` event already landed —
+    // proxy quirk on connection close. See the same guard +
+    // rationale in features/report/api/analyze.ts::streamSseInner.
+    // If finalText is set the chat reply was fully delivered; the
+    // trailing error is a Railway / Caddy / Vite-preview EOF quirk
+    // to swallow. Otherwise rethrow so the outer Sentry-instrumented
+    // wrapper captures the real failure.
+    if (!finalText) throw err;
   }
   if (!finalText) {
     throw new Error('Chat stream closed before final response');

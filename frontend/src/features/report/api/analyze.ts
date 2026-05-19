@@ -110,30 +110,50 @@ async function streamSseInner<TBody, T>(
   let citations: SourceItem[] = [];
   let frameCount = 0;
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    let next = splitSseFrame(buffer);
-    while (next !== null) {
-      const { frame, rest } = next;
-      buffer = rest;
-      frameCount += 1;
-      const evt = parseSseFrameJson<
-        | { type: 'progress'; chars: number; sources: number }
-        | { type: 'done'; text: string; citations: SourceItem[] }
-      >(frame);
-      if (evt === undefined) {
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let next = splitSseFrame(buffer);
+      while (next !== null) {
+        const { frame, rest } = next;
+        buffer = rest;
+        frameCount += 1;
+        const evt = parseSseFrameJson<
+          | { type: 'progress'; chars: number; sources: number }
+          | { type: 'done'; text: string; citations: SourceItem[] }
+        >(frame);
+        if (evt === undefined) {
+          next = splitSseFrame(buffer);
+          continue;
+        }
+        if (evt.type === 'progress') {
+          onProgress?.({ chars: evt.chars, sources: evt.sources });
+        } else if (evt.type === 'done') {
+          finalText = evt.text;
+          citations = Array.isArray(evt.citations) ? evt.citations : [];
+        }
         next = splitSseFrame(buffer);
-        continue;
       }
-      if (evt.type === 'progress') {
-        onProgress?.({ chars: evt.chars, sources: evt.sources });
-      } else if (evt.type === 'done') {
-        finalText = evt.text;
-        citations = Array.isArray(evt.citations) ? evt.citations : [];
-      }
-      next = splitSseFrame(buffer);
+    }
+  } catch (err) {
+    // Trailing reader error after the `done` event already landed:
+    // Railway / Caddy / Vite preview sometimes signal an abrupt drop
+    // instead of a clean EOF after the upstream Flux completes, and
+    // that surfaces here as a read error on bytes we don't care
+    // about. {@code finalText} is the authoritative payload — if
+    // it's set, the SSE stream delivered everything we need and the
+    // trailing error is a proxy quirk to swallow. Without this guard
+    // the analyze section's progress dot goes red on a successful run.
+    //
+    // If finalText is still empty the stream genuinely failed
+    // mid-flight — rethrow so the outer Sentry-instrumented wrapper
+    // captures it.
+    if (!finalText) throw err;
+    if (debug) {
+      // eslint-disable-next-line no-console
+      console.warn(`[streamSse] ${url} trailing read error after done`, err);
     }
   }
   if (debug) {
