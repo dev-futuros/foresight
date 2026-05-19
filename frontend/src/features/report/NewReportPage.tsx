@@ -13,6 +13,7 @@ import { useCurrentUser } from '../account/api';
 import { useSetStepper } from '../shell/useStepper';
 import type { InputData, SourceItem } from '../../types/api';
 import { extractApiErrorMessage } from '../../lib/apiError';
+import { logger } from '../../lib/log';
 import { notifyAssistant } from '../../lib/assistantBridge';
 import OnboardingDialog from '../../components/OnboardingDialog';
 import LoadingPanel, { type ProgressItem } from '../../components/LoadingPanel';
@@ -385,9 +386,9 @@ export default function NewReportPage() {
       !normalisedHorizon.H2 &&
       !normalisedHorizon.H3
     ) {
-      console.warn(
-        '[wizard] example %s has no horizon scan inputs — re-promote a newer report to populate H1/H2/H3.',
-        editingReport.data.id,
+      logger.warn(
+        'wizard',
+        `example ${editingReport.data.id} has no horizon scan inputs — re-promote a newer report to populate H1/H2/H3.`,
       );
     }
     // Pre-claim the global-steep auto-fetch ref when the loaded report

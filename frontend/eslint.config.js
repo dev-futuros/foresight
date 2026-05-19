@@ -95,6 +95,14 @@ export default tseslint.config(
     rules: {
       ...warnAll,
 
+      // ── Logging discipline.
+      //    Feature code must go through {@code lib/log.ts}'s logger
+      //    rather than raw console.*, so we have a single chokepoint
+      //    for future Sentry breadcrumb wiring / prod-suppression / etc.
+      //    The logger itself + Sentry / Mixpanel init paths bypass this
+      //    via the per-file override below.
+      'no-console': 'error',
+
       // ── React-friendly tweaks to keep the strict configs usable.
       //    Defaults of these rules fight common React idioms.
       '@typescript-eslint/no-misused-promises': [
@@ -143,6 +151,13 @@ export default tseslint.config(
         },
       ],
     },
+  },
+  // Logger + bootstrap-time observability code — these are the legitimate
+  // callers of raw console.*. The logger IS the abstraction; sentry /
+  // mixpanel init log once at boot before the logger exists.
+  {
+    files: ['src/lib/log.ts', 'src/lib/sentry.ts', 'src/lib/mixpanel.ts'],
+    rules: { 'no-console': 'off' },
   },
   // Tests + test utilities — relax the unsafe-* family so mock data and
   // any-typed harnesses don't drown out real signal. unbound-method is

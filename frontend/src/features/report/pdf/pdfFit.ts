@@ -28,6 +28,7 @@ import type { LanguageCode } from '../../../i18n/languages';
  */
 
 import { tighten, savePdfOptimized } from '../api';
+import { logger } from '../../../lib/log';
 import type { PdfOptimizedCache } from '../../../types/api';
 
 /**
@@ -139,6 +140,6 @@ export async function persistTightened(
   } catch (err) {
     // Don't break the export; the user already has their PDF.
 
-    console.warn('[pdfFit] failed to persist tightened cache', err);
+    logger.warn('pdfFit', 'failed to persist tightened cache', err);
   }
 }

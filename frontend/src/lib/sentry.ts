@@ -34,7 +34,6 @@ export function initSentry(): void {
   if (!dsn) {
     // Local dev / preview builds without a Sentry project. Logging once
     // at boot is enough for the developer to know capture is off.
-    // eslint-disable-next-line no-console
     console.info('[sentry] VITE_SENTRY_DSN not set — error capture disabled');
     return;
   }
@@ -94,6 +93,5 @@ export function initSentry(): void {
     },
   });
 
-  // eslint-disable-next-line no-console
   console.info('[sentry] initialised', { environment, release });
 }

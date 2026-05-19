@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { translateReportStream } from '../report/api';
 import { reportKeys } from '../report/api/queryKeys';
 import { exampleKeys } from '../examples/api/queryKeys';
+import { logger } from '../../lib/log';
 import type { ExportLanguage } from '../report/components/ExportModal';
 import {
   TranslationsContext,
@@ -82,7 +83,7 @@ export function TranslationsProvider({ children }: PropsWithChildren) {
         .catch((err: unknown) => {
           if ((err as Error)?.name === 'AbortError') return;
 
-          console.error('[translations] stream failed', err);
+          logger.error('translations', 'stream failed', err);
           callbacks?.onError?.(err);
         })
         .finally(() => {

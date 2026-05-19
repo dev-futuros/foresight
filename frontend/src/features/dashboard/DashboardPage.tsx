@@ -24,6 +24,7 @@ import ShareModal from '../report/components/ShareModal';
 import PromoteToExampleModal from '../examples/components/PromoteToExampleModal';
 import '../../components/modal.css';
 import api from '../../lib/api';
+import { logger } from '../../lib/log';
 import { exportReportPdf } from '../report/pdf';
 import { exportReportPpt } from '../../lib/exportPpt';
 import { exportReportHtml } from '../../lib/exportHtml';
@@ -215,7 +216,7 @@ export default function DashboardPage() {
       // report card appears in place. The dev can open it if they want.
       await demoteExample.mutateAsync(exampleId);
     } catch (err) {
-      console.error('[dashboard] demote failed', err);
+      logger.error('dashboard', 'demote failed', err);
     }
   }
 
@@ -281,7 +282,7 @@ export default function DashboardPage() {
       else if (format === 'ppt') exportReportPpt(report);
       else await exportReportHtml(report, language, kind, includeLanguages);
     } catch (err) {
-      console.error('[dashboard] export failed', err);
+      logger.error('dashboard', 'export failed', err);
     } finally {
       setExporting(null);
     }

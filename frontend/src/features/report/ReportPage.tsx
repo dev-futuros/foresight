@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { ReportLanguageContext } from './reportLanguage';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../lib/api';
+import { logger } from '../../lib/log';
 import { useReport, useTranslateReport } from './api';
 import { reportKeys } from './api/queryKeys';
 import { useDemoteExample, useTranslateExample } from '../examples/api';
@@ -441,7 +442,7 @@ export default function ReportPage() {
       // No navigation needed — same URL, new shape.
       await refetch();
     } catch (err) {
-      console.error('[report] demote failed', err);
+      logger.error('report', 'demote failed', err);
     }
   }
 

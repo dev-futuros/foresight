@@ -1,5 +1,6 @@
 import type { LanguageCode } from '../i18n/languages';
 import api from './api';
+import { logger } from './log';
 import type { ReportResponse } from '../types/api';
 
 type ExportLanguage = LanguageCode;
@@ -296,8 +297,9 @@ export async function exportReportHtml(
   // dev with a clear hint instead of letting them stare at a CORS
   // failure in the console.
   if (hostHtml.includes('/@vite/client') || hostHtml.includes('/@react-refresh')) {
-    console.warn(
-      '[exportReportHtml] You are exporting against the dev server. The downloaded file references dev-only module URLs and will only work while the dev server is running — opening it from disk will fail with CORS errors. To produce a truly standalone artefact, run `npm run build:snapshot && npm run preview` and export from the preview URL.',
+    logger.warn(
+      'exportReportHtml',
+      'You are exporting against the dev server. The downloaded file references dev-only module URLs and will only work while the dev server is running — opening it from disk will fail with CORS errors. To produce a truly standalone artefact, run `npm run build:snapshot && npm run preview` and export from the preview URL.',
     );
   }
   const html = injectReportData(hostHtml, snapshotReport, openLang, translations);

@@ -25,6 +25,7 @@ import type {
   WeakSignal,
   Wildcard,
 } from '../../../types/api';
+import { logger } from '../../../lib/log';
 import {
   runFitPass,
   persistTightened,
@@ -290,8 +291,9 @@ function registerCachedFonts(doc: jsPDF) {
       doc.addFileToVFS(filename, f.base64);
       doc.addFont(filename, f.family, f.style);
     } catch (err) {
-      console.warn(
-        `[exportPdf] Could not register ${f.family} (${f.style}) — likely a ` +
+      logger.warn(
+        'exportPdf',
+        `Could not register ${f.family} (${f.style}) — likely a ` +
           `variable-font TTF jsPDF can't parse. Drop the *static* TTFs from ` +
           `the Google Fonts static/ subfolder into public/fonts/. Falling ` +
           `back to built-in for ${f.family}.`,
@@ -2028,8 +2030,9 @@ function fitTextLines(
 function warnOverflow(where: string, text: string, maxWidth: number, maxLines: number) {
   const snippet = text.length > 80 ? text.slice(0, 77) + '…' : text;
 
-  console.warn(
-    `[exportPdf] text overflow at "${where}" (max ${maxLines} line(s) @ ${maxWidth.toFixed(1)}mm): "${snippet}"`,
+  logger.warn(
+    'exportPdf',
+    `text overflow at "${where}" (max ${maxLines} line(s) @ ${maxWidth.toFixed(1)}mm): "${snippet}"`,
   );
 }
 

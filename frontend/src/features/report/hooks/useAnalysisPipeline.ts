@@ -6,6 +6,7 @@ import {
   analyzeStrategicMap,
   analyzeSummary,
 } from '../api';
+import { logger } from '../../../lib/log';
 import type { AnalyzeArgs, Scenario, SourceItem } from '../../../types/api';
 
 /** The five parallel analysis phases the pipeline runs. */
@@ -126,16 +127,14 @@ export function useAnalysisPipeline(): UseAnalysisPipelineReturn {
           setStatus((p) => ({ ...p, [key]: 'done' }));
           return r;
         };
-      // The console.error here is intentional: Promise.allSettled
-      // swallows individual rejections, so without this the loader
-      // row turns red but the actual error never surfaces in dev
-      // tools.
+      // Surface the rejection reason: Promise.allSettled swallows
+      // individual rejections, so without this the loader row turns
+      // red but the actual error never appears in dev tools.
       const onError =
         (key: AnalysisSectionKey) =>
         (err: unknown): never => {
           setStatus((p) => ({ ...p, [key]: 'error' }));
-          // eslint-disable-next-line no-console
-          console.error(`[analyze:${key}] failed:`, err);
+          logger.error(`analyze:${key}`, 'failed:', err);
           throw err;
         };
 

@@ -14,6 +14,7 @@
  */
 import * as Sentry from '@sentry/react';
 import api, { getAuthToken } from '../../../lib/api';
+import { logger } from '../../../lib/log';
 import { parseJson, parseJsonText, type AnthropicResponse } from '../../../lib/anthropicJson';
 import { parseSseFrameJson, splitSseFrame } from '../../../lib/sse';
 import type {
@@ -84,8 +85,7 @@ async function streamSseInner<TBody, T>(
     body: JSON.stringify(body),
   });
   if (debug) {
-    // eslint-disable-next-line no-console
-    console.log(`[streamSse] ${url} →`, res.status, res.statusText, {
+    logger.debug('streamSse', `${url} →`, res.status, res.statusText, {
       contentType: res.headers.get('content-type'),
     });
   }
@@ -152,13 +152,11 @@ async function streamSseInner<TBody, T>(
     // captures it.
     if (!finalText) throw err;
     if (debug) {
-      // eslint-disable-next-line no-console
-      console.warn(`[streamSse] ${url} trailing read error after done`, err);
+      logger.warn('streamSse', `${url} trailing read error after done`, err);
     }
   }
   if (debug) {
-    // eslint-disable-next-line no-console
-    console.log(`[streamSse] ${url} closed`, {
+    logger.debug('streamSse', `${url} closed`, {
       frames: frameCount,
       finalTextLen: finalText.length,
       citations: citations.length,

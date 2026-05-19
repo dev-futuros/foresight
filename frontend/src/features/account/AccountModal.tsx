@@ -7,6 +7,7 @@ import Modal from '../../components/Modal';
 import { useCurrentUser, useUpdateProfile } from './api';
 import { useBillingProfile } from '../billing/api';
 import { extractApiErrorMessage } from '../../lib/apiError';
+import { logger } from '../../lib/log';
 import Avatar from './Avatar';
 import './account.css';
 
@@ -87,7 +88,7 @@ export default function AccountModal({ open, onClose }: Readonly<Props>) {
       // Best-effort: log and reset; the user can retry. Don't surface as a modal
       // error banner because the modal's own Profile / Preferences forms have their
       // own message slots and we don't want to step on them.
-      console.error('Failed to open Kinde portal:', err);
+      logger.error('account', 'Failed to open Kinde portal:', err);
     } finally {
       setPortalOpening(false);
     }
