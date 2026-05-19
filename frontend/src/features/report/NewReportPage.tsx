@@ -720,7 +720,22 @@ export default function NewReportPage() {
         return;
       }
 
-      const args = { companyProfile: empresa, steep, horizon, language };
+      // Strip pure-attribution metadata before handing the profile to
+      // the AI. consultantName / consultantCompany exist for the
+      // report's cover page and export footer — they're not part of
+      // the strategic context the model should reason about. Without
+      // this scrub Opus has been observed citing the consultant as a
+      // third-party source.
+      //
+      // The backend is a generic prompt-shipping passthrough — it
+      // doesn't (and shouldn't) know about UI-specific field names
+      // like these. The frontend is the source of truth for what
+      // goes to the AI; if these fields never leave the browser,
+      // they never reach Opus.
+      const { consultantName: _cn, consultantCompany: _cc, ...companyProfileForAi } = empresa;
+      void _cn;
+      void _cc;
+      const args = { companyProfile: companyProfileForAi, steep, horizon, language };
 
       // ALL FIVE analysis calls fire in parallel — each does its OWN
       // web_search via the backend (Opus + web_search, matching the
