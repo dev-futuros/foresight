@@ -222,20 +222,24 @@ export default function ReportPage() {
     },
     [id, navigate],
   );
+  // Stepper labels follow PRIMARY — the stepper is app chrome that's
+  // visible on both the wizard and the viewer; flipping it with the
+  // viewer would make it blink between languages as the user moves
+  // between routes.
   const stepperState = useMemo(
     () => ({
       steps: [
-        { n: 1, label: t('wizard.steps.empresa') },
-        { n: 2, label: t('wizard.steps.global') },
-        { n: 3, label: t('wizard.steps.steep') },
-        { n: 4, label: t('wizard.steps.horizon') },
-        { n: 6, label: t('wizard.steps.results') },
+        { n: 1, label: tPrimary('wizard.steps.empresa') },
+        { n: 2, label: tPrimary('wizard.steps.global') },
+        { n: 3, label: tPrimary('wizard.steps.steep') },
+        { n: 4, label: tPrimary('wizard.steps.horizon') },
+        { n: 6, label: tPrimary('wizard.steps.results') },
       ],
       current: 6,
       maxReached: 6,
       onSelect: handleStepperSelect,
     }),
-    [t, handleStepperSelect],
+    [tPrimary, handleStepperSelect],
   );
   useSetStepper(stepperState);
 
@@ -563,6 +567,12 @@ export default function ReportPage() {
                   the navigation, not a header metadata chip. */}
               </div>
             </div>
+            {/* Action buttons (Promote / Demote / Share / Export) read
+                from tPrimary — they ACT ON the report from the app
+                context (they open modals or trigger external actions)
+                rather than describe report content. The modals
+                themselves are also at primary, so the open-button and
+                the opened-modal stay in the same language. */}
             <div className="report-actions">
               {/* Promote: DEV only, real reports only. Hidden for examples
                 (which are already promoted) and for non-DEVs (gated at
@@ -573,9 +583,11 @@ export default function ReportPage() {
                   className="btn"
                   onClick={() => setPromoteOpen(true)}
                   disabled={!report.resultData}
-                  title={t('dashboard.actions.promote', { defaultValue: 'Promote to example' })}
+                  title={tPrimary('dashboard.actions.promote', {
+                    defaultValue: 'Promote to example',
+                  })}
                 >
-                  ★ {t('dashboard.actions.promote', { defaultValue: 'Example' })}
+                  ★ {tPrimary('dashboard.actions.promote', { defaultValue: 'Example' })}
                 </button>
               )}
               {/* Demote: DEV only, examples only. Converts back to a
@@ -588,11 +600,11 @@ export default function ReportPage() {
                   type="button"
                   className="btn"
                   onClick={() => setPendingDemote(true)}
-                  title={t('dashboard.actions.demote', {
+                  title={tPrimary('dashboard.actions.demote', {
                     defaultValue: 'Convert back to a private report',
                   })}
                 >
-                  ↩ {t('dashboard.actions.demote', { defaultValue: 'Report' })}
+                  ↩ {tPrimary('dashboard.actions.demote', { defaultValue: 'Report' })}
                 </button>
               )}
               <button
@@ -600,24 +612,24 @@ export default function ReportPage() {
                 className="btn"
                 onClick={() => setShareOpen(true)}
                 disabled={!report.resultData}
-                title={t('share.triggerBtn')}
+                title={tPrimary('share.triggerBtn')}
               >
                 <svg className="db-r-btn-ico" aria-hidden>
                   <use href="#i-share" />
                 </svg>
-                {t('share.triggerBtn')}
+                {tPrimary('share.triggerBtn')}
               </button>
               <button
                 type="button"
                 className="btn btn-primary"
                 onClick={() => setExportOpen(true)}
                 disabled={exporting !== null || !report.resultData}
-                title={t('dashboard.actions.export')}
+                title={tPrimary('dashboard.actions.export')}
               >
                 <svg className="db-r-btn-ico" aria-hidden>
                   <use href="#i-dl" />
                 </svg>
-                {exporting !== null ? '…' : t('dashboard.actions.export')}
+                {exporting !== null ? '…' : tPrimary('dashboard.actions.export')}
               </button>
             </div>
           </header>
