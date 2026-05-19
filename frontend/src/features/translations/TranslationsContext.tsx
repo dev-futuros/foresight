@@ -1,6 +1,8 @@
 import { useCallback, useRef, useState, type PropsWithChildren } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { translateReportStream } from '../report/api';
+import { reportKeys } from '../report/api/queryKeys';
+import { exampleKeys } from '../examples/api/queryKeys';
 import type { ExportLanguage } from '../report/components/ExportModal';
 import {
   TranslationsContext,
@@ -70,8 +72,8 @@ export function TranslationsProvider({ children }: PropsWithChildren) {
           // a hard reload. Both query keys are invalidated regardless of
           // kind so a freshly-translated example shows up in the dashboard
           // even if the consumer only listened on the reports key.
-          queryClient.invalidateQueries({ queryKey: ['reports'] });
-          queryClient.invalidateQueries({ queryKey: ['examples'] });
+          queryClient.invalidateQueries({ queryKey: reportKeys.all });
+          queryClient.invalidateQueries({ queryKey: exampleKeys.all });
           // Run AFTER the cache invalidation so the success callback can
           // navigate to / refetch the freshly-translated payload without
           // racing the still-stale data.

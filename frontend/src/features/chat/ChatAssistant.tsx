@@ -11,7 +11,10 @@ import {
 } from './lib/buildAssistantSnapshot';
 import { dispatch as dispatchCommand } from '../../lib/commandBus';
 import { setAssistantNotifier, setAssistantResetter } from '../../lib/assistantBridge';
-import api from '../../lib/api';
+import { reportKeys } from '../report/api/queryKeys';
+import { listReports } from '../report/api/fetchers';
+import { exampleKeys } from '../examples/api/queryKeys';
+import { listExamples } from '../examples/api/fetchers';
 import type { EmpresaData } from '../report/steps/StepEmpresa';
 import type { GlobalSteepData } from '../report/steps/StepGlobal';
 import type { SteepData } from '../report/steps/StepSteep';
@@ -114,26 +117,22 @@ export default function ChatAssistant() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const msgsRef = useRef<HTMLDivElement>(null);
 
+  // Reports + examples lists feed the assistant snapshot so the model
+  // can answer "open my latest" / "load the bakery example" without
+  // having to ask for an id. Gated on {@code open} so we don't pay the
+  // round-trips while the panel is collapsed.
+  //
+  // Use the canonical query-key factories so this query shares cache
+  // with the dashboard's useReports() / useExamples() calls — when the
+  // user is already on /dashboard, opening the chat is a cache hit.
   const { data: reportsPage } = useQuery<Page<ReportSummary>>({
-    queryKey: ['reports', 0, 20],
-    queryFn: async () => {
-      const res = await api.get<Page<ReportSummary>>('/reports', {
-        params: { page: 0, size: 20, sort: 'createdAt,desc' },
-      });
-      return res.data;
-    },
+    queryKey: reportKeys.list({ page: 0, size: 20 }),
+    queryFn: () => listReports({ page: 0, size: 20 }),
     enabled: open,
   });
-  // Examples list — same opening trigger as reports. The list is global
-  // (every user sees the same set) so the query key has no per-user
-  // component. Surfaced into the assistant snapshot so the model can
-  // answer "load the bakery example" without asking for an id.
   const { data: examplesList } = useQuery<ExampleSummary[]>({
-    queryKey: ['examples'],
-    queryFn: async () => {
-      const res = await api.get<ExampleSummary[]>('/examples');
-      return res.data;
-    },
+    queryKey: exampleKeys.list(),
+    queryFn: listExamples,
     enabled: open,
   });
 

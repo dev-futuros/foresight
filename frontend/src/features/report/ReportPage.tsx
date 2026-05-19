@@ -6,7 +6,9 @@ import { ReportLanguageContext } from './reportLanguage';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../lib/api';
 import { useReport, useTranslateReport } from './api';
+import { reportKeys } from './api/queryKeys';
 import { useDemoteExample, useTranslateExample } from '../examples/api';
+import { exampleKeys } from '../examples/api/queryKeys';
 import { useIsDev } from '../account/api';
 import { useSetStepper } from '../shell/useStepper';
 import { useCommands } from '../../lib/useCommands';
@@ -27,7 +29,7 @@ import PromoteToExampleModal from '../examples/components/PromoteToExampleModal'
 import ConfirmDialog from '../../components/ConfirmDialog';
 import ReportContent, { type InputProjection } from './ReportContent';
 import '../../components/modal.css';
-import type { InputData, ReportResponse, ResultData } from '../../types/api';
+import type { InputData, ReportResponse, ResultData, TranslatedReport } from '../../types/api';
 import './report.css';
 
 export default function ReportPage() {
@@ -157,22 +159,18 @@ export default function ReportPage() {
   // React Query handles per-(id × lang) caching for us: switching back
   // to a previously-fetched language is instant. The endpoint is
   // server-side cache-warm so even a "first fetch" round-trip is fast.
-  const translationQuery = useQuery<{
-    inputData: Record<string, unknown>;
-    resultData: Record<string, unknown> | null;
-  }>({
-    queryKey: [
-      report?.source === 'example' ? 'examples' : 'reports',
-      id,
-      'translation',
-      activeLang,
-    ],
+  const translationQuery = useQuery<TranslatedReport>({
+    // Nested under the report/example detail key so invalidating the
+    // parent detail also drops all per-language translations for it.
+    queryKey:
+      report?.source === 'example'
+        ? exampleKeys.translation(id ?? '', activeLang)
+        : reportKeys.translation(id ?? '', activeLang),
     queryFn: async () => {
       const base = report?.source === 'example' ? 'examples' : 'reports';
-      const res = await api.post<{
-        inputData: Record<string, unknown>;
-        resultData: Record<string, unknown> | null;
-      }>(`/${base}/${id}/translate`, null, { params: { targetLanguage: activeLang } });
+      const res = await api.post<TranslatedReport>(`/${base}/${id}/translate`, null, {
+        params: { targetLanguage: activeLang },
+      });
       return res.data;
     },
     enabled: needsTranslationFetch,

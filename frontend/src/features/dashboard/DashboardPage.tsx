@@ -4,12 +4,14 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { useReports, useDeleteReport, useDeleteTranslation } from '../report/api';
+import { reportKeys } from '../report/api/queryKeys';
 import {
   useExamples,
   useDeleteExample,
   useDeleteExampleTranslation,
   useDemoteExample,
 } from '../examples/api';
+import { exampleKeys } from '../examples/api/queryKeys';
 import { useIsDev } from '../account/api';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import ExportModal, {
@@ -239,10 +241,10 @@ export default function DashboardPage() {
     try {
       const base = kind === 'example' ? 'examples' : 'reports';
       const baseReport = await queryClient.fetchQuery<ReportResponse>({
-        // Use a dedicated cache key per kind so the React Query cache
-        // doesn't collide between a report id and an example id (rare,
-        // since both are UUIDs, but cheap to guard).
-        queryKey: [base, id, 'detail'],
+        // Use the canonical key factories so this fetch shares cache
+        // with `useReport(id)` / `useExample(id)` — opening the viewer
+        // for the same row after an export is then instant.
+        queryKey: kind === 'example' ? exampleKeys.detail(id) : reportKeys.detail(id),
         queryFn: async () => {
           const res = await api.get<ReportResponse>(`/${base}/${id}`);
           return res.data;

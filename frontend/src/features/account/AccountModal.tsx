@@ -7,6 +7,7 @@ import type { PortalPage } from '@kinde/js-utils';
 import Modal from '../../components/Modal';
 import { useCurrentUser, useUpdateProfile } from './api';
 import { useBillingProfile } from '../billing/api';
+import { billingKeys } from '../billing/api/queryKeys';
 import api from '../../lib/api';
 import { extractApiErrorMessage } from '../../lib/apiError';
 import type { BillingProfileResponse } from '../../types/api';
@@ -84,7 +85,7 @@ export default function AccountModal({ open, onClose }: Readonly<Props>) {
       setMeterDebug(JSON.stringify(res.data, null, 2));
       // Make the modal's quota chip refresh too — TanStack Query won't know on its own
       // that this request mutated billing state.
-      await queryClient.invalidateQueries({ queryKey: ['billing'] });
+      await queryClient.invalidateQueries({ queryKey: billingKeys.all });
     } catch (err) {
       setMeterDebug('Request failed: ' + extractApiErrorMessage(err, 'unknown'));
     } finally {

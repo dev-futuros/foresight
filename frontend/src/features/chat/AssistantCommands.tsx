@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { type CommandSpec } from '../../lib/commandBus';
 import { useCommands } from '../../lib/useCommands';
 import { useDeleteReport } from '../report/api';
+import { reportKeys } from '../report/api/queryKeys';
 import { useLogout } from '../account/api';
 import { resetAssistant } from '../../lib/assistantBridge';
 import api from '../../lib/api';
@@ -190,7 +191,7 @@ export default function AssistantCommands() {
           );
         }
         const res = await api.post<{ shareUrl: string; expiresAt: string }>(`/reports/${id}/share`);
-        void qc.invalidateQueries({ queryKey: ['reports'] });
+        void qc.invalidateQueries({ queryKey: reportKeys.all });
         return `Share link: ${res.data.shareUrl} (expires ${res.data.expiresAt}).`;
       },
     },
@@ -222,7 +223,7 @@ export default function AssistantCommands() {
       name: 'refreshReports',
       mode: 'auto',
       handler: async () => {
-        await qc.invalidateQueries({ queryKey: ['reports'] });
+        await qc.invalidateQueries({ queryKey: reportKeys.all });
         return 'Refreshed the reports list.';
       },
     },
