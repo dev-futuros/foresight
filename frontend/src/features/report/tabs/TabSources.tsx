@@ -1,4 +1,4 @@
-import { useTranslation } from 'react-i18next';
+import { useReportTranslation } from '../reportLanguage';
 import type { SourceItem } from '../../../types/api';
 import type { ResultData } from '../ReportContent';
 
@@ -23,7 +23,7 @@ const SECTION_ORDER: SectionId[] = ['A', 'B', 'C', 'D', 'E'];
  * demo's two-line item layout. URLs open in a new tab with safe rel.
  */
 export default function TabSources({ result }: { result: ResultData }) {
-  const { t } = useTranslation();
+  const { t } = useReportTranslation();
   const s = result.sources;
 
   const reportList = s?.report ?? s?.sources ?? [];

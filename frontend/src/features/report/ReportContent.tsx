@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useReportTranslation } from './reportLanguage';
 import type {
   Backcasting,
   GlobalSteep,
@@ -189,7 +189,7 @@ interface Props {
  * placeholders.
  */
 export default function ReportContent({ result, input, rightSlot }: Props) {
-  const { t } = useTranslation();
+  const { t } = useReportTranslation();
   const tabRowRef = useRef<HTMLDivElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   // Normalise both STEEP blocks once so every downstream consumer

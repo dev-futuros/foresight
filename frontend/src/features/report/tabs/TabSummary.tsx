@@ -1,5 +1,5 @@
 import { useState, type ReactElement } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useReportTranslation } from '../reportLanguage';
 import type { GlobalSteepDimension, KeyUncertainty } from '../../../types/api';
 import type { InputProjection, ResultData } from '../ReportContent';
 
@@ -26,7 +26,7 @@ export default function TabSummary({
   result: ResultData;
   input?: InputProjection;
 }) {
-  const { t } = useTranslation();
+  const { t } = useReportTranslation();
   const exec = result.executiveSummary?.trim();
   const uncertainties = result.keyUncertainties ?? [];
   const hasExec = !!exec;
@@ -143,7 +143,7 @@ function UncertaintyExplorer({ items }: { items: KeyUncertainty[] }) {
  * full STEEP input verbatim before re-reading the analysis.
  */
 function SteepEcho({ input }: { input: InputProjection }) {
-  const { t } = useTranslation();
+  const { t } = useReportTranslation();
   const g = input.globalSteep ?? {};
   const s = input.sectorialSteep ?? {};
   const dims: GlobalSteepDimension[] = ['S', 'T', 'E', 'ENV', 'P'];

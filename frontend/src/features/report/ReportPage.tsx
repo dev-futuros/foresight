@@ -2,6 +2,7 @@ import { isLanguageCode, languageSpec } from '../../i18n/languages';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { ReportLanguageContext } from './reportLanguage';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../lib/api';
 import { useReport, useTranslateReport } from './api';
@@ -54,7 +55,21 @@ interface InputData {
 }
 
 export default function ReportPage() {
-  const { t, i18n } = useTranslation();
+  // ReportPage uses TWO t functions side-by-side:
+  //   tPrimary — bound to the user's profile preference (global
+  //              i18n.language). Used for text passed AS PROPS to
+  //              modals/dialogs (LoadingOverlay's "Exporting…",
+  //              ConfirmDialog's title/description/confirmLabel for
+  //              the demote flow). Those components shouldn't follow
+  //              the report language.
+  //   t        — bound to activeLang via getFixedT (defined further
+  //              down, after activeLang is computed). Used for the
+  //              report viewer chrome (eyebrow, status badge, header
+  //              buttons, in-viewer pill, date label).
+  //
+  // i18n is also captured here so the activeLang-bound t can be
+  // built from i18n.getFixedT below.
+  const { t: tPrimary, i18n } = useTranslation();
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { data: report, isLoading, isError, refetch } = useReport(id!);
@@ -109,6 +124,18 @@ export default function ReportPage() {
     if (storedLang && availableLangs.includes(storedLang)) return storedLang;
     return primaryLang;
   })();
+
+  // Bind t to activeLang via getFixedT — a pure function call, no
+  // subscription, no global state mutation. ReportPage uses this t
+  // directly for its own header chrome (eyebrow, status badge,
+  // header buttons, in-viewer pill, date label). Child components
+  // (ReportContent + every tab) call {@code useReportTranslation}
+  // which reads activeLang from the {@code ReportLanguageContext}
+  // we provide at the bottom of this return — same activeLang,
+  // same underlying getFixedT mechanism. ReportPage takes the
+  // direct path here because its own JSX renders BEFORE the
+  // provider is installed (chicken-and-egg).
+  const t = useMemo(() => i18n.getFixedT(activeLang), [i18n, activeLang]);
 
   /**
    * Write the user's chosen language to localStorage AND the URL.
@@ -195,20 +222,24 @@ export default function ReportPage() {
     },
     [id, navigate],
   );
+  // Stepper labels follow PRIMARY — the stepper is app chrome that's
+  // visible on both the wizard and the viewer; flipping it with the
+  // viewer would make it blink between languages as the user moves
+  // between routes.
   const stepperState = useMemo(
     () => ({
       steps: [
-        { n: 1, label: t('wizard.steps.empresa') },
-        { n: 2, label: t('wizard.steps.global') },
-        { n: 3, label: t('wizard.steps.steep') },
-        { n: 4, label: t('wizard.steps.horizon') },
-        { n: 6, label: t('wizard.steps.results') },
+        { n: 1, label: tPrimary('wizard.steps.empresa') },
+        { n: 2, label: tPrimary('wizard.steps.global') },
+        { n: 3, label: tPrimary('wizard.steps.steep') },
+        { n: 4, label: tPrimary('wizard.steps.horizon') },
+        { n: 6, label: tPrimary('wizard.steps.results') },
       ],
       current: 6,
       maxReached: 6,
       onSelect: handleStepperSelect,
     }),
-    [t, handleStepperSelect],
+    [tPrimary, handleStepperSelect],
   );
   useSetStepper(stepperState);
 
@@ -489,192 +520,218 @@ export default function ReportPage() {
     sectorialSteep: input?.steep as InputProjection['sectorialSteep'],
   };
 
+  // Date formatter follows activeLang — same scope as every t() in
+  // this component. A user reading an English report sees the date
+  // in English locale formatting regardless of their profile
+  // preference.
   const formattedDate = new Date(report.createdAt).toLocaleDateString(
-    languageSpec(i18n.language).dateLocale,
+    languageSpec(activeLang).dateLocale,
     { day: '2-digit', month: 'short', year: 'numeric' },
   );
 
   return (
-    <div className="report-page">
-      <div className="report-main">
-        <header className="report-header">
-          <div className="report-heading">
-            <p className="report-eyebrow">
-              {isExample ? t('example.eyebrow', { defaultValue: 'Example' }) : t('report.eyebrow')}
-            </p>
-            <h1 className="report-main-title">{report.title}</h1>
-            <div className="report-meta">
-              <span className={`status-badge ${report.status}`}>
-                {t(`report.status.${report.status}`)}
-              </span>
-              <span className="report-meta-item">
-                {t('report.meta.created', { date: formattedDate })}
-              </span>
-              {input?.companyProfile?.horizon && (
-                <span className="report-meta-item">
-                  {t('report.meta.horizon', { value: input.companyProfile.horizon })}
+    // Provider scopes activeLang to ReportPage's children
+    // (ReportContent + all 8 tab files via useReportTranslation).
+    // Components OUTSIDE this provider (modals, dialogs, AppShell,
+    // wizard) keep using plain useTranslation → primary language.
+    <ReportLanguageContext.Provider value={activeLang}>
+      <div className="report-page">
+        <div className="report-main">
+          <header className="report-header">
+            <div className="report-heading">
+              <p className="report-eyebrow">
+                {isExample
+                  ? t('example.eyebrow', { defaultValue: 'Example' })
+                  : t('report.eyebrow')}
+              </p>
+              <h1 className="report-main-title">{report.title}</h1>
+              <div className="report-meta">
+                <span className={`status-badge ${report.status}`}>
+                  {t(`report.status.${report.status}`)}
                 </span>
-              )}
-              {input?.companyProfile?.sector && (
-                <span className="report-meta-item">· {input.companyProfile.sector}</span>
-              )}
-              {/* Switcher used to live here. It's now passed into
+                <span className="report-meta-item">
+                  {t('report.meta.created', { date: formattedDate })}
+                </span>
+                {input?.companyProfile?.horizon && (
+                  <span className="report-meta-item">
+                    {t('report.meta.horizon', { value: input.companyProfile.horizon })}
+                  </span>
+                )}
+                {input?.companyProfile?.sector && (
+                  <span className="report-meta-item">· {input.companyProfile.sector}</span>
+                )}
+                {/* Switcher used to live here. It's now passed into
                   ReportContent's rightSlot so it sits aligned with the
                   sticky tab row on the right edge — stays accessible
                   during long-scroll reading and reads as a peer of
                   the navigation, not a header metadata chip. */}
+              </div>
             </div>
-          </div>
-          <div className="report-actions">
-            {/* Promote: DEV only, real reports only. Hidden for examples
+            {/* Action buttons (Promote / Demote / Share / Export) read
+                from tPrimary — they ACT ON the report from the app
+                context (they open modals or trigger external actions)
+                rather than describe report content. The modals
+                themselves are also at primary, so the open-button and
+                the opened-modal stay in the same language. */}
+            <div className="report-actions">
+              {/* Promote: DEV only, real reports only. Hidden for examples
                 (which are already promoted) and for non-DEVs (gated at
                 the backend too). */}
-            {isDev && !isExample && (
-              <button
-                type="button"
-                className="btn"
-                onClick={() => setPromoteOpen(true)}
-                disabled={!report.resultData}
-                title={t('dashboard.actions.promote', { defaultValue: 'Promote to example' })}
-              >
-                ★ {t('dashboard.actions.promote', { defaultValue: 'Example' })}
-              </button>
-            )}
-            {/* Demote: DEV only, examples only. Converts back to a
+              {isDev && !isExample && (
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => setPromoteOpen(true)}
+                  disabled={!report.resultData}
+                  title={tPrimary('dashboard.actions.promote', {
+                    defaultValue: 'Promote to example',
+                  })}
+                >
+                  ★ {tPrimary('dashboard.actions.promote', { defaultValue: 'Example' })}
+                </button>
+              )}
+              {/* Demote: DEV only, examples only. Converts back to a
                 private report owned by the calling DEV. Same URL keeps
                 working (the new report inherits the example's UUID).
                 Button label is the destination ("Report") so it pairs
                 visually with the Promote button's "Example" label. */}
-            {isDev && isExample && (
+              {isDev && isExample && (
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => setPendingDemote(true)}
+                  title={tPrimary('dashboard.actions.demote', {
+                    defaultValue: 'Convert back to a private report',
+                  })}
+                >
+                  ↩ {tPrimary('dashboard.actions.demote', { defaultValue: 'Report' })}
+                </button>
+              )}
               <button
                 type="button"
                 className="btn"
-                onClick={() => setPendingDemote(true)}
-                title={t('dashboard.actions.demote', {
-                  defaultValue: 'Convert back to a private report',
-                })}
+                onClick={() => setShareOpen(true)}
+                disabled={!report.resultData}
+                title={tPrimary('share.triggerBtn')}
               >
-                ↩ {t('dashboard.actions.demote', { defaultValue: 'Report' })}
+                <svg className="db-r-btn-ico" aria-hidden>
+                  <use href="#i-share" />
+                </svg>
+                {tPrimary('share.triggerBtn')}
               </button>
-            )}
-            <button
-              type="button"
-              className="btn"
-              onClick={() => setShareOpen(true)}
-              disabled={!report.resultData}
-              title={t('share.triggerBtn')}
-            >
-              <svg className="db-r-btn-ico" aria-hidden>
-                <use href="#i-share" />
-              </svg>
-              {t('share.triggerBtn')}
-            </button>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => setExportOpen(true)}
-              disabled={exporting !== null || !report.resultData}
-              title={t('dashboard.actions.export')}
-            >
-              <svg className="db-r-btn-ico" aria-hidden>
-                <use href="#i-dl" />
-              </svg>
-              {exporting !== null ? '…' : t('dashboard.actions.export')}
-            </button>
-          </div>
-        </header>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setExportOpen(true)}
+                disabled={exporting !== null || !report.resultData}
+                title={tPrimary('dashboard.actions.export')}
+              >
+                <svg className="db-r-btn-ico" aria-hidden>
+                  <use href="#i-dl" />
+                </svg>
+                {exporting !== null ? '…' : tPrimary('dashboard.actions.export')}
+              </button>
+            </div>
+          </header>
 
-        {result ? (
-          <ReportContent
-            result={result}
-            input={inputProjection}
-            rightSlot={
-              availableLangs.length > 1 ? (
-                <span
-                  className="report-lang-switch"
-                  role="tablist"
-                  aria-label={t('report.lang.switcherAria', {
-                    defaultValue: 'View in language',
-                  })}
-                >
-                  {availableLangs.map((lng) => {
-                    const isActive = lng === activeLang;
-                    return (
-                      <button
-                        key={lng}
-                        type="button"
-                        role="tab"
-                        aria-selected={isActive}
-                        className={`report-lang-switch-btn${isActive ? ' active' : ''}`}
-                        disabled={translationQuery.isFetching && !isActive}
-                        onClick={() => chooseLanguage(lng)}
-                      >
-                        {lng.toUpperCase()}
-                      </button>
-                    );
-                  })}
-                </span>
-              ) : undefined
-            }
-          />
-        ) : (
-          // Legacy fallback: reports created with the old wizard flow may
-          // still exist as DRAFT (no resultData). New flow always generates
-          // before navigating, so this branch is for old data only.
-          <div className="pending-state">
-            <div className="pending-icon">◈</div>
-            <h2 className="pending-title">{t('report.results.pendingTitle')}</h2>
-            <p className="pending-desc">{t('report.results.pendingDesc')}</p>
-          </div>
-        )}
+          {result ? (
+            <ReportContent
+              result={result}
+              input={inputProjection}
+              rightSlot={
+                availableLangs.length > 1 ? (
+                  <span
+                    className="report-lang-switch"
+                    role="tablist"
+                    aria-label={t('report.lang.switcherAria', {
+                      defaultValue: 'View in language',
+                    })}
+                  >
+                    {availableLangs.map((lng) => {
+                      const isActive = lng === activeLang;
+                      return (
+                        <button
+                          key={lng}
+                          type="button"
+                          role="tab"
+                          aria-selected={isActive}
+                          className={`report-lang-switch-btn${isActive ? ' active' : ''}`}
+                          disabled={translationQuery.isFetching && !isActive}
+                          onClick={() => chooseLanguage(lng)}
+                        >
+                          {lng.toUpperCase()}
+                        </button>
+                      );
+                    })}
+                  </span>
+                ) : undefined
+              }
+            />
+          ) : (
+            // Legacy fallback: reports created with the old wizard flow may
+            // still exist as DRAFT (no resultData). New flow always generates
+            // before navigating, so this branch is for old data only.
+            <div className="pending-state">
+              <div className="pending-icon">◈</div>
+              <h2 className="pending-title">{t('report.results.pendingTitle')}</h2>
+              <p className="pending-desc">{t('report.results.pendingDesc')}</p>
+            </div>
+          )}
+        </div>
+
+        <LoadingOverlay
+          open={exporting !== null}
+          // tPrimary (primary language) — LoadingOverlay sits over the
+          // report viewer chrome but is conceptually app chrome, not
+          // report chrome. Pair with the export modal which also stays
+          // at primary.
+          text={
+            exporting === 'pdf'
+              ? tPrimary('modals.export.pdf')
+              : exporting === 'html'
+                ? tPrimary('modals.export.html', { defaultValue: 'Building standalone HTML…' })
+                : tPrimary('modals.export.ppt')
+          }
+        />
+        <ShareModal
+          open={shareOpen}
+          reportId={id!}
+          kind={isExample ? 'example' : 'report'}
+          onClose={() => setShareOpen(false)}
+        />
+        <ExportModal
+          open={exportOpen}
+          reportId={id!}
+          kind={isExample ? 'example' : 'report'}
+          // Pre-select the language the user is currently viewing so the
+          // export defaults to what's on screen — they can still change
+          // it in the modal, but the common case ("export what I'm
+          // reading") becomes a one-click flow.
+          initialLanguage={activeLang}
+          onClose={() => setExportOpen(false)}
+          onExport={(format, language, includeLanguages, pdfTheme) =>
+            runExport(format, language, includeLanguages, pdfTheme)
+          }
+        />
+        <PromoteToExampleModal
+          open={promoteOpen}
+          reportId={id!}
+          onClose={() => setPromoteOpen(false)}
+        />
+        <ConfirmDialog
+          open={pendingDemote}
+          // tPrimary (primary language) — confirm dialogs are app
+          // chrome, not report chrome. Same rationale as the modals.
+          title={tPrimary('modals.demoteExample.title', { defaultValue: 'Demote example?' })}
+          description={tPrimary('modals.demoteExample.description', {
+            defaultValue:
+              'This converts the example into a private report owned by you. The example will be removed for every user, and any share links pointing at it will stop working.',
+          })}
+          confirmLabel={tPrimary('modals.demoteExample.confirm', { defaultValue: 'Demote' })}
+          onConfirm={() => void confirmDemote()}
+          onCancel={() => setPendingDemote(false)}
+        />
       </div>
-
-      <LoadingOverlay
-        open={exporting !== null}
-        text={
-          exporting === 'pdf'
-            ? t('modals.export.pdf')
-            : exporting === 'html'
-              ? t('modals.export.html', { defaultValue: 'Building standalone HTML…' })
-              : t('modals.export.ppt')
-        }
-      />
-      <ShareModal
-        open={shareOpen}
-        reportId={id!}
-        kind={isExample ? 'example' : 'report'}
-        onClose={() => setShareOpen(false)}
-      />
-      <ExportModal
-        open={exportOpen}
-        reportId={id!}
-        kind={isExample ? 'example' : 'report'}
-        // Pre-select the language the user is currently viewing so the
-        // export defaults to what's on screen — they can still change
-        // it in the modal, but the common case ("export what I'm
-        // reading") becomes a one-click flow.
-        initialLanguage={activeLang}
-        onClose={() => setExportOpen(false)}
-        onExport={(format, language, includeLanguages, pdfTheme) =>
-          runExport(format, language, includeLanguages, pdfTheme)
-        }
-      />
-      <PromoteToExampleModal
-        open={promoteOpen}
-        reportId={id!}
-        onClose={() => setPromoteOpen(false)}
-      />
-      <ConfirmDialog
-        open={pendingDemote}
-        title={t('modals.demoteExample.title', { defaultValue: 'Demote example?' })}
-        description={t('modals.demoteExample.description', {
-          defaultValue:
-            'This converts the example into a private report owned by you. The example will be removed for every user, and any share links pointing at it will stop working.',
-        })}
-        confirmLabel={t('modals.demoteExample.confirm', { defaultValue: 'Demote' })}
-        onConfirm={() => void confirmDemote()}
-        onCancel={() => setPendingDemote(false)}
-      />
-    </div>
+    </ReportLanguageContext.Provider>
   );
 }
