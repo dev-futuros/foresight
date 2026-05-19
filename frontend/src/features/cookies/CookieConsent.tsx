@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import * as Sentry from '@sentry/react';
 import './cookies.css';
 
 /**
@@ -44,25 +45,29 @@ function writeConsent(v: 'accepted' | 'rejected'): void {
 }
 
 /**
- * Wire the chosen consent decision into the analytics SDKs.
+ * Wire the chosen consent decision into the analytics SDKs. The
+ * banner is the single point of truth for analytics opt-in.
  *
- * <p>Currently a no-op — PostHog has been removed and no successor
- * SDK is integrated yet. When Sentry replay / Mixpanel / Amplitude
- * land, fan out from here so the banner stays the single point of
- * truth for analytics opt-in. Examples:
+ * <p>Today this gates Sentry's session-replay integration: errors
+ * still capture without consent (anonymous JS stacks aren't PII), but
+ * the screen-recording replay only runs after the user accepts. When
+ * a product-analytics SDK (Mixpanel / Amplitude) lands, add an
+ * {@code opt_in_tracking} / {@code opt_out_tracking} pair alongside.
  *
- * <pre>
- *   if (v === 'accepted') {
- *     Sentry.getReplay()?.start();
- *     mixpanel.opt_in_tracking();
- *   } else {
- *     Sentry.getReplay()?.stop();
- *     mixpanel.opt_out_tracking();
- *   }
- * </pre>
+ * <p>Note: {@code Sentry.getReplay()} returns {@code undefined} when
+ * Sentry wasn't initialised (no DSN) — the optional-chain keeps this
+ * safe in local dev.
  */
-function applyConsent(_v: 'accepted' | 'rejected'): void {
-  // No analytics SDKs integrated yet — see jsdoc.
+function applyConsent(v: 'accepted' | 'rejected'): void {
+  const replay = Sentry.getReplay();
+  if (v === 'accepted') {
+    replay?.start();
+  } else {
+    // stop() returns a promise; fire-and-forget is fine here — we
+    // just want the recorder turned off, we don't need to wait for
+    // its buffer flush before resolving the click handler.
+    void replay?.stop();
+  }
 }
 
 export default function CookieConsent() {
