@@ -76,6 +76,20 @@ export interface CommandSpec<TArgs = Record<string, unknown>, TResult = unknown>
    * content. Bounded enums, IDs, numbers, and booleans only.
    */
   trackArgs?: readonly string[];
+  /**
+   * Closure-derived properties to attach to the {@code Command
+   * Dispatched} event. Use this when the useful event properties
+   * aren't in the dispatch args but ARE in scope where the command
+   * was registered — e.g. {@code runAnalysis}'s handler reads the
+   * wizard's mode/horizon/hasGlobalSteep from React state.
+   *
+   * <p>The bus calls this AFTER the handler resolves (so the
+   * callback can also reflect any state the handler mutated), and
+   * the same safe-primitive filter as {@link trackArgs} applies to
+   * its return value — nested objects, arrays, and non-primitives
+   * are dropped, so you can't accidentally leak a whole state slice.
+   */
+  enrichTrack?: (args: TArgs, result: TResult) => Record<string, unknown>;
 }
 
 const registry = new Map<string, CommandSpec>();
@@ -117,6 +131,22 @@ function safeTrackArgs(args: unknown, keys: readonly string[]): Record<string, u
 }
 
 /**
+ * Same primitive-only filter as {@link safeTrackArgs} but applied to
+ * an arbitrary object returned from {@link CommandSpec.enrichTrack}.
+ * Defensive: even if the callback returns a nested state slice, only
+ * top-level primitives survive into the Mixpanel payload.
+ */
+function safeEnrichment(props: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(props)) {
+    if (v === null || typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+      out[k] = v;
+    }
+  }
+  return out;
+}
+
+/**
  * Executes a registered command. Throws when the name is unknown so the
  * caller (the chat tool loop) can surface the failure as a `tool_result`
  * with an explanatory error string back to the model.
@@ -148,12 +178,23 @@ export async function dispatch(
   try {
     const result = await cmd.handler(args as never);
     if (!cmd.silent) {
+      let enrichment: Record<string, unknown> = {};
+      if (cmd.enrichTrack) {
+        try {
+          enrichment = safeEnrichment(cmd.enrichTrack(args as never, result as never));
+        } catch {
+          // Don't let a buggy enrichTrack take down the dispatch — the
+          // user action already succeeded. Drop the enrichment silently
+          // and ship the bare event so we still see the dispatch.
+        }
+      }
       track('Command Dispatched', {
         command: name,
         source,
         success: true,
         durationMs: Math.round(performance.now() - t0),
         ...safeTrackArgs(args, cmd.trackArgs ?? []),
+        ...enrichment,
       });
     }
     return result;

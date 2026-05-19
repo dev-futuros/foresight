@@ -282,6 +282,10 @@ export default function StepGlobal({
       name: 'generateGlobalSteep',
       mode: 'confirm',
       label: () => 'Generar STEEP mundial',
+      // No trackArgs / enrichTrack — sector is user-entered free text
+      // and shouldn't ship. The bare 'Command Dispatched' event with
+      // command='generateGlobalSteep' tells us how often the feature
+      // is used; that's the signal we need.
       handler: async () => {
         await regenerateAll();
         return 'Global STEEP regenerated.';

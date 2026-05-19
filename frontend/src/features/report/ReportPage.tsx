@@ -341,6 +341,13 @@ export default function ReportPage() {
     {
       name: 'shareReport',
       mode: 'auto',
+      // Page-scoped override has no args (the report id is implicit
+      // from the URL); enrichTrack adds the reportId + kind so the
+      // dashboard can break down share intent by report type.
+      enrichTrack: () => ({
+        reportId: id ?? '',
+        kind: isExample ? 'example' : 'report',
+      }),
       handler: () => {
         setShareOpen(true);
         return 'Opened the share dialog.';
@@ -352,6 +359,10 @@ export default function ReportPage() {
       // dialog. Mirrors the header's Export button exactly.
       name: 'exportReport',
       mode: 'auto',
+      enrichTrack: () => ({
+        reportId: id ?? '',
+        kind: isExample ? 'example' : 'report',
+      }),
       handler: () => {
         if (!report) {
           throw new Error('Report not loaded yet — try again in a moment.');

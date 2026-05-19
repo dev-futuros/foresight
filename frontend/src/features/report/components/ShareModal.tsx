@@ -75,16 +75,12 @@ export default function ShareModal({ open, reportId, kind = 'report', onClose }:
     }
   }, [open, primaryLanguage, data, availableLanguages]);
 
-  // Mixpanel: track every modal-open as an intent-to-share. Keyed on
-  // [open, reportId, kind] so it also fires when the user closes one
-  // report's share modal and immediately opens another's. Paired with
-  // 'Share Link Copied' (further down in handleCopy) — the ratio
-  // tells us whether the share flow has friction or not.
-  useEffect(() => {
-    if (open) {
-      track('Share Modal Opened', { reportId, kind });
-    }
-  }, [open, reportId, kind]);
+  // No 'Share Modal Opened' event here — the shareReport command
+  // dispatch (whether from the toolbar Share button or an assistant
+  // chip click) is auto-tracked by the bus as 'Command Dispatched,
+  // command=shareReport'. Share Link Copied (further down in
+  // handleCopy) stays ad-hoc because it's the modal's completion
+  // signal, not a dispatch.
 
   // The default-open language MUST be one of the included ones. If
   // the user unchecks the currently-default, fall back to the first

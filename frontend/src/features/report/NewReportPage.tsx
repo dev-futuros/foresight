@@ -23,6 +23,7 @@ import LoadingPanel, {
   type ProgressItemStatus,
 } from '../../components/LoadingPanel';
 import { useCommands } from '../../lib/useCommands';
+import { dispatch as dispatchCommand } from '../../lib/commandBus';
 import { track } from '../../lib/mixpanel';
 import { useSetAssistantContext } from '../chat/useAssistantContext';
 import '../../components/modal.css';
@@ -615,15 +616,9 @@ export default function NewReportPage() {
   );
   useSetStepper(stepperState);
 
-  // Mixpanel: fire 'Report Wizard Started' once per mount. Mode is
-  // known synchronously from the URL params; the example/real
-  // distinction is settled async via editingReport.data — we leave
-  // it off this event and let the more meaningful 'Report Generation
-  // Started' (or 'Report Opened') capture that detail.
-  useEffect(() => {
-    track('Report Wizard Started', { mode: editMode ? 'edit' : 'new' });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- fire-once on mount
-  }, []);
+  // No mount-level 'Wizard Started' event — Page Viewed at /reports/new
+  // (or /reports/:id/edit) already captures the same signal, and the
+  // path itself encodes the new-vs-edit distinction.
 
   const companyProfile = empresa.name
     ? `${empresa.name} — ${empresa.sector}. ${empresa.challenge}. (${empresa.horizon}y)`
@@ -637,26 +632,10 @@ export default function NewReportPage() {
     // (depending on whether reportId is set). The Generate button is
     // disabled in this mode too; this guard is defence in depth.
     if (isExampleMode) return;
-    // Mixpanel: user clicked Generate. Paired with the
-    // 'Report Generation Completed' event further down in the success
-    // path — the ratio between the two is the analyze-pipeline
-    // success rate, useful for catching backend regressions and
-    // mid-run abandonment. Properties are bounded enums only:
-    // horizon (years int) and whether the user filled any dimension
-    // of the optional global-STEEP section. No company names, no
-    // challenge text, no STEEP prose — those stay confidential.
-    const hasGlobalSteep = Boolean(
-      globalData.S.trim() ||
-      globalData.T.trim() ||
-      globalData.E.trim() ||
-      globalData.ENV.trim() ||
-      globalData.P.trim(),
-    );
-    track('Report Generation Started', {
-      mode: editMode ? 'edit' : 'new',
-      horizon: empresa.horizon,
-      hasGlobalSteep,
-    });
+    // 'Report Generation Started' is auto-fired by the command bus
+    // for both wizard-button and assistant-chip dispatches of
+    // runAnalysis — the spec's enrichTrack callback supplies the
+    // rich props (mode, horizon, hasGlobalSteep). See below.
     // Drop any pending autosave timer before we start so a debounced
     // PATCH doesn't race with handleSubmit's explicit persistDraft +
     // subsequent resultData update. The handleSubmit flow does its
@@ -979,6 +958,11 @@ export default function NewReportPage() {
       // tables; label/preview here are legacy fallbacks for non-chat
       // callers.
       mode: 'confirm',
+      // Track WHICH field the assistant filled + whether it added or
+      // replaced. Bounded enums ('f-name', 'gs-s', etc. defined below
+      // in the switch). NEVER list `value` here — that's the
+      // confidential client text the assistant suggested.
+      trackArgs: ['id', 'mode'],
       label: (args) => {
         const { id } = args as { id: string };
         return `Aplicar a ${id}`;
@@ -1085,6 +1069,22 @@ export default function NewReportPage() {
       name: 'runAnalysis',
       mode: 'confirm',
       label: () => 'Lanzar análisis de foresight',
+      // Rich props (mode/horizon/hasGlobalSteep) come from closure
+      // state at dispatch time — the args are always empty since the
+      // model doesn't carry wizard state. The bus auto-fires
+      // 'Command Dispatched, command=runAnalysis' with these
+      // attached; no ad-hoc track() call inside handleSubmit.
+      enrichTrack: () => ({
+        mode: editMode ? 'edit' : 'new',
+        horizon: empresa.horizon,
+        hasGlobalSteep: Boolean(
+          globalData.S.trim() ||
+          globalData.T.trim() ||
+          globalData.E.trim() ||
+          globalData.ENV.trim() ||
+          globalData.P.trim(),
+        ),
+      }),
       handler: async () => {
         await handleSubmit();
         return 'Analysis launched.';
@@ -1104,6 +1104,7 @@ export default function NewReportPage() {
     {
       name: 'goTo',
       mode: 'auto',
+      trackArgs: ['step'],
       handler: (args) => {
         const { step: target } = args as { step: number };
         if (target === 5) {
@@ -1343,7 +1344,16 @@ export default function NewReportPage() {
                 companyProfile={companyProfile}
                 language={language}
                 onChange={setHorizon}
-                onSubmit={handleSubmit}
+                onSubmit={() => {
+                  // Route through the command bus instead of calling
+                  // handleSubmit directly — keeps the wizard button and
+                  // the assistant chip behind a single chokepoint so
+                  // Mixpanel's 'Command Dispatched, command=runAnalysis'
+                  // event fires for both. Errors land back in
+                  // handleSubmit's try/catch, so unhandled rejections
+                  // don't reach the bus; void is intentional.
+                  void dispatchCommand('runAnalysis', {}, 'ui');
+                }}
                 onBack={() => goToStep(3)}
                 isSubmitting={isGenerating}
                 error={generateError}
