@@ -175,34 +175,30 @@ export default function DashboardPage() {
     });
   }
 
-  function handleDelete(e: React.MouseEvent, id: string) {
-    e.preventDefault();
-    e.stopPropagation();
+  // The dashboard action buttons used to live inside a card-wide
+  // <Link> and needed preventDefault + stopPropagation to opt out of
+  // its click handler. The card was restructured as an <article> with
+  // a stretched title-link, so these are now plain handlers — the
+  // stretched-link pseudo sits below the action row in z-order and
+  // doesn't intercept clicks on the buttons.
+  function handleDelete(id: string) {
     setPendingDeleteId(id);
   }
 
-  function handleDeleteExample(e: React.MouseEvent, id: string) {
-    e.preventDefault();
-    e.stopPropagation();
+  function handleDeleteExample(id: string) {
     setPendingDeleteExampleId(id);
   }
 
-  function handleShare(e: React.MouseEvent, id: string, kind: 'report' | 'example' = 'report') {
-    e.preventDefault();
-    e.stopPropagation();
+  function handleShare(id: string, kind: 'report' | 'example' = 'report') {
     setShareTargetKind(kind);
     setShareTargetId(id);
   }
 
-  function handlePromote(e: React.MouseEvent, id: string) {
-    e.preventDefault();
-    e.stopPropagation();
+  function handlePromote(id: string) {
     setPromoteTargetId(id);
   }
 
-  function handleDemoteExample(e: React.MouseEvent, id: string) {
-    e.preventDefault();
-    e.stopPropagation();
+  function handleDemoteExample(id: string) {
     setPendingDemoteExampleId(id);
   }
 
@@ -421,36 +417,33 @@ export default function DashboardPage() {
               // (they're spending against their own row).
               const canActOnTranslations = isExample ? isDev : true;
               return (
-                <Link
+                // Card is an <article> (semantic landmark) — the title is
+                // the only <Link>, and its ::after pseudo stretches across
+                // the whole card so clicks anywhere navigate. The pseudo is
+                // behind the chips / action buttons in z-order so those
+                // still receive their own clicks without needing
+                // stopPropagation. While a translation is in flight the
+                // overlay covers the card and intercepts clicks, so we
+                // don't need an explicit isTranslating block on the link.
+                <article
                   key={id}
-                  to={target}
                   className={`db-report-card${isExample ? ' db-r-example' : ''}${
                     isTranslating ? ' db-r-card--translating' : ''
                   }`}
-                  // Block navigation while a translation is in flight so
-                  // the user doesn't accidentally leave the page and
-                  // lose the visible progress feedback. The stream
-                  // itself keeps running because the AbortController is
-                  // hosted at the AppShell-level TranslationsProvider.
-                  onClick={(e) => {
-                    if (isTranslating) e.preventDefault();
-                  }}
                 >
                   <div className={`db-r-status ${status}`}>
                     {t(`dashboard.status.${status}`)}
                   </div>
-                  <div className="db-r-name">
-                    {title}
+                  <h3 className="db-r-name">
+                    <Link to={target} className="db-r-name-link">
+                      {title}
+                    </Link>
                     {isExample && <span className="db-r-badge">{t('dashboard.exampleBadge')}</span>}
-                  </div>
+                  </h3>
                   <div className="db-r-date">{formatDate(createdAt)}</div>
 
                   {canExport && (
-                    <div
-                      className="db-r-langs"
-                      onMouseDown={(e) => e.stopPropagation()}
-                      onClick={(e) => e.stopPropagation()}
-                    >
+                    <div className="db-r-langs">
                       {SUPPORTED_LANGUAGES.map((lng) => {
                         const isAvailable = availableLanguages.includes(lng);
                         const isPrimary = lng === primaryLanguage;
@@ -473,9 +466,7 @@ export default function DashboardPage() {
                                 (isPrimary ? ' db-r-lang-chip--primary' : '') +
                                 (justTranslated ? ' db-r-lang-chip--flash' : '')
                               }
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
+                              onClick={() => {
                                 handleChipView(
                                   id,
                                   lng,
@@ -511,9 +502,7 @@ export default function DashboardPage() {
                                   role="button"
                                   tabIndex={0}
                                   className="db-r-lang-chip-x"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
+                                  onClick={() => {
                                     if (isExample) {
                                       deleteExampleTranslation.mutate({ id, language: lng });
                                     } else {
@@ -523,7 +512,6 @@ export default function DashboardPage() {
                                   onKeyDown={(e) => {
                                     if (e.key === 'Enter' || e.key === ' ') {
                                       e.preventDefault();
-                                      e.stopPropagation();
                                       if (isExample) {
                                         deleteExampleTranslation.mutate({ id, language: lng });
                                       } else {
@@ -565,9 +553,7 @@ export default function DashboardPage() {
                             key={lng}
                             type="button"
                             className="db-r-lang-translate"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
+                            onClick={() => {
                               handleChipView(
                                 id,
                                 lng,
@@ -593,19 +579,16 @@ export default function DashboardPage() {
                   {/* Action row — Export (everyone), Share (own reports
                       only for V1), Promote-to-Example (DEV on own
                       reports), Delete (owner on own reports; DEV on
-                      examples). */}
-                  <div
-                    className="db-r-actions"
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onClick={(e) => e.stopPropagation()}
-                  >
+                      examples). Buttons are siblings of the stretched
+                      title link and sit above it in z-order, so they
+                      receive their own clicks naturally — no
+                      stopPropagation needed. */}
+                  <div className="db-r-actions">
                     {canExport && (
                       <button
                         className="db-r-btn"
                         type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
+                        onClick={() => {
                           setExportTargetKind(isExample ? 'example' : 'report');
                           setExportTargetId(id);
                         }}
@@ -622,7 +605,7 @@ export default function DashboardPage() {
                       <button
                         className="db-r-btn"
                         type="button"
-                        onClick={(e) => handleShare(e, id, isExample ? 'example' : 'report')}
+                        onClick={() => handleShare(id, isExample ? 'example' : 'report')}
                         title={t('dashboard.actions.share')}
                       >
                         <svg className="db-r-btn-ico" aria-hidden>
@@ -638,7 +621,7 @@ export default function DashboardPage() {
                       <button
                         className="db-r-btn"
                         type="button"
-                        onClick={(e) => handlePromote(e, id)}
+                        onClick={() => handlePromote(id)}
                         title={t('dashboard.actions.promote', {
                           defaultValue: 'Promote to example',
                         })}
@@ -652,7 +635,7 @@ export default function DashboardPage() {
                       <button
                         className="db-r-btn danger"
                         type="button"
-                        onClick={(e) => handleDelete(e, id)}
+                        onClick={() => handleDelete(id)}
                         title={t('dashboard.deleteTitle')}
                       >
                         <svg className="db-r-btn-ico" aria-hidden>
@@ -671,7 +654,7 @@ export default function DashboardPage() {
                       <button
                         className="db-r-btn"
                         type="button"
-                        onClick={(e) => handleDemoteExample(e, id)}
+                        onClick={() => handleDemoteExample(id)}
                         title={t('dashboard.actions.demote', {
                           defaultValue: 'Convert back to a private report',
                         })}
@@ -683,7 +666,7 @@ export default function DashboardPage() {
                       <button
                         className="db-r-btn danger"
                         type="button"
-                        onClick={(e) => handleDeleteExample(e, id)}
+                        onClick={() => handleDeleteExample(id)}
                         title={t('dashboard.deleteExampleTitle', {
                           defaultValue: 'Delete example',
                         })}
@@ -698,21 +681,13 @@ export default function DashboardPage() {
 
                   {/* Per-card translation overlay — covers the card and
                       blocks pointer events while the stream is in
-                      flight. Bar is always determinate: starts at 0%
-                      before the first SSE frame, fills in as
-                      outputChars / inputChars ratio climbs. */}
+                      flight. The overlay sits above the stretched title
+                      link in z-order, so clicks on the card's body land
+                      here instead of navigating away. Bar is always
+                      determinate: starts at 0% before the first SSE
+                      frame, fills in as outputChars / inputChars climbs. */}
                   {isTranslating && (
-                    <div
-                      className="db-r-translate-overlay"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }}
-                    >
+                    <div className="db-r-translate-overlay">
                       <div className="db-r-translate-label">
                         {t('dashboard.lang.translatingTo', {
                           defaultValue: 'Translating to {{lang}}…',
@@ -738,7 +713,7 @@ export default function DashboardPage() {
                       </div>
                     </div>
                   )}
-                </Link>
+                </article>
               );
             })}
           </div>
