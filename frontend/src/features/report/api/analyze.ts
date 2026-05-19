@@ -12,8 +12,7 @@
  * Uses fetch() directly (not axios) because axios buffers the whole
  * response body before resolving, which would defeat streaming.
  */
-import api from '../../../lib/api';
-import { getAuthToken, attachPostHogSession } from '../../../lib/api';
+import api, { getAuthToken } from '../../../lib/api';
 import { parseJson, parseJsonText, type AnthropicResponse } from '../../../lib/anthropicJson';
 import { parseSseFrameJson, splitSseFrame } from '../../../lib/sse';
 import type {
@@ -51,7 +50,6 @@ export async function streamSse<TBody, T>(
     Accept: 'text/event-stream',
   };
   if (token) headers.Authorization = `Bearer ${token}`;
-  attachPostHogSession(headers);
 
   const url = `/api/${path}`;
   const debug =

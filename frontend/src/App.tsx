@@ -23,7 +23,7 @@ import AppRouter, { RootRouter } from './app/router';
  *           at the root means every icon-by-href call hits a single
  *           SVG element regardless of which route is active.</li>
  *       <li>{@link AuthBridge} — Kinde session glue (sets the bearer
- *           token on the API client, mirrors identity to PostHog).
+ *           token on the API client).
  *           Runs on every route including the auth flow.</li>
  *     </ul>
  *   </li>

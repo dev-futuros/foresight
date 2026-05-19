@@ -5,7 +5,7 @@ import type { LanguageCode } from '../../../i18n/languages';
  * as the model writes them, so the chat bubble can show the response
  * forming live.
  */
-import api, { attachPostHogSession, getAuthToken } from '../../../lib/api';
+import api, { getAuthToken } from '../../../lib/api';
 import { parseSseFrameJson, splitSseFrame } from '../../../lib/sse';
 
 export interface ChatContentBlock {
@@ -80,7 +80,6 @@ export async function chatStream(
     Accept: 'text/event-stream',
   };
   if (token) headers.Authorization = `Bearer ${token}`;
-  attachPostHogSession(headers);
 
   const res = await fetch('/api/ai/chat/stream', {
     method: 'POST',

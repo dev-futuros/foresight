@@ -30,7 +30,7 @@ const es = {
   },
   cookies: {
     title: 'Cookies y analítica',
-    body: 'Usamos PostHog para entender cómo se usa la herramienta y mejorarla. No compartimos datos con anunciantes ni terceros publicitarios.',
+    body: 'Podemos usar herramientas de analítica para entender cómo se usa la herramienta y mejorarla. No compartimos datos con anunciantes ni terceros publicitarios.',
     learn: 'Política de Privacidad',
     accept: 'Aceptar',
     reject: 'Rechazar',
