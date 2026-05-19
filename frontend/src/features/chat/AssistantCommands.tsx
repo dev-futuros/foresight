@@ -41,6 +41,7 @@ function buildShellGoToCommand(navigate: NavigateFunction): CommandSpec<{ step: 
   return {
     name: 'goTo',
     mode: 'auto',
+    trackArgs: ['step'],
     handler: ({ step }) => {
       if (step === 5) {
         throw new Error(
@@ -119,6 +120,7 @@ export default function AssistantCommands() {
     {
       name: 'setLang',
       mode: 'auto',
+      trackArgs: ['lang'],
       handler: async (args) => {
         const { lang } = args as { lang: LanguageCode };
         await i18n.changeLanguage(lang);
@@ -131,6 +133,7 @@ export default function AssistantCommands() {
     {
       name: 'loadReport',
       mode: 'auto',
+      trackArgs: ['id'],
       handler: (args) => {
         const { id } = args as { id: string };
         navigate(`/reports/${id}`);
@@ -148,6 +151,7 @@ export default function AssistantCommands() {
     {
       name: 'editReport',
       mode: 'auto',
+      trackArgs: ['id'],
       handler: (args) => {
         const { id } = args as { id: string };
         navigate(`/reports/${id}/edit`);
@@ -161,6 +165,7 @@ export default function AssistantCommands() {
       name: 'deleteReport',
       mode: 'confirm',
       label: () => 'Borrar informe',
+      trackArgs: ['id'],
       handler: async (args) => {
         const { id } = args as { id: string };
         await deleteReport.mutateAsync(id);
@@ -176,6 +181,7 @@ export default function AssistantCommands() {
     {
       name: 'shareReport',
       mode: 'auto',
+      trackArgs: ['id'],
       handler: async (args) => {
         const { id } = resolveReportIdFromArgsOrUrl(args);
         if (!id) {
@@ -198,6 +204,7 @@ export default function AssistantCommands() {
     {
       name: 'exportReport',
       mode: 'auto',
+      trackArgs: ['id'],
       handler: (args) => {
         const { id } = resolveReportIdFromArgsOrUrl(args);
         if (!id) {

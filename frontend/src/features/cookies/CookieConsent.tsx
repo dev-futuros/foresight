@@ -2,6 +2,12 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import * as Sentry from '@sentry/react';
+import {
+  optIn as mixpanelOptIn,
+  optOut as mixpanelOptOut,
+  startReplay as mixpanelStartReplay,
+  stopReplay as mixpanelStopReplay,
+} from '../../lib/mixpanel';
 import './cookies.css';
 
 /**
@@ -48,25 +54,46 @@ function writeConsent(v: 'accepted' | 'rejected'): void {
  * Wire the chosen consent decision into the analytics SDKs. The
  * banner is the single point of truth for analytics opt-in.
  *
- * <p>Today this gates Sentry's session-replay integration: errors
- * still capture without consent (anonymous JS stacks aren't PII), but
- * the screen-recording replay only runs after the user accepts. When
- * a product-analytics SDK (Mixpanel / Amplitude) lands, add an
- * {@code opt_in_tracking} / {@code opt_out_tracking} pair alongside.
+ * <p>Three SDK features are gated here:
+ * <ul>
+ *   <li><b>Sentry session replay</b> — errors still capture without
+ *       consent (anonymous JS stacks aren't PII), but the
+ *       screen-recording replay only runs after the user accepts.</li>
+ *   <li><b>Mixpanel event tracking</b> — initialised with
+ *       {@code opt_out_tracking_by_default: true}, so NO events are
+ *       sent until {@link mixpanelOptIn} fires here. Accept arms
+ *       it; reject (or no decision) keeps it silent.</li>
+ *   <li><b>Mixpanel session replay</b> — initialised with
+ *       {@code record_sessions_percent: 0} (no auto-start), so
+ *       frames are ONLY captured after {@link mixpanelStartReplay}
+ *       fires here. {@link mixpanelStopReplay} on reject mid-session
+ *       cleanly disarms the recorder.</li>
+ * </ul>
  *
- * <p>Note: {@code Sentry.getReplay()} returns {@code undefined} when
- * Sentry wasn't initialised (no DSN) — the optional-chain keeps this
- * safe in local dev.
+ * <p>All three no-op safely when their respective env var is unset
+ * (Sentry DSN / Mixpanel token), so this stays correct in local dev
+ * regardless of which (if any) is configured.
  */
 function applyConsent(v: 'accepted' | 'rejected'): void {
   const replay = Sentry.getReplay();
   if (v === 'accepted') {
     replay?.start();
+    mixpanelOptIn();
+    // Order matters: arm event tracking first so the replay session
+    // is attached to a Mixpanel session-id that's actually being
+    // recorded by the events pipeline.
+    mixpanelStartReplay();
   } else {
     // stop() returns a promise; fire-and-forget is fine here — we
     // just want the recorder turned off, we don't need to wait for
     // its buffer flush before resolving the click handler.
     void replay?.stop();
+    // Stop replay BEFORE opting out — once opted out the SDK drops
+    // the replay flush envelope along with everything else, and we
+    // never want a half-flushed replay to leak past the user's
+    // decline click.
+    mixpanelStopReplay();
+    mixpanelOptOut();
   }
 }
 

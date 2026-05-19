@@ -9,6 +9,7 @@ import { useDemoteExample, useTranslateExample } from '../examples/api';
 import { useIsDev } from '../account/api';
 import { useSetStepper } from '../shell/useStepper';
 import { useCommands } from '../../lib/useCommands';
+import { dispatch as dispatchCommand } from '../../lib/commandBus';
 import { useSetAssistantContext } from '../chat/useAssistantContext';
 import type { ReportResultSnapshot } from '../chat/lib/buildAssistantSnapshot';
 import { exportReportPdf } from './pdf';
@@ -82,9 +83,8 @@ export default function ReportPage() {
   // each report's "I'm reading this one in EN" memory independent.
   const [searchParams, setSearchParams] = useSearchParams();
   const langParam = searchParams.get('lang');
-  const requestedLang: ExportLanguage | null =
-    isLanguageCode(langParam) ? langParam : null;
-  const primaryLang = (report?.primaryLanguage) ?? 'es';
+  const requestedLang: ExportLanguage | null = isLanguageCode(langParam) ? langParam : null;
+  const primaryLang = report?.primaryLanguage ?? 'es';
   const availableLangs = useMemo<ExportLanguage[]>(
     () => (report?.availableLanguages as ExportLanguage[] | undefined) ?? [primaryLang],
     [report?.availableLanguages, primaryLang],
@@ -328,6 +328,13 @@ export default function ReportPage() {
     {
       name: 'shareReport',
       mode: 'auto',
+      // Page-scoped override has no args (the report id is implicit
+      // from the URL); enrichTrack adds the reportId + kind so the
+      // dashboard can break down share intent by report type.
+      enrichTrack: () => ({
+        reportId: id ?? '',
+        kind: isExample ? 'example' : 'report',
+      }),
       handler: () => {
         setShareOpen(true);
         return 'Opened the share dialog.';
@@ -339,12 +346,46 @@ export default function ReportPage() {
       // dialog. Mirrors the header's Export button exactly.
       name: 'exportReport',
       mode: 'auto',
+      enrichTrack: () => ({
+        reportId: id ?? '',
+        kind: isExample ? 'example' : 'report',
+      }),
       handler: () => {
         if (!report) {
           throw new Error('Report not loaded yet — try again in a moment.');
         }
         setExportOpen(true);
         return 'Opened the export dialog.';
+      },
+    },
+    {
+      // Translate the current report into a target language. Multi-
+      // source by design: fires both from the export flow (when the
+      // user picks a non-primary language) AND directly from the
+      // assistant ("translate this to English"). Cache-hit path
+      // resolves instantly; cache-miss hits Anthropic. The bus tracks
+      // dispatch either way — we don't differentiate in analytics.
+      name: 'requestTranslation',
+      mode: 'auto',
+      trackArgs: ['targetLanguage'],
+      enrichTrack: () => ({
+        reportId: id ?? '',
+        kind: isExample ? 'example' : 'report',
+      }),
+      handler: async (args) => {
+        const { targetLanguage } = args as { targetLanguage: ExportLanguage };
+        if (!report) {
+          throw new Error('Report not loaded yet — try again in a moment.');
+        }
+        if (targetLanguage === report.primaryLanguage) {
+          return `Already in ${targetLanguage}; nothing to translate.`;
+        }
+        if (isExample) {
+          await translateExample.mutateAsync({ id: report.id, targetLanguage });
+        } else {
+          await translateReport.mutateAsync({ id: report.id, targetLanguage });
+        }
+        return `Translation to ${targetLanguage} ready.`;
       },
     },
   ]);
@@ -362,9 +403,20 @@ export default function ReportPage() {
     language: ExportLanguage,
   ): Promise<ReportResponse> {
     if (language === base.primaryLanguage) return base;
-    const translated = isExample
-      ? await translateExample.mutateAsync({ id: base.id, targetLanguage: language })
-      : await translateReport.mutateAsync({ id: base.id, targetLanguage: language });
+    // Route through the command bus so the dispatch is tracked
+    // automatically (Command Dispatched, command=requestTranslation)
+    // and the same code path fires when the assistant requests a
+    // translation via tool emission. The handler invokes the mutate
+    // call; React Query caches the result, so we still read it back
+    // here to update the export's local payload.
+    await dispatchCommand('requestTranslation', { targetLanguage: language }, 'ui');
+    const translated = isExample ? translateExample.data : translateReport.data;
+    if (!translated) {
+      // Defensive — the command's handler awaited the mutateAsync, so
+      // the cache should be populated. Falling back to the original
+      // payload here would silently show wrong-language content.
+      throw new Error(`Translation to ${language} did not materialise.`);
+    }
     return {
       ...base,
       inputData: translated.inputData,

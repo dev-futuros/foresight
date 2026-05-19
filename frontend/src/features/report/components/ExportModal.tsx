@@ -6,6 +6,8 @@ import { useReport } from '../api';
 import type { ReportWithSource } from '../api/fetchers';
 import { useExample } from '../../examples/api';
 import { useIsDev } from '../../account/api';
+import { useCommands } from '../../../lib/useCommands';
+import { dispatch as dispatchCommand } from '../../../lib/commandBus';
 
 /**
  * Module-scope selector for the report query. ExportModal only reads
@@ -133,7 +135,7 @@ export default function ExportModal({
     return list.length > 0 ? list : ['es'];
   }, [data]);
 
-  const primaryLanguage = (data?.primaryLanguage) ?? 'es';
+  const primaryLanguage = data?.primaryLanguage ?? 'es';
 
   // Snap the language pick back to the row's primary on every open
   // so reopening the modal doesn't carry over a stale selection from a
@@ -205,6 +207,39 @@ export default function ExportModal({
     });
   }
 
+  // Bus-level Command Dispatched covers both export-flow events:
+  // exportReport (opens this modal — registered by ReportPage / the
+  // assistant shell) and runExport below (terminal "Export button
+  // pressed" action with the user's chosen format and language).
+  useCommands(() => [
+    {
+      name: 'runExport',
+      mode: 'auto',
+      // format / language / kind / pdfTheme are all bounded enums.
+      // includedLanguageCount surfaces single vs multi-language HTML
+      // bundles without inflating event-property cardinality the way
+      // shipping the language array would.
+      trackArgs: ['format', 'language', 'pdfTheme', 'kind', 'includedLanguageCount'],
+      enrichTrack: () => ({ reportId }),
+      handler: (args) => {
+        const {
+          format: argFormat,
+          language: argLanguage,
+          includeLanguages: argIncludeLanguages,
+          pdfTheme: argPdfTheme,
+        } = args as {
+          format: ExportFormat;
+          language: ExportLanguage;
+          includeLanguages?: ExportLanguage[];
+          pdfTheme?: ExportPdfTheme;
+        };
+        onExport(argFormat, argLanguage, argIncludeLanguages, argPdfTheme);
+        onClose();
+        return `Export started: ${argFormat}, ${argLanguage}.`;
+      },
+    },
+  ]);
+
   function handleExport() {
     // For HTML the chosen "language" is the snapshot's default-open
     // language (recipient can switch among included langs). Every
@@ -215,8 +250,23 @@ export default function ExportModal({
     // for the others so callers can default cleanly without needing to know
     // about it.
     const themeArg = format === 'pdf' ? pdfTheme : undefined;
-    onExport(format, exportLanguage, includeLanguages, themeArg);
-    onClose();
+    // Route through the bus so the dispatch is tracked automatically
+    // (Command Dispatched, command=runExport). The handler invokes
+    // the onExport callback and closes the modal.
+    void dispatchCommand(
+      'runExport',
+      {
+        format,
+        language: exportLanguage,
+        includeLanguages,
+        pdfTheme: themeArg,
+        // Length only — including the language array itself would
+        // blow up event-property cardinality.
+        includedLanguageCount: includeLanguages?.length ?? 1,
+        kind,
+      },
+      'ui',
+    );
   }
 
   const showLangPicker = availableLanguages.length > 1;

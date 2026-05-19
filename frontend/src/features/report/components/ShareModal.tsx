@@ -6,6 +6,8 @@ import { useCreateShare } from '../../publicShare/api';
 import { useReport } from '../api';
 import { useExample } from '../../examples/api';
 import { extractApiErrorMessage } from '../../../lib/apiError';
+import { useCommands } from '../../../lib/useCommands';
+import { dispatch as dispatchCommand } from '../../../lib/commandBus';
 
 interface Props {
   open: boolean;
@@ -58,7 +60,7 @@ export default function ShareModal({ open, reportId, kind = 'report', onClose }:
     return list.length > 0 ? list : ['es'];
   }, [data]);
 
-  const primaryLanguage = (data?.primaryLanguage) ?? 'es';
+  const primaryLanguage = data?.primaryLanguage ?? 'es';
 
   // Hide both controls when there's nothing to pick.
   const showLangControls = availableLanguages.length > 1;
@@ -73,6 +75,34 @@ export default function ShareModal({ open, reportId, kind = 'report', onClose }:
       setIncludedLanguages([...availableLanguages]);
     }
   }, [open, primaryLanguage, data, availableLanguages]);
+
+  // Bus-level Command Dispatched covers two events around the share
+  // flow: shareReport (opens this modal) and copyShareLink below
+  // (terminal "copy button pressed" action). No ad-hoc tracking
+  // inside this component.
+  useCommands(() => [
+    {
+      name: 'copyShareLink',
+      mode: 'auto',
+      trackArgs: ['kind', 'defaultLanguage'],
+      // Closure-derived props the handler doesn't carry in args.
+      // includedLanguageCount tells us how rich the snapshots being
+      // shared actually are; reportId attributes the action.
+      enrichTrack: () => ({
+        reportId,
+        includedLanguageCount: includedLanguages.length,
+      }),
+      handler: async () => {
+        if (!createShare.data) {
+          throw new Error('Share URL not minted yet — wait for the mint to finish.');
+        }
+        await navigator.clipboard.writeText(createShare.data.shareUrl);
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 2000);
+        return 'Share link copied.';
+      },
+    },
+  ]);
 
   // The default-open language MUST be one of the included ones. If
   // the user unchecks the currently-default, fall back to the first
@@ -134,13 +164,17 @@ export default function ShareModal({ open, reportId, kind = 'report', onClose }:
   async function handleCopy() {
     if (!createShare.data) return;
     try {
-      await navigator.clipboard.writeText(createShare.data.shareUrl);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
+      // Route through the bus so the dispatch is tracked
+      // automatically (Command Dispatched, command=copyShareLink).
+      // The handler does the clipboard write and the copied-flag
+      // dance.
+      await dispatchCommand('copyShareLink', { kind, defaultLanguage: language }, 'ui');
     } catch {
-      // Clipboard can fail in insecure contexts (http://) or when the user
-      // denies permission. Falling back to manual selection: the input is
-      // readonly so the user can still copy by hand.
+      // Clipboard can fail in insecure contexts (http://) or when the
+      // user denies permission. The bus tracked the failure with
+      // success:false, so we know it happened; falling back to
+      // manual selection (the URL input is readonly) lets the user
+      // still copy by hand.
     }
   }
 
