@@ -1219,7 +1219,7 @@ public class AiService {
                 """
                         .formatted(
                                 langInstruction(request.language()),
-                                request.companyProfile().toString(),
+                                sanitizeProfileForAi(request.companyProfile()).toString(),
                                 request.steep().toString(),
                                 request.horizon().toString());
         String model = properties.opus();
@@ -1313,7 +1313,7 @@ public class AiService {
                 """
                 .formatted(
                         langInstruction(request.language()),
-                        request.companyProfile().toString(),
+                        sanitizeProfileForAi(request.companyProfile()).toString(),
                         request.steep().toString(),
                         request.horizon().toString(),
                         horizonContextBlock(request.companyProfile(), request.language()),
@@ -2787,7 +2787,7 @@ public class AiService {
     private String contextPrompt(AnalyzeContextRequest request) {
         StringBuilder sb = new StringBuilder()
                 .append(langInstruction(request.language())).append("\n\n")
-                .append("Company profile: ").append(request.companyProfile()).append('\n')
+                .append("Company profile: ").append(sanitizeProfileForAi(request.companyProfile())).append('\n')
                 .append("STEEP analysis: ").append(request.steep()).append('\n')
                 .append("Horizon signals: ").append(request.horizon());
         if (request.scenarios() != null && !request.scenarios().isNull()) {
@@ -2848,6 +2848,27 @@ public class AiService {
                         monthsWord,
                         monthsWord, hMid, yearsWord,
                         hMid, h, yearsWord);
+    }
+
+    /**
+     * Strip pure-attribution metadata from the company profile before
+     * stringifying it into a prompt. {@code consultantName} and
+     * {@code consultantCompany} exist for the report's cover page and
+     * export footer — they're not part of the strategic context the
+     * model should reason about. Without this scrub, Opus has been
+     * observed citing the consultant as if they were a third-party
+     * source. Defense in depth: the frontend also strips these fields
+     * before sending, but the backend stays the authoritative gate.
+     *
+     * <p>Returns the input unchanged when it isn't an object node, so
+     * the caller never has to null-check.
+     */
+    private JsonNode sanitizeProfileForAi(JsonNode profile) {
+        if (profile == null || !profile.isObject()) return profile;
+        ObjectNode copy = ((ObjectNode) profile).deepCopy();
+        copy.remove("consultantName");
+        copy.remove("consultantCompany");
+        return copy;
     }
 
     /**
