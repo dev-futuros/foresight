@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useWizardOnboarding } from './hooks/useWizardOnboarding';
+import { useAutosave } from './hooks/useAutosave';
 import { useCreateReport, useReport, useStartGeneration, useUpdateReport } from './api';
 import Modal from '../../components/Modal';
 import { useCurrentUser } from '../account/api';
@@ -241,111 +242,88 @@ export default function NewReportPage() {
     isExampleModeRef.current = isExampleMode;
   });
 
-  // ── Autosave state machine ──────────────────────────────────────
-  // The wizard PATCHes the draft on a debounced timer as the user
-  // types. Three knobs:
+  // ── Autosave wiring ─────────────────────────────────────────────
+  // The debounced state machine itself lives in {@link useAutosave};
+  // this block is the policy layer the hook delegates to: how to
+  // build the snapshot, how to PATCH vs POST, which language to stamp
+  // on creation, and the prefill / example / pause gates.
   //
-  //   - AUTOSAVE_DEBOUNCE_MS — how long after the last keystroke we
-  //     fire the save. Long enough to coalesce a paragraph of typing
-  //     into one PATCH, short enough that "Saved" lands within a
-  //     reasonable expectation of "I just stopped typing".
-  //   - In-flight guard — if a save is already running when a new one
-  //     wants to fire, we postpone the second one until the first
-  //     resolves. Prevents an older PATCH from racing-and-overwriting
-  //     a newer one (no operational transform, just last-write-wins
-  //     ordering).
-  //   - prefillCompleteRef — initial prefill assigns React state
-  //     which would otherwise look like "user just edited", triggering
-  //     an immediate no-op autosave. The ref flips true once after
-  //     the first prefill effect finishes, so user-driven changes
-  //     thereafter are the only ones the debouncer sees.
-  const AUTOSAVE_DEBOUNCE_MS = 1500;
-  type SaveStatus = 'idle' | 'dirty' | 'saving' | 'saved' | 'error';
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
-  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
-  const debounceTimerRef = useRef<number | null>(null);
-  const inflightSaveRef = useRef<boolean>(false);
-  const prefillCompleteRef = useRef<boolean>(!editMode);
-  // Cache the status in a ref so flushAutosave / unmount cleanup can
-  // read it without becoming a render-time dependency.
-  const saveStatusRef = useRef<SaveStatus>(saveStatus);
-  useEffect(() => {
-    saveStatusRef.current = saveStatus;
+  // {@code prefillComplete} replaces the previous prefillCompleteRef
+  // — useAutosave needs effect-triggering reactivity to start watching
+  // after initial prefill, so a ref isn't sufficient. New (non-edit)
+  // wizards start true since there's nothing to prefill.
+  const [prefillComplete, setPrefillComplete] = useState<boolean>(!editMode);
+
+  // Wizard state slices the hook watches. Live above persistDraft +
+  // useAutosave so they're in scope; mirrored into the refs below the
+  // hook so {@code persistDraft} reads always see the freshest values
+  // without becoming a dep of the persist callback (which would
+  // cascade through goToStep on every keystroke).
+  const [empresa, setEmpresa] = useState<EmpresaData>(EMPTY_EMPRESA);
+  const [globalData, setGlobalData] = useState<GlobalSteepData>(EMPTY_GLOBAL_STEEP);
+  const [steep, setSteep] = useState<SteepData>(EMPTY_STEEP);
+  const [horizon, setHorizon] = useState<HorizonData>(EMPTY_HORIZON);
+
+  /** Persists a draft snapshot. POST on first call (no id yet), PATCH
+   *  after. Persistence policy only — the status machine, debounce,
+   *  in-flight guard, and skip predicates all live in {@link useAutosave}.
+   *  Reads the active step via {@link stepRef} so the saved
+   *  {@code currentStep} reflects wherever the user is right now,
+   *  including changes that landed between debounce schedule and fire. */
+  /** Optional {@code currentStep} override for callers (handleSubmit) that
+   *  want to assert a specific step at save time; defaults to the
+   *  active step from {@link stepRef}. */
+  const persistDraft = useCallback(async (currentStep?: number): Promise<void> => {
+    const step = currentStep ?? stepRef.current;
+    const title = buildTitle();
+    const inputData = buildInputData(step);
+    if (reportIdRef.current) {
+      await updateReportAsync({
+        id: reportIdRef.current,
+        body: { title, inputData },
+      });
+    } else {
+      // Stamp the report's primaryLanguage at creation time with the
+      // user's effective language. Dashboard chips read this back to
+      // label the "authored language" — without it, every report
+      // defaults to ES regardless of UI locale.
+      const created = await createReportAsync({
+        title,
+        inputData,
+        primaryLanguage: languageRef.current,
+      });
+      reportIdRef.current = created.id;
+      setReportId(created.id);
+    }
+  }, [buildInputData, buildTitle, createReportAsync, updateReportAsync]);
+
+  const {
+    status: saveStatus,
+    lastSavedAt,
+    flush: flushAutosave,
+  } = useAutosave({
+    persist: persistDraft,
+    values: [empresa, globalData, steep, horizon],
+    // Wait until the prefill effect has loaded the existing report so
+    // those state assignments don't masquerade as user edits.
+    enabled: prefillComplete,
+    // Block the debounced save scheduler while the analysis pipeline
+    // is mid-flight — keeps a draft PATCH from racing the in-flight
+    // generation. Pending dirty state survives; the save fires once
+    // {@code isGenerating} goes false.
+    paused: isGenerating,
+    // Skip when in example mode (no row to persist to) or when the
+    // doc has no meaningful content yet (empty-shell drafts aren't
+    // worth a roundtrip).
+    shouldSave: () => !isExampleModeRef.current && hasMeaningfulContent(),
   });
 
-  /** Persists a draft snapshot. POST on first call (no id yet), PATCH after.
-   *  Drives the autosave status indicator — sets 'saving' before the call,
-   *  'saved' / 'error' after. Examples short-circuit (their content lives
-   *  in the {@code examples} table, not {@code reports}, so a PATCH against
-   *  {@code /api/reports/:id} would 404). */
-  const persistDraft = useCallback(
-    async (currentStep: number): Promise<void> => {
-      if (isExampleModeRef.current) return;
-      if (!hasMeaningfulContent()) return;
-      // Coalesce overlapping saves. If a save is already in flight, mark
-      // the document still-dirty and let the debounced scheduler pick it
-      // up after the current save resolves. Stops the older save from
-      // arriving at the server AFTER a newer one.
-      if (inflightSaveRef.current) {
-        setSaveStatus('dirty');
-        return;
-      }
-      inflightSaveRef.current = true;
-      setSaveStatus('saving');
-      const title = buildTitle();
-      const inputData = buildInputData(currentStep);
-      try {
-        if (reportIdRef.current) {
-          await updateReportAsync({
-            id: reportIdRef.current,
-            body: { title, inputData },
-          });
-        } else {
-          // Stamp the report's primaryLanguage at creation time with the
-          // user's effective language. Dashboard chips read this back
-          // to label the "authored language" — without it, every
-          // report defaults to ES regardless of UI locale.
-          const created = await createReportAsync({
-            title,
-            inputData,
-            primaryLanguage: languageRef.current,
-          });
-          reportIdRef.current = created.id;
-          setReportId(created.id);
-        }
-        setSaveStatus('saved');
-        setLastSavedAt(new Date());
-      } catch (err) {
-        console.error('[autosave] persistDraft failed', err);
-        setSaveStatus('error');
-      } finally {
-        inflightSaveRef.current = false;
-      }
-    },
-    [buildInputData, buildTitle, createReportAsync, updateReportAsync],
-  );
-
-  /** Cancel any pending debounce + fire the save immediately. Used on
-   *  step transitions (so Continue still commits in-flight edits) and
-   *  on unmount (so navigating away doesn't drop a pending PATCH). */
-  const flushAutosave = useCallback(async (): Promise<void> => {
-    if (debounceTimerRef.current !== null) {
-      window.clearTimeout(debounceTimerRef.current);
-      debounceTimerRef.current = null;
-    }
-    if (saveStatusRef.current === 'dirty') {
-      await persistDraftRef.current(stepRef.current);
-    }
-  }, []);
-
-  // Mirror persistDraft into a ref so goToStep can stay stable (deps: []).
-  // Without this every render of NewReportPage would yield a new goToStep,
-  // a new handleStepperSelect, a new stepperState, and useSetStepper would
-  // cycle the slot in StepperContext on every render.
-  const persistDraftRef = useRef(persistDraft);
+  // Mirror saveStatus into a ref for the beforeunload listener (which
+  // only registers once and needs to read fresh status from inside
+  // its event handler closure).
+  const saveStatusRef = useRef(saveStatus);
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/immutability -- persistDraftRef IS a ref despite the rule's misfire; the assignment runs after commit so flushAutosave's later closure read sees the latest persistDraft
-    persistDraftRef.current = persistDraft;
+    saveStatusRef.current = saveStatus;
   });
 
   // Mirror the active step into a ref so flushAutosave can read it
@@ -384,10 +362,6 @@ export default function NewReportPage() {
     return 'es';
   })();
 
-  const [empresa, setEmpresa] = useState<EmpresaData>(EMPTY_EMPRESA);
-  const [globalData, setGlobalData] = useState<GlobalSteepData>(EMPTY_GLOBAL_STEEP);
-  const [steep, setSteep] = useState<SteepData>(EMPTY_STEEP);
-  const [horizon, setHorizon] = useState<HorizonData>(EMPTY_HORIZON);
   // Citations harvested from Step 2's web_search-enabled scan. Held in
   // transient state until the user runs the full analysis, at which
   // point they're written into resultData.sources.globalSteep so the
@@ -490,59 +464,13 @@ export default function NewReportPage() {
       stepRef.current = resumeAt;
       setMaxReached((prev) => Math.max(prev, resumeAt));
     }
-    // The prefill has just assigned React state; the keystroke-driven
-    // autosave effect below shouldn't treat that as a user edit. Flip
-    // the gate so subsequent user-driven state changes ARE detected.
-    prefillCompleteRef.current = true;
+    // The prefill has just assigned React state; useAutosave's watch
+    // effect must not treat those assignments as user edits. Flip the
+    // gate so the hook starts watching from the next render onward.
+    setPrefillComplete(true);
   }, [editMode, editingReport.data, searchParams]);
 
-  // ── Keystroke-debounced autosave ────────────────────────────────
-  // Watches the four user-editable wizard slices. On any change we
-  // mark the document dirty, cancel any pending save, and schedule a
-  // new save after AUTOSAVE_DEBOUNCE_MS of inactivity. Coalesces a
-  // paragraph of fast typing into one PATCH; commits within ~1.5s
-  // after the user pauses.
-  //
-  // Skipped entirely in example mode (read-only content) and during
-  // the initial prefill (which assigns state programmatically). Also
-  // skipped while the analysis pipeline is running so the in-flight
-  // generation can't race with a draft PATCH.
-  useEffect(() => {
-    if (!prefillCompleteRef.current) return;
-    if (isExampleModeRef.current) return;
-    if (isGenerating) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- this IS the autosave state machine: any user-driven change to the wizard slices must flip status to 'dirty' and reschedule the debounced save
-    setSaveStatus('dirty');
-    if (debounceTimerRef.current !== null) {
-      window.clearTimeout(debounceTimerRef.current);
-    }
-    debounceTimerRef.current = window.setTimeout(() => {
-      debounceTimerRef.current = null;
-      void persistDraftRef.current(stepRef.current);
-    }, AUTOSAVE_DEBOUNCE_MS);
-    // No cleanup here — the timer is shared across re-renders and only
-    // gets cancelled by (a) the next change resetting it, (b) goToStep
-    // calling flushAutosave, or (c) the unmount effect below.
-  }, [empresa, globalData, steep, horizon, isGenerating]);
-
-  // Flush any pending debounce on unmount so a half-typed paragraph
-  // doesn't drop when the user navigates away. Also cancels the timer
-  // so an unmounted-component setState warning doesn't fire from a
-  // late callback.
-  useEffect(() => {
-    return () => {
-      if (debounceTimerRef.current !== null) {
-        window.clearTimeout(debounceTimerRef.current);
-        debounceTimerRef.current = null;
-      }
-      // Fire one last save synchronously-ish — we await nothing, but
-      // the fetch is queued before the React tree finishes tearing
-      // down. fetch() requests survive unmount.
-      if (saveStatusRef.current === 'dirty' && !isExampleModeRef.current) {
-        void persistDraftRef.current(stepRef.current);
-      }
-    };
-  }, []);
+  // (Watch + unmount effects for autosave now live inside useAutosave.)
 
   // beforeunload guard — if the user closes the tab with a dirty
   // document, the browser prompts the standard "leave / stay" dialog.
@@ -644,14 +572,12 @@ export default function NewReportPage() {
     // by the command bus; the spec's enrichTrack callback supplies
     // the rich props (mode, horizon, hasGlobalSteep). See the
     // 'runAnalysis' CommandSpec below.
-    // Drop any pending autosave timer before we start so a debounced
-    // PATCH doesn't race with handleSubmit's explicit persistDraft +
-    // subsequent resultData update. The handleSubmit flow does its
-    // own saves at the right moments.
-    if (debounceTimerRef.current !== null) {
-      window.clearTimeout(debounceTimerRef.current);
-      debounceTimerRef.current = null;
-    }
+    // Commit any pending autosave before kicking off the analysis so
+    // the debounced PATCH doesn't race with handleSubmit's explicit
+    // persistDraft + resultData update further down. Once we set
+    // {@code isGenerating} true below, useAutosave's pause kicks in
+    // and the debouncer goes silent for the rest of this flow.
+    await flushAutosave();
     setGenerateError(null);
     setIsGenerating(true);
     // Reset loader state — all 5 sections start running immediately in

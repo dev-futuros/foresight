@@ -204,10 +204,14 @@ export function useAutosave(options: UseAutosaveOptions): UseAutosaveReturn {
     if (inflightRef.current) {
       dirtyDuringSaveRef.current = true;
     }
-    if (paused) return;
+    // Always cancel any pending timer at this point. We either
+    // reschedule it below (default path) or we're paused / about to
+    // unmount and the previous timer must not leak through.
     if (debounceTimerRef.current !== null) {
       window.clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
     }
+    if (paused) return;
     debounceTimerRef.current = window.setTimeout(() => {
       debounceTimerRef.current = null;
       void runSave();
