@@ -6,25 +6,52 @@
 #
 # Dev / alpha environments don't use this file — they're served by the
 # original Dockerfile via Vite's dev / preview server, which proxies
-# /api/* directly. Prod is static-only; API calls hit the backend
-# service via the public URL baked into VITE_API_URL at build time.
+# /api/* directly. Prod replicates that proxy here so the SPA can keep
+# calling same-origin `/api/*` (axios baseURL + the SSE fetch in
+# features/chat) without needing CORS on the backend.
 
 :{$PORT}
 
-# Static assets the SPA serves. Layout from Dockerfile.prod's second stage:
+# ── /api reverse proxy ───────────────────────────────────────────
+# The SPA bundle is built against same-origin `/api`. Without this
+# block, /api/* falls through to the SPA fallback below and the
+# browser receives index.html with status 200 — every API call then
+# crashes on the client side trying to parse HTML as JSON.
+#
+# Backend URL comes from VITE_API_URL on the Railway frontend service
+# — the same env var the Vite dev / preview proxy uses (vite.config.ts).
+# It's read here at Caddy startup (not build time), so Caddy substitutes
+# whatever value Railway has on the service when the container boots.
+# `handle` is mutually exclusive with the SPA `handle` below, so /api/*
+# never reaches try_files.
+#
+# `flush_interval -1` disables Caddy's response buffering so SSE frames
+# (chat stream, translation stream) reach the browser as the backend
+# emits them.
+handle /api/* {
+	reverse_proxy {$VITE_API_URL} {
+		flush_interval -1
+	}
+}
+
+# ── Static SPA ────────────────────────────────────────────────────
+# Anything that isn't /api/* lands here. Layout from Dockerfile.prod's
+# second stage:
 #   /usr/share/caddy/index.html              — SPA shell
 #   /usr/share/caddy/assets/*                — hashed bundles (CSS, JS)
 #   /usr/share/caddy/share-snapshot.html     — singlefile standalone snapshot
-root * /usr/share/caddy
-encode gzip zstd
-file_server
-
-# SPA fallback. Anything that isn't a real file on disk falls back to
+#
+# SPA fallback: anything that isn't a real file on disk falls back to
 # index.html so React Router can resolve the path client-side. The
 # share-snapshot.html standalone page is treated as a real file by the
 # `not file` matcher so it serves itself.
-@spa not file
-try_files {path} /index.html
+handle {
+	root * /usr/share/caddy
+	encode gzip zstd
+	@spa not file
+	try_files {path} /index.html
+	file_server
+}
 
 # Cache policy.
 #   /assets/* — Vite emits content-hashed filenames in here, so they're
