@@ -5,6 +5,7 @@ import type { LanguageCode } from '../../../i18n/languages';
  * as the model writes them, so the chat bubble can show the response
  * forming live.
  */
+import * as Sentry from '@sentry/react';
 import api, { getAuthToken } from '../../../lib/api';
 import { parseSseFrameJson, splitSseFrame } from '../../../lib/sse';
 
@@ -67,6 +68,24 @@ export async function chat(args: {
  * body before resolving, which would defeat streaming.
  */
 export async function chatStream(
+  args: {
+    messages: ChatMessage[];
+    context?: string;
+    language: LanguageCode;
+  },
+  onDelta: (chunk: string) => void,
+): Promise<{ text: string }> {
+  try {
+    return await chatStreamInner(args, onDelta);
+  } catch (err) {
+    Sentry.captureException(err, {
+      tags: { kind: 'sse-stream', path: 'ai/chat/stream' },
+    });
+    throw err;
+  }
+}
+
+async function chatStreamInner(
   args: {
     messages: ChatMessage[];
     context?: string;
