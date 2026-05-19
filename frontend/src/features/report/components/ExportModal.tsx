@@ -6,6 +6,7 @@ import { useReport } from '../api';
 import type { ReportWithSource } from '../api/fetchers';
 import { useExample } from '../../examples/api';
 import { useIsDev } from '../../account/api';
+import { track } from '../../../lib/mixpanel';
 
 /**
  * Module-scope selector for the report query. ExportModal only reads
@@ -133,7 +134,7 @@ export default function ExportModal({
     return list.length > 0 ? list : ['es'];
   }, [data]);
 
-  const primaryLanguage = (data?.primaryLanguage) ?? 'es';
+  const primaryLanguage = data?.primaryLanguage ?? 'es';
 
   // Snap the language pick back to the row's primary on every open
   // so reopening the modal doesn't carry over a stale selection from a
@@ -215,6 +216,18 @@ export default function ExportModal({
     // for the others so callers can default cleanly without needing to know
     // about it.
     const themeArg = format === 'pdf' ? pdfTheme : undefined;
+    // Mixpanel: low-cardinality props only (format/language are bounded
+    // enums; reportId is a UUID). Length of includeLanguages — not the
+    // languages themselves — gives "single vs multi-language export"
+    // breakdown without inflating event-property cardinality.
+    track('Report Exported', {
+      format,
+      language: exportLanguage,
+      includedLanguageCount: includeLanguages?.length ?? 1,
+      pdfTheme: themeArg,
+      kind,
+      reportId,
+    });
     onExport(format, exportLanguage, includeLanguages, themeArg);
     onClose();
   }

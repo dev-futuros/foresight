@@ -23,6 +23,7 @@ import LoadingPanel, {
   type ProgressItemStatus,
 } from '../../components/LoadingPanel';
 import { useCommands } from '../../lib/useCommands';
+import { track } from '../../lib/mixpanel';
 import { useSetAssistantContext } from '../chat/useAssistantContext';
 import '../../components/modal.css';
 import StepEmpresa, { type EmpresaData } from './steps/StepEmpresa';
@@ -614,6 +615,16 @@ export default function NewReportPage() {
   );
   useSetStepper(stepperState);
 
+  // Mixpanel: fire 'Report Wizard Started' once per mount. Mode is
+  // known synchronously from the URL params; the example/real
+  // distinction is settled async via editingReport.data — we leave
+  // it off this event and let the more meaningful 'Report Submitted'
+  // (or 'Report Opened') capture that detail.
+  useEffect(() => {
+    track('Report Wizard Started', { mode: editMode ? 'edit' : 'new' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fire-once on mount
+  }, []);
+
   const companyProfile = empresa.name
     ? `${empresa.name} — ${empresa.sector}. ${empresa.challenge}. (${empresa.horizon}y)`
     : '';
@@ -626,6 +637,22 @@ export default function NewReportPage() {
     // (depending on whether reportId is set). The Generate button is
     // disabled in this mode too; this guard is defence in depth.
     if (isExampleMode) return;
+    // Mixpanel: track the user-initiated generation. Bounded enums
+    // only — horizon (years int) and whether the user filled in any
+    // dimension of the optional global-STEEP section. No company
+    // names, no challenge text, no STEEP prose — those stay
+    // confidential.
+    track('Report Submitted', {
+      mode: editMode ? 'edit' : 'new',
+      horizon: empresa.horizon,
+      hasGlobalSteep: Boolean(
+        globalData.S.trim() ||
+        globalData.T.trim() ||
+        globalData.E.trim() ||
+        globalData.ENV.trim() ||
+        globalData.P.trim(),
+      ),
+    });
     // Drop any pending autosave timer before we start so a debounced
     // PATCH doesn't race with handleSubmit's explicit persistDraft +
     // subsequent resultData update. The handleSubmit flow does its
@@ -1312,8 +1339,7 @@ export default function NewReportPage() {
                 hasReport={
                   editMode &&
                   !!editingReport.data?.resultData &&
-                  Object.keys((editingReport.data.resultData) ?? {})
-                    .length > 0
+                  Object.keys(editingReport.data.resultData ?? {}).length > 0
                 }
                 disableGenerate={isExampleMode}
                 onContinueToReport={() => {

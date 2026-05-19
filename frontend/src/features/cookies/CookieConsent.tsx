@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import * as Sentry from '@sentry/react';
-import { optIn as mixpanelOptIn, optOut as mixpanelOptOut } from '../../lib/mixpanel';
+import { optIn as mixpanelOptIn, optOut as mixpanelOptOut, track } from '../../lib/mixpanel';
 import './cookies.css';
 
 /**
@@ -121,6 +121,12 @@ export default function CookieConsent() {
   const accept = () => {
     writeConsent('accepted');
     applyConsent('accepted');
+    // Track AFTER applyConsent so the optIn() has armed Mixpanel
+    // — otherwise this first call would be dropped at the SDK
+    // layer (still opted out). There's no symmetric reject event:
+    // on decline Mixpanel stays opted out, so any track() call
+    // would be a silent no-op.
+    track('Cookie Consent Granted');
     setVisible(false);
   };
   const reject = () => {

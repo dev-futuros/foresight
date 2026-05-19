@@ -9,6 +9,7 @@ import { useDemoteExample, useTranslateExample } from '../examples/api';
 import { useIsDev } from '../account/api';
 import { useSetStepper } from '../shell/useStepper';
 import { useCommands } from '../../lib/useCommands';
+import { track } from '../../lib/mixpanel';
 import { useSetAssistantContext } from '../chat/useAssistantContext';
 import type { ReportResultSnapshot } from '../chat/lib/buildAssistantSnapshot';
 import { exportReportPdf } from './pdf';
@@ -82,9 +83,8 @@ export default function ReportPage() {
   // each report's "I'm reading this one in EN" memory independent.
   const [searchParams, setSearchParams] = useSearchParams();
   const langParam = searchParams.get('lang');
-  const requestedLang: ExportLanguage | null =
-    isLanguageCode(langParam) ? langParam : null;
-  const primaryLang = (report?.primaryLanguage) ?? 'es';
+  const requestedLang: ExportLanguage | null = isLanguageCode(langParam) ? langParam : null;
+  const primaryLang = report?.primaryLanguage ?? 'es';
   const availableLangs = useMemo<ExportLanguage[]>(
     () => (report?.availableLanguages as ExportLanguage[] | undefined) ?? [primaryLang],
     [report?.availableLanguages, primaryLang],
@@ -177,6 +177,19 @@ export default function ReportPage() {
   });
 
   const isExample = report?.source === 'example';
+
+  // Mixpanel: fire once per report id when the payload first arrives.
+  // Keyed on report?.id + isExample so the event re-fires when the
+  // user navigates between reports without remounting the component
+  // (e.g. via the assistant's goTo command). No-op when report is
+  // still loading.
+  useEffect(() => {
+    if (!report?.id) return;
+    track('Report Opened', {
+      reportId: report.id,
+      kind: isExample ? 'example' : 'report',
+    });
+  }, [report?.id, isExample]);
 
   // Surface the wizard's 6-step indicator with step 6 ("Resultados") active.
   // Steps 1–4 navigate back into the wizard in edit mode so the user can
@@ -362,6 +375,14 @@ export default function ReportPage() {
     language: ExportLanguage,
   ): Promise<ReportResponse> {
     if (language === base.primaryLanguage) return base;
+    // Mixpanel: user explicitly asked for a non-primary language.
+    // Fires whether the translation comes from cache or hits
+    // Anthropic — telling the two apart in analytics isn't worth
+    // the extra wiring.
+    track('Translation Requested', {
+      targetLanguage: language,
+      kind: isExample ? 'example' : 'report',
+    });
     const translated = isExample
       ? await translateExample.mutateAsync({ id: base.id, targetLanguage: language })
       : await translateReport.mutateAsync({ id: base.id, targetLanguage: language });
