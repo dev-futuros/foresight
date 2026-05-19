@@ -47,9 +47,18 @@ ARG SENTRY_AUTH_TOKEN
 ARG SENTRY_ORG
 ARG SENTRY_PROJECT
 
-# Kinde variables
+# Kinde — all four VITE_KINDE_* vars are baked into the bundle at
+# build time and must be declared as ARGs here for Railway's
+# --build-arg forwarding to expose them to Vite. Missing any one
+# (especially the redirect URIs) bakes an empty string into the
+# bundle; the Kinde SDK then either falls back to the current
+# origin (callback) or skips the redirect entirely (logout), which
+# leaves the user on Kinde's hosted logged-out page on the auth
+# tenant domain instead of returning to the app.
 ARG VITE_KINDE_DOMAIN
 ARG VITE_KINDE_CLIENT_ID
+ARG VITE_KINDE_REDIRECT_URI
+ARG VITE_KINDE_LOGOUT_REDIRECT_URI
 
 # Install dependencies on manifest changes only — keeps the layer
 # cache warm across iterations that only touch source.
