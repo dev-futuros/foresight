@@ -30,7 +30,7 @@ const ca = {
   },
   cookies: {
     title: 'Cookies i analítica',
-    body: 'Utilitzem PostHog per entendre com s’utilitza l’eina i millorar-la. No compartim dades amb anunciants ni tercers publicitaris.',
+    body: 'Podem fer servir eines d’analítica per entendre com s’utilitza l’eina i millorar-la. No compartim dades amb anunciants ni tercers publicitaris.',
     learn: 'Política de Privacitat',
     accept: 'Acceptar',
     reject: 'Rebutjar',

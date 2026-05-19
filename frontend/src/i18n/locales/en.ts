@@ -22,7 +22,7 @@ const en = {
   },
   cookies: {
     title: 'Cookies & analytics',
-    body: "We use PostHog to understand how the tool is used and improve it. We don't share data with advertisers or ad-tech third parties.",
+    body: "We may use analytics tools to understand how the tool is used and improve it. We don't share data with advertisers or ad-tech third parties.",
     learn: 'Privacy Policy',
     accept: 'Accept',
     reject: 'Decline',

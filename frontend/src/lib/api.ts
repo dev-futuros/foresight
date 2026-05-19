@@ -1,41 +1,11 @@
 import axios from 'axios';
 
-/**
- * Header name the backend reads to populate {@code $ai_session_id} on
- * {@code $ai_generation} events. Sourcing the value from the browser's
- * PostHog session id (via {@code window.posthog.get_session_id()}) means
- * backend LLM events and frontend pageviews/UI events stitch into the
- * same session in PostHog — the LLM Analytics dashboard's "session"
- * dimension lights up as a result.
- *
- * <p>Returns an empty string when PostHog isn't loaded (e.g. analytics
- * disabled in this build, or the SDK hasn't fetched array.js yet). The
- * backend treats absent / empty as "no session" and just omits the
- * {@code $ai_session_id} property.
- */
-const PH_SESSION_HEADER = 'X-PostHog-Session-Id';
-function readPostHogSessionId(): string | null {
-  if (typeof window === 'undefined') return null;
-  const ph = window.posthog as { get_session_id?: () => string | null } | undefined;
-  if (!ph || typeof ph.get_session_id !== 'function') return null;
-  try {
-    return ph.get_session_id();
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Helper for fetch-based callers (SSE streaming endpoints in
- * {@code aiClient.ts}) that need to attach the same PostHog session header
- * as the axios instance. Mutates {@code headers} in place and returns it
- * so the call site can chain.
- */
-export function attachPostHogSession(headers: Record<string, string>): Record<string, string> {
-  const sid = readPostHogSessionId();
-  if (sid) headers[PH_SESSION_HEADER] = sid;
-  return headers;
-}
+// Session-correlation header (previously X-PostHog-Session-Id, attached
+// to every API call so backend LLM events shared a session id with
+// frontend pageviews) was removed alongside the PostHog client. When a
+// successor analytics SDK (Mixpanel/Amplitude/Sentry replay) lands,
+// re-introduce attachSessionHeader() here and wire it back into the
+// fetch-based callers in features/{chat,report}/api/.
 
 /**
  * Async getter for the current session's bearer token. Wired by `<AuthBridge>` (inside
@@ -74,10 +44,6 @@ api.interceptors.request.use(async (config) => {
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-  }
-  const sid = readPostHogSessionId();
-  if (sid) {
-    config.headers[PH_SESSION_HEADER] = sid;
   }
   return config;
 });
