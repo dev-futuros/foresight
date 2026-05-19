@@ -32,6 +32,12 @@ ARG VITE_SENTRY_DSN
 ARG VITE_SENTRY_ENVIRONMENT
 ARG VITE_APP_VERSION
 
+# Mixpanel runtime config — baked into the bundle. Token gates init
+# (no token → fully no-op). Public token, EU project, ingestion host
+# pinned to api-eu.mixpanel.com in code (see src/lib/mixpanel.ts).
+ARG VITE_MIXPANEL_TOKEN
+ARG VITE_MIXPANEL_DEBUG
+
 # Sentry source-map upload — BUILD-TIME ONLY. Read by @sentry/vite-plugin
 # during `npm run build`; never baked into the bundle (no VITE_ prefix).
 # When SENTRY_AUTH_TOKEN is absent, the plugin no-ops and the build
