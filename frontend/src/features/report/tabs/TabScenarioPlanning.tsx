@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useReportTranslation } from '../reportLanguage';
 import type { DrivingForce, ScenarioLogic, UncertaintyAxis } from '../../../types/api';
 import type { ResultData } from '../ReportContent';
 import ImpactMatrix from './ImpactMatrix';
@@ -14,7 +14,7 @@ import InfoTooltip from '../../../components/InfoTooltip';
  * runaway vertical growth.
  */
 export default function TabScenarioPlanning({ result }: { result: ResultData }) {
-  const { t } = useTranslation();
+  const { t } = useReportTranslation();
   const planning = result.scenarioPlanning;
   if (
     !planning ||
@@ -69,7 +69,7 @@ export default function TabScenarioPlanning({ result }: { result: ResultData }) 
  * Keeps the section short instead of stacking 4 description blocks.
  */
 function DrivingForcesExplorer({ forces }: { forces: DrivingForce[] }) {
-  const { t } = useTranslation();
+  const { t } = useReportTranslation();
   const sorted = [...forces].sort((a, b) => a.rank - b.rank);
   const [selectedIdx, setSelectedIdx] = useState(0);
   const safeIdx = Math.min(selectedIdx, sorted.length - 1);
@@ -125,7 +125,7 @@ function DrivingForcesExplorer({ forces }: { forces: DrivingForce[] }) {
  * small inline toggle so the two axis cards stay compact side-by-side.
  */
 function AxisCard({ axis }: { axis: UncertaintyAxis }) {
-  const { t } = useTranslation();
+  const { t } = useReportTranslation();
   const [open, setOpen] = useState(false);
   return (
     <div className="axis-card">

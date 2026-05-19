@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useReportTranslation } from '../reportLanguage';
 import type { WeakSignal, Wildcard } from '../../../types/api';
 import type { ResultData } from '../ReportContent';
 
@@ -16,7 +16,7 @@ import type { ResultData } from '../ReportContent';
  * regardless of how many signals or wildcards the model returns.
  */
 export default function TabSignals({ result }: { result: ResultData }) {
-  const { t } = useTranslation();
+  const { t } = useReportTranslation();
   const weak = result.weakSignals ?? [];
   const wild = result.wildcards ?? [];
 
@@ -53,7 +53,7 @@ export default function TabSignals({ result }: { result: ResultData }) {
  * the data (no empty filters).
  */
 function SignalsExplorer({ signals }: { signals: WeakSignal[] }) {
-  const { t } = useTranslation();
+  const { t } = useReportTranslation();
   const [filter, setFilter] = useState<string>('__all__');
   const [selectedIdx, setSelectedIdx] = useState(0);
 

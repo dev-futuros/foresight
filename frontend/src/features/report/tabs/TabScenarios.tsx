@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useReportTranslation } from '../reportLanguage';
 import type { Scenario } from '../../../types/api';
 import type { ResultData } from '../ReportContent';
 import InfoTooltip from '../../../components/InfoTooltip';
@@ -23,7 +23,7 @@ import InfoTooltip from '../../../components/InfoTooltip';
  * both first-class flows.
  */
 export default function TabScenarios({ result }: { result: ResultData }) {
-  const { t } = useTranslation();
+  const { t } = useReportTranslation();
   const scenarios = result.scenarios ?? [];
   const [selectedIdx, setSelectedIdx] = useState(0);
   if (scenarios.length === 0) return null;
@@ -129,7 +129,7 @@ function ProbabilityMeter({
   t,
 }: {
   value: string;
-  t: ReturnType<typeof useTranslation>['t'];
+  t: ReturnType<typeof useReportTranslation>['t'];
 }) {
   const pct = clampPct(parsePercent(value));
   return (

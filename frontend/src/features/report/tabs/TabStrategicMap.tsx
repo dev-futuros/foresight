@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useReportTranslation } from '../reportLanguage';
 import type { StrategicPriority } from '../../../types/api';
 import type { ResultData } from '../ReportContent';
 
@@ -14,7 +14,7 @@ const HORIZONS: Horizon[] = ['H1', 'H2', 'H3'];
  * count badge so the user can see scope at a glance without opening it.
  */
 export default function TabStrategicMap({ result }: { result: ResultData }) {
-  const { t } = useTranslation();
+  const { t } = useReportTranslation();
   const priorities = result.strategicMap ?? [];
   // H1 defaults open. H2 / H3 start collapsed so the page loads compact.
   // Selection persists for the lifetime of the tab mount — a user who

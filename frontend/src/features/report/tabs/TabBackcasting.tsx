@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useReportTranslation } from '../reportLanguage';
 import type { BackcastingEntry } from '../../../types/api';
 import type { ResultData } from '../ReportContent';
 
@@ -17,7 +17,7 @@ import type { ResultData } from '../ReportContent';
  * which is the friendlier reading mode on a wide screen.
  */
 export default function TabBackcasting({ result }: { result: ResultData }) {
-  const { t } = useTranslation();
+  const { t } = useReportTranslation();
   const entries = result.backcasting ?? [];
   const [activeIdx, setActiveIdx] = useState(0);
   const [selectedMilestoneIdx, setSelectedMilestoneIdx] = useState(0);

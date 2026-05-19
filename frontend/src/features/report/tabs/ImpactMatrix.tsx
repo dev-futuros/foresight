@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useReportTranslation } from '../reportLanguage';
 import type { DrivingForce, UncertaintyAxis } from '../../../types/api';
 
 /**
@@ -28,7 +28,7 @@ export default function ImpactMatrix({
   forces: DrivingForce[];
   axes: UncertaintyAxis[];
 }) {
-  const { t } = useTranslation();
+  const { t } = useReportTranslation();
   const [hover, setHover] = useState<number | null>(null);
   const [tipPos, setTipPos] = useState<{ x: number; y: number } | null>(null);
 
