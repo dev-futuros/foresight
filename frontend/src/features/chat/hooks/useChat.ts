@@ -2,7 +2,6 @@ import type { LanguageCode } from '../../../i18n/languages';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { chatStream, type ChatMessage } from '../api';
 import { dispatch, get as getCommandSpec } from '../../../lib/commandBus';
-import { track } from '../../../lib/mixpanel';
 
 /**
  * A command the assistant emitted as a `<command name="...">{json}</command>`
@@ -307,20 +306,6 @@ export function useChat() {
       const trimmed = text.trim();
       if (!trimmed) return;
       ctxRef.current = snapshot;
-      // Mixpanel: count messages sent in this assistant session.
-      // Length only — the message text itself is confidential and
-      // never leaves the chatStream POST body. messages.length here
-      // is the count BEFORE this new one, so +1 reflects the
-      // 1-indexed "this is the Nth message" reading.
-      //
-      // Why this isn't a command: registering sendChatMessage as a
-      // bus command would expose it to assistant emission, which
-      // creates an infinite recursion risk — the AI sends a chat
-      // message that triggers the AI to respond that emits another
-      // sendChatMessage and so on. Keeping the send action ad-hoc
-      // means it has no tool-list entry the model could ever invoke.
-      // Chat input is single-source by design.
-      track('Chat Message Sent', { messageIndex: messages.length + 1 });
 
       // Auto-decline any commands left pending in the most recent assistant
       // turn — when the user moves on without applying, the model gets a

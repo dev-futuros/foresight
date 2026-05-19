@@ -6,7 +6,8 @@ import { useCreateShare } from '../../publicShare/api';
 import { useReport } from '../api';
 import { useExample } from '../../examples/api';
 import { extractApiErrorMessage } from '../../../lib/apiError';
-import { track } from '../../../lib/mixpanel';
+import { useCommands } from '../../../lib/useCommands';
+import { dispatch as dispatchCommand } from '../../../lib/commandBus';
 
 interface Props {
   open: boolean;
@@ -75,12 +76,33 @@ export default function ShareModal({ open, reportId, kind = 'report', onClose }:
     }
   }, [open, primaryLanguage, data, availableLanguages]);
 
-  // No 'Share Modal Opened' event here — the shareReport command
-  // dispatch (whether from the toolbar Share button or an assistant
-  // chip click) is auto-tracked by the bus as 'Command Dispatched,
-  // command=shareReport'. Share Link Copied (further down in
-  // handleCopy) stays ad-hoc because it's the modal's completion
-  // signal, not a dispatch.
+  // Bus-level Command Dispatched covers two events around the share
+  // flow: shareReport (opens this modal) and copyShareLink below
+  // (terminal "copy button pressed" action). No ad-hoc tracking
+  // inside this component.
+  useCommands(() => [
+    {
+      name: 'copyShareLink',
+      mode: 'auto',
+      trackArgs: ['kind', 'defaultLanguage'],
+      // Closure-derived props the handler doesn't carry in args.
+      // includedLanguageCount tells us how rich the snapshots being
+      // shared actually are; reportId attributes the action.
+      enrichTrack: () => ({
+        reportId,
+        includedLanguageCount: includedLanguages.length,
+      }),
+      handler: async () => {
+        if (!createShare.data) {
+          throw new Error('Share URL not minted yet — wait for the mint to finish.');
+        }
+        await navigator.clipboard.writeText(createShare.data.shareUrl);
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 2000);
+        return 'Share link copied.';
+      },
+    },
+  ]);
 
   // The default-open language MUST be one of the included ones. If
   // the user unchecks the currently-default, fall back to the first
@@ -142,34 +164,17 @@ export default function ShareModal({ open, reportId, kind = 'report', onClose }:
   async function handleCopy() {
     if (!createShare.data) return;
     try {
-      await navigator.clipboard.writeText(createShare.data.shareUrl);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
-      // Mixpanel: paired with the shareReport dispatch (auto-tracked
-      // by the bus). Bounded props only — defaultLanguage +
-      // includedLanguageCount let the dashboard see how rich the
-      // snapshots being shared are without leaking the share URL.
-      //
-      // Why this isn't a command: terminal completion event for the
-      // share flow. The user dispatch (shareReport) opens the modal;
-      // the URL gets minted in the background; this fires when the
-      // user actually takes the URL out via clipboard. The pair
-      // (Command Dispatched, command=shareReport) + (Share Link Copied)
-      // forms the share funnel. Making this a separate copyShareLink
-      // command would also work, but the dispatch-modal-mint-copy
-      // sequence is one user intent ("share this report") split
-      // across an asynchronous UI — separating intent from completion
-      // is more useful than two near-redundant dispatches.
-      track('Share Link Copied', {
-        reportId,
-        kind,
-        defaultLanguage: language,
-        includedLanguageCount: includedLanguages.length,
-      });
+      // Route through the bus so the dispatch is tracked
+      // automatically (Command Dispatched, command=copyShareLink).
+      // The handler does the clipboard write and the copied-flag
+      // dance.
+      await dispatchCommand('copyShareLink', { kind, defaultLanguage: language }, 'ui');
     } catch {
-      // Clipboard can fail in insecure contexts (http://) or when the user
-      // denies permission. Falling back to manual selection: the input is
-      // readonly so the user can still copy by hand.
+      // Clipboard can fail in insecure contexts (http://) or when the
+      // user denies permission. The bus tracked the failure with
+      // success:false, so we know it happened; falling back to
+      // manual selection (the URL input is readonly) lets the user
+      // still copy by hand.
     }
   }
 

@@ -10,7 +10,6 @@ import AssistantCommands from '../chat/AssistantCommands';
 import ChatAssistant from '../chat/ChatAssistant';
 import { TranslationsProvider } from '../translations/TranslationsContext';
 import AccountModal from '../account/AccountModal';
-import { usePageViewTracking } from '../../lib/usePageViewTracking';
 import './shell.css';
 
 /**
@@ -29,10 +28,6 @@ import './shell.css';
 function ShellInner() {
   const stepperState = useStepperSlot();
   const [accountOpen, setAccountOpen] = useState(false);
-  // Fire a Mixpanel "Page Viewed" event on every route change.
-  // No-op when Mixpanel isn't initialised / user hasn't consented,
-  // so safe to mount unconditionally at the shell level.
-  usePageViewTracking();
   return (
     <div className="app-shell">
       <TopBar onOpenAccount={() => setAccountOpen(true)} />

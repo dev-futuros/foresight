@@ -10,7 +10,6 @@ import { useIsDev } from '../account/api';
 import { useSetStepper } from '../shell/useStepper';
 import { useCommands } from '../../lib/useCommands';
 import { dispatch as dispatchCommand } from '../../lib/commandBus';
-import { track } from '../../lib/mixpanel';
 import { useSetAssistantContext } from '../chat/useAssistantContext';
 import type { ReportResultSnapshot } from '../chat/lib/buildAssistantSnapshot';
 import { exportReportPdf } from './pdf';
@@ -178,28 +177,6 @@ export default function ReportPage() {
   });
 
   const isExample = report?.source === 'example';
-
-  // Mixpanel: fire once per report id when the payload first arrives.
-  // Keyed on report?.id + isExample so the event re-fires when the
-  // user navigates between reports without remounting the component
-  // (e.g. via the assistant's goTo command). No-op when report is
-  // still loading.
-  //
-  // Why this isn't a command: render-success lifecycle event. The
-  // USER ACTION that brought them here (loadReport / editReport
-  // command dispatch, link click, URL paste) is already tracked
-  // separately. This signals "report data resolved AND was actually
-  // rendered to the viewer" — distinct from "user requested it",
-  // because the request might 404 / hit a loading state forever /
-  // get cancelled by a fast navigation. Tracking the render-success
-  // lets us tell intent apart from outcome.
-  useEffect(() => {
-    if (!report?.id) return;
-    track('Report Opened', {
-      reportId: report.id,
-      kind: isExample ? 'example' : 'report',
-    });
-  }, [report?.id, isExample]);
 
   // Surface the wizard's 6-step indicator with step 6 ("Resultados") active.
   // Steps 1–4 navigate back into the wizard in edit mode so the user can

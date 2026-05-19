@@ -6,7 +6,8 @@ import { useReport } from '../api';
 import type { ReportWithSource } from '../api/fetchers';
 import { useExample } from '../../examples/api';
 import { useIsDev } from '../../account/api';
-import { track } from '../../../lib/mixpanel';
+import { useCommands } from '../../../lib/useCommands';
+import { dispatch as dispatchCommand } from '../../../lib/commandBus';
 
 /**
  * Module-scope selector for the report query. ExportModal only reads
@@ -206,6 +207,39 @@ export default function ExportModal({
     });
   }
 
+  // Bus-level Command Dispatched covers both export-flow events:
+  // exportReport (opens this modal — registered by ReportPage / the
+  // assistant shell) and runExport below (terminal "Export button
+  // pressed" action with the user's chosen format and language).
+  useCommands(() => [
+    {
+      name: 'runExport',
+      mode: 'auto',
+      // format / language / kind / pdfTheme are all bounded enums.
+      // includedLanguageCount surfaces single vs multi-language HTML
+      // bundles without inflating event-property cardinality the way
+      // shipping the language array would.
+      trackArgs: ['format', 'language', 'pdfTheme', 'kind', 'includedLanguageCount'],
+      enrichTrack: () => ({ reportId }),
+      handler: (args) => {
+        const {
+          format: argFormat,
+          language: argLanguage,
+          includeLanguages: argIncludeLanguages,
+          pdfTheme: argPdfTheme,
+        } = args as {
+          format: ExportFormat;
+          language: ExportLanguage;
+          includeLanguages?: ExportLanguage[];
+          pdfTheme?: ExportPdfTheme;
+        };
+        onExport(argFormat, argLanguage, argIncludeLanguages, argPdfTheme);
+        onClose();
+        return `Export started: ${argFormat}, ${argLanguage}.`;
+      },
+    },
+  ]);
+
   function handleExport() {
     // For HTML the chosen "language" is the snapshot's default-open
     // language (recipient can switch among included langs). Every
@@ -216,20 +250,23 @@ export default function ExportModal({
     // for the others so callers can default cleanly without needing to know
     // about it.
     const themeArg = format === 'pdf' ? pdfTheme : undefined;
-    // Mixpanel: low-cardinality props only (format/language are bounded
-    // enums; reportId is a UUID). Length of includeLanguages — not the
-    // languages themselves — gives "single vs multi-language export"
-    // breakdown without inflating event-property cardinality.
-    track('Report Exported', {
-      format,
-      language: exportLanguage,
-      includedLanguageCount: includeLanguages?.length ?? 1,
-      pdfTheme: themeArg,
-      kind,
-      reportId,
-    });
-    onExport(format, exportLanguage, includeLanguages, themeArg);
-    onClose();
+    // Route through the bus so the dispatch is tracked automatically
+    // (Command Dispatched, command=runExport). The handler invokes
+    // the onExport callback and closes the modal.
+    void dispatchCommand(
+      'runExport',
+      {
+        format,
+        language: exportLanguage,
+        includeLanguages,
+        pdfTheme: themeArg,
+        // Length only — including the language array itself would
+        // blow up event-property cardinality.
+        includedLanguageCount: includeLanguages?.length ?? 1,
+        kind,
+      },
+      'ui',
+    );
   }
 
   const showLangPicker = availableLanguages.length > 1;

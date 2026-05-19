@@ -24,7 +24,6 @@ import LoadingPanel, {
 } from '../../components/LoadingPanel';
 import { useCommands } from '../../lib/useCommands';
 import { dispatch as dispatchCommand } from '../../lib/commandBus';
-import { track } from '../../lib/mixpanel';
 import { useSetAssistantContext } from '../chat/useAssistantContext';
 import '../../components/modal.css';
 import StepEmpresa, { type EmpresaData } from './steps/StepEmpresa';
@@ -632,10 +631,11 @@ export default function NewReportPage() {
     // (depending on whether reportId is set). The Generate button is
     // disabled in this mode too; this guard is defence in depth.
     if (isExampleMode) return;
-    // 'Report Generation Started' is auto-fired by the command bus
-    // for both wizard-button and assistant-chip dispatches of
-    // runAnalysis — the spec's enrichTrack callback supplies the
-    // rich props (mode, horizon, hasGlobalSteep). See below.
+    // The runAnalysis dispatch (whether triggered by the wizard's
+    // Generate button or by an assistant chip click) is auto-tracked
+    // by the command bus; the spec's enrichTrack callback supplies
+    // the rich props (mode, horizon, hasGlobalSteep). See the
+    // 'runAnalysis' CommandSpec below.
     // Drop any pending autosave timer before we start so a debounced
     // PATCH doesn't race with handleSubmit's explicit persistDraft +
     // subsequent resultData update. The handleSubmit flow does its
@@ -855,27 +855,6 @@ export default function NewReportPage() {
       await updateReport.mutateAsync({
         id: targetReportId,
         body: { resultData: fullResult },
-      });
-      // Mixpanel: paired with the runAnalysis dispatch (auto-tracked
-      // by the bus as 'Command Dispatched'). successCount / errorCount
-      // break out partial-success runs (e.g. 4-of-5 sections came back)
-      // — useful for spotting which sections misbehave under load
-      // without needing to surface a per-section error event.
-      //
-      // Why this isn't a command: async pipeline result, fires ~30s
-      // after the runAnalysis dispatch (the actual user action). The
-      // user may have navigated away by the time this completes —
-      // it's a system completion event, not a discrete user dispatch.
-      // The pair (Command Dispatched, command=runAnalysis) +
-      // (Report Generation Completed) forms the analyze funnel.
-      const sectionResults = [summary, scenarios, planning, strategicMap, backcasting];
-      const successCount = sectionResults.filter((r) => r.status === 'fulfilled').length;
-      track('Report Generation Completed', {
-        mode: editMode ? 'edit' : 'new',
-        horizon: empresa.horizon,
-        reportId: targetReportId,
-        successCount,
-        errorCount: sectionResults.length - successCount,
       });
       navigate(`/reports/${targetReportId}`);
       // Don't reset isGenerating on success — the unmount handles it.
