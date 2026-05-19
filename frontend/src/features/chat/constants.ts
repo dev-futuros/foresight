@@ -2,7 +2,7 @@
  * Static lookup tables and tunables shared across the chat feature.
  * Pulled out of ChatAssistant.tsx in Phase 3.
  */
-import type { AssistantSnapshotInput } from '../../lib/buildAssistantSnapshot';
+import type { AssistantSnapshotInput } from './lib/buildAssistantSnapshot';
 import type { EmpresaData } from '../report/steps/StepEmpresa';
 import type { GlobalSteepData } from '../report/steps/StepGlobal';
 import type { SteepData } from '../report/steps/StepSteep';

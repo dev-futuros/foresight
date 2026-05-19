@@ -27,7 +27,7 @@ import {
   pickText,
   type FieldNeed,
   type TightenedMap,
-} from '../../../lib/pdfFit';
+} from './pdfFit';
 
 /**
  * Foresight report — PDF export with editorial / magazine layout.

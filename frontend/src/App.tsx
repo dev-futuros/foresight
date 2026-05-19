@@ -1,169 +1,41 @@
-import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import { useEffect } from 'react';
-import { QueryClientProvider } from '@tanstack/react-query';
-import { ErrorBoundary } from 'react-error-boundary';
-import { KindeProvider, useKindeAuth } from '@kinde-oss/kinde-auth-react';
-import { LoginLink } from '@kinde-oss/kinde-auth-react/components';
-import { useTranslation } from 'react-i18next';
-import { queryClient } from './lib/queryClient';
-import AuthBridge from './components/AuthBridge';
-import ErrorFallback from './components/ErrorFallback';
+import AuthBridge from './features/auth/AuthBridge';
 import IconSprite from './components/IconSprite';
-import ProtectedRoute from './components/ProtectedRoute';
-import DashboardPage from './features/dashboard/DashboardPage';
-import NewReportPage from './features/report/NewReportPage';
-import ReportPage from './features/report/ReportPage';
-import PrivacyPage from './features/privacy/PrivacyPage';
-import PublicSharePage from './features/publicShare/PublicSharePage';
-import AuthLayout from './features/auth/AuthLayout';
-import AppShell from './features/shell/AppShell';
 import CookieConsent from './features/cookies/CookieConsent';
-import { LOGOUT_IN_PROGRESS_KEY } from './features/account/api';
-import './features/auth/auth.css';
+import AppProviders from './app/providers';
+import AppRouter from './app/router';
 
 /**
- * Logged-out landing page. Kinde redirects here after sign-out (configured
- * via VITE_KINDE_LOGOUT_REDIRECT_URI → '<origin>/logged-out') so the user
- * lands on a branded confirmation rather than Kinde's stock template.
+ * App root.
  *
- * This is the only React-side "auth" page now — sign-in and sign-up bounce
- * directly to the Kinde-hosted pages (which we style via the foresight-kinde
- * custom-UI repo), so no intermediate splash exists.
- *
- * If the user is somehow already authenticated when they land here (e.g.
- * opened in a new tab while still logged in elsewhere), short-circuit to
- * the wizard.
+ * <p>Composition layers (top to bottom):
+ * <ol>
+ *   <li>{@link AppProviders} — Kinde + React Query providers (and
+ *       any other tree-wide context). Provider details live in
+ *       src/app/providers.tsx so this file stays a thin composer.</li>
+ *   <li>Singletons mounted as siblings of the router:
+ *     <ul>
+ *       <li>{@link IconSprite} — the inline SVG sprite. Mounting once
+ *           at the root means every icon-by-href call hits a single
+ *           SVG element regardless of which route is active.</li>
+ *       <li>{@link AuthBridge} — Kinde session glue (sets the bearer
+ *           token on the API client, refreshes on focus, etc.).
+ *           Sits outside the router because it must run on every
+ *           route, including the auth flow.</li>
+ *     </ul>
+ *   </li>
+ *   <li>{@link AppRouter} — the BrowserRouter + route table + route-
+ *       level ErrorBoundary. See src/app/router.tsx.</li>
+ *   <li>{@link CookieConsent} — overlay UI; mounted outside the router
+ *       so it shows on every page including the auth flow.</li>
+ * </ol>
  */
-function LoggedOutRoute() {
-  const { t } = useTranslation();
-  const { isLoading, isAuthenticated } = useKindeAuth();
-  // We've arrived at /logged-out — logout actually completed. Clear the
-  // in-progress flag so ProtectedRoute resumes its normal "redirect
-  // unauthenticated users to Kinde" behaviour on subsequent navigation.
-  useEffect(() => {
-    try {
-      sessionStorage.removeItem(LOGOUT_IN_PROGRESS_KEY);
-    } catch {
-      /* ignore */
-    }
-  }, []);
-  if (!isLoading && isAuthenticated) return <Navigate to="/reports/new" replace />;
-  return (
-    <AuthLayout>
-      {/* No lang prop — the app doesn't participate in language handoff
-          to Kinde yet. Kinde will fall back to its default (or whatever
-          the user picked last on a Kinde page). When the post-login
-          profile-read work lands, we may want to forward i18n.language. */}
-      <LoginLink className="kinde-continue-btn">{t('auth.loggedOut.signInAgain')}</LoginLink>
-    </AuthLayout>
-  );
-}
-
-/**
- * OAuth callback landing page. Kinde redirects here after the user
- * authenticates; the SDK consumes the OAuth params from the URL and flips
- * `isAuthenticated`. We render a loading state until that's done, then
- * forward to the wizard.
- *
- * On failure (e.g. user denied consent on Kinde, state mismatch, network
- * blip), redirect to the marketing homepage rather than looping back into
- * a protected route — ProtectedRoute would just bounce them straight back
- * into the Kinde login flow, which is the wrong UX after a deliberate
- * denial.
- */
-function CallbackRoute() {
-  const { t } = useTranslation();
-  const { isLoading, isAuthenticated } = useKindeAuth();
-  const navigate = useNavigate();
-  useEffect(() => {
-    if (isLoading) return;
-    if (isAuthenticated) {
-      navigate('/reports/new', { replace: true });
-    } else {
-      globalThis.location.replace('https://futuros.io');
-    }
-  }, [isLoading, isAuthenticated, navigate]);
-  return <div className="loading-screen">{t('common.loading')}</div>;
-}
-
-function AppRoutes() {
-  // No useLanguageSync here. The language is driven entirely by
-  // i18next-browser-languagedetector (URL ?lang= → futuros_lang cookie →
-  // localStorage → navigator → fallback 'es'). User-initiated language
-  // changes go through AccountModal, which calls both i18n.changeLanguage()
-  // and PATCH /users/me — i18n is the local source of truth, and the
-  // server preference is updated explicitly when the user picks a new
-  // language in-app.
-  return (
-    <Routes>
-      <Route path="/logged-out" element={<LoggedOutRoute />} />
-      <Route path="/callback" element={<CallbackRoute />} />
-      <Route path="/privacy" element={<PrivacyPage />} />
-      <Route path="/share/:token" element={<PublicSharePage />} />
-      <Route
-        element={
-          <ProtectedRoute>
-            <AppShell />
-          </ProtectedRoute>
-        }
-      >
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/reports/new" element={<NewReportPage />} />
-        <Route path="/reports/:id/edit" element={<NewReportPage />} />
-        <Route path="/reports/:id" element={<ReportPage />} />
-      </Route>
-      {/* Unknown / bare paths land on the new-report wizard. ProtectedRoute
-          intercepts guests and triggers a direct redirect to Kinde — there
-          is no React-side sign-in splash anymore. Authenticated users see
-          /reports/new with the welcome modal.
-          The search string is forwarded so a guest hitting `/?lang=es` still
-          carries `?lang=es` into ProtectedRoute, where it gets passed to
-          Kinde's login() as the requested language. A literal
-          `<Navigate to="/reports/new" />` would strip the query. */}
-      <Route path="*" element={<CatchAllRedirect />} />
-    </Routes>
-  );
-}
-
-/** Catch-all that preserves the URL's query string when redirecting to
- * `/reports/new`. See the comment on the route above for why this matters. */
-function CatchAllRedirect() {
-  const location = useLocation();
-  return <Navigate to={{ pathname: '/reports/new', search: location.search }} replace />;
-}
-
-const KINDE_DOMAIN = import.meta.env.VITE_KINDE_DOMAIN;
-const KINDE_CLIENT_ID = import.meta.env.VITE_KINDE_CLIENT_ID;
-const KINDE_REDIRECT_URI =
-  import.meta.env.VITE_KINDE_REDIRECT_URI ?? `${globalThis.location.origin}/callback`;
-const KINDE_LOGOUT_URI =
-  import.meta.env.VITE_KINDE_LOGOUT_REDIRECT_URI ?? globalThis.location.origin;
-
 export default function App() {
   return (
-    <KindeProvider
-      clientId={KINDE_CLIENT_ID}
-      domain={KINDE_DOMAIN}
-      redirectUri={KINDE_REDIRECT_URI}
-      logoutUri={KINDE_LOGOUT_URI}
-    >
-      <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-          <IconSprite />
-          <AuthBridge />
-          {/* Tier-3 error handling per docs/REFACTOR_PROPOSAL.md — catches
-              render-time crashes inside any route and shows the global
-              fallback UI. Mounted INSIDE <BrowserRouter> so the fallback
-              can use router hooks (useNavigate etc.) if it needs to. */}
-          <ErrorBoundary FallbackComponent={ErrorFallback}>
-            <AppRoutes />
-          </ErrorBoundary>
-          {/* Mounted outside <AppRoutes> so it overlays every page — auth, dashboard,
-              public share, privacy. CookieConsent only renders once consent is missing
-              from localStorage, so authenticated users who already opted in never see it. */}
-          <CookieConsent />
-        </BrowserRouter>
-      </QueryClientProvider>
-    </KindeProvider>
+    <AppProviders>
+      <IconSprite />
+      <AuthBridge />
+      <AppRouter />
+      <CookieConsent />
+    </AppProviders>
   );
 }

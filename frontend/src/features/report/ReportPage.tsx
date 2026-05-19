@@ -10,7 +10,7 @@ import { useIsDev } from '../account/api';
 import { useSetStepper } from '../shell/useStepper';
 import { useCommands } from '../../lib/useCommands';
 import { useSetAssistantContext } from '../chat/useAssistantContext';
-import type { ReportResultSnapshot } from '../../lib/buildAssistantSnapshot';
+import type { ReportResultSnapshot } from '../chat/lib/buildAssistantSnapshot';
 import { exportReportPdf } from './pdf';
 import { exportReportPpt } from '../../lib/exportPpt';
 import { exportReportHtml } from '../../lib/exportHtml';
@@ -18,10 +18,10 @@ import ExportModal, {
   type ExportFormat,
   type ExportLanguage,
   type ExportPdfTheme,
-} from '../../components/ExportModal';
+} from './components/ExportModal';
 import LoadingOverlay from '../../components/LoadingOverlay';
-import ShareModal from '../../components/ShareModal';
-import PromoteToExampleModal from '../../components/PromoteToExampleModal';
+import ShareModal from './components/ShareModal';
+import PromoteToExampleModal from '../examples/components/PromoteToExampleModal';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import ReportContent, { type InputProjection, type ResultData } from './ReportContent';
 import '../../components/modal.css';

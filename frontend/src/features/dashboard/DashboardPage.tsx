@@ -16,10 +16,10 @@ import ExportModal, {
   type ExportFormat,
   type ExportLanguage,
   type ExportPdfTheme,
-} from '../../components/ExportModal';
+} from '../report/components/ExportModal';
 import LoadingOverlay from '../../components/LoadingOverlay';
-import ShareModal from '../../components/ShareModal';
-import PromoteToExampleModal from '../../components/PromoteToExampleModal';
+import ShareModal from '../report/components/ShareModal';
+import PromoteToExampleModal from '../examples/components/PromoteToExampleModal';
 import '../../components/modal.css';
 import api from '../../lib/api';
 import { exportReportPdf } from '../report/pdf';

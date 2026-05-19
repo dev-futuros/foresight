@@ -1,4 +1,4 @@
-import type { LanguageCode } from '../i18n/languages';
+import type { LanguageCode } from '../../../i18n/languages';
 /**
  * Layout-fit orchestrator for the PDF export pipeline.
  *
@@ -27,8 +27,8 @@ import type { LanguageCode } from '../i18n/languages';
  * solves the "I've decided I need these fields shortened to these lengths" problem.
  */
 
-import { tighten, savePdfOptimized } from '../features/report/api';
-import type { PdfOptimizedCache } from '../types/api';
+import { tighten, savePdfOptimized } from '../api';
+import type { PdfOptimizedCache } from '../../../types/api';
 
 /**
  * One field that needs to fit a character budget. {@code path} is the dotted key the cache

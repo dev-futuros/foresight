@@ -113,6 +113,35 @@ export default tseslint.config(
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
+
+      // ── Folder-layer boundaries (Bulletproof React).
+      //    Dependency direction is: app > features > shared. Shared
+      //    layers (components, hooks, lib, types, utils) must NOT
+      //    reach down into features/ — that creates feature → shared
+      //    → feature cycles and makes the shared layer "private to
+      //    one feature in disguise". Features can import freely from
+      //    shared layers.
+      //
+      //    Cross-feature imports are NOT yet enforced here; several
+      //    legitimate pairs exist (chat → report for context
+      //    snapshots, report → billing for quota invalidation,
+      //    examples ↔ report for promote/demote/getReport-fallback,
+      //    auth → account for LOGOUT_IN_PROGRESS_KEY) and each needs
+      //    a targeted `except` carve-out. Wiring the strict per-
+      //    feature isolation lands as its own follow-up once each
+      //    dependency has been audited.
+      'import/no-restricted-paths': [
+        'error',
+        {
+          zones: [
+            { target: './src/features', from: './src/app' },
+            { target: './src/components', from: './src/features' },
+            { target: './src/hooks', from: './src/features' },
+            { target: './src/lib', from: './src/features' },
+            { target: './src/types', from: './src/features' },
+          ],
+        },
+      ],
     },
   },
   // Tests + test utilities — relax the unsafe-* family so mock data and

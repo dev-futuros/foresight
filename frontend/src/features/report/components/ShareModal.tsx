@@ -1,11 +1,11 @@
-import type { LanguageCode } from '../i18n/languages';
+import type { LanguageCode } from '../../../i18n/languages';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import Modal from './Modal';
-import { useCreateShare } from '../features/publicShare/api';
-import { useReport } from '../features/report/api';
-import { useExample } from '../features/examples/api';
-import { extractApiErrorMessage } from '../lib/apiError';
+import Modal from '../../../components/Modal';
+import { useCreateShare } from '../../publicShare/api';
+import { useReport } from '../api';
+import { useExample } from '../../examples/api';
+import { extractApiErrorMessage } from '../../../lib/apiError';
 
 interface Props {
   open: boolean;

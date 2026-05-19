@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
-import { setTokenGetter } from '../lib/api';
-import * as posthog from '../lib/posthog';
+import { setTokenGetter } from '../../lib/api';
+import * as posthog from '../../lib/posthog';
 
 /**
  * Connects Kinde's session token to the standalone axios instance used across the app
