@@ -737,7 +737,8 @@ const es = {
           '{{forces}} fuerzas motrices, {{axes}} ejes de incertidumbre y la lógica narrativa que los conecta.',
         backcasting: '{{count}} hitos trazados desde la visión de cada escenario.',
         strategicMap: '{{count}} prioridades distribuidas en los horizontes H1 / H2 / H3.',
-        signals: '{{signals}} señales débiles y {{wildcards}} wildcards — los casos límite a vigilar.',
+        signals:
+          '{{signals}} señales débiles y {{wildcards}} wildcards — los casos límite a vigilar.',
         sources: 'Fuentes públicas consultadas mediante búsqueda web durante la generación.',
       },
     },

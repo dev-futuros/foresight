@@ -726,7 +726,8 @@ const ca = {
           '{{forces}} forces motrius, {{axes}} eixos d’incertesa i la lògica narrativa que els connecta.',
         backcasting: '{{count}} fites traçades enrere des de la visió de cada escenari.',
         strategicMap: '{{count}} prioritats distribuïdes en els horitzons H1 / H2 / H3.',
-        signals: '{{signals}} senyals febles i {{wildcards}} wildcards — els casos límit a vigilar.',
+        signals:
+          '{{signals}} senyals febles i {{wildcards}} wildcards — els casos límit a vigilar.',
         sources: 'Fonts públiques consultades mitjançant cerca web durant la generació.',
       },
     },
