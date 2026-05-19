@@ -2,7 +2,13 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import './i18n';
+import { initSentry } from './lib/sentry';
 import App from './App.tsx';
+
+// Init Sentry FIRST so unhandled errors during the rest of bootstrap
+// (Kinde provider, lazy chunk loads, etc.) are captured. No-op when
+// VITE_SENTRY_DSN isn't set, so local dev runs normally.
+initSentry();
 
 if (!import.meta.env.VITE_KINDE_DOMAIN || !import.meta.env.VITE_KINDE_CLIENT_ID) {
   throw new Error(
