@@ -126,6 +126,12 @@ export default function CookieConsent() {
     // layer (still opted out). There's no symmetric reject event:
     // on decline Mixpanel stays opted out, so any track() call
     // would be a silent no-op.
+    //
+    // Why this isn't a command: bootstrap circularity. This IS the
+    // event that arms the SDK. A `Command Dispatched` for
+    // acceptCookies would fire BEFORE applyConsent ran, get dropped
+    // at the opt-out gate, and never reach Mixpanel. Has to be a
+    // named ad-hoc track call AFTER the gate flips.
     track('Cookie Consent Granted');
     setVisible(false);
   };

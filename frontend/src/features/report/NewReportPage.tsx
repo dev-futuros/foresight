@@ -856,11 +856,18 @@ export default function NewReportPage() {
         id: targetReportId,
         body: { resultData: fullResult },
       });
-      // Mixpanel: paired with 'Report Generation Started'. successCount
-      // / errorCount break out partial-success runs (e.g. 4-of-5
-      // sections came back) — useful for spotting which sections
-      // misbehave under load without needing to surface a per-section
-      // error event.
+      // Mixpanel: paired with the runAnalysis dispatch (auto-tracked
+      // by the bus as 'Command Dispatched'). successCount / errorCount
+      // break out partial-success runs (e.g. 4-of-5 sections came back)
+      // — useful for spotting which sections misbehave under load
+      // without needing to surface a per-section error event.
+      //
+      // Why this isn't a command: async pipeline result, fires ~30s
+      // after the runAnalysis dispatch (the actual user action). The
+      // user may have navigated away by the time this completes —
+      // it's a system completion event, not a discrete user dispatch.
+      // The pair (Command Dispatched, command=runAnalysis) +
+      // (Report Generation Completed) forms the analyze funnel.
       const sectionResults = [summary, scenarios, planning, strategicMap, backcasting];
       const successCount = sectionResults.filter((r) => r.status === 'fulfilled').length;
       track('Report Generation Completed', {

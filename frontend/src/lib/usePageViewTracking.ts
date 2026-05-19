@@ -12,6 +12,16 @@ import { track } from './mixpanel';
  * the router's location into a manual track call, which is what this
  * hook does.
  *
+ * <p><b>Why this isn't a command:</b> route changes come from
+ * sources outside app code — browser back/forward, direct URL entry,
+ * page refresh, and programmatic {@code navigate()} calls scattered
+ * across mutation success handlers. The bus-level
+ * {@code Command Dispatched} event captures user dispatches (loadReport,
+ * goTo, newReport, etc.), but it can't capture the browser-driven
+ * navigations or the post-mutation navigates. {@code Page Viewed} is
+ * the router state observer — semantically different from a user
+ * dispatch and captures a strictly larger set of transitions.
+ *
  * <p>Properties shipped:
  * <ul>
  *   <li>{@code path} — pathname without query string. Bounded

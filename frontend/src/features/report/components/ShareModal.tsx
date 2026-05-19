@@ -145,10 +145,21 @@ export default function ShareModal({ open, reportId, kind = 'report', onClose }:
       await navigator.clipboard.writeText(createShare.data.shareUrl);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
-      // Mixpanel: paired with 'Share Modal Opened'. Bounded props
-      // only — defaultLanguage + includedLanguageCount let the
-      // dashboard see how rich the snapshots being shared are
-      // without leaking the share URL itself.
+      // Mixpanel: paired with the shareReport dispatch (auto-tracked
+      // by the bus). Bounded props only — defaultLanguage +
+      // includedLanguageCount let the dashboard see how rich the
+      // snapshots being shared are without leaking the share URL.
+      //
+      // Why this isn't a command: terminal completion event for the
+      // share flow. The user dispatch (shareReport) opens the modal;
+      // the URL gets minted in the background; this fires when the
+      // user actually takes the URL out via clipboard. The pair
+      // (Command Dispatched, command=shareReport) + (Share Link Copied)
+      // forms the share funnel. Making this a separate copyShareLink
+      // command would also work, but the dispatch-modal-mint-copy
+      // sequence is one user intent ("share this report") split
+      // across an asynchronous UI — separating intent from completion
+      // is more useful than two near-redundant dispatches.
       track('Share Link Copied', {
         reportId,
         kind,

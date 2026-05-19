@@ -9,6 +9,7 @@ import { useDemoteExample, useTranslateExample } from '../examples/api';
 import { useIsDev } from '../account/api';
 import { useSetStepper } from '../shell/useStepper';
 import { useCommands } from '../../lib/useCommands';
+import { dispatch as dispatchCommand } from '../../lib/commandBus';
 import { track } from '../../lib/mixpanel';
 import { useSetAssistantContext } from '../chat/useAssistantContext';
 import type { ReportResultSnapshot } from '../chat/lib/buildAssistantSnapshot';
@@ -183,6 +184,15 @@ export default function ReportPage() {
   // user navigates between reports without remounting the component
   // (e.g. via the assistant's goTo command). No-op when report is
   // still loading.
+  //
+  // Why this isn't a command: render-success lifecycle event. The
+  // USER ACTION that brought them here (loadReport / editReport
+  // command dispatch, link click, URL paste) is already tracked
+  // separately. This signals "report data resolved AND was actually
+  // rendered to the viewer" — distinct from "user requested it",
+  // because the request might 404 / hit a loading state forever /
+  // get cancelled by a fast navigation. Tracking the render-success
+  // lets us tell intent apart from outcome.
   useEffect(() => {
     if (!report?.id) return;
     track('Report Opened', {
@@ -371,6 +381,36 @@ export default function ReportPage() {
         return 'Opened the export dialog.';
       },
     },
+    {
+      // Translate the current report into a target language. Multi-
+      // source by design: fires both from the export flow (when the
+      // user picks a non-primary language) AND directly from the
+      // assistant ("translate this to English"). Cache-hit path
+      // resolves instantly; cache-miss hits Anthropic. The bus tracks
+      // dispatch either way — we don't differentiate in analytics.
+      name: 'requestTranslation',
+      mode: 'auto',
+      trackArgs: ['targetLanguage'],
+      enrichTrack: () => ({
+        reportId: id ?? '',
+        kind: isExample ? 'example' : 'report',
+      }),
+      handler: async (args) => {
+        const { targetLanguage } = args as { targetLanguage: ExportLanguage };
+        if (!report) {
+          throw new Error('Report not loaded yet — try again in a moment.');
+        }
+        if (targetLanguage === report.primaryLanguage) {
+          return `Already in ${targetLanguage}; nothing to translate.`;
+        }
+        if (isExample) {
+          await translateExample.mutateAsync({ id: report.id, targetLanguage });
+        } else {
+          await translateReport.mutateAsync({ id: report.id, targetLanguage });
+        }
+        return `Translation to ${targetLanguage} ready.`;
+      },
+    },
   ]);
 
   /**
@@ -386,17 +426,20 @@ export default function ReportPage() {
     language: ExportLanguage,
   ): Promise<ReportResponse> {
     if (language === base.primaryLanguage) return base;
-    // Mixpanel: user explicitly asked for a non-primary language.
-    // Fires whether the translation comes from cache or hits
-    // Anthropic — telling the two apart in analytics isn't worth
-    // the extra wiring.
-    track('Translation Requested', {
-      targetLanguage: language,
-      kind: isExample ? 'example' : 'report',
-    });
-    const translated = isExample
-      ? await translateExample.mutateAsync({ id: base.id, targetLanguage: language })
-      : await translateReport.mutateAsync({ id: base.id, targetLanguage: language });
+    // Route through the command bus so the dispatch is tracked
+    // automatically (Command Dispatched, command=requestTranslation)
+    // and the same code path fires when the assistant requests a
+    // translation via tool emission. The handler invokes the mutate
+    // call; React Query caches the result, so we still read it back
+    // here to update the export's local payload.
+    await dispatchCommand('requestTranslation', { targetLanguage: language }, 'ui');
+    const translated = isExample ? translateExample.data : translateReport.data;
+    if (!translated) {
+      // Defensive — the command's handler awaited the mutateAsync, so
+      // the cache should be populated. Falling back to the original
+      // payload here would silently show wrong-language content.
+      throw new Error(`Translation to ${language} did not materialise.`);
+    }
     return {
       ...base,
       inputData: translated.inputData,
