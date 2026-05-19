@@ -6,6 +6,7 @@ import { useWizardOnboarding } from './hooks/useWizardOnboarding';
 import { useAutosave } from './hooks/useAutosave';
 import { useAnalysisPipeline } from './hooks/useAnalysisPipeline';
 import { useWizardCommands } from './hooks/useWizardCommands';
+import { useAssistantPublishing } from './hooks/useAssistantPublishing';
 import { useCreateReport, useReport, useStartGeneration, useUpdateReport } from './api';
 import Modal from '../../components/Modal';
 import { useCurrentUser } from '../account/api';
@@ -16,7 +17,6 @@ import { notifyAssistant } from '../../lib/assistantBridge';
 import OnboardingDialog from '../../components/OnboardingDialog';
 import LoadingPanel, { type ProgressItem } from '../../components/LoadingPanel';
 import { dispatch as dispatchCommand } from '../../lib/commandBus';
-import { useSetAssistantContext } from '../chat/useAssistantContext';
 import '../../components/modal.css';
 import StepEmpresa, { type EmpresaData } from './steps/StepEmpresa';
 import StepGlobal, { type GlobalSteepData } from './steps/StepGlobal';
@@ -634,21 +634,17 @@ export default function NewReportPage() {
     }
   }
 
-  /* ─── Assistant integration ─────────────────────────────────────────
-     Publishes the wizard state so the assistant can answer "what's in
-     this report?" without the user having to paste it. Also registers
-     the page-scoped commands (setField, runAnalysis, generateGlobalSteep)
-     — they live here because their handlers close over the local state
-     setters. */
-  const setAssistantContext = useSetAssistantContext();
-  // Publish on every relevant state change. No cleanup here — clearing on
-  // dep-change as well as unmount caused a brief render where the chat
-  // saw {ctx: undefined} sandwiched between the old and new publish, and
-  // in StrictMode could leave a stale undefined dangling. The dedicated
-  // unmount-only clear below handles route changes correctly.
-  useEffect(() => {
+  // ── Assistant integration ────────────────────────────────────────
+  // Publishes the wizard state to the chat assistant so it can answer
+  // "what's in this report?" without the user having to paste anything.
+  // Memoise the snapshot so referentially-equal renders skip the publish
+  // (the hook's deps include the snapshot identity). The hook owns the
+  // mount-publish + unmount-clear lifecycle, including the load-bearing
+  // "no symmetric dep-change clear" StrictMode workaround — see
+  // ./hooks/useAssistantPublishing.ts for the full rationale.
+  const assistantSnapshot = useMemo(() => {
     const loaded = editingReport.data;
-    setAssistantContext({
+    return {
       currentStep: step,
       maxReached,
       empresa,
@@ -671,9 +667,8 @@ export default function NewReportPage() {
             },
           }
         : {}),
-    });
+    };
   }, [
-    setAssistantContext,
     step,
     maxReached,
     empresa,
@@ -684,9 +679,7 @@ export default function NewReportPage() {
     editingId,
     editingReport.data,
   ]);
-  useEffect(() => {
-    return () => setAssistantContext(undefined);
-  }, [setAssistantContext]);
+  useAssistantPublishing(assistantSnapshot);
 
   // Wizard-scoped commands — registration / restore-on-unmount is owned by
   // the underlying useCommands hook. Wrapping in useWizardCommands keeps the
