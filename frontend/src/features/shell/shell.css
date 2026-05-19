@@ -240,9 +240,8 @@ body.app-busy .stepper-item {
 }
 
 /* ── Topbar user avatar ─────────────────────────────────────
-   Wraps Clerk's <UserButton> in the action row. Clerk owns the avatar
-   sizing (passed via the size prop) and the dropdown positioning;
-   this just provides a 32×32 box so the avatar aligns vertically
+   Wraps our <AccountMenu> trigger in the action row. The component
+   renders a 32×32 avatar inside this box so it aligns vertically
    with the icon buttons next to it. */
 .topbar-avatar {
   display: inline-flex;

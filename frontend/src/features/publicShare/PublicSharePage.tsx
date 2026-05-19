@@ -12,7 +12,7 @@ type ShareLang = LanguageCode;
 
 /**
  * Anonymous, read-only view of a shared report. Reachable at {@code /share/:token}
- * and bypasses Clerk / ProtectedRoute entirely so the recipient never has to
+ * and bypasses Kinde / ProtectedRoute entirely so the recipient never has to
  * log in.
  *
  * <p>Owns data-fetching + loading/error states; the actual chrome and report

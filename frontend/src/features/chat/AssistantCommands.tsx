@@ -66,7 +66,7 @@ function buildShellGoToCommand(navigate: NavigateFunction): CommandSpec<{ step: 
  * passthrough, refresh, and logout.
  *
  * Lives inside {@link AppShell} so it has access to the router, the shared
- * QueryClient and Clerk's signOut. Page-scoped commands live where their
+ * QueryClient and Kinde's signOut. Page-scoped commands live where their
  * state lives — wizard input mutations in {@code NewReportPage}, the global
  * STEEP regen in {@code StepGlobal}, etc. — and rely on
  * {@link useCommands}'s automatic restore-on-unmount to put these shell

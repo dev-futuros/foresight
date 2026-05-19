@@ -122,7 +122,7 @@ function PrivacyES() {
           datos asociados a tu cuenta para que puedas volver a consultarlos.
         </li>
         <li>
-          <strong>Para autenticarte.</strong> Usamos Clerk como proveedor de identidad. Tu correo y
+          <strong>Para autenticarte.</strong> Usamos Kinde como proveedor de identidad. Tu correo y
           credenciales se gestionan a través de su servicio.
         </li>
       </ul>
@@ -154,7 +154,7 @@ function PrivacyES() {
           durante la generación del informe. No retiene los datos para entrenamiento.
         </li>
         <li>
-          <strong>Clerk</strong> (proveedor de identidad): gestiona el inicio de sesión, el correo y
+          <strong>Kinde</strong> (proveedor de identidad): gestiona el inicio de sesión, el correo y
           la contraseña.
         </li>
       </ul>
@@ -308,7 +308,7 @@ function PrivacyEN() {
           your account, so you can revisit them.
         </li>
         <li>
-          <strong>To authenticate you.</strong> We use Clerk as our identity provider. Your email
+          <strong>To authenticate you.</strong> We use Kinde as our identity provider. Your email
           and credentials are managed through their service.
         </li>
       </ul>
@@ -339,7 +339,7 @@ function PrivacyEN() {
           generation. Does not retain data for training.
         </li>
         <li>
-          <strong>Clerk</strong> (identity provider): manages sign-in, email and password.
+          <strong>Kinde</strong> (identity provider): manages sign-in, email and password.
         </li>
       </ul>
       <p>

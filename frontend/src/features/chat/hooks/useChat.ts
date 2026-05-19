@@ -231,7 +231,7 @@ export function useChat() {
         (chunk) => {
           accText += chunk;
           // Re-parse on every delta so the user sees commands appear
-          // as soon as Clerk emits the closing </command>. Cheap —
+          // as soon as the assistant emits the closing </command>. Cheap —
           // the parser is regex-based and 1500 tokens is small.
           const { pre, post, commands: parsedCommands } = parseAssistantText(accText);
           setMessages((prev) => {
