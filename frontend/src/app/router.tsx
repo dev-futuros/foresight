@@ -142,17 +142,22 @@ function AppRoutes() {
 }
 
 /**
- * Root router. Wraps the route table in a BrowserRouter + the
- * route-level ErrorBoundary (Tier 3 of the error-handling strategy).
- * The boundary lives INSIDE the BrowserRouter so the fallback can use
- * router hooks (useNavigate etc.) if it needs to.
+ * Route table wrapped in the route-level ErrorBoundary (Tier 3 of
+ * the error-handling strategy).
+ *
+ * <p>This is NOT the BrowserRouter — that lives one level up in
+ * App.tsx so other singletons (CookieConsent's `<Link>`, future
+ * router-aware overlays) can be siblings of the routes without
+ * each needing its own router context. The boundary lives inside
+ * BrowserRouter so the fallback can use router hooks if it needs
+ * to.
  */
 export default function AppRouter() {
   return (
-    <BrowserRouter>
-      <ErrorBoundary FallbackComponent={ErrorFallback}>
-        <AppRoutes />
-      </ErrorBoundary>
-    </BrowserRouter>
+    <ErrorBoundary FallbackComponent={ErrorFallback}>
+      <AppRoutes />
+    </ErrorBoundary>
   );
 }
+
+export { BrowserRouter as RootRouter };
