@@ -47,6 +47,10 @@ ARG SENTRY_AUTH_TOKEN
 ARG SENTRY_ORG
 ARG SENTRY_PROJECT
 
+# Kinde variables
+ARG VITE_KINDE_DOMAIN
+ARG VITE_KINDE_CLIENT_ID
+
 # Install dependencies on manifest changes only — keeps the layer
 # cache warm across iterations that only touch source.
 COPY package.json package-lock.json ./
