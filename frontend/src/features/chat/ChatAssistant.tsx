@@ -8,7 +8,7 @@ import { useAssistantContext } from './useAssistantContext';
 import {
   buildAssistantSnapshot,
   type AssistantSnapshotInput,
-} from '../../lib/buildAssistantSnapshot';
+} from './lib/buildAssistantSnapshot';
 import { dispatch as dispatchCommand } from '../../lib/commandBus';
 import { setAssistantNotifier, setAssistantResetter } from '../../lib/assistantBridge';
 import api from '../../lib/api';

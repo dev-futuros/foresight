@@ -1,8 +1,8 @@
-import type { LanguageCode } from '../i18n/languages';
-import type { EmpresaData } from '../features/report/steps/StepEmpresa';
-import type { GlobalSteepData } from '../features/report/steps/StepGlobal';
-import type { SteepData } from '../features/report/steps/StepSteep';
-import type { HorizonData } from '../features/report/steps/StepHorizon';
+import type { LanguageCode } from '../../../i18n/languages';
+import type { EmpresaData } from '../../report/steps/StepEmpresa';
+import type { GlobalSteepData } from '../../report/steps/StepGlobal';
+import type { SteepData } from '../../report/steps/StepSteep';
+import type { HorizonData } from '../../report/steps/StepHorizon';
 import type {
   Backcasting,
   ExampleSummary,
@@ -13,7 +13,7 @@ import type {
   StrategicMap,
   WeakSignal,
   Wildcard,
-} from '../types/api';
+} from '../../../types/api';
 
 /**
  * Loosely-typed projection of a report's {@code resultData} — the same shape

@@ -3,8 +3,26 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Modal from '../../../components/Modal';
 import { useReport } from '../api';
+import type { ReportWithSource } from '../api/fetchers';
 import { useExample } from '../../examples/api';
 import { useIsDev } from '../../account/api';
+
+/**
+ * Module-scope selector for the report query. ExportModal only reads
+ * the language fields off the report — passing this as the `select`
+ * arg means the modal skips re-renders triggered by other fields
+ * (title edits, status changes, etc.) when another consumer of the
+ * same report cache entry mutates them. Defined at module scope so
+ * its reference is stable across renders (TkDodo's pattern — inline
+ * selectors would re-run select() every render even when nothing
+ * changed).
+ */
+function selectExportLanguages(r: ReportWithSource) {
+  return {
+    primaryLanguage: r.primaryLanguage,
+    availableLanguages: r.availableLanguages,
+  };
+}
 
 export type ExportLanguage = LanguageCode;
 /**
@@ -88,7 +106,7 @@ export default function ExportModal({
   const isDev = useIsDev();
   // Hooks must be called unconditionally; pass an empty id to the
   // disabled side so React Query bails out via the `enabled: !!id` gate.
-  const reportQuery = useReport(kind === 'report' ? reportId : '');
+  const reportQuery = useReport(kind === 'report' ? reportId : '', selectExportLanguages);
   const exampleQuery = useExample(kind === 'example' ? reportId : '');
   const data = kind === 'example' ? exampleQuery.data : reportQuery.data;
   const isLoading = kind === 'example' ? exampleQuery.isLoading : reportQuery.isLoading;

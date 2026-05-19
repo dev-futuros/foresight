@@ -1,6 +1,5 @@
 import { type PropsWithChildren } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { ErrorBoundary } from 'react-error-boundary';
 import { KindeProvider } from '@kinde-oss/kinde-auth-react';
 import { queryClient } from '../lib/queryClient';
 import ErrorFallback from '../components/ErrorFallback';
