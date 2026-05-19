@@ -4,25 +4,16 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useWizardOnboarding } from './hooks/useWizardOnboarding';
 import { useAutosave } from './hooks/useAutosave';
+import { useAnalysisPipeline } from './hooks/useAnalysisPipeline';
 import { useCreateReport, useReport, useStartGeneration, useUpdateReport } from './api';
 import Modal from '../../components/Modal';
 import { useCurrentUser } from '../account/api';
 import { useSetStepper } from '../shell/useStepper';
-import {
-  analyzeBackcasting,
-  analyzeScenarioPlanning,
-  analyzeScenarios,
-  analyzeStrategicMap,
-  analyzeSummary,
-} from './api';
 import type { InputData, SourceItem } from '../../types/api';
 import { extractApiErrorMessage } from '../../lib/apiError';
 import { notifyAssistant, resetAssistant } from '../../lib/assistantBridge';
 import OnboardingDialog from '../../components/OnboardingDialog';
-import LoadingPanel, {
-  type ProgressItem,
-  type ProgressItemStatus,
-} from '../../components/LoadingPanel';
+import LoadingPanel, { type ProgressItem } from '../../components/LoadingPanel';
 import { useCommands } from '../../lib/useCommands';
 import { dispatch as dispatchCommand } from '../../lib/commandBus';
 import { useSetAssistantContext } from '../chat/useAssistantContext';
@@ -97,46 +88,13 @@ export default function NewReportPage() {
   // report is fully built (we navigate away) or the pipeline errors.
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
-  // Per-row status for the analysis loader checklist. Matches the
-  // demo's pattern: 5 parallel section rows, each running its own
-  // Opus + web_search call. The earlier "research" row that ran a
-  // single upstream scan was removed because it serialised the
-  // critical path and doubled the wall-clock generation time.
-  const [analysisProgress, setAnalysisProgress] = useState<
-    Record<
-      'summary' | 'scenarios' | 'planning' | 'strategicMap' | 'backcasting',
-      ProgressItemStatus
-    >
-  >({
-    summary: 'pending',
-    scenarios: 'pending',
-    planning: 'pending',
-    strategicMap: 'pending',
-    backcasting: 'pending',
-  });
-  // Live char + source counts for each of the 5 section rows. Each
-  // section now does its own web_search (matching the demo), so we
-  // want both signals in the loader: chars tick as the model writes
-  // its JSON, sources tick as web_search harvests URLs. Updated from
-  // each analyzeX onProgress callback.
-  const [sectionChars, setSectionChars] = useState<
-    Record<'summary' | 'scenarios' | 'planning' | 'strategicMap' | 'backcasting', number>
-  >({
-    summary: 0,
-    scenarios: 0,
-    planning: 0,
-    strategicMap: 0,
-    backcasting: 0,
-  });
-  const [sectionSources, setSectionSources] = useState<
-    Record<'summary' | 'scenarios' | 'planning' | 'strategicMap' | 'backcasting', number>
-  >({
-    summary: 0,
-    scenarios: 0,
-    planning: 0,
-    strategicMap: 0,
-    backcasting: 0,
-  });
+  // Five-way parallel analysis pipeline: per-section status / chars /
+  // sources counters + the run() entry point. The hook owns the
+  // Promise.allSettled orchestration, partial-failure tolerance, the
+  // backcasting scenarioName patch, and the sources-bucket aggregation.
+  // This page just owns the workflow around it (billing gate, persist,
+  // navigate, notify).
+  const analyze = useAnalysisPipeline();
   // Highest step the user has ever reached. Lets the stepper allow forward
   // jumps to already-visited steps in addition to back-nav. In edit mode
   // every step is already "reached" since the report was previously fully
@@ -580,29 +538,6 @@ export default function NewReportPage() {
     await flushAutosave();
     setGenerateError(null);
     setIsGenerating(true);
-    // Reset loader state — all 5 sections start running immediately in
-    // parallel (each does its own web_search now, matching the demo).
-    setAnalysisProgress({
-      summary: 'running',
-      scenarios: 'running',
-      planning: 'running',
-      strategicMap: 'running',
-      backcasting: 'running',
-    });
-    setSectionChars({
-      summary: 0,
-      scenarios: 0,
-      planning: 0,
-      strategicMap: 0,
-      backcasting: 0,
-    });
-    setSectionSources({
-      summary: 0,
-      scenarios: 0,
-      planning: 0,
-      strategicMap: 0,
-      backcasting: 0,
-    });
     try {
       // 1. Make sure the latest inputs are persisted before we kick off
       //    the expensive analysis. In the common path the draft has
@@ -659,147 +594,21 @@ export default function NewReportPage() {
       // report's cover page and export footer — they're not part of
       // the strategic context the model should reason about. Without
       // this scrub Opus has been observed citing the consultant as a
-      // third-party source.
-      //
-      // The backend is a generic prompt-shipping passthrough — it
-      // doesn't (and shouldn't) know about UI-specific field names
-      // like these. The frontend is the source of truth for what
-      // goes to the AI; if these fields never leave the browser,
-      // they never reach Opus.
+      // third-party source. The backend is a generic prompt-shipping
+      // passthrough; the frontend is the source of truth for what
+      // goes to the AI.
       const { consultantName: _cn, consultantCompany: _cc, ...companyProfileForAi } = empresa;
       void _cn;
       void _cc;
       const args = { companyProfile: companyProfileForAi, steep, horizon, language };
 
-      // ALL FIVE analysis calls fire in parallel — each does its OWN
-      // web_search via the backend (Opus + web_search, matching the
-      // demo). Removed the earlier upstream "research" scan because it
-      // serialised the critical path and doubled the wall-clock
-      // generation time. Promise.allSettled means a partial failure
-      // still produces a report with the sections that came back.
-      type SectionKey = 'summary' | 'scenarios' | 'planning' | 'strategicMap' | 'backcasting';
-      const onSectionProgress = (key: SectionKey) => (p: { chars: number; sources: number }) => {
-        setSectionChars((prev) => (prev[key] === p.chars ? prev : { ...prev, [key]: p.chars }));
-        setSectionSources((prev) =>
-          prev[key] === p.sources ? prev : { ...prev, [key]: p.sources },
-        );
-      };
-
-      // Helper that wraps each section call with its progress-state
-      // transitions AND logs the rejection reason. Promise.allSettled
-      // swallows individual rejections silently otherwise — the loader
-      // row turns red but the actual error message never surfaces.
-      // Generic so the result type flows through `.then` unchanged —
-      // otherwise Promise.allSettled's `value` collapses to `unknown`
-      // and every downstream `summary.value.result` access becomes a
-      // type error.
-      const onSectionDone =
-        <T,>(key: SectionKey) =>
-        (r: T): T => {
-          setAnalysisProgress((p) => ({ ...p, [key]: 'done' }));
-          return r;
-        };
-      const onSectionError =
-        (key: SectionKey) =>
-        (err: unknown): never => {
-          setAnalysisProgress((p) => ({ ...p, [key]: 'error' }));
-          console.error(`[analyze:${key}] failed:`, err);
-          throw err;
-        };
-
-      const [summary, scenarios, planning, strategicMap, backcasting] = await Promise.allSettled([
-        analyzeSummary(args, onSectionProgress('summary')).then(
-          onSectionDone('summary'),
-          onSectionError('summary'),
-        ),
-        analyzeScenarios(args, onSectionProgress('scenarios')).then(
-          onSectionDone('scenarios'),
-          onSectionError('scenarios'),
-        ),
-        analyzeScenarioPlanning(args, onSectionProgress('planning')).then(
-          onSectionDone('planning'),
-          onSectionError('planning'),
-        ),
-        analyzeStrategicMap(args, onSectionProgress('strategicMap')).then(
-          onSectionDone('strategicMap'),
-          onSectionError('strategicMap'),
-        ),
-        analyzeBackcasting(args, onSectionProgress('backcasting')).then(
-          onSectionDone('backcasting'),
-          onSectionError('backcasting'),
-        ),
-      ]);
-
-      // Merge the successful sections into a single resultData blob.
-      // Anything that errored is silently skipped — the renderer's tabs
-      // handle a missing section with an empty-state.
-      //
-      // Backcasting entries arrive with placeholder `scenarioName` values
-      // (the prompt has no access to the 3P names produced by the
-      // scenarios-call sibling). We patch them here so each entry shows
-      // the matching evocative scenario name — mirrors the merge step in
-      // the demo's analysis.js.
-      const fullResult: Record<string, unknown> = {};
-      const scenarioList =
-        scenarios.status === 'fulfilled' ? (scenarios.value.result.scenarios ?? []) : [];
-      const nameByType: Record<string, string | undefined> = {};
-      for (const s of scenarioList) {
-        if (s.type) nameByType[s.type] = s.name ?? s.title;
-      }
-      if (summary.status === 'fulfilled') {
-        Object.assign(fullResult, summary.value.result);
-      }
-      if (scenarioList.length > 0) {
-        fullResult.scenarios = scenarioList;
-      }
-      if (planning.status === 'fulfilled') fullResult.scenarioPlanning = planning.value.result;
-      if (strategicMap.status === 'fulfilled') fullResult.strategicMap = strategicMap.value.result;
-      if (backcasting.status === 'fulfilled') {
-        fullResult.backcasting = backcasting.value.result.map((bc) => ({
-          ...bc,
-          scenarioName: nameByType[bc.scenarioType] ?? bc.scenarioName,
-        }));
-      }
-
-      // ── Sources aggregated from each section's web_search citations ──
-      // Two buckets are surfaced in the report's Sources tab:
-      //   report      — citations harvested across all 5 section calls
-      //                 in this run (each does its own web_search), keyed
-      //                 by section id (A-E) for attribution AND deduped
-      //                 into a flat list for top-line "all sources" UI.
-      //   globalSteep — citations from the Step 2 globalSteepScan call,
-      //                 captured in transient state when StepGlobal ran
-      //                 (may be empty for reports loaded from a saved
-      //                 draft where the user never re-ran step 2).
-      const sectionCitations: Record<'A' | 'B' | 'C' | 'D' | 'E', SourceItem[]> = {
-        A: summary.status === 'fulfilled' ? summary.value.citations : [],
-        B: scenarios.status === 'fulfilled' ? scenarios.value.citations : [],
-        C: planning.status === 'fulfilled' ? planning.value.citations : [],
-        D: strategicMap.status === 'fulfilled' ? strategicMap.value.citations : [],
-        E: backcasting.status === 'fulfilled' ? backcasting.value.citations : [],
-      };
-      const dedup = (items: SourceItem[]) => {
-        const seen = new Map<string, SourceItem>();
-        for (const c of items) {
-          if (!seen.has(c.url)) seen.set(c.url, c);
-        }
-        return Array.from(seen.values());
-      };
-      const flatReportCitations = dedup([
-        ...sectionCitations.A,
-        ...sectionCitations.B,
-        ...sectionCitations.C,
-        ...sectionCitations.D,
-        ...sectionCitations.E,
-      ]);
-      const hasAnyCitations = flatReportCitations.length > 0 || globalSteepCitations.length > 0;
-      if (hasAnyCitations) {
-        fullResult.sources = {
-          report: flatReportCitations,
-          bySection: sectionCitations,
-          globalSteep: dedup(globalSteepCitations),
-        };
-      }
+      // Delegate the five-way parallel pipeline to the hook. It owns
+      // the Promise.allSettled, per-section progress state, partial-
+      // failure tolerance, backcasting scenarioName patch, and source
+      // bucket aggregation. We hand it the freshly-captured global-
+      // STEEP citations and get back the merged resultData ready to
+      // PATCH onto the report row.
+      const fullResult = await analyze.run(args, globalSteepCitations);
 
       await updateReport.mutateAsync({
         id: targetReportId,
@@ -1339,32 +1148,32 @@ export default function NewReportPage() {
               {
                 key: 'summary',
                 label: t('report.results.progressItems.summary'),
-                status: analysisProgress.summary,
-                metric: { chars: sectionChars.summary, sources: sectionSources.summary },
+                status: analyze.status.summary,
+                metric: { chars: analyze.chars.summary, sources: analyze.sources.summary },
               },
               {
                 key: 'scenarios',
                 label: t('report.results.progressItems.scenarios'),
-                status: analysisProgress.scenarios,
-                metric: { chars: sectionChars.scenarios, sources: sectionSources.scenarios },
+                status: analyze.status.scenarios,
+                metric: { chars: analyze.chars.scenarios, sources: analyze.sources.scenarios },
               },
               {
                 key: 'planning',
                 label: t('report.results.progressItems.scenarioPlanning'),
-                status: analysisProgress.planning,
-                metric: { chars: sectionChars.planning, sources: sectionSources.planning },
+                status: analyze.status.planning,
+                metric: { chars: analyze.chars.planning, sources: analyze.sources.planning },
               },
               {
                 key: 'strategicMap',
                 label: t('report.results.progressItems.strategicMap'),
-                status: analysisProgress.strategicMap,
-                metric: { chars: sectionChars.strategicMap, sources: sectionSources.strategicMap },
+                status: analyze.status.strategicMap,
+                metric: { chars: analyze.chars.strategicMap, sources: analyze.sources.strategicMap },
               },
               {
                 key: 'backcasting',
                 label: t('report.results.progressItems.backcasting'),
-                status: analysisProgress.backcasting,
-                metric: { chars: sectionChars.backcasting, sources: sectionSources.backcasting },
+                status: analyze.status.backcasting,
+                metric: { chars: analyze.chars.backcasting, sources: analyze.sources.backcasting },
               },
             ] satisfies ProgressItem[]
           }
