@@ -1,8 +1,29 @@
 import react from '@vitejs/plugin-react';
+import { sentryVitePlugin } from '@sentry/vite-plugin';
 import { defineConfig } from 'vitest/config';
 
+// Sentry source-map upload runs only when SENTRY_AUTH_TOKEN is present
+// at build time. Local `npm run build` works without it (the plugin
+// no-ops and prints a notice); CI (Railway) sets the secret so prod
+// builds upload the maps to Sentry. SENTRY_ORG / SENTRY_PROJECT default
+// to the values baked here — override via env if those ever change.
+const sentryPlugin = process.env.SENTRY_AUTH_TOKEN
+  ? sentryVitePlugin({
+      org: process.env.SENTRY_ORG ?? 'futuros',
+      project: process.env.SENTRY_PROJECT ?? 'futuros-fe',
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+    })
+  : null;
+
 export default defineConfig({
-  plugins: [react()],
+  // build.sourcemap: 'hidden' generates source maps for upload to
+  // Sentry but does NOT reference them from the bundle output — i.e.
+  // they're available locally in dist/ for the plugin to upload and
+  // then can be stripped before shipping to users. Sentry symbolicates
+  // stack traces server-side using the uploaded maps, so production
+  // users never see (and never download) the originals.
+  build: { sourcemap: 'hidden' },
+  plugins: [react(), ...(sentryPlugin ? [sentryPlugin] : [])],
   server: {
     host: '0.0.0.0',
     allowedHosts: true,
