@@ -22,7 +22,6 @@ WORKDIR /app
 # not set in the Railway service env defaults to an empty string,
 # which Vite then bakes verbatim into the bundle.
 ARG VITE_API_URL
-ARG VITE_CLERK_PUBLISHABLE_KEY
 
 # Sentry runtime config — baked into the bundle. DSN gates whether
 # Sentry initialises at all (no DSN → fully no-op). Environment +
