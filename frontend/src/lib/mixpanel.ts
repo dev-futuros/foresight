@@ -97,6 +97,28 @@ export function initMixpanel(): void {
       // vestigial header from a dead spec. Our cookie consent UI is
       // the actual privacy gate.
       ignore_dnt: true,
+      // ── Session replay ─────────────────────────────────────────
+      // record_sessions_percent: 0 means the SDK does NOT auto-start
+      // recording on init. We call mixpanel.start_session_recording()
+      // explicitly from CookieConsent.applyConsent('accepted') so the
+      // user has explicitly opted in before any frames are captured.
+      // (See {@link startReplay}.)
+      record_sessions_percent: 0,
+      // PII masking — these are all SDK defaults but pinning them
+      // explicitly prevents drift if Mixpanel ever changes the
+      // defaults, AND makes the intent visible to code reviewers.
+      // Report content (company names, strategic challenges, scenario
+      // prose, chat messages) is confidential — every text node and
+      // input is masked in the captured DOM.
+      record_mask_all_text: true,
+      record_mask_all_inputs: true,
+      // CRITICAL: never record network bodies. Our SSE streams
+      // (/api/ai/chat/stream, /api/ai/analyze/*) carry the full
+      // company profile + chat history + model responses verbatim —
+      // capturing those would dump confidential client material into
+      // replays. SDK default is already false; pinning it here makes
+      // sure no future config sprinkle flips it on.
+      record_network: false,
       debug,
     });
     initialised = true;
@@ -169,4 +191,31 @@ export function optIn(): void {
  */
 export function optOut(): void {
   client()?.opt_out_tracking();
+}
+
+/**
+ * Begin recording the user's session for replay. Called from
+ * {@code CookieConsent.applyConsent('accepted')} right after
+ * {@link optIn}, so frames are only captured after the user has
+ * explicitly consented.
+ *
+ * <p>{@code mixpanel.init()} is configured with
+ * {@code record_sessions_percent: 0}, which disables auto-start —
+ * this function is the ONLY way recording begins. Pair with
+ * {@link stopReplay} on reject so the user can revoke recording
+ * without reloading.
+ */
+export function startReplay(): void {
+  client()?.start_session_recording();
+}
+
+/**
+ * Stop recording the user's session. Called from
+ * {@code CookieConsent.applyConsent('rejected')} (and on every
+ * mount of CookieConsent that re-applies a stored reject decision)
+ * so frames stop being captured even mid-session if consent is
+ * revoked.
+ */
+export function stopReplay(): void {
+  client()?.stop_session_recording();
 }
