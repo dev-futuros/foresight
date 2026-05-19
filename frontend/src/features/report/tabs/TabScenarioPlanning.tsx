@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useReportTranslation } from '../reportLanguage';
-import type { DrivingForce, ScenarioLogic, UncertaintyAxis } from '../../../types/api';
-import type { ResultData } from '../ReportContent';
+import type { DrivingForce, ResultData, ScenarioLogic, UncertaintyAxis } from '../../../types/api';
 import ImpactMatrix from './ImpactMatrix';
 import InfoTooltip from '../../../components/InfoTooltip';
 

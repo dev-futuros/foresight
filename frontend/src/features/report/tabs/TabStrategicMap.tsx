@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useReportTranslation } from '../reportLanguage';
-import type { StrategicPriority } from '../../../types/api';
-import type { ResultData } from '../ReportContent';
+import type { ResultData, StrategicPriority } from '../../../types/api';
 
 type Horizon = 'H1' | 'H2' | 'H3';
 const HORIZONS: Horizon[] = ['H1', 'H2', 'H3'];

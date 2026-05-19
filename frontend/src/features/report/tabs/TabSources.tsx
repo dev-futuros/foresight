@@ -1,6 +1,5 @@
 import { useReportTranslation } from '../reportLanguage';
-import type { SourceItem } from '../../../types/api';
-import type { ResultData } from '../ReportContent';
+import type { ResultData, SourceItem } from '../../../types/api';
 
 type SectionId = 'A' | 'B' | 'C' | 'D' | 'E';
 const SECTION_ORDER: SectionId[] = ['A', 'B', 'C', 'D', 'E'];

@@ -52,12 +52,79 @@ export interface ReportSummary {
   updatedAt: string;
 }
 
+/**
+ * Company profile fields the wizard's StepEmpresa collects. All optional
+ * because drafts may be partially filled and legacy reports predate some
+ * fields. Renderers (PDF, PPT, HTML, in-app tabs) tolerate any subset.
+ */
+export interface CompanyProfile {
+  name?: string;
+  sector?: string;
+  size?: string;
+  market?: string;
+  horizon?: string;
+  challenge?: string;
+  strengths?: string;
+  /** Consultant attribution rendered in the report header. */
+  consultantName?: string;
+  consultantCompany?: string;
+  /** Optional custom report title override (otherwise derived from company name). */
+  title?: string;
+}
+
+/**
+ * STEEP block keyed by the 5 canonical dimension codes. The wizard's
+ * {@code StepGlobal} writes in this exact shape; sectorial STEEP (from
+ * {@code StepSteep}) may arrive with localized lowercase names instead —
+ * use {@code normalizeSteepKeys} in ReportContent.tsx to coerce before
+ * rendering. The renderer-facing slot accepts either form so the
+ * normalisation is the only place that has to know.
+ */
+export type SteepBlock = Partial<Record<'S' | 'T' | 'E' | 'ENV' | 'P', string>>;
+
+/**
+ * Loose shape of {@code report.inputData} — the wizard snapshot the
+ * backend stores as JSONB. All fields optional because legacy reports
+ * may be missing pieces; consumers (renderer / pdf / pptx / share view)
+ * tolerate subsets. The {@code steep} / {@code globalSteep} slots accept
+ * either the canonical STEEP code shape or a localized-key
+ * {@code Record<string, string>} the wizard may produce; downstream
+ * normalisation collapses both to {@link SteepBlock}.
+ */
+export interface InputData {
+  companyProfile?: CompanyProfile;
+  globalSteep?: SteepBlock | Record<string, string>;
+  steep?: SteepBlock | Record<string, string>;
+  horizon?: Record<string, string>;
+  /** Wizard step the user was on when last persisted; used to resume drafts. */
+  currentStep?: number;
+}
+
+/**
+ * Loose shape of {@code report.resultData}. Each top-level block is
+ * filled in by its own {@code /api/ai/analyze/*} call, so any subset
+ * may be missing while the pipeline runs (or permanently, on legacy
+ * reports). The renderer's tab gating decides which tabs surface based
+ * on what's present.
+ */
+export interface ResultData {
+  executiveSummary?: string;
+  scenarios?: Scenario[];
+  weakSignals?: WeakSignal[];
+  wildcards?: Wildcard[];
+  keyUncertainties?: KeyUncertainty[];
+  scenarioPlanning?: ScenarioPlanning;
+  backcasting?: Backcasting;
+  strategicMap?: StrategicMap;
+  sources?: Sources;
+}
+
 export interface ReportResponse {
   id: string;
   title: string;
   status: ReportStatus;
-  inputData: Record<string, unknown>;
-  resultData: Record<string, unknown> | null;
+  inputData: InputData;
+  resultData: ResultData | null;
   /**
    * Language the wizard used to generate this report. Translations to
    * other languages are produced on demand from the share / export
@@ -104,8 +171,8 @@ export type PdfOptimizedCache = Partial<Record<LanguageCode, PdfOptimizedEntry>>
 
 /** Payload returned by the `POST /api/reports/{id}/translate` endpoint. */
 export interface TranslatedReport {
-  inputData: Record<string, unknown>;
-  resultData: Record<string, unknown> | null;
+  inputData: InputData;
+  resultData: ResultData | null;
   generatedAt?: string;
 }
 
@@ -134,8 +201,8 @@ export interface ExampleResponse {
   description?: string | null;
   primaryLanguage: LanguageCode;
   availableLanguages: string[];
-  inputData: Record<string, unknown>;
-  resultData: Record<string, unknown> | null;
+  inputData: InputData;
+  resultData: ResultData | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -187,8 +254,8 @@ export interface CreateShareResponse {
  * as the equivalent block on a {@link ReportResponse}.
  */
 export interface SharedTranslationEntry {
-  inputData: Record<string, unknown>;
-  resultData: Record<string, unknown> | null;
+  inputData: InputData;
+  resultData: ResultData | null;
   generatedAt?: string;
 }
 
@@ -198,8 +265,8 @@ export interface PublicShareResponse {
   primaryLanguage: LanguageCode;
   /** Union of {@code primaryLanguage} and the keys of {@code translations}, primary first. */
   availableLanguages: LanguageCode[];
-  inputData: Record<string, unknown>;
-  resultData: Record<string, unknown> | null;
+  inputData: InputData;
+  resultData: ResultData | null;
   /** Cached translations frozen at share creation. {@code null} on
    *  legacy (pre-V10) single-language shares. */
   translations: Record<string, SharedTranslationEntry> | null;
@@ -210,15 +277,15 @@ export interface PublicShareResponse {
 // Requests
 export interface CreateReportRequest {
   title: string;
-  inputData: Record<string, unknown>;
+  inputData: InputData;
   /** ISO-639-1 code identifying the wizard's language. Defaults to 'es' server-side. */
   primaryLanguage?: LanguageCode;
 }
 
 export interface UpdateReportRequest {
   title?: string;
-  inputData?: Record<string, unknown>;
-  resultData?: Record<string, unknown>;
+  inputData?: InputData;
+  resultData?: ResultData;
 }
 
 export interface UpdateUserRequest {

@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useReportTranslation } from '../reportLanguage';
-import type { WeakSignal, Wildcard } from '../../../types/api';
-import type { ResultData } from '../ReportContent';
+import type { ResultData, WeakSignal, Wildcard } from '../../../types/api';
 
 /**
  * Signals & wildcards tab.

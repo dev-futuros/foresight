@@ -1,16 +1,6 @@
 import { useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import { useReportTranslation } from './reportLanguage';
-import type {
-  Backcasting,
-  GlobalSteep,
-  KeyUncertainty,
-  Scenario,
-  ScenarioPlanning,
-  Sources,
-  StrategicMap,
-  WeakSignal,
-  Wildcard,
-} from '../../types/api';
+import type { GlobalSteep, ResultData } from '../../types/api';
 import TabSummary from './tabs/TabSummary';
 import TabScenarios from './tabs/TabScenarios';
 import TabScenarioPlanning from './tabs/TabScenarioPlanning';
@@ -61,30 +51,6 @@ function normalizeSteepKeys(
   if (ENV) out.ENV = ENV;
   if (P) out.P = P;
   return out;
-}
-
-/** Shape we read from `report.resultData`. The backend stores JSONB so the
- *  source field is loosely typed; this interface is the projection we
- *  actually render.
- *
- *  Each block (scenarioPlanning, backcasting, strategicMap, sources) is
- *  filled in by its own /api/ai/analyze/* call, so individual blocks may be
- *  missing if a sub-call failed or is still in flight. The renderer tolerates
- *  any subset gracefully.
- *
- *  Field shapes track the demo-aligned analysis pipeline — see
- *  {@link AnalyzeSummary}, {@link ScenarioPlanning}, etc. in
- *  `lib/aiClient.ts` for the per-section contracts. */
-export interface ResultData {
-  executiveSummary?: string;
-  scenarios?: Scenario[];
-  weakSignals?: WeakSignal[];
-  wildcards?: Wildcard[];
-  keyUncertainties?: KeyUncertainty[];
-  scenarioPlanning?: ScenarioPlanning;
-  backcasting?: Backcasting;
-  strategicMap?: StrategicMap;
-  sources?: Sources;
 }
 
 type TabKey = 'res' | 'esc' | 'sp' | 'bc' | 'sig' | 'str' | 'src';

@@ -8,14 +8,18 @@ import jsPDF from 'jspdf';
 import i18n from '../../../i18n';
 import type {
   BackcastingEntry,
+  CompanyProfile,
   DrivingForce,
+  InputData,
   KeyUncertainty,
   ReportResponse,
+  ResultData,
   Scenario,
   ScenarioLogic,
   ScenarioPlanning,
   SourceItem,
   Sources,
+  SteepBlock,
   StrategicPriority,
   UncertaintyAxis,
   WeakSignal,
@@ -53,40 +57,6 @@ import {
  * the runtime font fetch on first call. Subsequent calls reuse the
  * cached font blobs and complete synchronously after a microtask.
  */
-
-/* ── Type projections matching the real backend payload ────────────── */
-
-interface CompanyProfile {
-  name?: string;
-  sector?: string;
-  size?: string;
-  market?: string;
-  horizon?: string;
-  challenge?: string;
-  strengths?: string;
-  consultantName?: string;
-  consultantCompany?: string;
-}
-
-type SteepBlock = Partial<Record<'S' | 'T' | 'E' | 'ENV' | 'P', string>>;
-
-interface InputData {
-  companyProfile?: CompanyProfile;
-  globalSteep?: SteepBlock;
-  steep?: SteepBlock;
-}
-
-interface ResultData {
-  executiveSummary?: string;
-  keyUncertainties?: KeyUncertainty[];
-  scenarios?: Scenario[];
-  scenarioPlanning?: ScenarioPlanning;
-  backcasting?: BackcastingEntry[];
-  strategicMap?: StrategicPriority[];
-  weakSignals?: WeakSignal[];
-  wildcards?: Wildcard[];
-  sources?: Sources;
-}
 
 /* ── Brand tokens (mirrored from src/index.css) ───────────────────── */
 //

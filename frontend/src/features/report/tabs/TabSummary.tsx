@@ -1,7 +1,7 @@
 import { useState, type ReactElement } from 'react';
 import { useReportTranslation } from '../reportLanguage';
-import type { GlobalSteepDimension, KeyUncertainty } from '../../../types/api';
-import type { InputProjection, ResultData } from '../ReportContent';
+import type { GlobalSteepDimension, KeyUncertainty, ResultData } from '../../../types/api';
+import type { InputProjection } from '../ReportContent';
 
 /**
  * Summary tab ("Resumen") — hero panel + STEEP echo.

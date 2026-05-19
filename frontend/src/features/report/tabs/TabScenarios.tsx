@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useReportTranslation } from '../reportLanguage';
-import type { Scenario } from '../../../types/api';
-import type { ResultData } from '../ReportContent';
+import type { ResultData, Scenario } from '../../../types/api';
 import InfoTooltip from '../../../components/InfoTooltip';
 
 /**

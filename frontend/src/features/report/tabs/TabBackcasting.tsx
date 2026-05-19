@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useReportTranslation } from '../reportLanguage';
-import type { BackcastingEntry } from '../../../types/api';
-import type { ResultData } from '../ReportContent';
+import type { BackcastingEntry, ResultData } from '../../../types/api';
 
 /**
  * Backcasting tab — horizontal milestone strip + slide-open detail panel.

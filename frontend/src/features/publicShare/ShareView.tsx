@@ -2,14 +2,9 @@ import { type ReactElement, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { languageSpec } from '../../i18n/languages';
 import ReportContent from '../report/ReportContent';
+import type { InputData, ResultData } from '../../types/api';
 import '../report/report.css';
 import './publicShare.css';
-
-interface InputData {
-  companyProfile?: { name?: string; sector?: string; horizon?: string; challenge?: string };
-  globalSteep?: Record<string, string>;
-  steep?: Record<string, string>;
-}
 
 /**
  * The minimum payload {@link ShareView} needs to render. Loose on
@@ -22,8 +17,8 @@ interface InputData {
 export interface ShareReport {
   title: string;
   createdAt: string;
-  inputData: Record<string, unknown>;
-  resultData: Record<string, unknown> | null;
+  inputData: InputData;
+  resultData: ResultData | null;
 }
 
 interface Props {
@@ -60,7 +55,7 @@ export default function ShareView({ report, languageSwitcher }: Props): ReactEle
     languageSpec(i18n.language).dateLocale,
     { day: '2-digit', month: 'short', year: 'numeric' },
   );
-  const input = (report.inputData ?? {}) as InputData;
+  const input: InputData = report.inputData ?? {};
   const cp = input.companyProfile ?? {};
   return (
     <div className="public-share">

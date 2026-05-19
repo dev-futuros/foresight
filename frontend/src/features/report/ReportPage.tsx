@@ -25,34 +25,10 @@ import LoadingOverlay from '../../components/LoadingOverlay';
 import ShareModal from './components/ShareModal';
 import PromoteToExampleModal from '../examples/components/PromoteToExampleModal';
 import ConfirmDialog from '../../components/ConfirmDialog';
-import ReportContent, { type InputProjection, type ResultData } from './ReportContent';
+import ReportContent, { type InputProjection } from './ReportContent';
 import '../../components/modal.css';
-import type { ReportResponse } from '../../types/api';
+import type { InputData, ReportResponse, ResultData } from '../../types/api';
 import './report.css';
-
-interface InputData {
-  companyProfile?: {
-    name?: string;
-    sector?: string;
-    size?: string;
-    horizon?: string;
-    market?: string;
-    challenge?: string;
-    strengths?: string;
-    consultantName?: string;
-    consultantCompany?: string;
-    title?: string;
-  };
-  globalSteep?: Partial<Record<'S' | 'T' | 'E' | 'ENV' | 'P', string>>;
-  steep?: Partial<{
-    social: string;
-    technological: string;
-    economic: string;
-    environmental: string;
-    political: string;
-  }>;
-  horizon?: Partial<Record<'H1' | 'H2' | 'H3' | 'h1' | 'h2' | 'h3', string>>;
-}
 
 export default function ReportPage() {
   // ReportPage uses TWO t functions side-by-side:
@@ -258,7 +234,7 @@ export default function ReportPage() {
     // / HORIZON blocks reflect the open report instead of the (empty)
     // wizard defaults. Without this the assistant sees a blank form even
     // when the user is staring at a fully-generated report.
-    const inp = (report.inputData ?? {}) as InputData;
+    const inp: InputData = report.inputData ?? {};
     const cp = inp.companyProfile ?? {};
     const empresa = {
       name: cp.name ?? '',
@@ -500,12 +476,10 @@ export default function ReportPage() {
   // briefly so the page stays populated instead of flashing empty
   // tabs — the swap happens once the fetch resolves.
   const translatedPayload = translationQuery.data;
-  const input = (
-    needsTranslationFetch && translatedPayload ? translatedPayload.inputData : report.inputData
-  ) as InputData;
-  const result = (
-    needsTranslationFetch && translatedPayload ? translatedPayload.resultData : report.resultData
-  ) as ResultData | null;
+  const input: InputData =
+    needsTranslationFetch && translatedPayload ? translatedPayload.inputData : report.inputData;
+  const result: ResultData | null =
+    needsTranslationFetch && translatedPayload ? translatedPayload.resultData : report.resultData;
   // `inputData.steep` is the sectorial STEEP captured in step 3 (the
   // wizard stores it under the bare `steep` key, not `sectorialSteep`).
   // Surface it to ReportContent under the demo-aligned name so the

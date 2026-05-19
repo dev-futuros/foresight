@@ -1,6 +1,15 @@
 import PptxGenJS from 'pptxgenjs';
 import type { ReportResponse } from '../types/api';
 
+// NOTE: These local projections are intentionally narrower / different from
+// the canonical InputData / ResultData in types/api.ts. The PPT exporter
+// was built against an older analysis shape (string[] for weakSignals /
+// wildcards / keyUncertainties; { type, title, description } scenarios)
+// and is known to render `[object Object]` on the current rich analysis
+// payload. A separate task should rewrite the slide renderers against
+// the canonical Scenario / WeakSignal / Wildcard / KeyUncertainty
+// types — DO NOT just swap the imports here without porting the
+// renderers, the type errors would mask a real runtime bug.
 interface ResultData {
   scenarios?: { type: string; title: string; description: string }[];
   weakSignals?: string[];
