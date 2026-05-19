@@ -1,13 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react';
-import {
-  BrowserRouter,
-  Navigate,
-  Route,
-  Routes,
-  useLocation,
-  useNavigate,
-} from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { ErrorBoundary } from 'react-error-boundary';
+import * as Sentry from '@sentry/react';
 import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
 import { LoginLink } from '@kinde-oss/kinde-auth-react/components';
 import { useTranslation } from 'react-i18next';
@@ -154,7 +148,18 @@ function AppRoutes() {
  */
 export default function AppRouter() {
   return (
-    <ErrorBoundary FallbackComponent={ErrorFallback}>
+    <ErrorBoundary
+      FallbackComponent={ErrorFallback}
+      // Report render-time crashes to Sentry. `componentStack` lets the
+      // Sentry UI render the React stack alongside the JS one, which is
+      // the only way to figure out WHICH component crashed when the JS
+      // stack is just minified helper functions.
+      onError={(error, info) => {
+        Sentry.captureException(error, {
+          contexts: { react: { componentStack: info.componentStack } },
+        });
+      }}
+    >
       <AppRoutes />
     </ErrorBoundary>
   );
