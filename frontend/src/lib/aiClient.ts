@@ -680,42 +680,53 @@ async function streamSse<TBody, T>(
     return { frame: b.slice(0, lflf), rest: b.slice(lflf + 2) };
   };
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    let next = splitFrame(buffer);
-    while (next !== null) {
-      const { frame, rest } = next;
-      buffer = rest;
-      frameCount += 1;
-      const dataLines = frame
-        .split(/\r?\n/)
-        .filter((l) => l.startsWith('data:'))
-        .map((l) => l.slice(5).trimStart());
-      if (dataLines.length === 0) {
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let next = splitFrame(buffer);
+      while (next !== null) {
+        const { frame, rest } = next;
+        buffer = rest;
+        frameCount += 1;
+        const dataLines = frame
+          .split(/\r?\n/)
+          .filter((l) => l.startsWith('data:'))
+          .map((l) => l.slice(5).trimStart());
+        if (dataLines.length === 0) {
+          next = splitFrame(buffer);
+          continue;
+        }
+        let payload: unknown;
+        try {
+          payload = JSON.parse(dataLines.join('\n'));
+        } catch (e) {
+          if (debug) console.warn('[streamSse] bad JSON frame', dataLines, e);
+          next = splitFrame(buffer);
+          continue;
+        }
+        const evt = payload as
+          | { type: 'progress'; chars: number; sources: number }
+          | { type: 'done'; text: string; citations: SourceItem[] };
+        if (evt.type === 'progress') {
+          onProgress?.({ chars: evt.chars ?? 0, sources: evt.sources ?? 0 });
+        } else if (evt.type === 'done') {
+          finalText = evt.text ?? '';
+          citations = Array.isArray(evt.citations) ? evt.citations : [];
+        }
         next = splitFrame(buffer);
-        continue;
       }
-      let payload: unknown;
-      try {
-        payload = JSON.parse(dataLines.join('\n'));
-      } catch (e) {
-        if (debug) console.warn('[streamSse] bad JSON frame', dataLines, e);
-        next = splitFrame(buffer);
-        continue;
-      }
-      const evt = payload as
-        | { type: 'progress'; chars: number; sources: number }
-        | { type: 'done'; text: string; citations: SourceItem[] };
-      if (evt.type === 'progress') {
-        onProgress?.({ chars: evt.chars ?? 0, sources: evt.sources ?? 0 });
-      } else if (evt.type === 'done') {
-        finalText = evt.text ?? '';
-        citations = Array.isArray(evt.citations) ? evt.citations : [];
-      }
-      next = splitFrame(buffer);
     }
+  } catch (err) {
+    // Once the `done` event has landed `finalText` is the authoritative
+    // payload — a reader error on the trailing bytes is a proxy quirk
+    // on the connection close (Railway / Caddy / Vite preview sometimes
+    // signal an abrupt drop instead of a clean EOF after the upstream
+    // Flux completes). Without this guard, the analyze section dot goes
+    // red even though the SSE stream delivered a successful `done`.
+    if (!finalText) throw err;
+    if (debug) console.warn(`[streamSse] ${url} trailing read error after done`, err);
   }
   if (debug) {
     console.log(`[streamSse] ${url} closed`, {
@@ -1032,39 +1043,46 @@ export async function chatStream(
     return { frame: b.slice(0, lflf), rest: b.slice(lflf + 2) };
   };
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    let next = splitFrame(buffer);
-    while (next !== null) {
-      const { frame, rest } = next;
-      buffer = rest;
-      const dataLines = frame
-        .split(/\r?\n/)
-        .filter((l) => l.startsWith('data:'))
-        .map((l) => l.slice(5).trimStart());
-      if (dataLines.length === 0) {
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let next = splitFrame(buffer);
+      while (next !== null) {
+        const { frame, rest } = next;
+        buffer = rest;
+        const dataLines = frame
+          .split(/\r?\n/)
+          .filter((l) => l.startsWith('data:'))
+          .map((l) => l.slice(5).trimStart());
+        if (dataLines.length === 0) {
+          next = splitFrame(buffer);
+          continue;
+        }
+        let payload: unknown;
+        try {
+          payload = JSON.parse(dataLines.join('\n'));
+        } catch {
+          next = splitFrame(buffer);
+          continue;
+        }
+        const evt = payload as
+          | { type: 'delta'; text: string }
+          | { type: 'done'; text: string };
+        if (evt.type === 'delta') {
+          onDelta(evt.text);
+        } else if (evt.type === 'done') {
+          finalText = evt.text;
+        }
         next = splitFrame(buffer);
-        continue;
       }
-      let payload: unknown;
-      try {
-        payload = JSON.parse(dataLines.join('\n'));
-      } catch {
-        next = splitFrame(buffer);
-        continue;
-      }
-      const evt = payload as
-        | { type: 'delta'; text: string }
-        | { type: 'done'; text: string };
-      if (evt.type === 'delta') {
-        onDelta(evt.text);
-      } else if (evt.type === 'done') {
-        finalText = evt.text;
-      }
-      next = splitFrame(buffer);
     }
+  } catch (err) {
+    // Trailing reader error after the `done` event already landed: see
+    // {@link streamSse} for the same guard and rationale (proxy-quirk
+    // abrupt close after the upstream Flux completes).
+    if (!finalText) throw err;
   }
   if (!finalText) {
     throw new Error('Chat stream closed before final response');

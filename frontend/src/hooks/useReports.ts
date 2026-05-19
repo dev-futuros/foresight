@@ -252,46 +252,55 @@ export async function translateReportStream(args: {
     return { frame: b.slice(0, lflf), rest: b.slice(lflf + 2) };
   };
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    let next = splitFrame(buffer);
-    while (next !== null) {
-      const { frame, rest } = next;
-      buffer = rest;
-      const dataLines = frame
-        .split(/\r?\n/)
-        .filter((l) => l.startsWith('data:'))
-        .map((l) => l.slice(5).trimStart());
-      if (dataLines.length === 0) {
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let next = splitFrame(buffer);
+      while (next !== null) {
+        const { frame, rest } = next;
+        buffer = rest;
+        const dataLines = frame
+          .split(/\r?\n/)
+          .filter((l) => l.startsWith('data:'))
+          .map((l) => l.slice(5).trimStart());
+        if (dataLines.length === 0) {
+          next = splitFrame(buffer);
+          continue;
+        }
+        let payload: unknown;
+        try {
+          payload = JSON.parse(dataLines.join('\n'));
+        } catch {
+          next = splitFrame(buffer);
+          continue;
+        }
+        const evt = payload as
+          | { type: 'progress'; inputChars: number; outputChars: number }
+          | ({ type: 'done' } & TranslatedReport);
+        if (evt.type === 'progress') {
+          onProgress?.({
+            inputChars: evt.inputChars ?? 0,
+            outputChars: evt.outputChars ?? 0,
+          });
+        } else if (evt.type === 'done') {
+          finalPayload = {
+            inputData: evt.inputData,
+            resultData: evt.resultData,
+            generatedAt: evt.generatedAt,
+          };
+        }
         next = splitFrame(buffer);
-        continue;
       }
-      let payload: unknown;
-      try {
-        payload = JSON.parse(dataLines.join('\n'));
-      } catch {
-        next = splitFrame(buffer);
-        continue;
-      }
-      const evt = payload as
-        | { type: 'progress'; inputChars: number; outputChars: number }
-        | ({ type: 'done' } & TranslatedReport);
-      if (evt.type === 'progress') {
-        onProgress?.({
-          inputChars: evt.inputChars ?? 0,
-          outputChars: evt.outputChars ?? 0,
-        });
-      } else if (evt.type === 'done') {
-        finalPayload = {
-          inputData: evt.inputData,
-          resultData: evt.resultData,
-          generatedAt: evt.generatedAt,
-        };
-      }
-      next = splitFrame(buffer);
     }
+  } catch (err) {
+    // Trailing reader error after the `done` event already landed
+    // (proxy-quirk abrupt close after the upstream Flux completes).
+    // Once `finalPayload` is set, the translation IS the result —
+    // surface only if `done` never arrived. Mirrors the guard in
+    // {@link streamSse} on the AI analyze flow.
+    if (!finalPayload) throw err;
   }
 
   if (!finalPayload) {
