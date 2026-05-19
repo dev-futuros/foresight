@@ -60,6 +60,12 @@ export function useCommands(factory: () => AnyCommandSpec[]) {
       register({
         name: spec.name,
         mode: spec.mode,
+        // silent and trackArgs are declarative metadata, captured
+        // statically at mount — same treatment as mode. If a spec
+        // declared them in the factory's first invocation we honour
+        // that for the lifetime of the registration.
+        silent: spec.silent,
+        trackArgs: spec.trackArgs,
         label:
           spec.label != null
             ? (args: Record<string, unknown>): string =>
@@ -71,6 +77,16 @@ export function useCommands(factory: () => AnyCommandSpec[]) {
                 resolveLatest(spec.name).preview?.(args) ?? ''
             : undefined,
         handler: (args: Record<string, unknown>) => resolveLatest(spec.name).handler(args),
+        // enrichTrack needs the same re-resolve dance as handler —
+        // its return value typically reads closure state (wizard
+        // mode, current report kind, etc.) that's stale by mount
+        // time. Capturing once would freeze it; we want the
+        // freshest values at dispatch time.
+        enrichTrack:
+          spec.enrichTrack != null
+            ? (args: Record<string, unknown>, result: unknown) =>
+                resolveLatest(spec.name).enrichTrack?.(args, result) ?? {}
+            : undefined,
       });
     }
 
