@@ -96,8 +96,12 @@ function stripUnclosedTailTag(text: string): string {
  * return them in document order alongside the prose split into pre/post
  * halves around the chip block. Commands come back as {@code status:
  * 'pending'} — nothing dispatches here.
+ *
+ * <p>Exported so the parse logic can be unit-tested directly without
+ * standing up the whole hook + a mocked stream — it's the load-bearing
+ * pure function in this module.
  */
-function parseAssistantText(text: string): ParsedAssistantText {
+export function parseAssistantText(text: string): ParsedAssistantText {
   // Strip any unclosed tail tag before scanning — keeps partial tags
   // from leaking into the visible pre/post prose during streaming.
   const cleaned = stripUnclosedTailTag(text);
