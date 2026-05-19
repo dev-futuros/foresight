@@ -82,14 +82,21 @@ export function initMixpanel(): void {
       persistence: 'localStorage',
       // Wait for the consent banner before sending anything. The
       // banner calls optIn() on accept — that's the only entry point
-      // that arms the SDK.
+      // that arms the SDK. THIS is the meaningful privacy gate; DNT
+      // (see ignore_dnt below) is intentionally bypassed because the
+      // explicit cookie banner supersedes a deprecated browser header.
       opt_out_tracking_by_default: true,
       // We do our own pageview tracking from a router-aware hook so
       // SPA navigations actually get recorded.
       track_pageview: false,
-      // Respect browser-level Do Not Track. opt-in still required on
-      // top of this; DNT is just a belt-and-braces fallback.
-      ignore_dnt: false,
+      // Ignore the Do Not Track header. DNT was deprecated by the W3C
+      // in 2018, never reached meaningful adoption, and was removed
+      // from Chrome / Firefox shortly after. Respecting it would
+      // create a contradictory state where a user who clicks "Accept"
+      // on the cookie banner still gets silently dropped because of a
+      // vestigial header from a dead spec. Our cookie consent UI is
+      // the actual privacy gate.
+      ignore_dnt: true,
       debug,
     });
     initialised = true;
