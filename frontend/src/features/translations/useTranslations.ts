@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react';
 import type { TranslateProgress } from '../report/api';
-import type { ExportLanguage } from '../../components/ExportModal';
+import type { ExportLanguage } from '../report/components/ExportModal';
 
 /**
  * Per-report translation state. {@code progress} is {@code null} until the

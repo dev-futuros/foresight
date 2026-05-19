@@ -1,4 +1,4 @@
-import AuthBridge from './components/AuthBridge';
+import AuthBridge from './features/auth/AuthBridge';
 import IconSprite from './components/IconSprite';
 import CookieConsent from './features/cookies/CookieConsent';
 import AppProviders from './app/providers';

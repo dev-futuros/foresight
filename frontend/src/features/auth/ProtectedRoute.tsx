@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
 import { useTranslation } from 'react-i18next';
-import { LOGOUT_IN_PROGRESS_KEY } from '../features/account/api';
+import { LOGOUT_IN_PROGRESS_KEY } from '../account/api';
 
 /**
  * Route guard that defers to Kinde for the auth check.

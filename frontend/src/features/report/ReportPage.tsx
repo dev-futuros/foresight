@@ -18,10 +18,10 @@ import ExportModal, {
   type ExportFormat,
   type ExportLanguage,
   type ExportPdfTheme,
-} from '../../components/ExportModal';
+} from './components/ExportModal';
 import LoadingOverlay from '../../components/LoadingOverlay';
-import ShareModal from '../../components/ShareModal';
-import PromoteToExampleModal from '../../components/PromoteToExampleModal';
+import ShareModal from './components/ShareModal';
+import PromoteToExampleModal from '../examples/components/PromoteToExampleModal';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import ReportContent, { type InputProjection, type ResultData } from './ReportContent';
 import '../../components/modal.css';

@@ -1,10 +1,10 @@
-import type { LanguageCode } from '../i18n/languages';
+import type { LanguageCode } from '../../../i18n/languages';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import Modal from './Modal';
-import { useReport } from '../features/report/api';
-import { useExample } from '../features/examples/api';
-import { useIsDev } from '../features/account/api';
+import Modal from '../../../components/Modal';
+import { useReport } from '../api';
+import { useExample } from '../../examples/api';
+import { useIsDev } from '../../account/api';
 
 export type ExportLanguage = LanguageCode;
 /**

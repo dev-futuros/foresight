@@ -11,7 +11,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
 import { LoginLink } from '@kinde-oss/kinde-auth-react/components';
 import { useTranslation } from 'react-i18next';
-import ProtectedRoute from '../components/ProtectedRoute';
+import ProtectedRoute from '../features/auth/ProtectedRoute';
 import AuthLayout from '../features/auth/AuthLayout';
 import { LOGOUT_IN_PROGRESS_KEY } from '../features/account/api';
 import { ErrorFallback } from './providers';
