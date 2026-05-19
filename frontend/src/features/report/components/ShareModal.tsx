@@ -6,6 +6,7 @@ import { useCreateShare } from '../../publicShare/api';
 import { useReport } from '../api';
 import { useExample } from '../../examples/api';
 import { extractApiErrorMessage } from '../../../lib/apiError';
+import { track } from '../../../lib/mixpanel';
 
 interface Props {
   open: boolean;
@@ -58,7 +59,7 @@ export default function ShareModal({ open, reportId, kind = 'report', onClose }:
     return list.length > 0 ? list : ['es'];
   }, [data]);
 
-  const primaryLanguage = (data?.primaryLanguage) ?? 'es';
+  const primaryLanguage = data?.primaryLanguage ?? 'es';
 
   // Hide both controls when there's nothing to pick.
   const showLangControls = availableLanguages.length > 1;
@@ -73,6 +74,17 @@ export default function ShareModal({ open, reportId, kind = 'report', onClose }:
       setIncludedLanguages([...availableLanguages]);
     }
   }, [open, primaryLanguage, data, availableLanguages]);
+
+  // Mixpanel: track every modal-open as an intent-to-share. Keyed on
+  // [open, reportId, kind] so it also fires when the user closes one
+  // report's share modal and immediately opens another's. Paired with
+  // 'Share Link Copied' (further down in handleCopy) — the ratio
+  // tells us whether the share flow has friction or not.
+  useEffect(() => {
+    if (open) {
+      track('Share Modal Opened', { reportId, kind });
+    }
+  }, [open, reportId, kind]);
 
   // The default-open language MUST be one of the included ones. If
   // the user unchecks the currently-default, fall back to the first
@@ -137,6 +149,16 @@ export default function ShareModal({ open, reportId, kind = 'report', onClose }:
       await navigator.clipboard.writeText(createShare.data.shareUrl);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
+      // Mixpanel: paired with 'Share Modal Opened'. Bounded props
+      // only — defaultLanguage + includedLanguageCount let the
+      // dashboard see how rich the snapshots being shared are
+      // without leaking the share URL itself.
+      track('Share Link Copied', {
+        reportId,
+        kind,
+        defaultLanguage: language,
+        includedLanguageCount: includedLanguages.length,
+      });
     } catch {
       // Clipboard can fail in insecure contexts (http://) or when the user
       // denies permission. Falling back to manual selection: the input is

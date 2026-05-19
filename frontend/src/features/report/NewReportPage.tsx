@@ -618,8 +618,8 @@ export default function NewReportPage() {
   // Mixpanel: fire 'Report Wizard Started' once per mount. Mode is
   // known synchronously from the URL params; the example/real
   // distinction is settled async via editingReport.data — we leave
-  // it off this event and let the more meaningful 'Report Submitted'
-  // (or 'Report Opened') capture that detail.
+  // it off this event and let the more meaningful 'Report Generation
+  // Started' (or 'Report Opened') capture that detail.
   useEffect(() => {
     track('Report Wizard Started', { mode: editMode ? 'edit' : 'new' });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fire-once on mount
@@ -637,21 +637,25 @@ export default function NewReportPage() {
     // (depending on whether reportId is set). The Generate button is
     // disabled in this mode too; this guard is defence in depth.
     if (isExampleMode) return;
-    // Mixpanel: track the user-initiated generation. Bounded enums
-    // only — horizon (years int) and whether the user filled in any
-    // dimension of the optional global-STEEP section. No company
-    // names, no challenge text, no STEEP prose — those stay
-    // confidential.
-    track('Report Submitted', {
+    // Mixpanel: user clicked Generate. Paired with the
+    // 'Report Generation Completed' event further down in the success
+    // path — the ratio between the two is the analyze-pipeline
+    // success rate, useful for catching backend regressions and
+    // mid-run abandonment. Properties are bounded enums only:
+    // horizon (years int) and whether the user filled any dimension
+    // of the optional global-STEEP section. No company names, no
+    // challenge text, no STEEP prose — those stay confidential.
+    const hasGlobalSteep = Boolean(
+      globalData.S.trim() ||
+      globalData.T.trim() ||
+      globalData.E.trim() ||
+      globalData.ENV.trim() ||
+      globalData.P.trim(),
+    );
+    track('Report Generation Started', {
       mode: editMode ? 'edit' : 'new',
       horizon: empresa.horizon,
-      hasGlobalSteep: Boolean(
-        globalData.S.trim() ||
-        globalData.T.trim() ||
-        globalData.E.trim() ||
-        globalData.ENV.trim() ||
-        globalData.P.trim(),
-      ),
+      hasGlobalSteep,
     });
     // Drop any pending autosave timer before we start so a debounced
     // PATCH doesn't race with handleSubmit's explicit persistDraft +
@@ -872,6 +876,20 @@ export default function NewReportPage() {
       await updateReport.mutateAsync({
         id: targetReportId,
         body: { resultData: fullResult },
+      });
+      // Mixpanel: paired with 'Report Generation Started'. successCount
+      // / errorCount break out partial-success runs (e.g. 4-of-5
+      // sections came back) — useful for spotting which sections
+      // misbehave under load without needing to surface a per-section
+      // error event.
+      const sectionResults = [summary, scenarios, planning, strategicMap, backcasting];
+      const successCount = sectionResults.filter((r) => r.status === 'fulfilled').length;
+      track('Report Generation Completed', {
+        mode: editMode ? 'edit' : 'new',
+        horizon: empresa.horizon,
+        reportId: targetReportId,
+        successCount,
+        errorCount: sectionResults.length - successCount,
       });
       navigate(`/reports/${targetReportId}`);
       // Don't reset isGenerating on success — the unmount handles it.
