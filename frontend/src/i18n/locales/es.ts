@@ -248,6 +248,7 @@ const es = {
     menu: 'Abrir menú',
     dashboard: 'Dashboard',
     newReport: 'Nuevo informe',
+    devThrow: 'Lanzar error de prueba (DEV)',
     account: 'Mi cuenta',
     accountMenu: {
       profile: 'Perfil',

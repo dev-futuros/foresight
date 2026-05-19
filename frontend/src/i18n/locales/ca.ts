@@ -240,6 +240,7 @@ const ca = {
     menu: 'Obrir menú',
     dashboard: 'Tauler',
     newReport: 'Nou informe',
+    devThrow: 'Llançar error de prova (DEV)',
     account: 'El meu compte',
     accountMenu: {
       profile: 'Perfil',

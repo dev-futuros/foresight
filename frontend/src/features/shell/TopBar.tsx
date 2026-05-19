@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { dispatch as dispatchCommand } from '../../lib/commandBus';
 import AccountMenu from '../account/AccountMenu';
+import { useIsDev } from '../account/api';
 
 interface TopBarProps {
   /**
@@ -28,6 +29,7 @@ interface TopBarProps {
  */
 export default function TopBar({ onOpenAccount }: Readonly<TopBarProps>) {
   const { t } = useTranslation();
+  const isDev = useIsDev();
 
   return (
     <header className="topbar">
@@ -60,6 +62,30 @@ export default function TopBar({ onOpenAccount }: Readonly<TopBarProps>) {
               <use href="#i-newdoc" />
             </svg>
           </button>
+          {/* DEV-only Sentry smoke-test button. Throws synchronously from
+              the click handler so the error escapes React's event delegation
+              and reaches window.onerror — which Sentry's GlobalHandlers
+              integration listens to. If Sentry is wired correctly the event
+              shows up in the Sentry dashboard within a few seconds, with
+              the source-mapped stack trace pointing back to this file.
+              Hidden from non-DEV users (the backend also has no equivalent
+              endpoint, so this is purely a UI test affordance). */}
+          {isDev && (
+            <button
+              type="button"
+              className="btn-ghost btn-ghost--icon"
+              data-tooltip={t('nav.devThrow')}
+              data-tooltip-pos="below"
+              aria-label={t('nav.devThrow')}
+              onClick={() => {
+                throw new Error('Sentry smoke test — thrown from TopBar dev button');
+              }}
+            >
+              <svg className="btn-ghost-ico" aria-hidden>
+                <use href="#i-bug" />
+              </svg>
+            </button>
+          )}
           {/* Dashboard — always visible. */}
           <Link
             to="/dashboard"

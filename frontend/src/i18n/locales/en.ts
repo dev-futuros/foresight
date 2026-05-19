@@ -250,6 +250,7 @@ const en = {
     menu: 'Open menu',
     dashboard: 'Dashboard',
     newReport: 'New report',
+    devThrow: 'Throw test error (DEV)',
     account: 'My account',
     accountMenu: {
       profile: 'Profile',
