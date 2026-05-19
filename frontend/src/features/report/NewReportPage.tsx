@@ -14,7 +14,7 @@ import {
   analyzeStrategicMap,
   analyzeSummary,
 } from './api';
-import type { SourceItem } from '../../types/api';
+import type { InputData, SourceItem } from '../../types/api';
 import { extractApiErrorMessage } from '../../lib/apiError';
 import { notifyAssistant, resetAssistant } from '../../lib/assistantBridge';
 import OnboardingDialog from '../../components/OnboardingDialog';
@@ -173,9 +173,17 @@ export default function NewReportPage() {
   const globalSteepFetchedForRef = useRef<string | null>(null);
 
   /** Builds the inputData snapshot we PATCH/POST. Includes `currentStep` so
-   *  reopening the draft resumes on the same page. */
+   *  reopening the draft resumes on the same page.
+   *
+   *  <p>The wizard's step types (GlobalSteep, SteepData, HorizonData) are
+   *  exact-keyed interfaces — they have no string index signature and so
+   *  aren't structurally assignable to InputData's loose
+   *  {@code Record<string, string | undefined>} slots even though the
+   *  field values are compatible. Annotate the return type explicitly so
+   *  TypeScript widens the literal at the assignment instead of the
+   *  caller having to cast at every call site. */
   const buildInputData = useCallback(
-    (currentStep: number) => ({
+    (currentStep: number): InputData => ({
       companyProfile: empresaRef.current,
       globalSteep: globalDataRef.current,
       steep: steepRef.current,

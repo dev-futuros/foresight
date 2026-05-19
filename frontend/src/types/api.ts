@@ -86,18 +86,25 @@ export type SteepBlock = Partial<Record<'S' | 'T' | 'E' | 'ENV' | 'P', string>>;
  * Loose shape of {@code report.inputData} — the wizard snapshot the
  * backend stores as JSONB. All fields optional because legacy reports
  * may be missing pieces; consumers (renderer / pdf / pptx / share view)
- * tolerate subsets. The {@code steep} / {@code globalSteep} slots accept
- * either the canonical STEEP code shape or a localized-key
- * {@code Record<string, string>} the wizard may produce; downstream
- * normalisation collapses both to {@link SteepBlock}.
+ * tolerate subsets. The {@code [key: string]: unknown} index signature
+ * acknowledges the JSONB nature: the named keys are the common
+ * projections we render today, but the payload may carry additional
+ * fields the backend writes and the frontend hasn't typed yet.
+ *
+ * <p>{@code globalSteep} mirrors StepGlobal's write shape ({@link GlobalSteep}
+ * — uppercase codes). {@code steep} mirrors StepSteep's lowercase-keyed
+ * write. Legacy reports / examples may carry alternative key shapes;
+ * {@code normalizeSteepKeys} in ReportContent.tsx coerces both to
+ * {@link SteepBlock} at render time, so consumers don't need to care.
  */
 export interface InputData {
   companyProfile?: CompanyProfile;
-  globalSteep?: SteepBlock | Record<string, string>;
-  steep?: SteepBlock | Record<string, string>;
-  horizon?: Record<string, string>;
+  globalSteep?: Record<string, string | undefined>;
+  steep?: Record<string, string | undefined>;
+  horizon?: Record<string, string | undefined>;
   /** Wizard step the user was on when last persisted; used to resume drafts. */
   currentStep?: number;
+  [key: string]: unknown;
 }
 
 /**
@@ -105,7 +112,8 @@ export interface InputData {
  * filled in by its own {@code /api/ai/analyze/*} call, so any subset
  * may be missing while the pipeline runs (or permanently, on legacy
  * reports). The renderer's tab gating decides which tabs surface based
- * on what's present.
+ * on what's present. {@code [key: string]: unknown} mirrors the JSONB
+ * nature — see {@link InputData}.
  */
 export interface ResultData {
   executiveSummary?: string;
@@ -117,6 +125,7 @@ export interface ResultData {
   backcasting?: Backcasting;
   strategicMap?: StrategicMap;
   sources?: Sources;
+  [key: string]: unknown;
 }
 
 export interface ReportResponse {
@@ -461,16 +470,30 @@ export interface SuggestionItem {
   description: string;
 }
 
-/** Global STEEP block — the five dimensions of the macro context scan. */
+/**
+ * Global STEEP block — the five dimensions of the macro context scan.
+ * The string index signature mirrors the JSONB-storage reality (legacy
+ * reports may carry alternative keys) and lets {@code GlobalSteep}
+ * satisfy {@link InputData}'s {@code Record<string, string | undefined>}
+ * slot without callers needing to cast at every wizard-state write.
+ */
 export interface GlobalSteep {
   S: string;
   T: string;
   E: string;
   ENV: string;
   P: string;
+  [key: string]: string | undefined;
 }
 
-export type GlobalSteepDimension = keyof GlobalSteep;
+/**
+ * The five canonical STEEP dimension codes. Declared as an explicit
+ * literal union (not {@code keyof GlobalSteep}) because the GlobalSteep
+ * interface carries a string index signature for JSONB compatibility,
+ * which would widen {@code keyof} to {@code string | number} and break
+ * exhaustive switches on dimension codes.
+ */
+export type GlobalSteepDimension = 'S' | 'T' | 'E' | 'ENV' | 'P';
 
 /**
  * Companion shape returned by every analyze section call. `result` is
