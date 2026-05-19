@@ -18,6 +18,7 @@
  * client material and stay on the backend.
  */
 import mixpanel, { type Dict, type OverridedMixpanel } from 'mixpanel-browser';
+import { env } from '../env';
 
 /**
  * Module-level guard so callers can fire-and-forget {@link track}
@@ -66,7 +67,7 @@ function client(): OverridedMixpanel | undefined {
  * </ul>
  */
 export function initMixpanel(): void {
-  const token = import.meta.env.VITE_MIXPANEL_TOKEN as string | undefined;
+  const token = env.mixpanel.token;
   if (!token) {
     // Local dev / preview without a Mixpanel project. Single log so
     // the developer knows tracking is off without flooding the console.
@@ -74,7 +75,7 @@ export function initMixpanel(): void {
     return;
   }
 
-  const debug = import.meta.env.VITE_MIXPANEL_DEBUG === '1';
+  const debug = env.mixpanel.debug;
 
   try {
     mixpanel.init(token, {

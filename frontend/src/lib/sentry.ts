@@ -27,9 +27,10 @@
  * recordings never capture report prose.
  */
 import * as Sentry from '@sentry/react';
+import { env } from '../env';
 
 export function initSentry(): void {
-  const dsn = import.meta.env.VITE_SENTRY_DSN as string | undefined;
+  const dsn = env.sentry.dsn;
   if (!dsn) {
     // Local dev / preview builds without a Sentry project. Logging once
     // at boot is enough for the developer to know capture is off.
@@ -38,9 +39,8 @@ export function initSentry(): void {
     return;
   }
 
-  const environment =
-    (import.meta.env.VITE_SENTRY_ENVIRONMENT as string | undefined) ?? import.meta.env.MODE;
-  const release = import.meta.env.VITE_APP_VERSION as string | undefined;
+  const environment = env.sentry.environment ?? import.meta.env.MODE;
+  const release = env.sentry.appVersion;
 
   Sentry.init({
     dsn,

@@ -3,6 +3,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { KindeProvider } from '@kinde-oss/kinde-auth-react';
 import { queryClient } from '../lib/queryClient';
 import ErrorFallback from '../components/ErrorFallback';
+import { env } from '../env';
 
 /**
  * App-wide provider stack.
@@ -22,26 +23,18 @@ import ErrorFallback from '../components/ErrorFallback';
  * </ol>
  */
 
-// Kinde-required env vars. We trust that the dev/CI env supplies them;
-// if either is missing at runtime Kinde itself throws a clearer error
-// than we'd emit here. The cast keeps the JSX prop types happy without
-// importing a global env.d.ts shim.
-const KINDE_DOMAIN = import.meta.env.VITE_KINDE_DOMAIN as string;
-const KINDE_CLIENT_ID = import.meta.env.VITE_KINDE_CLIENT_ID as string;
-const KINDE_REDIRECT_URI =
-  (import.meta.env.VITE_KINDE_REDIRECT_URI as string | undefined) ??
-  `${globalThis.location.origin}/callback`;
-const KINDE_LOGOUT_URI =
-  (import.meta.env.VITE_KINDE_LOGOUT_REDIRECT_URI as string | undefined) ??
-  globalThis.location.origin;
-
+// Optional Kinde URIs default to {@code origin}-derived values. Computed
+// inside the component so SSR / non-browser hosts don't trip on the
+// {@code globalThis.location} read at module-eval time.
 export default function AppProviders({ children }: PropsWithChildren) {
+  const redirectUri = env.kinde.redirectUri ?? `${globalThis.location.origin}/callback`;
+  const logoutUri = env.kinde.logoutUri ?? globalThis.location.origin;
   return (
     <KindeProvider
-      clientId={KINDE_CLIENT_ID}
-      domain={KINDE_DOMAIN}
-      redirectUri={KINDE_REDIRECT_URI}
-      logoutUri={KINDE_LOGOUT_URI}
+      clientId={env.kinde.clientId}
+      domain={env.kinde.domain}
+      redirectUri={redirectUri}
+      logoutUri={logoutUri}
     >
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     </KindeProvider>

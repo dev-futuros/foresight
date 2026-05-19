@@ -2,6 +2,11 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import './i18n';
+// Importing `env` first runs the required-var validation in src/env.ts
+// at module-eval time, so a missing Kinde config aborts boot with a
+// helpful local error BEFORE we'd waste a Sentry event from a
+// half-initialised app.
+import './env';
 import { initSentry } from './lib/sentry';
 import { initMixpanel } from './lib/mixpanel';
 import App from './App.tsx';
@@ -15,13 +20,6 @@ initSentry();
 // unset. Order matters only insofar as we want Sentry to capture any
 // init-time Mixpanel error; both are otherwise independent.
 initMixpanel();
-
-if (!import.meta.env.VITE_KINDE_DOMAIN || !import.meta.env.VITE_KINDE_CLIENT_ID) {
-  throw new Error(
-    'Missing Kinde configuration. Copy frontend/.env.example to frontend/.env.local and set ' +
-      'VITE_KINDE_DOMAIN and VITE_KINDE_CLIENT_ID from your Kinde Dashboard → Applications → Futuros FE.',
-  );
-}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
