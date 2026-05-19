@@ -68,7 +68,11 @@ describe('DashboardPage', () => {
     renderWithProviders(<DashboardPage />);
 
     expect(screen.getByText(/aún no hay informes guardados/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /nuevo informe/i })).toBeInTheDocument();
+    expect(screen.getByText(/crea tu primer informe/i)).toBeInTheDocument();
+    // The "Nuevo informe" affordance used to live inside this empty
+    // state; it's now an always-visible icon button in the topbar so
+    // the dashboard's empty state is text-only. (See the comment in
+    // DashboardPage.tsx's db-header block.)
   });
 
   it('shows loading state', () => {
@@ -164,13 +168,7 @@ describe('DashboardPage', () => {
     expect(screen.getByText(/con error/i)).toBeInTheDocument();
   });
 
-  it('nuevo informe link points to /reports/new', () => {
-    vi.mocked(useReports).mockReturnValue(mockPage() as ReturnType<typeof useReports>);
-    renderWithProviders(<DashboardPage />);
-
-    expect(screen.getByRole('link', { name: /nuevo informe/i })).toHaveAttribute(
-      'href',
-      '/reports/new',
-    );
-  });
+  // The "Nuevo informe" link used to live on the dashboard's empty
+  // state; it's now an always-visible icon button in the topbar.
+  // The topbar has its own test coverage in features/shell/.
 });
