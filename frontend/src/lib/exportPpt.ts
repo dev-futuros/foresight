@@ -1,39 +1,5 @@
 import PptxGenJS from 'pptxgenjs';
-import type { ReportResponse } from '../types/api';
-
-// NOTE: These local projections are intentionally narrower / different from
-// the canonical InputData / ResultData in types/api.ts. The PPT exporter
-// was built against an older analysis shape (string[] for weakSignals /
-// wildcards / keyUncertainties; { type, title, description } scenarios)
-// and is known to render `[object Object]` on the current rich analysis
-// payload. A separate task should rewrite the slide renderers against
-// the canonical Scenario / WeakSignal / Wildcard / KeyUncertainty
-// types — DO NOT just swap the imports here without porting the
-// renderers, the type errors would mask a real runtime bug.
-interface ResultData {
-  scenarios?: { type: string; title: string; description: string }[];
-  weakSignals?: string[];
-  wildcards?: string[];
-  keyUncertainties?: string[];
-}
-
-interface CompanyProfile {
-  name?: string;
-  sector?: string;
-  size?: string;
-  market?: string;
-  horizon?: string;
-  challenge?: string;
-  strengths?: string;
-  consultantName?: string;
-  consultantCompany?: string;
-}
-
-interface InputData {
-  companyProfile?: CompanyProfile;
-  steep?: Record<string, string>;
-  horizon?: Record<string, string>;
-}
+import type { InputData, ReportResponse, ResultData } from '../types/api';
 
 // Dark theme. The slide background uses `fill` (pptxgenjs v4 honours both `color`
 // and `fill`, but `fill` is the canonical name in the schema). Text colours are
@@ -137,14 +103,26 @@ function bulletList(slide: Slide, items: string[], x: number, y: number, w: numb
   });
 }
 
+/** Filter a STEEP / horizon entries pair-list to the rows with non-empty
+ *  string values. Type predicate narrows the value side away from
+ *  {@code string | undefined} so downstream renderers get the right type. */
+function nonEmptyEntries(
+  source: Record<string, string | undefined> | undefined,
+): [string, string][] {
+  if (!source) return [];
+  return Object.entries(source).filter(
+    (e): e is [string, string] => typeof e[1] === 'string' && e[1].length > 0,
+  );
+}
+
 export function exportReportPpt(report: ReportResponse) {
   const pptx = new PptxGenJS();
   pptx.layout = 'LAYOUT_WIDE';
   pptx.author = 'Foresight';
 
-  const input = report.inputData as InputData;
-  const result = report.resultData as ResultData | null;
-  const cp = input?.companyProfile ?? {};
+  const input: InputData = report.inputData;
+  const result: ResultData | null = report.resultData;
+  const cp = input.companyProfile ?? {};
 
   // ── Cover ────────────────────────────────────────────────────────────────
   const cover = newSlide(pptx);
@@ -241,61 +219,57 @@ export function exportReportPpt(report: ReportResponse) {
   }
 
   // ── Slide 3 — STEEP ─────────────────────────────────────────────────────
-  if (input?.steep) {
-    const entries = Object.entries(input.steep).filter(([, v]) => v);
-    if (entries.length) {
-      const steepSlide = newSlide(pptx);
-      addHeader(steepSlide, 'Análisis STEEP');
+  const steepEntries = nonEmptyEntries(input.steep);
+  if (steepEntries.length) {
+    const steepSlide = newSlide(pptx);
+    addHeader(steepSlide, 'Análisis STEEP');
 
-      const halfS = Math.ceil(entries.length / 2);
-      const leftS = entries.slice(0, halfS);
-      const rightS = entries.slice(halfS);
+    const halfS = Math.ceil(steepEntries.length / 2);
+    const leftS = steepEntries.slice(0, halfS);
+    const rightS = steepEntries.slice(halfS);
 
-      const renderSteepCol = (list: [string, string][], x: number, w: number) => {
-        let y = 0.9;
-        list.forEach(([k, v]) => {
-          steepSlide.addText(
-            [
-              {
-                text: (STEEP_LABELS[k] || k).toUpperCase(),
-                options: { fontSize: 8, color: ACCENT, bold: true, breakLine: true },
-              },
-              { text: v, options: { fontSize: 10, color: TEXT, bold: false } },
-            ],
-            { x, y, w, h: 1.6, valign: 'top' },
-          );
-          const lines = Math.max(2, Math.ceil(v.length / 55));
-          y += 0.35 + lines * 0.22;
-        });
-      };
-      renderSteepCol(leftS, 0.4, 4.4);
-      if (rightS.length) renderSteepCol(rightS, 5.0, 4.4);
-    }
-  }
-
-  // ── Slide 4 — Horizon Scan ──────────────────────────────────────────────
-  if (input?.horizon) {
-    const entries = Object.entries(input.horizon).filter(([, v]) => v);
-    if (entries.length) {
-      const horizonSlide = newSlide(pptx);
-      addHeader(horizonSlide, 'Horizon Scan');
-
+    const renderSteepCol = (list: [string, string][], x: number, w: number) => {
       let y = 0.9;
-      entries.forEach(([k, v]) => {
-        horizonSlide.addText(
+      list.forEach(([k, v]) => {
+        steepSlide.addText(
           [
             {
-              text: HORIZON_LABELS[k] || k,
-              options: { fontSize: 10, color: ACCENT, bold: true, breakLine: true },
+              text: (STEEP_LABELS[k] || k).toUpperCase(),
+              options: { fontSize: 8, color: ACCENT, bold: true, breakLine: true },
             },
             { text: v, options: { fontSize: 10, color: TEXT, bold: false } },
           ],
-          { x: 0.4, y, w: 9.2, h: 1.4, valign: 'top' },
+          { x, y, w, h: 1.6, valign: 'top' },
         );
-        const lines = Math.max(2, Math.ceil(v.length / 110));
+        const lines = Math.max(2, Math.ceil(v.length / 55));
         y += 0.35 + lines * 0.22;
       });
-    }
+    };
+    renderSteepCol(leftS, 0.4, 4.4);
+    if (rightS.length) renderSteepCol(rightS, 5.0, 4.4);
+  }
+
+  // ── Slide 4 — Horizon Scan ──────────────────────────────────────────────
+  const horizonEntries = nonEmptyEntries(input.horizon);
+  if (horizonEntries.length) {
+    const horizonSlide = newSlide(pptx);
+    addHeader(horizonSlide, 'Horizon Scan');
+
+    let y = 0.9;
+    horizonEntries.forEach(([k, v]) => {
+      horizonSlide.addText(
+        [
+          {
+            text: HORIZON_LABELS[k] || k,
+            options: { fontSize: 10, color: ACCENT, bold: true, breakLine: true },
+          },
+          { text: v, options: { fontSize: 10, color: TEXT, bold: false } },
+        ],
+        { x: 0.4, y, w: 9.2, h: 1.4, valign: 'top' },
+      );
+      const lines = Math.max(2, Math.ceil(v.length / 110));
+      y += 0.35 + lines * 0.22;
+    });
   }
 
   // ── Results ─────────────────────────────────────────────────────────────
@@ -306,6 +280,10 @@ export function exportReportPpt(report: ReportResponse) {
 
       const colW = 3.0;
       result.scenarios.forEach((s, i) => {
+        // Scenario evocative names live on `name` in the canonical schema;
+        // legacy reports stored them as `title`. Fall back through both
+        // so older exports still render a heading.
+        const heading = s.name ?? s.title ?? '';
         const x = 0.4 + i * (colW + 0.15);
         scenSlide.addText(
           [
@@ -313,7 +291,7 @@ export function exportReportPpt(report: ReportResponse) {
               text: s.type.toUpperCase(),
               options: { fontSize: 8, color: ACCENT, bold: true, breakLine: true },
             },
-            { text: s.title, options: { fontSize: 12, color: TEXT, bold: true, breakLine: true } },
+            { text: heading, options: { fontSize: 12, color: TEXT, bold: true, breakLine: true } },
             { text: '\n', options: { fontSize: 6, color: TEXT } },
             { text: s.description, options: { fontSize: 10, color: MUTED, bold: false } },
           ],
@@ -322,22 +300,47 @@ export function exportReportPpt(report: ReportResponse) {
       });
     }
 
+    // Bullet sections — each item is a typed object on the canonical
+    // schema, so we project to the bullet label here rather than
+    // assuming the renderer can stringify an object. keyUncertainties
+    // exposes a `name`; weakSignals / wildcards expose a `title`.
     if (result.keyUncertainties?.length) {
       const slide = newSlide(pptx);
       addHeader(slide, 'Incertidumbres clave');
-      bulletList(slide, result.keyUncertainties, 0.4, 0.9, 9.2, 4.5);
+      bulletList(
+        slide,
+        result.keyUncertainties.map((u) => u.name),
+        0.4,
+        0.9,
+        9.2,
+        4.5,
+      );
     }
 
     if (result.weakSignals?.length) {
       const slide = newSlide(pptx);
       addHeader(slide, 'Señales débiles');
-      bulletList(slide, result.weakSignals, 0.4, 0.9, 9.2, 4.5);
+      bulletList(
+        slide,
+        result.weakSignals.map((s) => s.title),
+        0.4,
+        0.9,
+        9.2,
+        4.5,
+      );
     }
 
     if (result.wildcards?.length) {
       const slide = newSlide(pptx);
       addHeader(slide, 'Wildcards');
-      bulletList(slide, result.wildcards, 0.4, 0.9, 9.2, 4.5);
+      bulletList(
+        slide,
+        result.wildcards.map((w) => w.title),
+        0.4,
+        0.9,
+        9.2,
+        4.5,
+      );
     }
   }
 
