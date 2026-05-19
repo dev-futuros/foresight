@@ -150,40 +150,6 @@ export default function ReportPage() {
       }
     }
   }, [storageKey, requestedLang, availableLangs]);
-
-  // Snapshot the i18n language at mount so we can restore it on
-  // unmount. Without this, leaving a Spanish report after the user's
-  // preference is English would leave the dashboard / topbar /
-  // account modal stuck in Spanish until the user manually flips it
-  // back via the AccountModal. Same save-restore pattern the PDF
-  // export uses around its render (see features/report/pdf/index.ts).
-  //
-  // Declared BEFORE the sync effect below so the snapshot captures
-  // the PRE-flip language — React runs effects in declaration order.
-  useEffect(() => {
-    const previousLang = i18n.language;
-    return () => {
-      if (i18n.language !== previousLang) {
-        void i18n.changeLanguage(previousLang);
-      }
-    };
-    // i18n is a stable singleton from react-i18next; depending on it
-    // would still re-fire only at mount/unmount in practice, but the
-    // empty-deps form makes the snapshot-on-mount intent explicit.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // While ReportPage is mounted, keep i18n in sync with the report's
-  // active language so the surrounding chrome (Share/Export buttons,
-  // modal copy, in-viewer language switcher pill, AppFooter, etc.)
-  // reads in the same language the user is reading the report in.
-  // The user's preference is restored by the snapshot effect above
-  // when this page unmounts.
-  useEffect(() => {
-    if (i18n.language !== activeLang) {
-      void i18n.changeLanguage(activeLang);
-    }
-  }, [activeLang, i18n]);
   const needsTranslationFetch = report != null && activeLang !== primaryLang;
   // React Query handles per-(id × lang) caching for us: switching back
   // to a previously-fetched language is instant. The endpoint is
