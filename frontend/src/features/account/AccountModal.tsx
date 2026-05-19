@@ -2,15 +2,11 @@ import { LANGUAGES, type LanguageCode } from '../../i18n/languages';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
-import { useQueryClient } from '@tanstack/react-query';
 import type { PortalPage } from '@kinde/js-utils';
 import Modal from '../../components/Modal';
 import { useCurrentUser, useUpdateProfile } from './api';
 import { useBillingProfile } from '../billing/api';
-import { billingKeys } from '../billing/api/queryKeys';
-import api from '../../lib/api';
 import { extractApiErrorMessage } from '../../lib/apiError';
-import type { BillingProfileResponse } from '../../types/api';
 import Avatar from './Avatar';
 import './account.css';
 
@@ -38,9 +34,7 @@ type StatusMsg = { type: 'ok' | 'err'; text: string } | null;
  *       {@code language} via the backend.</li>
  *   <li><b>Billing</b> — read-only plan + per-period usage, plus a "Modify"
  *       button that opens Kinde's customer portal on the plan-details page
- *       (active plans only). A DEV-role-gated "Increase reports" button
- *       triggers a meter push without spending an AI batch — useful for
- *       wiring tests, hidden from regular users.</li>
+ *       (active plans only).</li>
  * </ol>
  *
  * <p>Sign-out lives in the avatar dropdown menu (see {@link AccountMenu}),
@@ -53,7 +47,6 @@ type StatusMsg = { type: 'ok' | 'err'; text: string } | null;
  */
 export default function AccountModal({ open, onClose }: Readonly<Props>) {
   const { t, i18n } = useTranslation();
-  const queryClient = useQueryClient();
   const { data: user, isLoading } = useCurrentUser();
   const { data: billing } = useBillingProfile();
   const { generatePortalUrl } = useKindeAuth();
@@ -68,30 +61,6 @@ export default function AccountModal({ open, onClose }: Readonly<Props>) {
   // a one-time portal URL, so on a slow connection it can take a beat. Disabling the
   // button during the request keeps the user from firing multiple windows.
   const [portalOpening, setPortalOpening] = useState(false);
-
-  // ─── DEBUG: meter push test ───────────────────────────────────────────────
-  // Temporary button that fires the FULL recordGeneration flow on the backend
-  // (Property counter +1 + meter push +1), exactly like a real wizard Generate
-  // click but without the AI batch. The response is the freshly composed
-  // BillingProfileResponse so we can see both counters move in one shot.
-  // Remove once the wizard flow is reliable end-to-end.
-  const [meterDebug, setMeterDebug] = useState<string | null>(null);
-  const [meterDebugPending, setMeterDebugPending] = useState(false);
-  async function debugMeterPush() {
-    setMeterDebugPending(true);
-    setMeterDebug(null);
-    try {
-      const res = await api.post<BillingProfileResponse>('/billing/_debug/push-meter');
-      setMeterDebug(JSON.stringify(res.data, null, 2));
-      // Make the modal's quota chip refresh too — TanStack Query won't know on its own
-      // that this request mutated billing state.
-      await queryClient.invalidateQueries({ queryKey: billingKeys.all });
-    } catch (err) {
-      setMeterDebug('Request failed: ' + extractApiErrorMessage(err, 'unknown'));
-    } finally {
-      setMeterDebugPending(false);
-    }
-  }
 
   /**
    * Opens Kinde's hosted account page in a new tab. We bypass the SDK's
@@ -238,46 +207,6 @@ export default function AccountModal({ open, onClose }: Readonly<Props>) {
                     })}
                     readOnly
                   />
-                </div>
-              )}
-              {/* DEV-only — bump the Kinde Properties counter + meter by one without
-                  spending an AI batch. Useful for verifying the billing pipeline is
-                  wired. Gated to UserRole.DEV so the button never leaks to real users. */}
-              {billing?.plan && user?.role === 'DEV' && (
-                <div className="account-modal-field">
-                  <button
-                    type="button"
-                    className="modal-btn"
-                    onClick={() => {
-                      void debugMeterPush();
-                    }}
-                    disabled={meterDebugPending}
-                    style={{ alignSelf: 'flex-start' }}
-                  >
-                    {meterDebugPending
-                      ? t('account.billing.increasing')
-                      : t('account.billing.increaseReports')}
-                  </button>
-                  {meterDebug && (
-                    <pre
-                      style={{
-                        marginTop: 8,
-                        padding: 10,
-                        background: 'var(--surface-3)',
-                        border: '1px solid var(--line)',
-                        borderRadius: 4,
-                        fontFamily: 'var(--mono)',
-                        fontSize: 11,
-                        color: 'var(--ink)',
-                        whiteSpace: 'pre-wrap',
-                        wordBreak: 'break-word',
-                        maxHeight: 200,
-                        overflow: 'auto',
-                      }}
-                    >
-                      {meterDebug}
-                    </pre>
-                  )}
                 </div>
               )}
               {billing?.plan && (
