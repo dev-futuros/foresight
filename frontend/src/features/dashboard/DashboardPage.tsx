@@ -25,7 +25,7 @@ import PromoteToExampleModal from '../examples/components/PromoteToExampleModal'
 import '../../components/modal.css';
 import api from '../../lib/api';
 import { logger } from '../../lib/log';
-import { exportReportPdf } from '../report/pdf';
+import { exportReportPdf } from '../report/pdf-v2';
 import { exportReportPpt } from '../../lib/exportPpt';
 import { exportReportHtml } from '../../lib/exportHtml';
 import { useTranslations } from '../translations/useTranslations';

@@ -16,7 +16,7 @@ import { useCommands } from '../../lib/useCommands';
 import { dispatch as dispatchCommand } from '../../lib/commandBus';
 import { useSetAssistantContext } from '../chat/useAssistantContext';
 import type { ReportResultSnapshot } from '../chat/lib/buildAssistantSnapshot';
-import { exportReportPdf } from './pdf';
+import { exportReportPdf } from './pdf-v2';
 import { exportReportPpt } from '../../lib/exportPpt';
 import { exportReportHtml } from '../../lib/exportHtml';
 import ExportModal, {
