@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { Trans, useTranslation } from 'react-i18next';
 import LanguageToggle from '../../components/LanguageToggle';
 
@@ -42,6 +43,24 @@ export default function AuthLayout({ copyKey, children }: AuthLayoutProps) {
         <p className="lede">{t(`${copyKey}.description`)}</p>
 
         <div className="auth-form-slot">{children}</div>
+
+        {/* Explicit "switch flow" affordance. Lives outside the Clerk slot so
+            it's guaranteed visible regardless of which internal state Clerk
+            is in — including the email-not-found error, where Clerk's own
+            footer was hard for users to spot. */}
+        <p className="switch-flow">
+          {copyKey === 'auth.login' ? (
+            <>
+              <span>{t('auth.login.noAccount')}</span>{' '}
+              <Link to="/sign-up">{t('auth.login.createAccount')} →</Link>
+            </>
+          ) : (
+            <>
+              <span>{t('auth.register.haveAccount')}</span>{' '}
+              <Link to="/sign-in">{t('auth.register.signIn')} →</Link>
+            </>
+          )}
+        </p>
 
         <p className="consent-line">
           <Trans i18nKey="auth.shell.consent" components={{ a: <a href="/privacy" /> }} />

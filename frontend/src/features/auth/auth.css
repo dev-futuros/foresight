@@ -62,8 +62,11 @@
   border: 1px solid var(--line);
   border-radius: 18px;
   width: 100%;
-  max-width: 440px;
-  padding: 36px 36px 32px;
+  /* Widened from 440 → 520px so the form, OAuth buttons and the new
+     switch-flow link all fit without scrolling on standard laptop
+     viewports. The atmospheric background still centers the card. */
+  max-width: 520px;
+  padding: 32px 36px 28px;
   box-shadow:
     0 1px 0 hsla(0, 0%, 100%, 0.04) inset,
     0 24px 48px -16px rgba(0, 0, 0, 0.5),
@@ -80,7 +83,9 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 32px;
+  /* Tightened from 32 → 22px so the whole card fits in a single
+     viewport without the form falling below the fold. */
+  margin-bottom: 22px;
 }
 .auth-bg .brand-name {
   font-family: var(--serif);
@@ -107,26 +112,59 @@
   color: var(--gold);
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 .auth-bg h1 {
   font-family: var(--serif);
   font-weight: 400;
-  font-size: 28px;
-  line-height: 1.15;
+  /* Reduced 28 → 24px so the title + lede pack vertically tighter.
+     Form sits higher and the new "switch flow" link below it ends
+     up above the viewport fold on standard 720-810px laptop heights. */
+  font-size: 24px;
+  line-height: 1.2;
   letter-spacing: -0.01em;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 .auth-bg .lede {
-  font-size: 13.5px;
+  font-size: 13px;
   color: var(--ink-soft);
-  line-height: 1.6;
-  margin-bottom: 28px;
+  line-height: 1.55;
+  margin-bottom: 20px;
 }
 
 /* ── Form slot — host for Clerk's rendered form ──────────── */
 .auth-form-slot {
-  margin-bottom: 18px;
+  margin-bottom: 12px;
+}
+
+/* ── Switch-flow CTA (always visible) ─────────────────────────
+   Hard-coded link that lives outside Clerk's slot so it stays
+   visible regardless of which internal state Clerk is in. Lives
+   between .auth-form-slot and .consent-line. Styled as a soft pill
+   so it reads as a real call-to-action, not a footnote. */
+.auth-bg .switch-flow {
+  margin: 14px 0 4px;
+  padding: 10px 14px;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  background: hsla(40, 60%, 56%, 0.04);
+  border: 1px solid hsla(40, 60%, 56%, 0.18);
+  border-radius: var(--r-md);
+  color: var(--ink-mute);
+}
+.auth-bg .switch-flow a {
+  color: var(--gold);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(212, 168, 83, 0.5);
+  padding-bottom: 1px;
+  margin-left: 4px;
+  transition: border-color 200ms, color 200ms;
+}
+.auth-bg .switch-flow a:hover {
+  color: var(--gold-soft);
+  border-bottom-color: rgba(212, 168, 83, 0.9);
 }
 
 /* ── Consent line (below form, inside card) ──────────────── */
@@ -453,38 +491,22 @@
   background: hsla(0, 0%, 100%, 0.02);
 }
 
-/* Footer — keeps the "switch flow" link visible (re-styled). Tight margins
-   so the form feels compact above and the toggle link sits close enough to
-   feel like a single component. */
+/* Footer — Clerk's own "Don't have an account? Sign up" link is now
+   hidden because we render a more visible equivalent in AuthLayout
+   (`.switch-flow` above the consent line). Two switch-flow CTAs on the
+   same screen reads as a layout bug. The rest of Clerk's footer (their
+   "Secured by Clerk" brand mark) stays visible — required by their TOS. */
 .cl-footer {
   background: transparent !important;
-  border-top: 1px solid var(--line);
-  margin-top: 12px !important;
-  padding-top: 12px !important;
+  margin-top: 8px !important;
+  padding-top: 4px !important;
   padding-bottom: 0 !important;
   text-align: center;
   display: flex !important;
   justify-content: center;
 }
 .cl-footer-action {
-  display: inline-flex;
-  gap: 6px;
-  font-family: var(--mono);
-  font-size: 11px;
-  color: var(--ink-mute);
-  letter-spacing: 0.04em;
-}
-.cl-footer-action-text { color: var(--ink-mute); }
-.cl-footer-action-link {
-  color: var(--gold);
-  text-decoration: none;
-  border-bottom: 1px solid rgba(212, 168, 83, 0.35);
-  padding-bottom: 1px;
-  transition: border-color 200ms, color 200ms;
-}
-.cl-footer-action-link:hover {
-  color: var(--gold-soft);
-  border-bottom-color: rgba(212, 168, 83, 0.7);
+  display: none !important;
 }
 
 /* (Removed the previous "hide Clerk's 'Secured by' footer branding"
